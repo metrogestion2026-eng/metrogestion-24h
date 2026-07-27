@@ -141,9 +141,25 @@
 
       <section class="step" data-step="0" data-name="Identificar vehículo">
         <div class="section-title">¿Qué vehículo necesita asistencia?</div>
-        <label class="form-label">DFM
-          <select id="wizard-dfm" class="form-select"><option value="">Seleccionar…</option></select>
+        <label class="form-label">DFM o matrícula
+          <input id="wizard-dfm" class="form-control" list="fleet-options" autocomplete="off" placeholder="Escribe, por ejemplo: 2521 o 1850MLJ">
+          <datalist id="fleet-options"></datalist>
+          <span class="text-small text-muted">Mientras escribes aparecerán los vehículos coincidentes.</span>
         </label>
+        <div id="manual-vehicle-panel" class="call-box" hidden>
+          <strong>Vehículo no encontrado en la base</strong>
+          <span class="text-small">Puedes continuar introduciendo los datos imprescindibles manualmente.</span>
+          <div class="grid-2">
+            <label class="form-label">Matrícula<input id="manual-plate" class="form-control" autocomplete="off"></label>
+            <label class="form-label">Marca<input id="manual-brand" class="form-control" placeholder="IVECO, Mercedes, MAN, Volvo…"></label>
+            <label class="form-label">Bastidor<input id="manual-vin" class="form-control"></label>
+            <label class="form-label">UPC<input id="manual-upc" class="form-control"></label>
+            <label class="form-label">Tipo de vehículo<select id="manual-class" class="form-select"><option value="">Seleccionar…</option><option value="tractora">Tractora</option><option value="rigido">Rígido</option></select></label>
+            <label class="form-label">Fecha de matriculación<input id="manual-registration" class="form-control" type="date"></label>
+            <label class="form-label">Fin de contrato (km)<input id="manual-contract-km" class="form-control" inputmode="numeric"></label>
+            <label class="form-label">Teléfono 24H<input id="manual-assistance-phone" class="form-control" type="tel"></label>
+          </div>
+        </div>
         <div class="vehicle-grid" aria-live="polite">
           <div><div class="text-small text-muted">Matrícula</div><div class="value" id="wizard-plate">—</div></div>
           <div><div class="text-small text-muted">Marca</div><div class="value" id="wizard-brand">—</div></div>
@@ -1276,6 +1292,51 @@ Resumen de contactos
       let pdfZoom = 1;
       const steps = Array.from(root.querySelectorAll('.step'));
       const dfm = root.querySelector('#wizard-dfm');
+      const normalizeVehicleText = value => String(value || '').toUpperCase().replace(/[\s-]/g, '');
+      const resolveVehicleKey = () => {
+        const raw = String(dfm.value || '').trim();
+        const direct = raw.match(/(?:DFM\s*)?(\d{3,5})/i);
+        if (direct && fleet[direct[1]]) return direct[1];
+        const normalized = normalizeVehicleText(raw);
+        return Object.keys(fleet).find(code =>
+          normalizeVehicleText(code) === normalized ||
+          normalizeVehicleText(fleet[code].plate) === normalized
+        ) || '';
+      };
+      const getDfmCode = () => {
+        const key = resolveVehicleKey();
+        if (key) return key;
+        return String(dfm.value || '').replace(/^DFM\s*/i, '').split('·')[0].trim();
+      };
+      const getManualVehicle = () => {
+        const brand = root.querySelector('#manual-brand').value.trim().toUpperCase();
+        const protocolNames = {
+          IVECO: 'IVECO Assistance Non Stop (ANS)',
+          MERCEDES: 'Mercedes-Benz Service24h',
+          MAN: 'MAN Mobile24',
+          VOLVO: 'Volvo Action Service (VAS)',
+          DAF: 'DAF International Truck Service'
+        };
+        return {
+          plate: root.querySelector('#manual-plate').value.trim().toUpperCase(),
+          type: '',
+          upc: root.querySelector('#manual-upc').value.trim(),
+          motor: '',
+          driverPhone: '',
+          contractKm: parseKilometres(root.querySelector('#manual-contract-km').value),
+          vehicleClass: root.querySelector('#manual-class').value,
+          registrationDate: root.querySelector('#manual-registration').value,
+          category: 'INTRODUCCIÓN MANUAL',
+          brand,
+          vin: root.querySelector('#manual-vin').value.trim().toUpperCase(),
+          assistance: protocolNames[brand] || 'Asistencia 24H según marca',
+          phone: root.querySelector('#manual-assistance-phone').value.trim()
+        };
+      };
+      const getSelectedVehicle = () => {
+        const key = resolveVehicleKey();
+        return key ? fleet[key] : (String(dfm.value || '').trim() ? getManualVehicle() : null);
+      };
       const pdfPages = Array.from(root.querySelectorAll('.manual-page-image'));
       const renderPdfViewer = (moveToPage = false) => {
         pdfPages.forEach((page, index) => {
@@ -1303,7 +1364,7 @@ Resumen de contactos
         return digits ? Number(digits) : 0;
       };
       const updateCoverage = () => {
-        const vehicle = fleet[dfm.value];
+        const vehicle = getSelectedVehicle();
         const vehicleClass = root.querySelector('#vehicle-class').value;
         const registrationValue = root.querySelector('#registration-date').value;
         const kmValue = parseKilometres(root.querySelector('#wizard-km').value);
@@ -1360,7 +1421,7 @@ Resumen de contactos
         kmWarning.textContent = 'Kilometraje dentro de contrato · ' + kmValue.toLocaleString('es-ES') + ' de ' + kmLimit.toLocaleString('es-ES') + ' km.';
       };
       const updateCallScript = () => {
-        const vehicle = fleet[dfm.value];
+        const vehicle = getSelectedVehicle();
         if (!vehicle) return;
         const manufacturerProtocol = manufacturerProtocols[vehicle.brand.toUpperCase()] || {};
         const locationType = root.querySelector('#location-type').value;
@@ -1387,12 +1448,12 @@ Resumen de contactos
         const fault = root.querySelector('#wizard-fault').value.trim() || '[avería pendiente]';
         root.querySelector('#call-title').textContent = vehicle.assistance;
         root.querySelector('#call-detail').textContent = vehicle.phone + ' · Según contrato de la empresa';
-        root.querySelector('#call-script').textContent = 'DFM ' + dfm.value + ', matrícula ' + vehicle.plate + ', ' + vehicle.brand + ', ubicado en ' + location + '. Avería comunicada: ' + fault + '.';
-        root.querySelector('#communication-script').textContent = 'DFM ' + dfm.value + ', matrícula ' + vehicle.plate + ', ' + vehicle.brand + ', ubicado en ' + location + '. Avería comunicada: ' + fault + '.';
+        root.querySelector('#call-script').textContent = 'DFM ' + getDfmCode() + ', matrícula ' + vehicle.plate + ', ' + vehicle.brand + ', ubicado en ' + location + '. Avería comunicada: ' + fault + '.';
+        root.querySelector('#communication-script').textContent = 'DFM ' + getDfmCode() + ', matrícula ' + vehicle.plate + ', ' + vehicle.brand + ', ubicado en ' + location + '. Avería comunicada: ' + fault + '.';
         const driverName = root.querySelector('#driver-name').value.trim();
         const driverPhone = root.querySelector('#driver-phone').value.trim();
         const items = [
-          ['DFM y matrícula', 'DFM ' + dfm.value + ' · ' + vehicle.plate, true],
+          ['DFM y matrícula', 'DFM ' + getDfmCode() + ' · ' + vehicle.plate, true],
           ['Marca y bastidor', vehicle.brand + ' · ' + vehicle.vin, true],
           ['Taller de referencia', manufacturerProtocol.workshop || '', true],
           ['Clave / canal según marca', manufacturerProtocol.assistanceData || '', true],
@@ -1428,8 +1489,10 @@ Resumen de contactos
         callSummary.replaceChildren();
         Array.from(summary.children).forEach(row => callSummary.append(row.cloneNode(true)));
       };
-      dfm.addEventListener('change', () => {
-        const vehicle = fleet[dfm.value];
+      const syncSelectedVehicle = () => {
+        const key = resolveVehicleKey();
+        const vehicle = getSelectedVehicle();
+        root.querySelector('#manual-vehicle-panel').hidden = !dfm.value.trim() || Boolean(key);
         root.querySelector('#wizard-plate').textContent = vehicle ? vehicle.plate : '—';
         root.querySelector('#wizard-brand').textContent = vehicle ? vehicle.brand : '—';
         root.querySelector('#wizard-vin').textContent = vehicle ? vehicle.vin : '—';
@@ -1445,23 +1508,19 @@ Resumen de contactos
         root.querySelector('#registration-date-display').textContent = vehicle && vehicle.registrationDate ? new Date(vehicle.registrationDate + 'T00:00:00').toLocaleDateString('es-ES') : 'Dato no encontrado en ALTA';
         updateCoverage();
         updateCallScript();
-      });
-      const fleetGroups = { FLOTA: [], RESERVA: [], OTROS: [] };
+      };
+      dfm.addEventListener('input', syncSelectedVehicle);
+      dfm.addEventListener('change', syncSelectedVehicle);
+      const fleetOptions = root.querySelector('#fleet-options');
       Object.keys(fleet).sort((a, b) => Number(a) - Number(b)).forEach(code => {
-        const group = fleet[code].category === 'FLOTA' ? 'FLOTA' : (fleet[code].category === 'RESERVA' ? 'RESERVA' : 'OTROS');
-        fleetGroups[group].push(code);
+        const option = document.createElement('option');
+        option.value = 'DFM ' + code + ' · ' + (fleet[code].plate || 'sin matrícula');
+        option.label = (fleet[code].category || 'Vehículo') + ' · ' + (fleet[code].brand || '');
+        fleetOptions.append(option);
       });
-      Object.entries(fleetGroups).forEach(([label, codes]) => {
-        if (!codes.length) return;
-        const optgroup = document.createElement('optgroup');
-        optgroup.label = label === 'OTROS' ? 'Otros vehículos' : label;
-        codes.forEach(code => {
-          const option = document.createElement('option');
-          option.value = code;
-          option.textContent = 'DFM ' + code + ' · ' + (fleet[code].plate || 'sin matrícula');
-          optgroup.append(option);
-        });
-        dfm.append(optgroup);
+      root.querySelectorAll('#manual-vehicle-panel input, #manual-vehicle-panel select').forEach(field => {
+        field.addEventListener('input', syncSelectedVehicle);
+        field.addEventListener('change', syncSelectedVehicle);
       });
       root.querySelector('#wizard-km').addEventListener('input', updateCoverage);
       root.querySelector('#wizard-km').addEventListener('blur', event => {
@@ -1603,10 +1662,18 @@ Resumen de contactos
           notice.classList.add('show');
           return;
         }
-        if (current === 1 && !dfm.value) {
-          notice.textContent = 'Selecciona el DFM antes de continuar.';
+        if (current === 1 && !dfm.value.trim()) {
+          notice.textContent = 'Escribe el DFM o la matrícula antes de continuar.';
           notice.classList.add('show');
           return;
+        }
+        if (current === 1 && !resolveVehicleKey()) {
+          const manual = getManualVehicle();
+          if (!manual.plate || !manual.brand || !manual.vehicleClass || !manual.registrationDate || !manual.contractKm) {
+            notice.textContent = 'Vehículo no encontrado: completa matrícula, marca, tipo, fecha de matriculación y fin de contrato para continuar.';
+            notice.classList.add('show');
+            return;
+          }
         }
         if (current === 1 && !parseKilometres(root.querySelector('#wizard-km').value)) {
           notice.textContent = 'Introduce los kilómetros actuales para comprobar el fin de contrato.';
@@ -1692,7 +1759,7 @@ Resumen de contactos
         }
       });
       root.querySelector('#call-button').addEventListener('click', () => {
-        const vehicle = fleet[dfm.value];
+        const vehicle = getSelectedVehicle();
         const notice = root.querySelector('#wizard-notice');
         if (!vehicle) {
           notice.textContent = 'Selecciona primero el DFM.';
