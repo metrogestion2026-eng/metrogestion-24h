@@ -1,5 +1,12 @@
 # Metrogestión 24H — Memorando de versiones
 
+## Beta 1.5 — 27/07/2026
+
+- Nueva pestaña «Mi cuenta» disponible para todos.
+- Cada usuario puede cambiar su propio PIN.
+- Se exige el PIN actual y la doble confirmación del nuevo.
+- El administrador principal mantiene la posibilidad de restablecer PIN ajenos.
+
 ## Beta 1.4 — 27/07/2026
 
 - Edición de nombre, teléfono y correo en las cuentas ya creadas.
