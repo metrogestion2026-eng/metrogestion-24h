@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#075985">
-  <title>Metrogestión 24H · Beta 1.4</title>
+  <title>Metrogestión 24H · Beta 1.5</title>
   <style>
     :root {
       --background:#fff; --foreground:#172033; --primary:#075985;
@@ -38,7 +38,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Metrogestión 24H</strong><small>Beta 1.4</small></header>
+  <header class="app-head"><strong>Metrogestión 24H</strong><small>Beta 1.5</small></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -100,6 +100,7 @@
 
     <nav class="tabs" aria-label="Secciones">
       <button class="btn btn-primary app-tab" data-view="mine" type="button">Mis incidencias</button>
+      <button id="my-account-tab" class="btn btn-secondary app-tab" data-view="my-account" type="button">Mi cuenta</button>
       <button id="all-tab" class="btn btn-secondary app-tab" data-view="all" type="button">Todas</button>
       <button id="users-tab" class="btn btn-secondary app-tab" data-view="users" type="button">Usuarios</button>
       <button id="settings-tab" class="btn btn-secondary app-tab" data-view="settings" type="button">Configuración</button>
@@ -116,6 +117,20 @@
       <div id="view-heading"><strong>Mis incidencias</strong><div class="text-small text-muted">Solo aparecen las creadas por el usuario conectado.</div></div>
       <div id="incidence-list" class="incidence-list"></div>
       <div id="incidence-detail" class="card stack hidden"></div>
+    </section>
+
+    <section id="view-my-account" class="stack hidden">
+      <div><strong>Mi cuenta</strong><div class="text-small text-muted">Cada persona puede cambiar únicamente su propio PIN.</div></div>
+      <div class="card stack">
+        <label>Usuario<input id="own-account-name" class="form-control" disabled></label>
+        <label>PIN actual<input id="own-current-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+        <div class="detail-grid">
+          <label>Nuevo PIN<input id="own-new-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+          <label>Repetir nuevo PIN<input id="own-confirm-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+        </div>
+        <div id="own-pin-message" class="text-small text-muted"></div>
+        <button id="change-own-pin" class="btn btn-primary" type="button">Cambiar mi PIN</button>
+      </div>
     </section>
 
     <section id="view-users" class="stack hidden">
@@ -152,6 +167,10 @@
 
     <section id="view-versions" class="stack hidden">
       <div><strong>Memorando de versiones</strong><div class="text-small text-muted">Historial breve para consultar qué se ha modificado en cada publicación.</div></div>
+      <div class="card stack">
+        <strong>Beta 1.5 · 27/07/2026</strong>
+        <div>Cada usuario puede cambiar su propio PIN confirmando el PIN actual y escribiendo dos veces el nuevo.</div>
+      </div>
       <div class="card stack">
         <strong>Beta 1.4 · 27/07/2026</strong>
         <div>Edición de nombre, teléfono y correo de las cuentas ya creadas, con validación de datos obligatorios y duplicados.</div>
@@ -462,6 +481,7 @@
       const setView = next => {
         view = next;
         root.querySelector('#view-incidences').classList.toggle('hidden', !['mine', 'all'].includes(view));
+        root.querySelector('#view-my-account').classList.toggle('hidden', view !== 'my-account');
         root.querySelector('#view-users').classList.toggle('hidden', view !== 'users');
         root.querySelector('#view-settings').classList.toggle('hidden', view !== 'settings');
         root.querySelector('#view-versions').classList.toggle('hidden', view !== 'versions');
@@ -554,11 +574,16 @@
           root.querySelector('#login-message').textContent = 'Usuario o PIN incorrecto.';
           return;
         }
+        if (!account.pin) {
+          account.pin = pin;
+          saveUsers();
+        }
         sessionUserId = account.id;
         sessionUser = account.name;
         login.classList.add('hidden');
         app.classList.remove('hidden');
         root.querySelector('#session-label').textContent = sessionUser + (account.role === 'primary' ? ' · Administrador principal' : account.role === 'secondary' ? ' · Administrador secundario' : ' · Usuario');
+        root.querySelector('#own-account-name').value = account.name;
         root.querySelector('#all-tab').classList.toggle('hidden', !isAdmin());
         root.querySelector('#users-tab').classList.toggle('hidden', !isPrimaryAdmin());
         root.querySelector('#settings-tab').classList.toggle('hidden', !isPrimaryAdmin());
@@ -576,6 +601,35 @@
         root.querySelector('#mock-pin').value = '';
         app.classList.add('hidden');
         login.classList.remove('hidden');
+      });
+      root.querySelector('#change-own-pin').addEventListener('click', () => {
+        const account = currentAccount();
+        const currentPin = root.querySelector('#own-current-pin').value.trim();
+        const nextPin = root.querySelector('#own-new-pin').value.trim();
+        const confirmPin = root.querySelector('#own-confirm-pin').value.trim();
+        const message = root.querySelector('#own-pin-message');
+        if (!account || currentPin !== account.pin) {
+          message.textContent = 'El PIN actual no es correcto.';
+          return;
+        }
+        if (!/^\d{4,6}$/.test(nextPin)) {
+          message.textContent = 'El nuevo PIN debe tener entre 4 y 6 cifras.';
+          return;
+        }
+        if (nextPin !== confirmPin) {
+          message.textContent = 'Los dos nuevos PIN no coinciden.';
+          return;
+        }
+        if (nextPin === currentPin) {
+          message.textContent = 'El nuevo PIN debe ser diferente del actual.';
+          return;
+        }
+        account.pin = nextPin;
+        saveUsers();
+        root.querySelector('#own-current-pin').value = '';
+        root.querySelector('#own-new-pin').value = '';
+        root.querySelector('#own-confirm-pin').value = '';
+        message.textContent = 'Tu PIN se ha cambiado correctamente.';
       });
       root.querySelector('#create-user').addEventListener('click', () => {
         if (!isPrimaryAdmin()) return;
