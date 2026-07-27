@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#075985">
-  <title>Metrogestión 24H · Beta 1.3</title>
+  <title>Metrogestión 24H · Beta 1.4</title>
   <style>
     :root {
       --background:#fff; --foreground:#172033; --primary:#075985;
@@ -38,7 +38,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Metrogestión 24H</strong><small>Beta 1.3</small></header>
+  <header class="app-head"><strong>Metrogestión 24H</strong><small>Beta 1.4</small></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -152,6 +152,10 @@
 
     <section id="view-versions" class="stack hidden">
       <div><strong>Memorando de versiones</strong><div class="text-small text-muted">Historial breve para consultar qué se ha modificado en cada publicación.</div></div>
+      <div class="card stack">
+        <strong>Beta 1.4 · 27/07/2026</strong>
+        <div>Edición de nombre, teléfono y correo de las cuentas ya creadas, con validación de datos obligatorios y duplicados.</div>
+      </div>
       <div class="card stack">
         <strong>Beta 1.3 · 27/07/2026</strong>
         <div>Se incorpora este memorando de versiones dentro del panel de administración.</div>
@@ -357,8 +361,60 @@
           const meta = document.createElement('div');
           meta.className = 'text-small text-muted';
           meta.textContent = (user.role === 'primary' ? 'Administrador principal' : user.role === 'secondary' ? 'Administrador secundario' : 'Usuario') + ' · ' + (user.active ? 'Activo' : 'Bloqueado') + (user.phone ? ' · ' + user.phone : ' · teléfono pendiente') + (user.email ? ' · ' + user.email : ' · correo pendiente');
+          const editGrid = document.createElement('div');
+          editGrid.className = 'detail-grid';
+          const nameLabel = document.createElement('label');
+          nameLabel.textContent = 'Nombre y apellidos';
+          const nameInput = document.createElement('input');
+          nameInput.className = 'form-control';
+          nameInput.value = user.name || '';
+          nameInput.disabled = user.role === 'primary';
+          nameLabel.append(nameInput);
+          const phoneLabel = document.createElement('label');
+          phoneLabel.textContent = 'Teléfono vinculado';
+          const phoneInput = document.createElement('input');
+          phoneInput.className = 'form-control';
+          phoneInput.type = 'tel';
+          phoneInput.inputMode = 'tel';
+          phoneInput.value = user.phone || '';
+          phoneLabel.append(phoneInput);
+          const emailLabel = document.createElement('label');
+          emailLabel.textContent = 'Correo vinculado';
+          const emailInput = document.createElement('input');
+          emailInput.className = 'form-control';
+          emailInput.type = 'email';
+          emailInput.value = user.email || '';
+          emailLabel.append(emailInput);
+          editGrid.append(nameLabel, phoneLabel, emailLabel);
           const controls = document.createElement('div');
           controls.className = 'viz-row';
+          const saveButton = document.createElement('button');
+          saveButton.type = 'button';
+          saveButton.className = 'btn btn-primary';
+          saveButton.textContent = 'Guardar datos';
+          saveButton.addEventListener('click', () => {
+            const name = nameInput.value.trim();
+            const phone = phoneInput.value.trim();
+            const email = emailInput.value.trim().toLowerCase();
+            const phoneDigits = phone.replace(/\D/g, '');
+            const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+            const message = root.querySelector('#user-admin-message');
+            if (!name || phoneDigits.length < 9 || !emailValid) {
+              message.textContent = 'Nombre, teléfono válido y correo válido son obligatorios para ' + user.name + '.';
+              return;
+            }
+            if (users.some(other => other.id !== user.id && (other.email?.toLowerCase() === email || String(other.phone || '').replace(/\D/g, '') === phoneDigits))) {
+              message.textContent = 'Ese teléfono o correo ya está vinculado a otra cuenta.';
+              return;
+            }
+            user.name = name;
+            user.phone = phone;
+            user.email = email;
+            saveUsers();
+            renderLoginUsers();
+            renderAdminUsers();
+            message.textContent = 'Datos de ' + name + ' guardados correctamente.';
+          });
           const pinButton = document.createElement('button');
           pinButton.type = 'button';
           pinButton.className = 'btn btn-secondary';
@@ -374,7 +430,7 @@
             saveUsers();
             root.querySelector('#user-admin-message').textContent = 'PIN actualizado para ' + user.name + '.';
           });
-          controls.append(pinButton);
+          controls.append(saveButton, pinButton);
           if (user.role !== 'primary') {
             const roleButton = document.createElement('button');
             roleButton.type = 'button';
@@ -398,7 +454,7 @@
             });
             controls.append(roleButton, activeButton);
           }
-          row.append(heading, meta, controls);
+          row.append(heading, meta, editGrid, controls);
           container.append(row);
         });
       };
