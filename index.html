@@ -119,17 +119,33 @@
 
     <section id="view-users" class="stack hidden">
       <div><strong>Administración de usuarios</strong><div class="text-small text-muted">Solo Metrogestión puede realizar cambios.</div></div>
-      <div class="card user-row"><div><strong>Diego</strong><div class="text-small text-muted">Activo · ve únicamente sus incidencias</div></div><button class="btn btn-secondary" type="button">Cambiar PIN</button></div>
-      <div class="card user-row"><div><strong>Ionut</strong><div class="text-small text-muted">Activo · ve únicamente sus incidencias</div></div><button class="btn btn-secondary" type="button">Cambiar PIN</button></div>
-      <button class="btn btn-primary" type="button">+ Crear usuario</button>
+      <div id="admin-user-list" class="stack"></div>
+      <div class="card stack">
+        <strong>Crear usuario o administrador secundario</strong>
+        <div class="detail-grid">
+          <label>Nombre y apellidos<input id="new-user-name" class="form-control"></label>
+          <label>Teléfono vinculado<input id="new-user-phone" class="form-control" type="tel" inputmode="tel"></label>
+          <label>Correo vinculado<input id="new-user-email" class="form-control" type="email" autocomplete="email"></label>
+          <label>PIN inicial<input id="new-user-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+          <label>Permiso<select id="new-user-role" class="form-select"><option value="user">Usuario</option><option value="secondary">Administrador secundario</option></select></label>
+        </div>
+        <div id="user-admin-message" class="text-small text-muted"></div>
+        <button id="create-user" class="btn btn-primary" type="button">+ Crear cuenta</button>
+      </div>
     </section>
 
     <section id="view-settings" class="stack hidden">
       <div><strong>Configuración administrativa</strong><div class="text-small text-muted">Los cambios no eliminan usuarios ni incidencias.</div></div>
       <div class="card stack">
-        <label>Cuenta administradora<input class="form-control" value="Metrogestión" disabled></label>
-        <label>Correo administrativo<input class="form-control" type="email" value="gestionmantenimientobcn@gmail.com"></label>
-        <button class="btn btn-primary" type="button">Guardar correo</button>
+        <label>Cuenta administradora<input id="admin-account-name" class="form-control" value="Metrogestión" disabled></label>
+        <label>Teléfono del administrador principal<input id="admin-phone" class="form-control" type="tel" inputmode="tel"></label>
+        <label>Correo administrativo vinculado<input id="admin-email" class="form-control" type="email" value="gestionmantenimientobcn@gmail.com"></label>
+        <div class="detail-grid">
+          <label>Nuevo PIN<input id="admin-new-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+          <label>Repetir nuevo PIN<input id="admin-confirm-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+        </div>
+        <div id="admin-settings-message" class="text-small text-muted"></div>
+        <button id="save-admin-settings" class="btn btn-primary" type="button">Guardar datos y cambiar PIN</button>
       </div>
     </section>
 
@@ -255,7 +271,21 @@
       ];
       const knownDfms = ['2444','2484','2486','2489','2490','2493','2498','2499','2500','2501','2516','2517','2518','2521','2523','2525','2527','2531','2543','2544','2545','2547','2548','2550','2552','2553','2554','2556','2562','2563','2573','2591','2602','2604','2605','2606','2610','2611','2612','2617','2621','2622','2625','2632','2633','2637','2660','2675','2676','2686','2693','2696','2697','2700','2701','2709','2710','2712','2714','2715','2716','2718','2719','2720','2721','2723','2724','2725','2726','2731','2732','2744','2745','2746','2753'];
       const vehicleIndex = [{"dfm":"2444","plate":"0763MCK"},{"dfm":"2484","plate":"5719MHS"},{"dfm":"2486","plate":"5170MHW"},{"dfm":"2489","plate":"6779MJM"},{"dfm":"2490","plate":"6774MJM"},{"dfm":"2493","plate":"9153MJR"},{"dfm":"2498","plate":"2369MJT"},{"dfm":"2499","plate":"2362MJT"},{"dfm":"2500","plate":"2688MJT"},{"dfm":"2501","plate":"2689MJT"},{"dfm":"2516","plate":"1860MLJ"},{"dfm":"2517","plate":"1857MLJ"},{"dfm":"2518","plate":"1859MLJ"},{"dfm":"2521","plate":"1850MLJ"},{"dfm":"2523","plate":"1848MLJ"},{"dfm":"2525","plate":"1856MLJ"},{"dfm":"2527","plate":"6935MLK"},{"dfm":"2531","plate":"3957MLR"},{"dfm":"2543","plate":"1845MMB"},{"dfm":"2544","plate":"1847MMB"},{"dfm":"2545","plate":"5020MMC"},{"dfm":"2547","plate":"5022MMC"},{"dfm":"2548","plate":"5023MMC"},{"dfm":"2550","plate":"5025MMC"},{"dfm":"2552","plate":"5027MMC"},{"dfm":"2553","plate":"5028MMC"},{"dfm":"2554","plate":"5030MMC"},{"dfm":"2556","plate":"5032MMC"},{"dfm":"2562","plate":"5050MMC"},{"dfm":"2563","plate":"5071MMC"},{"dfm":"2573","plate":"3417MPH"},{"dfm":"2591","plate":"2690MPX"},{"dfm":"2602","plate":"2097MST"},{"dfm":"2604","plate":"2096MST"},{"dfm":"2605","plate":"2071MST"},{"dfm":"2606","plate":"2070MST"},{"dfm":"2610","plate":"0175MTF"},{"dfm":"2611","plate":"0169MTF"},{"dfm":"2612","plate":"0168MTF"},{"dfm":"2617","plate":"0166MTF"},{"dfm":"2621","plate":"9269MTM"},{"dfm":"2622","plate":"9264MTM"},{"dfm":"2625","plate":"1614MTP"},{"dfm":"2632","plate":"6576MVL"},{"dfm":"2633","plate":"6575MVL"},{"dfm":"2637","plate":"2736MVH"},{"dfm":"2660","plate":"7546MWW"},{"dfm":"2675","plate":"7375MYF"},{"dfm":"2676","plate":"1802NBF"},{"dfm":"2686","plate":"4509NCM"},{"dfm":"2693","plate":"8860NCZ"},{"dfm":"2696","plate":"5805NDL"},{"dfm":"2697","plate":"5813NDL"},{"dfm":"2700","plate":"5882NDL"},{"dfm":"2701","plate":"0674NDW"},{"dfm":"2709","plate":"7039NGM"},{"dfm":"2710","plate":"7038NGM"},{"dfm":"2712","plate":"0514NGR"},{"dfm":"2714","plate":"0512NGR"},{"dfm":"2715","plate":"0509NGR"},{"dfm":"2716","plate":"0511NGR"},{"dfm":"2718","plate":"6129NGV"},{"dfm":"2719","plate":"6132NGV"},{"dfm":"2720","plate":"6130NGV"},{"dfm":"2721","plate":"6131NGV"},{"dfm":"2723","plate":"3476NGS"},{"dfm":"2724","plate":"4590NGW"},{"dfm":"2725","plate":"2742NHC"},{"dfm":"2726","plate":"2741NHC"},{"dfm":"2731","plate":"4446NHJ"},{"dfm":"2732","plate":"4447NHJ"},{"dfm":"2744","plate":"5496NJV"},{"dfm":"2745","plate":"7348NKN"},{"dfm":"2746","plate":"7349NKN"},{"dfm":"2753","plate":"3125NLH"}];
+      const userStorageKey = 'metrogestion24h_users_v1';
+      const defaultUsers = [
+        { id: 'principal', name: 'Metrogestión', phone: '', email: 'gestionmantenimientobcn@gmail.com', pin: '', role: 'primary', active: true },
+        { id: 'diego', name: 'Diego', phone: '', email: '', pin: '', role: 'user', active: true },
+        { id: 'ionut', name: 'Ionut', phone: '', email: '', pin: '', role: 'user', active: true }
+      ];
+      let users;
+      try {
+        users = JSON.parse(localStorage.getItem(userStorageKey)) || defaultUsers;
+      } catch {
+        users = defaultUsers;
+      }
+      const saveUsers = () => localStorage.setItem(userStorageKey, JSON.stringify(users));
       let sessionUser = '';
+      let sessionUserId = '';
       let view = 'mine';
       const activationPanels = {
         1: '#activation-identification',
@@ -286,7 +316,75 @@
       const app = root.querySelector('#mock-app');
       const list = root.querySelector('#incidence-list');
       const detail = root.querySelector('#incidence-detail');
-      const isAdmin = () => sessionUser === 'Metrogestión';
+      const currentAccount = () => users.find(user => user.id === sessionUserId);
+      const isAdmin = () => ['primary', 'secondary'].includes(currentAccount()?.role);
+      const isPrimaryAdmin = () => currentAccount()?.role === 'primary';
+      const renderLoginUsers = () => {
+        const select = root.querySelector('#mock-user');
+        select.replaceChildren();
+        users.filter(user => user.active).forEach(user => {
+          const option = document.createElement('option');
+          option.value = user.id;
+          option.textContent = user.name + (user.role === 'primary' ? ' · Administrador principal' : user.role === 'secondary' ? ' · Administrador' : ' · Usuario');
+          select.append(option);
+        });
+      };
+      const renderAdminUsers = () => {
+        const container = root.querySelector('#admin-user-list');
+        container.replaceChildren();
+        users.forEach(user => {
+          const row = document.createElement('div');
+          row.className = 'card stack';
+          const heading = document.createElement('strong');
+          heading.textContent = user.name;
+          const meta = document.createElement('div');
+          meta.className = 'text-small text-muted';
+          meta.textContent = (user.role === 'primary' ? 'Administrador principal' : user.role === 'secondary' ? 'Administrador secundario' : 'Usuario') + ' · ' + (user.active ? 'Activo' : 'Bloqueado') + (user.phone ? ' · ' + user.phone : ' · teléfono pendiente') + (user.email ? ' · ' + user.email : ' · correo pendiente');
+          const controls = document.createElement('div');
+          controls.className = 'viz-row';
+          const pinButton = document.createElement('button');
+          pinButton.type = 'button';
+          pinButton.className = 'btn btn-secondary';
+          pinButton.textContent = 'Cambiar PIN';
+          pinButton.addEventListener('click', () => {
+            const nextPin = window.prompt('Nuevo PIN de 4 a 6 cifras para ' + user.name + ':');
+            if (nextPin === null) return;
+            if (!/^\d{4,6}$/.test(nextPin)) {
+              root.querySelector('#user-admin-message').textContent = 'El PIN debe tener entre 4 y 6 cifras.';
+              return;
+            }
+            user.pin = nextPin;
+            saveUsers();
+            root.querySelector('#user-admin-message').textContent = 'PIN actualizado para ' + user.name + '.';
+          });
+          controls.append(pinButton);
+          if (user.role !== 'primary') {
+            const roleButton = document.createElement('button');
+            roleButton.type = 'button';
+            roleButton.className = 'btn btn-secondary';
+            roleButton.textContent = user.role === 'secondary' ? 'Convertir en usuario' : 'Nombrar administrador';
+            roleButton.addEventListener('click', () => {
+              user.role = user.role === 'secondary' ? 'user' : 'secondary';
+              saveUsers();
+              renderAdminUsers();
+              renderLoginUsers();
+            });
+            const activeButton = document.createElement('button');
+            activeButton.type = 'button';
+            activeButton.className = 'btn btn-secondary';
+            activeButton.textContent = user.active ? 'Bloquear acceso' : 'Activar acceso';
+            activeButton.addEventListener('click', () => {
+              user.active = !user.active;
+              saveUsers();
+              renderAdminUsers();
+              renderLoginUsers();
+            });
+            controls.append(roleButton, activeButton);
+          }
+          row.append(heading, meta, controls);
+          container.append(row);
+        });
+      };
 
       const setView = next => {
         view = next;
@@ -377,20 +475,90 @@
           root.querySelector('#login-message').textContent = 'Introduce entre 4 y 6 cifras para probar la maqueta.';
           return;
         }
-        sessionUser = root.querySelector('#mock-user').value;
+        const account = users.find(user => user.id === root.querySelector('#mock-user').value && user.active);
+        if (!account || (account.pin && account.pin !== pin)) {
+          root.querySelector('#login-message').textContent = 'Usuario o PIN incorrecto.';
+          return;
+        }
+        sessionUserId = account.id;
+        sessionUser = account.name;
         login.classList.add('hidden');
         app.classList.remove('hidden');
-        root.querySelector('#session-label').textContent = sessionUser + (isAdmin() ? ' · Administrador' : ' · Usuario');
+        root.querySelector('#session-label').textContent = sessionUser + (account.role === 'primary' ? ' · Administrador principal' : account.role === 'secondary' ? ' · Administrador secundario' : ' · Usuario');
         root.querySelector('#all-tab').classList.toggle('hidden', !isAdmin());
-        root.querySelector('#users-tab').classList.toggle('hidden', !isAdmin());
-        root.querySelector('#settings-tab').classList.toggle('hidden', !isAdmin());
+        root.querySelector('#users-tab').classList.toggle('hidden', !isPrimaryAdmin());
+        root.querySelector('#settings-tab').classList.toggle('hidden', !isPrimaryAdmin());
+        if (isPrimaryAdmin()) {
+          root.querySelector('#admin-phone').value = account.phone || '';
+          root.querySelector('#admin-email').value = account.email || '';
+          renderAdminUsers();
+        }
         setView('mine');
       });
       root.querySelector('#mock-logout').addEventListener('click', () => {
         sessionUser = '';
+        sessionUserId = '';
         root.querySelector('#mock-pin').value = '';
         app.classList.add('hidden');
         login.classList.remove('hidden');
+      });
+      root.querySelector('#create-user').addEventListener('click', () => {
+        if (!isPrimaryAdmin()) return;
+        const name = root.querySelector('#new-user-name').value.trim();
+        const phone = root.querySelector('#new-user-phone').value.trim();
+        const email = root.querySelector('#new-user-email').value.trim().toLowerCase();
+        const pin = root.querySelector('#new-user-pin').value.trim();
+        const role = root.querySelector('#new-user-role').value;
+        const phoneDigits = phone.replace(/\D/g, '');
+        const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        const message = root.querySelector('#user-admin-message');
+        if (!name || phoneDigits.length < 9 || !emailValid || !/^\d{4,6}$/.test(pin)) {
+          message.textContent = 'Son obligatorios nombre, teléfono válido, correo válido y PIN de 4 a 6 cifras.';
+          return;
+        }
+        if (users.some(user => user.email?.toLowerCase() === email || String(user.phone || '').replace(/\D/g, '') === phoneDigits)) {
+          message.textContent = 'Ese correo o teléfono ya está vinculado a otra cuenta.';
+          return;
+        }
+        users.push({
+          id: 'user-' + Date.now(),
+          name, phone, email, pin, role, active: true
+        });
+        saveUsers();
+        renderAdminUsers();
+        renderLoginUsers();
+        ['#new-user-name','#new-user-phone','#new-user-email','#new-user-pin'].forEach(selector => root.querySelector(selector).value = '');
+        message.textContent = 'Cuenta creada y vinculada correctamente.';
+      });
+      root.querySelector('#save-admin-settings').addEventListener('click', () => {
+        if (!isPrimaryAdmin()) return;
+        const account = currentAccount();
+        const phone = root.querySelector('#admin-phone').value.trim();
+        const email = root.querySelector('#admin-email').value.trim().toLowerCase();
+        const pin = root.querySelector('#admin-new-pin').value.trim();
+        const confirmPin = root.querySelector('#admin-confirm-pin').value.trim();
+        const message = root.querySelector('#admin-settings-message');
+        if (phone.replace(/\D/g, '').length < 9 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          message.textContent = 'El teléfono y el correo del administrador son obligatorios y deben ser válidos.';
+          return;
+        }
+        if ((pin || confirmPin) && (!/^\d{4,6}$/.test(pin) || pin !== confirmPin)) {
+          message.textContent = 'El nuevo PIN debe tener entre 4 y 6 cifras y coincidir en las dos casillas.';
+          return;
+        }
+        if (users.some(user => user.id !== account.id && (user.email?.toLowerCase() === email || String(user.phone || '').replace(/\D/g, '') === phone.replace(/\D/g, '')))) {
+          message.textContent = 'Ese teléfono o correo ya está vinculado a otra cuenta.';
+          return;
+        }
+        account.phone = phone;
+        account.email = email;
+        if (pin) account.pin = pin;
+        saveUsers();
+        renderAdminUsers();
+        renderLoginUsers();
+        root.querySelector('#admin-new-pin').value = '';
+        root.querySelector('#admin-confirm-pin').value = '';
+        message.textContent = 'Datos del administrador principal guardados.';
       });
       root.querySelectorAll('.app-tab').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
       root.querySelector('#incidence-search').addEventListener('input', renderIncidences);
@@ -611,6 +779,7 @@
         }
         suggestions.classList.toggle('hidden', !suggestions.children.length);
       });
+      renderLoginUsers();
     })();
   </script>
 </div>
