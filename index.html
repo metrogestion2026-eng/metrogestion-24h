@@ -1,0 +1,1721 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#075985">
+  <title>Metrogestión · Activar 24H Beta 1.1</title>
+  <style>
+    :root {
+      --background: #ffffff;
+      --foreground: #172033;
+      --primary: #075985;
+      --primary-foreground: #ffffff;
+      --border: #d8e1ea;
+      --muted: #f1f5f9;
+      --viz-series-1: #0ea5e9;
+      --viz-series-2: #f59e0b;
+      --destructive: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    html { background: #eaf1f6; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--foreground);
+      background: linear-gradient(180deg, #dceef8 0, #f8fafc 280px);
+      font: 16px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .app-frame { width: min(100%, 980px); margin: 0 auto; padding: 14px; }
+    button, input, select, textarea { font: inherit; }
+    .btn {
+      min-height: 44px; padding: 10px 14px; border: 1px solid transparent;
+      border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; cursor: pointer; text-decoration: none; font-weight: 650;
+    }
+    .btn-primary { color: #fff; background: var(--primary); }
+    .btn-secondary { color: var(--foreground); background: #fff; border-color: var(--border); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .form-label { display: grid; gap: 6px; font-weight: 650; }
+    .form-control, .form-select {
+      width: 100%; min-height: 44px; padding: 9px 11px; color: var(--foreground);
+      background: #fff; border: 1px solid #aebdca; border-radius: 10px;
+    }
+    textarea.form-control { min-height: 92px; resize: vertical; }
+    .form-check {
+      min-height: 48px; padding: 11px; display: flex; align-items: flex-start; gap: 10px;
+      color: var(--foreground); background: #fff; border: 1px solid var(--border);
+      border-radius: 10px; text-decoration: none; cursor: pointer;
+    }
+    .form-check-input { width: 20px; height: 20px; flex: 0 0 auto; margin: 1px 0 0; }
+    .form-check-label { flex: 1; }
+    .viz-badge {
+      padding: 4px 8px; border-radius: 999px; color: #fff;
+      background: rgba(255,255,255,.18); font-size: 12px; white-space: nowrap;
+    }
+    .text-small { font-size: 13px; }
+    .text-muted { color: #526273; }
+    .app-footer { padding: 18px 8px 8px; text-align: center; color: #526273; font-size: 12px; }
+    @media (max-width: 640px) {
+      .app-frame { padding: 0; }
+      #roadside-wizard .shell { border: 0 !important; border-radius: 0 !important; min-height: 100vh; }
+      #roadside-wizard .top { padding-top: max(14px, env(safe-area-inset-top)) !important; }
+      .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-frame">
+<div id="roadside-wizard">
+  <style>
+    #roadside-wizard { color: var(--foreground); }
+    #roadside-wizard .shell { border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--background); }
+    #roadside-wizard .top { padding: 14px 16px; background: var(--primary); color: var(--primary-foreground); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    #roadside-wizard .brand, #roadside-wizard .actions, #roadside-wizard .progress-label { display: flex; align-items: center; gap: 8px; }
+    #roadside-wizard .brand, #roadside-wizard .section-title { font-weight: 500; }
+    #roadside-wizard .body { padding: 16px; display: grid; gap: 16px; }
+    #roadside-wizard .progress-track { height: 6px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+    #roadside-wizard .progress-fill { height: 100%; width: 16.66%; background: var(--viz-series-1); transition: width 180ms ease; }
+    #roadside-wizard .step { display: none; gap: 14px; }
+    #roadside-wizard .step.active { display: grid; }
+    #roadside-wizard .grid-2 { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+    #roadside-wizard .vehicle-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; }
+    #roadside-wizard .value { min-height: 42px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--muted); }
+    #roadside-wizard .wide { grid-column: 1 / -1; }
+    #roadside-wizard .checklist { display: grid; gap: 10px; }
+    #roadside-wizard .call-box { padding: 14px; border: 1px solid var(--border); border-radius: 12px; display: grid; gap: 10px; background: color-mix(in srgb, var(--viz-series-1) 12%, transparent); }
+    #roadside-wizard .call-mode { padding: 14px; border: 2px solid var(--viz-series-1); border-radius: 14px; display: grid; gap: 12px; }
+    #roadside-wizard .coverage-card { padding: 14px; border: 1px solid var(--border); border-radius: 12px; display: grid; gap: 10px; }
+    #roadside-wizard .coverage-card.blocked { border-color: var(--destructive); background: color-mix(in srgb, var(--destructive) 10%, transparent); }
+    #roadside-wizard .contact-list { display: grid; gap: 8px; }
+    #roadside-wizard .suggestions { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); }
+    #roadside-wizard .suggestion { width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; background: var(--muted); color: var(--foreground); text-align: left; cursor: pointer; }
+    #roadside-wizard .suggestion:hover, #roadside-wizard .suggestion:focus-visible { background: color-mix(in srgb, var(--viz-series-1) 18%, var(--muted)); }
+    #roadside-wizard .manual-pages { display: grid; gap: 18px; padding: 12px; border-radius: 12px; background: var(--muted); }
+    #roadside-wizard .doc-page { max-width: 850px; width: 100%; margin: 0 auto; padding: 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); box-shadow: 0 4px 14px color-mix(in srgb, var(--foreground) 8%, transparent); overflow: auto; }
+    #roadside-wizard .doc-page pre { margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--foreground); }
+    #roadside-wizard .manual-page-images { display: grid; gap: 18px; padding: 12px; border-radius: 12px; background: var(--muted); }
+    #roadside-wizard .manual-page-image { max-width: 850px; width: 100%; margin: 0 auto; border: 1px solid var(--border); border-radius: 8px; background: white; box-shadow: 0 4px 14px color-mix(in srgb, var(--foreground) 10%, transparent); overflow: hidden; }
+    #roadside-wizard .manual-page-image { display: none; }
+    #roadside-wizard .manual-page-image.active { display: block; }
+    #roadside-wizard .manual-page-image img { display: block; width: 100%; height: auto; }
+    #roadside-wizard .manual-text-pages { display: grid; gap: 18px; }
+    #roadside-wizard .pdf-toolbar { display: none; }
+    #roadside-wizard .pdf-toolbar-group { display: flex; align-items: center; gap: 6px; }
+    #roadside-wizard .script { padding: 12px; border-left: 3px solid var(--viz-series-1); background: var(--muted); border-radius: 0 10px 10px 0; }
+    #roadside-wizard .timeline { display: grid; gap: 9px; }
+    #roadside-wizard .timeline-row { padding: 10px; border: 1px solid var(--border); border-radius: 10px; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; cursor: pointer; position: relative; z-index: 1; }
+    #roadside-wizard .timeline-row .form-check-input { pointer-events: auto; }
+    #roadside-wizard .timeline-row:has(.form-check-input:checked) { border-color: var(--viz-series-1); background: color-mix(in srgb, var(--viz-series-1) 12%, transparent); }
+    #roadside-wizard .notice { display: none; padding: 12px; border-radius: 10px; background: color-mix(in srgb, var(--viz-series-2) 18%, transparent); }
+    #roadside-wizard .notice.show { display: block; }
+    #roadside-wizard [hidden] { display: none !important; }
+    #roadside-wizard .right { justify-content: flex-end; }
+    #roadside-wizard .wizard-nav { position: sticky; bottom: 0; z-index: 10; justify-content: space-between; padding: 12px; margin: 0 -16px -16px; border-top: 1px solid var(--border); background: var(--background); box-shadow: 0 -6px 18px color-mix(in srgb, var(--foreground) 10%, transparent); }
+    #roadside-wizard .wizard-nav .btn { min-height: 44px; }
+    @media (max-width: 640px) {
+      #roadside-wizard .grid-2, #roadside-wizard .vehicle-grid { grid-template-columns: 1fr; }
+      #roadside-wizard .wide { grid-column: auto; }
+    }
+  </style>
+  <div class="shell">
+    <header class="top">
+      <div class="brand"><i data-lucide="siren" aria-hidden="true"></i><span>Activar 24H</span></div>
+      <div class="actions"><span class="viz-badge">Beta 1.1</span><span class="viz-badge">Manual v2.1</span></div>
+    </header>
+    <main id="wizard-body" class="body">
+      <div>
+        <div class="progress-label"><span id="step-label">Paso 0 de 7</span><span class="text-small text-muted" id="step-name">Manual o ser guiado</span></div>
+        <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+
+      <section class="step active" data-step="-1" data-name="Manual o ser guiado">
+        <div class="section-title">¿Cómo quieres realizar la activación 24H?</div>
+        <div class="checklist">
+          <input id="access-manual" type="radio" name="start-mode" value="manual" hidden>
+          <a id="access-manual-link" class="form-check" href="Manual_24H_DFM_v2_1.pdf" target="_blank" rel="noopener"><span aria-hidden="true">📄</span><span class="form-check-label"><strong>Abrir el manual PDF</strong><br><span class="text-small text-muted">Se abre fuera de la app, directamente en el visor PDF del teléfono</span></span></a>
+          <label class="form-check"><input id="continue-guided" class="form-check-input" type="radio" name="start-mode" value="guided"><span class="form-check-label"><strong>Ser guiado por la app</strong><br><span class="text-small text-muted">Continuar paso a paso con controles y avisos automáticos</span></span></label>
+        </div>
+        <div id="manual-access-note" class="call-box" hidden><strong>Manual operativo · versión 2.1</strong><span>El PDF se ha abierto en una pestaña nueva.</span></div>
+      </section>
+
+      <section class="step" data-step="0" data-name="Identificar vehículo">
+        <div class="section-title">¿Qué vehículo necesita asistencia?</div>
+        <label class="form-label">DFM
+          <select id="wizard-dfm" class="form-select"><option value="">Seleccionar…</option></select>
+        </label>
+        <div class="vehicle-grid" aria-live="polite">
+          <div><div class="text-small text-muted">Matrícula</div><div class="value" id="wizard-plate">—</div></div>
+          <div><div class="text-small text-muted">Marca</div><div class="value" id="wizard-brand">—</div></div>
+          <div><div class="text-small text-muted">Bastidor</div><div class="value" id="wizard-vin">—</div></div>
+          <div><div class="text-small text-muted">UPC</div><div class="value" id="wizard-upc">—</div></div>
+          <div><div class="text-small text-muted">Tipo de motor</div><div class="value" id="wizard-motor">—</div></div>
+          <div><div class="text-small text-muted">Grupo</div><div class="value" id="wizard-category">—</div></div>
+          <div><div class="text-small text-muted">Fin contrato</div><div class="value" id="wizard-contract-km">—</div></div>
+          <div><div class="text-small text-muted">Teléfono del camión</div><div class="value" id="wizard-vehicle-phone">—</div></div>
+        </div>
+        <label class="form-label">Kilómetros actuales<input id="wizard-km" class="form-control" type="text" inputmode="numeric" placeholder="Ej. 550.001" aria-describedby="km-contract-warning"></label>
+        <div id="km-contract-warning" class="call-box" hidden></div>
+        <div class="grid-2">
+          <div><div class="form-label">Tipo de vehículo</div><div id="vehicle-class-display" class="value">Selecciona el DFM</div><input id="vehicle-class" type="hidden"></div>
+          <div><div class="form-label">Fecha de matriculación</div><div id="registration-date-display" class="value">Selecciona el DFM</div><input id="registration-date" type="hidden"></div>
+        </div>
+        <div class="text-small text-muted">Datos cargados automáticamente desde MANTENIMENT · fila ALTA.</div>
+      </section>
+
+      <section class="step" data-step="1" data-name="Seguridad · Procedimiento 0">
+        <div class="section-title">Procedimiento 0</div>
+        <div class="checklist">
+          <label class="form-check"><input id="safe-place" class="form-check-input" type="checkbox"><span class="form-check-label">El vehículo está detenido en un lugar seguro o correctamente señalizado</span></label>
+          <label class="form-check"><input id="occupants-safe" class="form-check-input" type="checkbox"><span class="form-check-label">Conductor y ocupantes fuera de peligro</span></label>
+          <label class="form-check"><input class="form-check-input" type="checkbox"><span class="form-check-label">Se ha comprobado si la carga está afectada</span></label>
+        </div>
+        <div class="grid-2">
+          <label class="form-label">Conductor<input id="driver-name" class="form-control" placeholder="Nombre"></label>
+          <label class="form-label">Teléfono del conductor<input id="driver-phone" class="form-control" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej. 612 345 678 o +34 612 345 678" aria-describedby="driver-phone-help"><span id="driver-phone-help" class="text-small text-muted">9 cifras o prefijo internacional seguido del número</span></label>
+        </div>
+      </section>
+
+      <section class="step" data-step="2" data-name="Ubicación y avería">
+        <div class="grid-2">
+          <label class="form-label">Tipo de ubicación
+            <select id="location-type" class="form-select">
+              <option value="abrera">Bloque logístico Abrera</option>
+              <option value="sansa">Bloque logístico Sansa</option>
+              <option value="disfrimur">Nave Disfrimur</option>
+              <option value="industrial">Polígono</option>
+              <option value="store">Tienda</option>
+              <option value="road">Carretera / autopista / autovía</option>
+              <option value="other">Otro</option>
+            </select>
+          </label>
+          <label class="form-label">Formato de ubicación
+            <select id="location-format" class="form-select">
+              <option value="plus">Plus Code</option>
+              <option value="coordinates">Coordenadas</option>
+            </select>
+          </label>
+          <label class="form-label"><span id="location-reference-label">Plus Code</span><input id="location-gps" class="form-control" value="GV6V+62 Abrera" placeholder="Ej. GV6V+62 Abrera"></label>
+          <div id="road-location" class="grid-2 wide" hidden>
+            <label class="form-label">Carretera<input id="road-name" class="form-control" placeholder="Ej. AP-7, A-2, C-32"></label>
+            <label class="form-label">Punto kilométrico<input id="road-pk" class="form-control" inputmode="decimal" placeholder="Ej. 172,5"></label>
+            <label class="form-label wide">Sentido
+              <select id="road-direction" class="form-select"><option value="">Seleccionar sentido…</option><option>Norte / Girona</option><option>Sur / Tarragona</option><option>Barcelona</option><option>Lleida</option><option>Francia</option><option>Otro sentido</option></select>
+            </label>
+          </div>
+          <label id="standard-location" class="form-label wide" hidden>Especificar<input id="wizard-location" class="form-control" placeholder="Muelle, puerta, nombre del polígono, número de tienda u otra referencia"></label>
+          <label class="form-label wide">Descripción literal del aviso<textarea id="wizard-fault" class="form-control" rows="2" placeholder="Empieza a escribir, por ejemplo: fallo motor" autocomplete="off" aria-controls="fault-suggestions" aria-autocomplete="list"></textarea><span class="text-small text-muted">Sugerencias basadas en descripciones utilizadas anteriormente</span></label>
+          <div id="fault-suggestions" class="suggestions wide" role="listbox" aria-label="Descripciones anteriores parecidas" hidden></div>
+          <label class="form-label">Código de alarma<input id="alarm-code" class="form-control" placeholder="Código, si aparece"></label>
+          <label class="form-label">Color del aviso<select id="alarm-color" class="form-select"><option>Sin testigo</option><option>Amarillo</option><option>Rojo</option><option>Otro</option></select></label>
+          <label class="form-label">Semirremolque<input id="trailer-plate" class="form-control" placeholder="Matrícula, si afecta"></label>
+          <label class="form-label">Carga<select id="load-temperature" class="form-select"><option>Sin carga</option><option>Con carga</option><option>Tractora suelta</option></select></label>
+        </div>
+      </section>
+
+      <section class="step" data-step="3" data-name="Revisar datos para comunicar">
+        <div class="section-title">Datos preparados para comunicar al 24H</div>
+        <div class="timeline" id="communication-summary" aria-live="polite"></div>
+        <div class="script" id="communication-script">Completa los pasos anteriores para preparar el resumen de la llamada.</div>
+        <label class="form-check"><input id="summary-confirmed" class="form-check-input" type="checkbox"><span class="form-check-label">He revisado los datos y están preparados para comunicarlos</span></label>
+      </section>
+
+      <section class="step" data-step="4" data-name="Contrato y llamada">
+        <div id="coverage-card" class="coverage-card">
+          <div><strong>Comprobación automática de cobertura</strong><div id="coverage-status" class="text-small text-muted">Selecciona el DFM y completa los datos contractuales.</div></div>
+          <div id="coverage-detail" class="text-small"></div>
+          <div id="coverage-escalation" class="contact-list" hidden>
+            <strong>No se puede continuar. Llama en este orden:</strong>
+            <a class="btn btn-secondary" href="tel:606655189"><i data-lucide="phone" aria-hidden="true"></i>1. Llamar ahora a TM · 606 655 189 · Ext. 4507</a>
+            <a class="btn btn-secondary" href="tel:697728258"><i data-lucide="phone" aria-hidden="true"></i>2. Llamar ahora a Gestión BCN · 697 728 258 · Ext. 4512</a>
+            <a class="btn btn-secondary" href="tel:669208633"><i data-lucide="phone" aria-hidden="true"></i>3. Llamar ahora al Área · 669 208 633 · Ext. 4135</a>
+          </div>
+        </div>
+        <div class="call-box">
+          <div class="section-title" id="call-title">Canal de asistencia del fabricante</div>
+          <div id="call-detail">Selecciona el DFM para mostrar el protocolo correspondiente.</div>
+          <button id="call-button" type="button" class="btn btn-primary"><i data-lucide="phone" aria-hidden="true"></i>Llamar al 24H</button>
+        </div>
+        <div class="checklist">
+          <label class="form-check"><input id="contract-covered" class="form-check-input" type="checkbox" disabled><span class="form-check-label">Contrato y cobertura comprobados automáticamente</span></label>
+        </div>
+        <div class="call-mode">
+          <div><strong>Modo llamada</strong><div class="text-small text-muted">Estos datos quedan preparados para leerlos al operador. Al abrirse la llamada, activa el altavoz desde el teléfono y vuelve a esta pantalla.</div></div>
+          <div class="timeline" id="call-data-list" aria-live="polite"></div>
+          <label class="form-label">Número facilitado por el operador<input id="case-number-call" class="form-control" type="text" autocapitalize="characters" placeholder="Puede incluir letras, números o símbolos"></label>
+        </div>
+        <div class="script" id="call-script">Selecciona el DFM y completa los pasos anteriores para preparar el texto de la llamada.</div>
+        <div class="text-small text-muted">Si hay dudas de cobertura, taller, contraseña o canal: consultar a TM → Gestión de Mantenimiento Barcelona → Área de Mantenimiento.</div>
+      </section>
+
+      <section class="step" data-step="5" data-name="Registrar activación">
+        <div class="grid-2">
+          <label class="form-label">Número de asistencia / caso<input id="case-number" class="form-control" autocapitalize="characters" placeholder="Puede incluir letras, números o símbolos"></label>
+          <label class="form-label">Hora de activación<input class="form-control" type="time" value="14:06"></label>
+          <label class="form-label">ETA del técnico<input class="form-control" type="time"></label>
+          <label class="form-label">Taller o proveedor asignado<input class="form-control" placeholder="Técnico, grúa o taller"></label>
+        </div>
+        <div class="call-box"><strong>Se creará automáticamente:</strong><span>INC vinculada + línea AV en MANTENIMENT + origen 24H + seguimiento abierto.</span></div>
+      </section>
+
+      <section class="step" data-step="6" data-name="Seguimiento">
+        <div class="timeline">
+          <label class="timeline-row" for="follow-case"><input id="follow-case" class="form-check-input follow-check" type="checkbox"><span>Asistencia activada y número de caso registrado</span></label>
+          <label class="timeline-row" for="follow-arrival"><input id="follow-arrival" class="form-check-input follow-check" type="checkbox"><span>Técnico llegado · registrar hora real</span></label>
+          <div id="follow-arrival-detail" class="follow-detail" hidden><label class="form-label">Hora real de llegada del técnico<input id="actual-arrival-time" class="form-control" type="time"></label><div class="text-small text-muted">La hora del paso 6 es la ETA aproximada facilitada por el operador.</div></div>
+          <label class="timeline-row" for="follow-diagnosis"><input id="follow-diagnosis" class="form-check-input follow-check" type="checkbox"><span>Diagnóstico confirmado</span></label>
+          <div id="follow-diagnosis-detail" class="follow-detail" hidden><label class="form-label">Descripción de la avería confirmada<textarea id="confirmed-diagnosis" class="form-control" rows="3" placeholder="Diagnóstico comunicado por el técnico, taller o fabricante"></textarea></label></div>
+          <label class="timeline-row" for="follow-road-repair"><input id="follow-road-repair" class="form-check-input follow-check resolution-check" type="checkbox"><span>Reparado en carretera</span></label>
+          <label class="timeline-row" for="follow-transfer"><input id="follow-transfer" class="form-check-input follow-check resolution-check" type="checkbox"><span>Trasladado a taller</span></label>
+          <div id="follow-transfer-detail" class="follow-detail" hidden><label class="form-label">Taller de traslado<input id="transfer-workshop" class="form-control" placeholder="Nombre y localidad del taller"></label></div>
+          <label class="timeline-row" for="follow-operational"><input id="follow-operational" class="form-check-input follow-check" type="checkbox"><span>Hora y estado operativo confirmados</span></label>
+        </div>
+        <label class="form-label">Resultado
+          <select id="follow-result" class="form-select"><option>Seguimiento abierto</option><option>Reparado en carretera</option><option>Trasladado a taller · mantener misma INC</option><option>Necesita sustitución</option></select>
+        </label>
+        <div id="follow-status" class="call-box"><strong>Estado actual</strong><span>Seguimiento abierto · puedes marcar cada hito conforme se produzca.</span></div>
+        <div class="text-small text-muted">Asignar una sustitución no cierra la incidencia original.</div>
+      </section>
+
+      <div id="wizard-notice" class="notice" role="status"></div>
+      <nav class="actions wizard-nav" aria-label="Navegación entre pasos"><button id="prev-step" type="button" class="btn btn-secondary" disabled>← Paso anterior</button><button id="next-step" type="button" class="btn btn-primary">Siguiente →</button></nav>
+    </main>
+    <main id="manual-view" class="body" hidden>
+      <div class="actions"><button id="close-manual" type="button" class="btn btn-secondary">← Volver al paso 0</button></div>
+      <div><div class="section-title">Manual de actuación ante avería DFM</div><div class="text-small text-muted">Versión 2.1 · 18/07/2026</div></div>
+      <div class="call-box"><strong>Manual PDF completo · 18 páginas</strong><span>La copia incluida en la app se abre automáticamente en el visor inferior. No necesita descarga.</span></div>
+      <div class="pdf-toolbar" aria-label="Controles del visor PDF">
+        <div class="pdf-toolbar-group"><button id="pdf-prev" type="button" class="btn btn-secondary" aria-label="Página anterior">←</button><strong id="pdf-page-label">Página 1 / 18</strong><button id="pdf-next" type="button" class="btn btn-secondary" aria-label="Página siguiente">→</button></div>
+        <div class="pdf-toolbar-group"><button id="pdf-zoom-out" type="button" class="btn btn-secondary" aria-label="Reducir">−</button><span id="pdf-zoom-label" class="text-small">100%</span><button id="pdf-zoom-in" type="button" class="btn btn-secondary" aria-label="Ampliar">+</button><button id="pdf-fullscreen" type="button" class="btn btn-primary"><i data-lucide="maximize" aria-hidden="true"></i>Pantalla completa</button></div>
+      </div>
+      <div id="manual-image-pages" class="manual-page-images" aria-label="Manual PDF completo, 18 páginas" hidden>
+        <!-- MANUAL_IMAGE_PAGES_END -->
+      </div>
+      <div class="manual-text-pages" aria-label="Copia de texto accesible del manual">
+      <section class="doc-page" aria-label="Página 1 de 18"><div class="text-small text-muted">Página 1 de 18</div><pre>MANUAL OPERATIVO
+
+
+Actuación ante avería DFM
+Seguridad · Asistencia 24 h · Seguimiento · Registro de incidencias
+
+
+
+
+ Aplicación                   Todos los UPC que gestionen vehículos DFM
+
+ Delegación de referencia     Barcelona
+
+ Área                         Gestión de Mantenimiento / Transporte
+
+ Ámbito                       Averías en ruta, asistencia 24h, continuidad y registro
+
+ Prioridad                    Seguridad, protección de la vía y continuidad del servicio
+
+ Versión                      2.1 · 18/07/2026
+
+
+
+
+                            Documento operativo para todos los UPC · Uso interno</pre></section>
+      <section class="doc-page" aria-label="Página 2 de 18"><div class="text-small text-muted">Página 2 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                        Versión 2.1
+
+
+
+Criterio común para todos los UPC
+Este manual establece un único criterio de actuación. Debe seguirse en el orden indicado y actualizarse
+con cada comunicación relevante.
+
+Reglas obligatorias
+   ☐ La seguridad decide la actuación. Si existe duda sobre si puede circular, tratar el vehículo como no
+       apto hasta recibir valoración.
+
+   ☐ El aviso a TM Delegación Barcelona es obligatorio en todas las averías, aunque después intervenga
+       fabricante, taller o asistencia externa.
+
+   ☐ El UPC registra hechos objetivos. No incorpora opiniones, responsabilidades ni diagnósticos no
+       confirmados.
+
+   ☐ El número de asistencia, EXP, caso u O.R. es externo y debe anotarse como tal.
+
+   ☐ El UPC no escribe “INC” en el registro del programa: es una clasificación interna de
+       Mantenimiento.
+
+   ☐ La sustitución permite continuar el servicio, pero no cierra la avería del vehículo original.
+
+   ☐ La incidencia se actualiza cronológicamente y no se cierra sin diagnóstico confirmado, reparación,
+       estado final y salida de taller si procede.
+
+Cómo consultar el manual
+ Necesidad                                        Procedimiento
+
+ Recibir un aviso y proteger al conductor         0 · Actuación inmediata
+
+ Activar asistencia y hacer seguimiento           1 · Asistencia según fabricante
+
+ Documentar correctamente el caso                 2 · Registro en el programa de gestión
+
+
+
+  Secuencia común: PROTEGER → RECOPILAR → AVISAR → DECIDIR → ACTIVAR → SUSTITUIR SI PROCEDE
+  → REGISTRAR → SEGUIR → VERIFICAR → CERRAR.
+
+Control del documento
+ Versión        Fecha                 Cambios principales
+
+ 1.0            Julio 2026            Manual inicial de seguridad y asistencia por fabricante.
+
+                                      Unificación del criterio UPC, V16 conectada, continuidad, corrección MAN,
+ 2.0            18/07/2026
+                                      separación del número externo y registro sin INC.
+
+                                      Volvo: Provehima. BPW: correo previo a posventa@bpwtrapaco.com y llamada
+ 2.1            18/07/2026
+                                      posterior.
+
+
+
+                                                                                                    Uso interno | 2 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 3 de 18"><div class="text-small text-muted">Página 3 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                    Versión 2.1
+
+
+
+
+PROCEDIMIENTO 0
+
+
+Actuación inmediata al recibir un aviso de avería
+   Objetivo: Proteger al conductor y al resto de usuarios, obtener información suficiente y dirigir la avería
+   hacia la actuación correcta.
+
+Paso 1 · Recopilar la información inicial
+Antes de llamar a TM, al fabricante o al taller, recopilar:
+
+   • DFM y matrícula de la tractora o rígido.
+   • Matrícula del semirremolque o unidad acoplada, si procede.
+   • Nombre y teléfono directo del conductor.
+   • Ubicación exacta: vía, punto kilométrico, sentido, localidad, país y coordenadas GPS cuando sea
+      posible.
+   • Kilometraje y estado del vehículo: detenido, inmovilizado, circulando con limitación o en lugar
+      seguro.
+   • Descripción literal de la avería: mensaje, testigo, color, código, ruido, fuga o comportamiento.
+   • Fotografías del display y de la avería, siempre que puedan obtenerse sin riesgo.
+   • Carga: vacío/cargado y temperatura o riesgo para el producto si procede.
+   • Confirmación de si el vehículo puede continuar circulando con seguridad.
+
+Paso 2 · Aplicar las medidas de seguridad
+   Regla principal: No se realizará ninguna comprobación que obligue al conductor a exponerse al tráfico.
+   Si no puede salir con total seguridad, permanecerá dentro del vehículo con el cinturón abrochado.
+
+   ☐ Encender las luces de emergencia.
+
+   ☐ Activar y colocar la baliza V16 conectada y homologada en la parte más alta posible, sin exponerse
+      al tráfico.
+
+   ☐ No bajar por el lado de la circulación.
+
+   ☐ Si puede salir con seguridad, ponerse el chaleco reflectante y hacerlo por el lado protegido.
+
+   ☐ Situarse detrás de la barrera de seguridad o fuera de la calzada, siempre que pueda alcanzarse sin
+      riesgo.
+
+   ☐ No regresar al vehículo si ya se encuentra en una zona segura, salvo que pueda hacerse con total
+      seguridad.
+
+
+
+
+                                                                                               Uso interno | 3 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 4 de 18"><div class="text-small text-muted">Página 4 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                     Versión 2.1
+
+
+Referencia de seguridad vial: desde el 1 de enero de 2026 la señal V16 conectada sustituye a los
+triángulos y evita tener que caminar por la calzada para señalizar.
+
+Paso 3 · Avisar al 112 cuando proceda
+Si la avería se produce en autopista, autovía, vía de alta circulación o existe riesgo para la circulación,
+indicar al conductor que contacte directamente con el 112.
+
+   Si el conductor no puede llamar: El UPC contactará con el 112 y facilitará la ubicación, el teléfono del
+   conductor, el vehículo y todos los datos disponibles.
+
+Paso 4 · Aviso obligatorio a TM
+Avisar siempre a TM Delegación Barcelona. El aviso es obligatorio para cualquier avería y el contacto
+está disponible 24 horas.
+
+ Contacto                        TM Delegación Barcelona
+
+ Teléfono                        606 655 189
+
+ Extensión                       4507
+
+ Uso                             Primera referencia técnica interna en todas las averías
+
+
+Información mínima a trasladar a TM:
+
+   ☐ DFM y matrícula.
+
+   ☐ Ubicación, PK, sentido y coordenadas.
+
+   ☐ Descripción literal y fotografías disponibles.
+
+   ☐ Estado del vehículo y posibilidad de circular.
+
+   ☐ Carga y temperatura, si procede.
+
+   ☐ Llamada al 112 y medidas de seguridad ya aplicadas.
+
+Paso 5 · Decidir la actuación
+   1. ¿Puede circular con seguridad? realizar seguimiento y contactar con Gestión de Mantenimiento
+       Barcelona en horario de oficina para programar taller y sustitución si procede.
+   2. ¿No puede circular o existen dudas? verificar el contrato de mantenimiento y activar la asistencia
+       del fabricante según el Procedimiento 1.
+   3. ¿No hay contrato o no se puede comprobar. no improvisar la activación; consultar por este
+       orden: TM, Gestión de Mantenimiento Barcelona y Área de Mantenimiento.
+   4. ¿Existe riesgo inmediato? priorizar el 112, seguridad y retirada a zona segura antes que la
+       reparación en el lugar.
+
+
+
+                                                                                               Uso interno | 4 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 5 de 18"><div class="text-small text-muted">Página 5 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                   Versión 2.1
+
+
+
+Paso 6 · Dar continuidad al servicio
+  ☐ Comprobar disponibilidad y compatibilidad de la unidad sustituta.
+
+  ☐ Registrar qué unidad sustituye a cuál y dónde queda el vehículo averiado.
+
+  ☐ Informar al gerente de transporte correspondiente y a Operaciones.
+
+  ☐ Mantener abierto el seguimiento del vehículo original hasta su reparación y verificación.
+
+  ☐ Cuando vuelva a servicio, liberar la sustituta y actualizar la disponibilidad de ambas unidades.
+
+Cierre del Procedimiento 0
+  ☐ Medidas de seguridad aplicadas.
+
+  ☐ 112 avisado cuando procede.
+
+  ☐ TM informado obligatoriamente.
+
+  ☐ Gerente de transporte/Operaciones informados.
+
+  ☐ Capacidad de circular confirmada o descartada.
+
+  ☐ Siguiente actuación y responsable definidos.
+
+  ☐ Sustitución resuelta si el servicio lo requiere.
+
+Contactos internos de referencia
+ Contacto                           Teléfono                Ext.   Uso
+
+ TM Delegación Barcelona            606 655 189             4507   Aviso obligatorio y primera valoración.
+
+ Gestión de Mantenimiento
+                                    697 728 258             4512   Contrato, taller, planificación y sustitución.
+ Barcelona
+
+ Área de Mantenimiento              669 208 633             4135   Soporte para todas las delegaciones.
+
+
+
+
+                                                                                              Uso interno | 5 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 6 de 18"><div class="text-small text-muted">Página 6 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                   Versión 2.1
+
+
+PROCEDIMIENTO 1
+
+
+Activación de asistencia según fabricante
+  Objetivo: Activar correctamente la asistencia cuando el vehículo no puede continuar, obtener el número
+  externo y mantener el seguimiento hasta la resolución.
+
+Cuándo se aplica
+Se aplica después del Procedimiento 0, una vez confirmada la imposibilidad de continuar con seguridad
+y la necesidad de asistencia externa.
+
+  Antes de llamar: Comprobar el contrato de mantenimiento. Si existen dudas sobre cobertura, taller,
+  contraseña o canal, consultar a TM → Gestión de Mantenimiento Barcelona → Área de Mantenimiento.
+
+Datos comunes para cualquier fabricante
+   ☐ Matrícula y DFM.
+
+   ☐ Kilometraje.
+
+   ☐ VIN/bastidor si lo solicita el fabricante.
+
+   ☐ Ubicación exacta o coordenadas GPS.
+
+   ☐ Descripción literal de la avería y código/color del aviso.
+
+   ☐ Teléfono directo del conductor.
+
+   ☐ Taller de referencia y clave de asistencia, si aplica.
+
+   ☐ Contrato de mantenimiento vigente.
+
+   ☐ Matrícula del semirremolque, carga y temperatura cuando afecten a la actuación.
+
+Seguimiento común después de la activación
+   ☐ Anotar el número externo de asistencia, EXP o caso.
+
+   ☐ Registrar hora de activación y hora prevista de llegada (ETA).
+
+   ☐ Actualizar la llegada real del técnico.
+
+   ☐ Añadir el diagnóstico solo cuando lo confirme el técnico, taller o fabricante.
+
+   ☐ Registrar reparación provisional o definitiva y piezas sustituidas.
+
+   ☐ Confirmar hora y estado operativo; si se traslada a taller, registrar destino y entrada.
+
+   ☐ No cerrar el caso del vehículo original porque exista sustitución.
+
+  Registro UPC: El UPC registra la incidencia en el programa de gestión, pero no escribe “INC”. El número
+  de asistencia, EXP, caso u O.R. se anota en el campo externo correspondiente y nunca se confunde con
+  una clasificación interna.
+
+
+                                                                                           Uso interno | 6 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 7 de 18"><div class="text-small text-muted">Página 7 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                      Versión 2.1
+
+
+
+Comunicación a Gestión de Mantenimiento
+Después de registrar la incidencia, enviar correo a jmruiz@disfrimur.com con matrícula, marca,
+ubicación, número externo de asistencia, taller asignado y una descripción breve y objetiva.
+
+Si el programa no está disponible, conservar una nota provisional con fecha, hora y todos los hitos;
+completar el registro cuando se restablezca el acceso. No inventar un código INC.
+
+
+Activación por fabricante
+
+IVECO
+ Canal                           Llamada directa
+
+ Asistencia                      IVECO Assistance Non Stop (ANS)
+
+ Teléfono                        +800 8274 7368
+
+ Condición                       Según contrato de la empresa
+
+ Taller de referencia            Ginés Huertas · Molina de Segura, Murcia
+
+
+Solicitar la apertura de ANS, facilitar el taller de referencia y anotar número de asistencia, hora, ETA y
+comunicaciones posteriores.
+
+Mercedes-Benz Trucks
+ Canal principal                 My TruckPoint
+
+                                 Mercedes-Benz Service24h · 00 800 57 777 777, solo si My TruckPoint no está
+ Alternativo
+                                 disponible
+
+ Taller de referencia            Comercial Dimovil
+
+                                 Polígono Centro Integrado del Transporte de Murcia, manzana 1 · 30169 San Ginés,
+ Dirección
+                                 Murcia
+
+
+
+   Duplicidad: Antes de crear un caso, comprobar si ya existe uno abierto para el mismo vehículo.
+
+
+
+
+                                                                                                Uso interno | 7 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 8 de 18"><div class="text-small text-muted">Página 8 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                       Versión 2.1
+
+
+Paso 1 · Abrir My TruckPoint y entrar en Taller
+
+
+
+
+                   En el menú superior, seleccionar Taller y después Mercedes-Benz Trucks Service24h.
+
+
+
+
+                                                                                                        Uso interno | 8 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 9 de 18"><div class="text-small text-muted">Página 9 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                         Versión 2.1
+
+
+Paso 2 · Revisar casos y crear uno nuevo
+
+
+
+
+                Revisar primero los casos abiertos; si no existe uno para la unidad, pulsar Crear nuevo caso.
+
+Paso 3 · Seleccionar el vehículo
+
+
+
+
+                          Buscar por FIN/VIN o matrícula, verificar la unidad y pulsar Seleccionar.
+
+
+
+
+                                                                                                                Uso interno | 9 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 10 de 18"><div class="text-small text-muted">Página 10 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                      Versión 2.1
+
+
+Paso 4 · Completar y enviar
+
+
+
+
+Completar todos los campos obligatorios: FIN/VIN, matrícula, primera matriculación, kilómetros y datos
+del titular. Revisar las pantallas siguientes hasta el resumen y pulsar Enviar.
+
+   Resultado: My TruckPoint enviará el número de caso Service24h. Registrarlo como número externo y
+   continuar el seguimiento común.
+
+MAN
+ Canal                           Llamada directa
+
+ Asistencia                      MAN Mobile24
+
+ Teléfono                        00800 66 24 53 24
+
+ Clave                           20244
+
+ Taller de referencia MAN        Serviman · km 377, calle Madrid · 30564 Lorquí, Murcia
+
+
+Solicitar la apertura, facilitar la clave cuando la pida el operador y anotar número externo, ETA y
+seguimiento.
+
+Volvo Trucks
+ Canal                           Llamada directa
+
+ Asistencia                      Volvo Action Service (VAS)
+
+ Teléfono                        +34 900 98 32 51
+
+ Taller de referencia            Provehima
+
+
+Solicitar la apertura de asistencia Volvo, indicar Provehima como taller de referencia, anotar el número
+externo y aplicar el seguimiento común hasta la finalización.
+
+
+
+                                                                                          Uso interno | 10 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 11 de 18"><div class="text-small text-muted">Página 11 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                   Versión 2.1
+
+
+
+BPW · Avería en semirremolque
+ Correo previo                 posventa@bpwtrapaco.com
+
+ Horario laboral               918 023 600
+
+ Fuera de horario              800 780 78000
+
+ Canal                         Llamada directa a Asistencia BPW
+
+
+
+  Orden obligatorio: 1. Preparar y enviar los datos a posventa@bpwtrapaco.com. 2. Después de enviar el
+  correo, llamar a Asistencia BPW en el teléfono correspondiente al horario.
+
+Datos que deben estar preparados
+ Concepto                           Ejemplo
+
+ Último mantenimiento               07/05/2026
+
+ Matrícula tractora                 5022MMC
+
+ Matrícula semirremolque            R9492BCZ
+
+ Marca / modelo                     Lecsor / Spectrum
+
+ Teléfono del vehículo              680 569 607
+
+ Conductor                          Balbino
+
+ Lugar / país                       43812 Puigpelat (Tarragona) / España
+
+ Coordenadas                        41°16'51.7"N 1°17'00.2"E
+
+ Tipo de freno / eje                Tambor / BPW
+
+ Causa comunicada                   Pérdida de aire en actuador de freno
+
+ Carga                              Vacío / Cargado
+
+
+
+Durante y después de la llamada
+  ☐ Número de expediente BPW y hora de apertura.
+
+  ☐ Nombre del operador, si lo facilita.
+
+  ☐ Taller asignado y ETA.
+
+  ☐ Diagnóstico confirmado y tiempo estimado.
+
+  ☐ Técnico desplazado y hora real de llegada.
+
+  ☐ Reparación, estado final y hora de finalización.
+
+
+
+
+                                                                                       Uso interno | 11 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 12 de 18"><div class="text-small text-muted">Página 12 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                   Versión 2.1
+
+
+
+Cierre del Procedimiento 1
+   ☐ Contrato o cobertura verificados.
+
+   ☐ Canal correcto de la marca utilizado.
+
+   ☐ Número externo y hora de activación registrados.
+
+   ☐ ETA y llegada real actualizadas.
+
+   ☐ Diagnóstico solo incorporado cuando ha sido confirmado.
+
+   ☐ Reparación/traslado y estado final anotados.
+
+   ☐ Programa de gestión actualizado sin escribir INC.
+
+   ☐ Gestión de Mantenimiento informado.
+PROCEDIMIENTO 2
+
+
+Registro de incidencias en el programa de gestión
+  Objetivo: Registrar todas las averías de forma homogénea, objetiva, cronológica y útil para el
+  seguimiento técnico, el análisis predictivo y las reclamaciones.
+
+  Corrección obligatoria: El UPC no debe escribir “INC” en el registro. INC es una clasificación interna de
+  Mantenimiento. El UPC introduce la matrícula, los hechos de la avería y los números externos de
+  asistencia, EXP, caso u O.R.
+
+Paso 1 · Introducir la matrícula
+Introducir la matrícula del vehículo. El programa completará automáticamente:
+
+   • DFM
+   • Matrícula
+   • Marca
+   • Modelo
+   • VIN
+   • Tipo de vehículo
+   • Delegación
+   • Plataforma
+   • Datos asociados del vehículo
+Antes de continuar, verificar que la unidad mostrada es la correcta.
+
+
+
+
+                                                                                            Uso interno | 12 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 13 de 18"><div class="text-small text-muted">Página 13 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                       Versión 2.1
+
+
+
+Paso 2 · Registrar los datos de apertura
+ Campo                        Qué debe constar
+
+ Fecha y hora                 Momento real de comunicación o detección.
+
+ Lugar                        Vía, PK, sentido, localidad, país y coordenadas si están disponibles.
+
+ Kilómetros                   Lectura comunicada o disponible en el sistema.
+
+ Estado                       Detenido, inmovilizado, limitado, sustituido, en asistencia, en taller u operativo.
+
+ Quién comunica               Conductor, Control Room, taller, fabricante u otra fuente identificada.
+
+ Carga                        Vacío/cargado y temperatura si procede.
+
+ Unidad acoplada              Matrícula del semirremolque cuando afecte al caso.
+
+
+
+
+Paso 3 · Describir la avería
+La descripción debe responder a cuatro preguntas:
+
+ Pregunta                      Ejemplo objetivo
+
+ ¿Qué ocurre?                  El conductor comunica que aparece fallo motor en rojo.
+
+ ¿Dónde ocurre?                AP-7, PK 182, sentido Barcelona.
+
+ ¿Qué consecuencias tiene?     El vehículo pierde potencia y queda detenido en zona segura.
+
+ ¿Qué actuación se realiza?    Se sustituye la tractora y se activa asistencia 24 h.
+
+
+
+
+Información imprescindible
+  ☐ Código de avería y color del aviso.
+
+  ☐ Fotografías del display y de la avería.
+
+  ☐ Número externo de asistencia, EXP, caso u O.R.
+
+  ☐ Taller asignado.
+
+  ☐ Hora de activación y ETA.
+
+  ☐ Hora real de llegada del técnico.
+
+  ☐ Diagnóstico confirmado.
+
+  ☐ Reparación o traslado.
+
+  ☐ Hora en que el vehículo queda operativo.
+
+  ☐ Unidad sustituta y situación del vehículo original.
+
+
+
+
+                                                                                                      Uso interno | 13 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 14 de 18"><div class="text-small text-muted">Página 14 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                         Versión 2.1
+
+
+
+Número interno y números externos
+ Elemento                             Criterio UPC
+
+ INC                                  No se escribe en el registro; es una clasificación interna de Mantenimiento.
+
+ N.º asistencia / caso / EXP          Se registra como referencia externa con proveedor y hora de apertura.
+
+ O.R. / recepción                     Se añade cuando el taller la facilita, sin borrar el número de asistencia.
+
+ Varios números                       Se conservan todos cronológicamente bajo la misma incidencia.
+
+
+
+
+Redacción objetiva
+ Correcto                                                       Incorrecto
+
+ El conductor comunica que aparece fallo motor en rojo
+                                                                Parece que tiene un problema de motor.
+ durante la circulación.
+
+ Se observa pérdida de refrigerante bajo el vehículo.           Seguro que se ha roto la bomba de agua.
+
+ El taller confirma holgura en las manguetas de dirección.      Las manguetas están mal porque ya son viejas.
+
+
+No incluir:
+
+   • Opiniones.
+   • Hipótesis.
+   • Diagnósticos sin confirmar.
+   • Responsabilidades.
+   • Valoraciones personales.
+
+   Diagnóstico: Sólo se incorpora cuando lo confirma el técnico, taller o fabricante. Debe diferenciarse del
+   síntoma comunicado al abrir la incidencia.
+
+Actualización cronológica
+Cada nueva actuación se añade sin borrar el hito anterior. Ejemplo:
+
+ Hora               Hito
+
+ 09:20              Aviso del conductor: fallo motor rojo y pérdida de potencia.
+
+ 09:25              Vehículo detenido en zona segura; TM informado.
+
+ 09:35              Asistencia activada; número externo y ETA registrados.
+
+ 10:15              Llegada del técnico.
+
+ 11:05              Diagnóstico confirmado por el técnico.
+
+ 11:40              Reparación finalizada y prueba realizada.
+
+
+
+                                                                                                       Uso interno | 14 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 15 de 18"><div class="text-small text-muted">Página 15 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                         Versión 2.1
+
+
+
+ Hora                Hito
+
+ 12:20               Vehículo operativo; sustitución liberada si procede.
+
+
+
+
+Sustitución y continuidad
+   ☐ Registrar la unidad original y la sustituta.
+
+   ☐ Indicar dónde queda el vehículo averiado y quién gestiona su reparación.
+
+   ☐ No cerrar la incidencia porque la ruta haya continuado.
+
+   ☐ Actualizar la liberación de la sustituta cuando la original vuelva a servicio.
+
+Cierre de la incidencia
+La incidencia no se cerrará hasta disponer de:
+
+   ☐ Diagnóstico definitivo confirmado.
+
+   ☐ Reparación realizada o resolución final documentada.
+
+   ☐ Estado final del vehículo y prueba cuando proceda.
+
+   ☐ Fecha/hora de operatividad.
+
+   ☐ Fecha de salida del taller si procede.
+
+   ☐ Unidad sustituta liberada o situación final definida.
+
+   ☐ Números externos, O.R. y documentos enlazados cuando estén disponibles.
+
+Ejemplo completo de registro
+ Apertura                            14/07/2026 · 09:50 · Bloque Sant Sadurní · comunica Jeyson Horjuela
+
+ Unidad                              DFM 2746 (7349NKN) · 19.078 km · vehículo detenido
+
+ Síntoma                             Al dar contacto, el vehículo no permite seleccionar marcha.
+
+ Actuación inicial                   TM informado; servicio reorganizado y asistencia activada.
+
+ Número externo                      EXP-5403956
+
+ Cronología                          13:00 llegada del técnico · 13:45 reparación finalizada
+
+ Diagnóstico                         Fallo del mando del cambio, confirmado por el técnico.
+
+ Reparación                          Sustitución del mando del cambio.
+
+ Resultado                           Vehículo operativo a las 13:45.
+
+
+
+
+                                                                                                   Uso interno | 15 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 16 de 18"><div class="text-small text-muted">Página 16 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                       Versión 2.1
+
+
+
+Plantilla para copiar
+ Unidad                          [matrícula] · [DFM autocompletado] · [km]
+
+ Aviso                           [fecha] [hora] · [lugar] · comunica [persona/teléfono]
+
+ Estado                          [detenido / limitado / sustituido / asistencia / taller / operativo]
+
+ Síntoma                         [mensaje literal, código, color, comportamiento]
+
+ Carga                           [vacío/cargado · temperatura]
+
+ Actuación                       [TM / 112 / sustitución / asistencia / taller]
+
+ Externo                         [proveedor · n.º asistencia/EXP/caso · O.R.]
+
+ Cronología                      [hora · hito]
+
+ Diagnóstico                     [solo confirmado]
+
+ Reparación                      [trabajo y piezas]
+
+ Cierre                          [operativo · fecha/hora · documentos · sustituta]
+
+
+
+
+Objetivo del registro
+El registro debe permitir que cualquier UPC, gestor o responsable conozca sin llamadas adicionales:
+
+   • Qué ocurrió, dónde y cuándo.
+   • Qué riesgo o consecuencia produjo.
+   • Qué actuación se realizó y quién intervino.
+   • Cuál fue el diagnóstico confirmado y la reparación.
+   • Cuánto tiempo permaneció inmovilizado.
+   • Qué números externos y documentos respaldan el caso.
+   • Si la avería es recurrente y qué seguimiento requiere.
+
+  Finalidad: El registro no es solo administrativo: sustenta el seguimiento técnico, el análisis predictivo, la
+  detección de recurrencias y las reclamaciones ante fabricantes y proveedores.
+
+Lista final de comprobación del UPC
+   ☐ Matrícula correcta y datos autocompletados verificados.
+
+   ☐ Sin código INC escrito en el registro.
+
+   ☐ Fecha, hora, lugar, km, estado y comunicante completos.
+
+   ☐ Síntoma literal separado del diagnóstico.
+
+   ☐ Número externo, proveedor, ETA y taller anotados.
+
+   ☐ Hitos ordenados cronológicamente.
+
+                                                                                                        Uso interno | 16 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 17 de 18"><div class="text-small text-muted">Página 17 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                 Versión 2.1
+
+
+  ☐ Sustitución y situación de la unidad original registrada.
+
+  ☐ Diagnóstico y reparación confirmados.
+
+  ☐ Estado final, hora operativa y salida de taller informados.
+
+  ☐ Incidencia cerrada solo cuando el ciclo está completo.
+
+
+
+
+                                                                  Uso interno | 17 / 18</pre></section>
+      <section class="doc-page" aria-label="Página 18 de 18"><div class="text-small text-muted">Página 18 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                    Versión 2.1
+
+
+
+Resumen de contactos
+
+ Servicio                          Teléfono / canal                           Dato adicional
+
+ TM Barcelona                      606 655 189 · Ext. 4507                    Aviso obligatorio 24h
+
+ Gestión Mantenimiento BCN         697 728 258 · Ext. 4512                    Contrato, taller y planificación
+
+ Área de Mantenimiento             669 208 633 · Ext. 4135                    Todas las delegaciones
+
+ IVECO ANS                         +800 8274 7368                             Ginés Huertas
+
+ Mercedes Service24h               My TruckPoint / 00 800 57 777 777          Comercial Dimovil
+
+ MAN Mobile24                      00800 66 24 53 24                          Clave 20244 · Serviman
+
+ Volvo VAS                         +34 900 98 32 51                           Taller: Provehima
+
+ BPW correo previo                 posventa@bpwtrapaco.com                    Enviar datos antes de llamar
+
+ BPW laboral                       918 023 600                                Llamar después del correo
+
+ BPW fuera de horario              800 780 78000                              Llamar después del correo
+
+ Gestión por correo                jmruiz@disfrimur.com                       Después del registro
+
+
+
+  Resultado esperado: Todos los UPC protegen, comunican, activan, registran y cierran con el mismo
+  criterio; cualquier persona puede reconstruir la avería y su resolución desde el programa de gestión.
+
+
+
+
+                                                                                            Uso interno | 18 / 18</pre></section>
+      </div>
+      <div class="text-small text-muted">Las páginas conservan el diseño visual del PDF original y están integradas en la app para evitar bloqueos.</div>
+      <div class="call-box"><strong>Regla principal</strong><span>La seguridad decide la actuación. Si existen dudas sobre si el vehículo puede circular, se considera no apto hasta recibir valoración.</span></div>
+      <div class="coverage-card"><strong>Procedimiento 0 · Orden de actuación</strong><ol><li>Proteger al conductor, ocupantes y vehículo.</li><li>Recopilar DFM, matrícula, teléfono, ubicación, kilómetros y descripción literal.</li><li>Avisar obligatoriamente a TM Delegación Barcelona.</li><li>Comprobar el contrato antes de activar asistencia externa.</li><li>Registrar número externo, ETA y seguimiento.</li></ol></div>
+      <div class="coverage-card"><strong>Contactos internos · llamar en este orden</strong><div class="contact-list"><a class="btn btn-secondary" href="tel:606655189">1. TM Barcelona · 606 655 189 · Ext. 4507</a><a class="btn btn-secondary" href="tel:697728258">2. Gestión Mantenimiento BCN · 697 728 258 · Ext. 4512</a><a class="btn btn-secondary" href="tel:669208633">3. Área de Mantenimiento · 669 208 633 · Ext. 4135</a></div></div>
+      <div class="coverage-card"><strong>Asistencia por fabricante</strong><div class="timeline"><div class="timeline-row"><strong>IVECO</strong><span>ANS · +800 8274 7368 · Ginés Huertas</span></div><div class="timeline-row"><strong>Mercedes</strong><span>My TruckPoint · Comercial Dimovil</span></div><div class="timeline-row"><strong>MAN</strong><span>Mobile24 · 00800 66 24 53 24 · clave 20244 · Serviman</span></div><div class="timeline-row"><strong>Volvo</strong><span>VAS · +34 900 98 32 51 · Provehima</span></div></div></div>
+      <div class="call-box"><strong>Registro obligatorio</strong><span>Anotar número externo, hora de activación, ETA, llegada real, diagnóstico confirmado, reparación o traslado y estado operativo final. Una sustitución no cierra la incidencia original.</span></div>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const root = document.getElementById('roadside-wizard');
+      const fleet = {
+        '2444': {"plate":"0763MCK","type":"18/FB","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2022-11-23","category":"FLOTA","brand":"IVECO","vin":"WJME62RP00C478981","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2484': {"plate":"5719MHS","type":"TR","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-06-23","category":"RESERVA","brand":"IVECO","vin":"WJMM62AT50C482481","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2486': {"plate":"5170MHW","type":"18/HWA","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2023-06-28","category":"FLOTA","brand":"IVECO","vin":"ZCFE62RP00C505124","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2489': {"plate":"6779MJM","type":"18/HB","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2023-07-27","category":"RESERVA","brand":"IVECO","vin":"ZCFE62RP20C505125","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2490': {"plate":"6774MJM","type":"18/HA","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2023-07-27","category":"FLOTA","brand":"IVECO","vin":"ZCFE62RP50C505619","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2493': {"plate":"9153MJR","type":"18/CB","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2023-08-01","category":"RESERVA","brand":"IVECO","vin":"ZCFE62RP10C505617","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2498': {"plate":"2369MJT","type":"TR","upc":"DIEGO","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-08-04","category":"FLOTA","brand":"IVECO","vin":"WJMM62AT30C482057","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2499': {"plate":"2362MJT","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-08-04","category":"RESERVA","brand":"IVECO","vin":"WJMM62AT90C482337","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2500': {"plate":"2688MJT","type":"TRDUO","upc":"","motor":"","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-08-04","category":"FLOTA","brand":"DAF","vin":"XLRTEF5300G462946","assistance":"DAF International Truck Service","phone":"Consultar manual"},
+        '2501': {"plate":"2689MJT","type":"TRDUO","upc":"ALICANTE","motor":"","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-08-04","category":"RESERVA","brand":"DAF","vin":"","assistance":"DAF International Truck Service","phone":"Consultar manual"},
+        '2516': {"plate":"1860MLJ","type":"TR","upc":"JEYSON","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340310660263","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2517': {"plate":"1857MLJ","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340110660262","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2518': {"plate":"1859MLJ","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340X10660261","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2521': {"plate":"1850MLJ","type":"TR","upc":"DIEGO","motor":"ACTR 1846LS","driverPhone":"618014354","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340810668469","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2523': {"plate":"1848MLJ","type":"TR","upc":"JEYSON","motor":"ACTR 1846LS","driverPhone":"697727767","contractKm":535000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340410669831","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2525': {"plate":"1856MLJ","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"660595032","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340010681216","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2527': {"plate":"6935MLK","type":"TR","upc":"IONUT","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-11-08","category":"FLOTA","brand":"IVECO","vin":"WJMM62AT20C486133","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2531': {"plate":"3957MLR","type":"TR","upc":"IONUT","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-11-22","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT20C494888","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2543': {"plate":"1845MMB","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-11","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT90C49539","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2544': {"plate":"1847MMB","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-11","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT20C495233","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2545': {"plate":"5020MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT80C495060","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2547': {"plate":"5022MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT90C495388","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2548': {"plate":"5023MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"RESERVA","brand":"IVECO","vin":"ZCFM62AT10C495062","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2550': {"plate":"5025MMC","type":"TR","upc":"IONUT","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT30C495550","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2552': {"plate":"5027MMC","type":"TR","upc":"DIEGO","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT70C495549","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2553': {"plate":"5028MMC","type":"TR","upc":"IONUT","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62ATX0C496517","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2554': {"plate":"5030MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT70C495390","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2556': {"plate":"5032MMC","type":"TR","upc":"IONUT","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT80C495673","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2562': {"plate":"5050MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT00C495389","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2563': {"plate":"5071MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT60C496515","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2573': {"plate":"3417MPH","type":"TR DUO","upc":"","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2024-03-26","category":"R1121-R1315","brand":"MAN","vin":"WMA06KZZ4RM944257","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
+        '2591': {"plate":"2690MPX","type":"21/HWP","upc":"DIEGO","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2024-04-24","category":"FLOTA","brand":"IVECO","vin":"ZCFE62RPX0C517037","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2602': {"plate":"2097MST","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"660594335","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340710736003","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2604': {"plate":"2096MST","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"660594485","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340510733441","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2605': {"plate":"2071MST","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340810738942","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2606': {"plate":"2070MST","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"669415689","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340310749640","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2610': {"plate":"0175MTF","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-25","category":"RESERVA","brand":"MERCEDES","vin":"W1T96340510749641","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2611': {"plate":"0169MTF","type":"TR","upc":"DIEGO","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-25","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340710752234","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2612': {"plate":"0168MTF","type":"TR","upc":"RAUL","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-25","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340910752235","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2617': {"plate":"0166MTF","type":"TR","upc":"DIEGO","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-25","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340110751869","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2621': {"plate":"9269MTM","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-08-12","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340410768584","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2622': {"plate":"9264MTM","type":"TR","upc":"RAUL","motor":"ACTR 1846LS","driverPhone":"616930221","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-08-12","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340010759560","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2625': {"plate":"1614MTP","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-08-19","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340X10751868","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2632': {"plate":"6576MVL","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-10-01","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340810784822","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2633': {"plate":"6575MVL","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-10-01","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340010785060","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2637': {"plate":"2736MVH","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-09-26","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340510784566","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2660': {"plate":"7546MWW","type":"21/HA","upc":"DIEGO","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2024-12-04","category":"FLOTA","brand":"IVECO","vin":"ZCFE62RP90C537747","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2675': {"plate":"7375MYF","type":"21/CAP","upc":"","motor":"","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2025-02-04","category":"FRAGADIS","brand":"IVECO","vin":"ZCFE62RP40C537610","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2676': {"plate":"1802NBF","type":"21/CAP","upc":"DIEGO","motor":"","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2025-04-01","category":"RESERVA","brand":"IVECO","vin":"ZCFEE2RP60C550605","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2686': {"plate":"4509NCM","type":"TR","upc":"","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2025-06-06","category":"RESERVA","brand":"MAN","vin":"WMA08KZZ3SP301509","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
+        '2693': {"plate":"8860NCZ","type":"TR FRA","upc":"","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2025-06-26","category":"FLOTA","brand":"MAN","vin":"WMA08KZZ5SP305013","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
+        '2696': {"plate":"5805NDL","type":"TR","upc":"","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2025-07-09","category":"FLOTA","brand":"MAN","vin":"WMA08KZZ3SP305043","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
+        '2697': {"plate":"5813NDL","type":"TR","upc":"IONUT","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2025-07-09","category":"FLOTA","brand":"MAN","vin":"WMA08KZZ2SP305048","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
+        '2700': {"plate":"5882NDL","type":"TR","upc":"IONUT","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2025-07-09","category":"FLOTA","brand":"MAN","vin":"WMA08KZZ6SP304422","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
+        '2701': {"plate":"0674NDW","type":"TR","upc":"IONUT","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-07-24","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU00C561533","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2709': {"plate":"7039NGM","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-09","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AUX0C564097","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2710': {"plate":"7038NGM","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-09","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU90C564110","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2712': {"plate":"0514NGR","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-15","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU20C564109","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2714': {"plate":"0512NGR","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-15","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU30C564104","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2715': {"plate":"0509NGR","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-15","category":"RESERVA","brand":"IVECO","vin":"ZCFME2AU80C564115","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2716': {"plate":"0511NGR","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-15","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU60C564114","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2718': {"plate":"6129NGV","type":"TR","upc":"IONUT","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-23","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AUX0C564102","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2719': {"plate":"6132NGV","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-23","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU30C564099","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2720': {"plate":"6130NGV","type":"TR","upc":"IONUT","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-23","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU40C564113","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2721': {"plate":"6131NGV","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-23","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU70C564106","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2723': {"plate":"3476NGS","type":"21/HAP","upc":"","motor":"","driverPhone":"","contractKm":425000,"vehicleClass":"rigido","registrationDate":"2025-10-17","category":"FRAGADIS","brand":"VOLVO","vin":"YV2VZ60C5SZ164082","assistance":"Volvo Action Service (VAS)","phone":"+34 900 98 32 51"},
+        '2724': {"plate":"4590NGW","type":"21/HAP","upc":"","motor":"","driverPhone":"","contractKm":425000,"vehicleClass":"rigido","registrationDate":"2025-10-24","category":"FRAGADIS","brand":"VOLVO","vin":"YV2VZ60C5SZ164194","assistance":"Volvo Action Service (VAS)","phone":"+34 900 98 32 51"},
+        '2725': {"plate":"2742NHC","type":"TR","upc":"JUAN","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-31","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU20C564112","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2726': {"plate":"2741NHC","type":"TR","upc":"","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-31","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU00C564111","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
+        '2731': {"plate":"4446NHJ","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2025-11-12","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340110856511","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2732': {"plate":"4447NHJ","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2025-11-12","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340310856512","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
+        '2744': {"plate":"5496NJV","type":"21/CA","upc":"DIEGO","motor":"","driverPhone":"","contractKm":425000,"vehicleClass":"rigido","registrationDate":"2026-01-13","category":"FLOTA","brand":"VOLVO","vin":"YV2VZ60C4SZ164171","assistance":"Volvo Action Service (VAS)","phone":"+34 900 98 32 51"},
+        '2745': {"plate":"7348NKN","type":"21/BCSP","upc":"DIEGO","motor":"","driverPhone":"","contractKm":425000,"vehicleClass":"rigido","registrationDate":"2026-02-16","category":"RESERVA","brand":"VOLVO","vin":"YV2VZ60COTZ164539","assistance":"Volvo Action Service (VAS)","phone":"+34 900 98 32 51"},
+        '2746': {"plate":"7349NKN","type":"21/BCSP","upc":"DIEGO","motor":"","driverPhone":"","contractKm":425000,"vehicleClass":"rigido","registrationDate":"2026-02-16","category":"FLOTA","brand":"VOLVO","vin":"YV2VZ60C9TZ164538","assistance":"Volvo Action Service (VAS)","phone":"+34 900 98 32 51"},
+        '2753': {"plate":"3125NLH","type":"TR","upc":"JEYSON","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2026-03-11","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340010854510","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"}
+      };
+      const manufacturerProtocols = {
+        IVECO: { workshop: 'Ginés Huertas · Molina de Segura, Murcia', assistanceData: 'IVECO Assistance Non Stop (ANS) · sin clave indicada' },
+        MERCEDES: { workshop: 'Comercial Dimovil · San Ginés, Murcia', assistanceData: 'My TruckPoint · alternativa Service24h si no está disponible' },
+        MAN: { workshop: 'Serviman · Lorquí, Murcia', assistanceData: 'Clave 20244 · MAN Mobile24' },
+        VOLVO: { workshop: 'Provehima', assistanceData: 'Volvo Action Service (VAS) · sin clave indicada' }
+      };
+      const faultHistory = [
+        'Fallo motor',
+        'Testigo rojo de motor',
+        'Pérdida de potencia del motor',
+        'El vehículo no arranca',
+        'Fuga de refrigerante',
+        'Presión de aceite baja',
+        'Fallo del sistema AdBlue',
+        'Avería en la caja de cambios',
+        'Pinchazo o reventón de neumático'
+      ];
+      const normalizeText = text => text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const editDistance = (left, right) => {
+        const row = Array.from({ length: right.length + 1 }, (_, index) => index);
+        for (let i = 1; i <= left.length; i += 1) {
+          let previous = row[0];
+          row[0] = i;
+          for (let j = 1; j <= right.length; j += 1) {
+            const saved = row[j];
+            row[j] = Math.min(row[j] + 1, row[j - 1] + 1, previous + (left[i - 1] === right[j - 1] ? 0 : 1));
+            previous = saved;
+          }
+        }
+        return row[right.length];
+      };
+      const renderFaultSuggestions = () => {
+        const input = root.querySelector('#wizard-fault');
+        const panel = root.querySelector('#fault-suggestions');
+        const query = normalizeText(input.value);
+        panel.replaceChildren();
+        if (query.length < 3) {
+          panel.hidden = true;
+          return;
+        }
+        const matches = faultHistory.map(description => {
+          const candidate = normalizeText(description);
+          const distance = editDistance(query, candidate);
+          const contains = candidate.includes(query) || query.includes(candidate);
+          return { description, score: contains ? 0 : distance, accepted: contains || distance <= Math.max(2, Math.ceil(candidate.length * 0.28)) };
+        }).filter(match => match.accepted).sort((a, b) => a.score - b.score).slice(0, 5);
+        matches.forEach(match => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'suggestion';
+          button.setAttribute('role', 'option');
+          button.textContent = match.description;
+          button.addEventListener('click', () => {
+            input.value = match.description;
+            panel.hidden = true;
+            updateCallScript();
+            input.focus();
+          });
+          panel.append(button);
+        });
+        panel.hidden = matches.length === 0;
+      };
+      let current = 0;
+      let coverageAllowed = false;
+      let pdfCurrentPage = 0;
+      let pdfZoom = 1;
+      const steps = Array.from(root.querySelectorAll('.step'));
+      const dfm = root.querySelector('#wizard-dfm');
+      const pdfPages = Array.from(root.querySelectorAll('.manual-page-image'));
+      const renderPdfViewer = (moveToPage = false) => {
+        pdfPages.forEach((page, index) => {
+          page.classList.toggle('active', index === pdfCurrentPage);
+          page.style.maxWidth = Math.round(850 * pdfZoom) + 'px';
+        });
+        root.querySelector('#pdf-page-label').textContent = 'Página ' + (pdfCurrentPage + 1) + ' / ' + pdfPages.length;
+        root.querySelector('#pdf-zoom-label').textContent = Math.round(pdfZoom * 100) + '%';
+        root.querySelector('#pdf-prev').disabled = pdfCurrentPage === 0;
+        root.querySelector('#pdf-next').disabled = pdfCurrentPage === pdfPages.length - 1;
+        root.querySelector('#pdf-zoom-out').disabled = pdfZoom <= 0.75;
+        root.querySelector('#pdf-zoom-in').disabled = pdfZoom >= 1.5;
+        if (moveToPage && pdfPages[pdfCurrentPage]) pdfPages[pdfCurrentPage].scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      const render = () => {
+        steps.forEach((step, index) => step.classList.toggle('active', index === current));
+        root.querySelector('#step-label').textContent = 'Paso ' + current + ' de ' + (steps.length - 1);
+        root.querySelector('#step-name').textContent = steps[current].dataset.name;
+        root.querySelector('#progress-fill').style.width = ((current + 1) / steps.length * 100) + '%';
+        root.querySelector('#prev-step').disabled = current === 0;
+        root.querySelector('#next-step').textContent = current === steps.length - 1 ? 'Guardar seguimiento' : 'Siguiente →';
+      };
+      const parseKilometres = value => {
+        const digits = String(value || '').replace(/\D/g, '');
+        return digits ? Number(digits) : 0;
+      };
+      const updateCoverage = () => {
+        const vehicle = fleet[dfm.value];
+        const vehicleClass = root.querySelector('#vehicle-class').value;
+        const registrationValue = root.querySelector('#registration-date').value;
+        const kmValue = parseKilometres(root.querySelector('#wizard-km').value);
+        const years = { tractora: 3, rigido: 4 };
+        const card = root.querySelector('#coverage-card');
+        const status = root.querySelector('#coverage-status');
+        const detail = root.querySelector('#coverage-detail');
+        const escalation = root.querySelector('#coverage-escalation');
+        const checkbox = root.querySelector('#contract-covered');
+        const callButton = root.querySelector('#call-button');
+        const kmWarning = root.querySelector('#km-contract-warning');
+        const brand = vehicle ? vehicle.brand.toUpperCase() : '';
+        const kmLimit = vehicle ? vehicle.contractKm : 0;
+        coverageAllowed = false;
+        checkbox.checked = false;
+        callButton.disabled = true;
+        card.classList.add('blocked');
+        escalation.hidden = false;
+        kmWarning.hidden = true;
+        if (!vehicle || !vehicleClass || !registrationValue || !kmValue || !kmLimit) {
+          status.textContent = 'COMPROBACIÓN PENDIENTE';
+          detail.textContent = 'Faltan datos para comprobar la cobertura: DFM, tipo, fecha de matriculación, kilómetros actuales o fin de contrato de la columna G.';
+          if (vehicle && !kmValue) {
+            kmWarning.hidden = false;
+            kmWarning.textContent = 'Introduce los kilómetros actuales para comprobar el fin de contrato.';
+          }
+          return;
+        }
+        const expiry = new Date(registrationValue + 'T00:00:00');
+        expiry.setFullYear(expiry.getFullYear() + years[vehicleClass]);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dateExceeded = today > expiry;
+        const kmExceeded = kmValue > kmLimit;
+        const expiryText = expiry.toLocaleDateString('es-ES');
+        const kmText = kmLimit.toLocaleString('es-ES') + ' km · dato de MANTENIMENT';
+        detail.textContent = 'Vigencia hasta ' + expiryText + ' · Límite ' + kmText + ' · Kilómetros actuales ' + kmValue.toLocaleString('es-ES') + ' km.';
+        if (dateExceeded || kmExceeded) {
+          const reasons = [];
+          if (dateExceeded) reasons.push('fecha contractual superada');
+          if (kmExceeded) reasons.push('kilometraje contractual superado');
+          status.textContent = 'FUERA DE COBERTURA · ' + reasons.join(' y ');
+          kmWarning.hidden = false;
+          kmWarning.textContent = 'NO SE PUEDE CONTINUAR · ' + reasons.join(' y ') + '. Actual: ' + kmValue.toLocaleString('es-ES') + ' km · Fin de contrato: ' + kmLimit.toLocaleString('es-ES') + ' km. Llama a TM 606 655 189, Gestión BCN 697 728 258 o Área de Mantenimiento 669 208 633.';
+          return;
+        }
+        coverageAllowed = true;
+        checkbox.checked = true;
+        callButton.disabled = false;
+        card.classList.remove('blocked');
+        escalation.hidden = true;
+        status.textContent = 'COBERTURA COMPROBADA';
+        kmWarning.hidden = false;
+        kmWarning.textContent = 'Kilometraje dentro de contrato · ' + kmValue.toLocaleString('es-ES') + ' de ' + kmLimit.toLocaleString('es-ES') + ' km.';
+      };
+      const updateCallScript = () => {
+        const vehicle = fleet[dfm.value];
+        if (!vehicle) return;
+        const manufacturerProtocol = manufacturerProtocols[vehicle.brand.toUpperCase()] || {};
+        const locationType = root.querySelector('#location-type').value;
+        const roadMode = locationType === 'road';
+        const fixedLocations = {
+          abrera: { name: 'Bloque logístico Abrera', code: 'GV6V+62 Abrera' },
+          sansa: { name: 'Bloque logístico Sansa', code: "CRJ3+HG Sant Sadurní d'Anoia" },
+          disfrimur: { name: 'Nave Disfrimur', code: "CRM4+G2 Sant Sadurní d'Anoia" }
+        };
+        const locationLabels = { industrial: 'Polígono', store: 'Tienda', other: 'Otro' };
+        const roadName = root.querySelector('#road-name').value.trim();
+        const roadPk = root.querySelector('#road-pk').value.trim();
+        const roadDirection = root.querySelector('#road-direction').value;
+        const standard = root.querySelector('#wizard-location').value.trim();
+        let location;
+        if (roadMode) {
+          location = (roadName || '[carretera pendiente]') + ', PK ' + (roadPk || '[pendiente]') + ', sentido ' + (roadDirection || '[pendiente]');
+        } else if (fixedLocations[locationType]) {
+          const fixed = fixedLocations[locationType];
+          location = fixed.name + ' · ' + fixed.code + (standard ? ' · ' + standard : '');
+        } else {
+          location = (locationLabels[locationType] || 'Ubicación') + ': ' + (standard || '[especificar pendiente]');
+        }
+        const fault = root.querySelector('#wizard-fault').value.trim() || '[avería pendiente]';
+        root.querySelector('#call-title').textContent = vehicle.assistance;
+        root.querySelector('#call-detail').textContent = vehicle.phone + ' · Según contrato de la empresa';
+        root.querySelector('#call-script').textContent = 'DFM ' + dfm.value + ', matrícula ' + vehicle.plate + ', ' + vehicle.brand + ', ubicado en ' + location + '. Avería comunicada: ' + fault + '.';
+        root.querySelector('#communication-script').textContent = 'DFM ' + dfm.value + ', matrícula ' + vehicle.plate + ', ' + vehicle.brand + ', ubicado en ' + location + '. Avería comunicada: ' + fault + '.';
+        const driverName = root.querySelector('#driver-name').value.trim();
+        const driverPhone = root.querySelector('#driver-phone').value.trim();
+        const items = [
+          ['DFM y matrícula', 'DFM ' + dfm.value + ' · ' + vehicle.plate, true],
+          ['Marca y bastidor', vehicle.brand + ' · ' + vehicle.vin, true],
+          ['Taller de referencia', manufacturerProtocol.workshop || '', true],
+          ['Clave / canal según marca', manufacturerProtocol.assistanceData || '', true],
+          ['Kilómetros', root.querySelector('#wizard-km').value, true],
+          ['Ubicación', location.includes('[pendiente]') ? '' : location, true],
+          [root.querySelector('#location-format').value === 'coordinates' ? 'Coordenadas' : 'Plus Code', root.querySelector('#location-gps').value, false],
+          ['Avería literal', root.querySelector('#wizard-fault').value.trim(), true],
+          ['Código y color', (root.querySelector('#alarm-code').value || 'Sin código') + ' · ' + root.querySelector('#alarm-color').value, false],
+          ['Conductor y teléfono', driverPhone ? ((driverName || 'Conductor') + ' · ' + driverPhone) : '', true],
+          ['Semirremolque', root.querySelector('#trailer-plate').value, false],
+          ['Carga', root.querySelector('#load-temperature').value, false]
+        ];
+        const summary = root.querySelector('#communication-summary');
+        summary.replaceChildren();
+        items.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'timeline-row';
+          const state = document.createElement('span');
+          state.className = 'viz-badge';
+          const missing = item[2] && !item[1];
+          state.textContent = missing ? 'FALTA' : (item[1] ? 'OK' : 'OPCIONAL');
+          const detail = document.createElement('div');
+          const label = document.createElement('strong');
+          label.textContent = item[0];
+          const value = document.createElement('div');
+          value.className = missing ? 'text-small text-destructive' : 'text-small text-muted';
+          value.textContent = item[1] || (item[2] ? 'Dato necesario antes de llamar' : 'No aplica / no informado');
+          detail.append(label, value);
+          row.append(state, detail);
+          summary.append(row);
+        });
+        const callSummary = root.querySelector('#call-data-list');
+        callSummary.replaceChildren();
+        Array.from(summary.children).forEach(row => callSummary.append(row.cloneNode(true)));
+      };
+      dfm.addEventListener('change', () => {
+        const vehicle = fleet[dfm.value];
+        root.querySelector('#wizard-plate').textContent = vehicle ? vehicle.plate : '—';
+        root.querySelector('#wizard-brand').textContent = vehicle ? vehicle.brand : '—';
+        root.querySelector('#wizard-vin').textContent = vehicle ? vehicle.vin : '—';
+        root.querySelector('#wizard-upc').textContent = vehicle ? vehicle.upc : '—';
+        root.querySelector('#wizard-motor').textContent = vehicle && vehicle.motor ? vehicle.motor : '—';
+        root.querySelector('#wizard-category').textContent = vehicle && vehicle.category ? vehicle.category : '—';
+        root.querySelector('#wizard-contract-km').textContent = vehicle && vehicle.contractKm ? vehicle.contractKm.toLocaleString('es-ES') + ' km' : '—';
+        root.querySelector('#wizard-vehicle-phone').textContent = vehicle && vehicle.driverPhone ? vehicle.driverPhone : '—';
+        root.querySelector('#driver-phone').value = vehicle && vehicle.driverPhone ? vehicle.driverPhone : '';
+        root.querySelector('#vehicle-class').value = vehicle && vehicle.vehicleClass ? vehicle.vehicleClass : '';
+        root.querySelector('#registration-date').value = vehicle && vehicle.registrationDate ? vehicle.registrationDate : '';
+        root.querySelector('#vehicle-class-display').textContent = vehicle && vehicle.vehicleClass ? (vehicle.vehicleClass === 'tractora' ? 'Tractora' : 'Rígido') : 'Dato no encontrado en ALTA';
+        root.querySelector('#registration-date-display').textContent = vehicle && vehicle.registrationDate ? new Date(vehicle.registrationDate + 'T00:00:00').toLocaleDateString('es-ES') : 'Dato no encontrado en ALTA';
+        updateCoverage();
+        updateCallScript();
+      });
+      const fleetGroups = { FLOTA: [], RESERVA: [], OTROS: [] };
+      Object.keys(fleet).sort((a, b) => Number(a) - Number(b)).forEach(code => {
+        const group = fleet[code].category === 'FLOTA' ? 'FLOTA' : (fleet[code].category === 'RESERVA' ? 'RESERVA' : 'OTROS');
+        fleetGroups[group].push(code);
+      });
+      Object.entries(fleetGroups).forEach(([label, codes]) => {
+        if (!codes.length) return;
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = label === 'OTROS' ? 'Otros vehículos' : label;
+        codes.forEach(code => {
+          const option = document.createElement('option');
+          option.value = code;
+          option.textContent = 'DFM ' + code + ' · ' + (fleet[code].plate || 'sin matrícula');
+          optgroup.append(option);
+        });
+        dfm.append(optgroup);
+      });
+      root.querySelector('#wizard-km').addEventListener('input', updateCoverage);
+      root.querySelector('#wizard-km').addEventListener('blur', event => {
+        const km = parseKilometres(event.target.value);
+        if (km) event.target.value = km.toLocaleString('es-ES');
+      });
+      root.querySelector('#vehicle-class').addEventListener('change', updateCoverage);
+      root.querySelector('#registration-date').addEventListener('change', updateCoverage);
+      root.querySelector('#location-type').addEventListener('change', event => {
+        const locationType = event.target.value;
+        const roadMode = locationType === 'road';
+        const fixedMode = ['abrera', 'sansa', 'disfrimur'].includes(locationType);
+        const locationCodes = {
+          abrera: 'GV6V+62 Abrera',
+          sansa: "CRJ3+HG Sant Sadurní d'Anoia",
+          disfrimur: "CRM4+G2 Sant Sadurní d'Anoia"
+        };
+        root.querySelector('#road-location').hidden = !roadMode;
+        root.querySelector('#standard-location').hidden = roadMode || fixedMode;
+        root.querySelector('#location-format').value = 'plus';
+        root.querySelector('#location-reference-label').textContent = 'Plus Code';
+        root.querySelector('#location-gps').placeholder = 'Ej. GV6V+62 Abrera';
+        root.querySelector('#location-gps').value = locationCodes[locationType] || '';
+        root.querySelector('#wizard-location').value = '';
+        updateCallScript();
+      });
+      root.querySelector('#location-format').addEventListener('change', event => {
+        const coordinatesMode = event.target.value === 'coordinates';
+        const locationType = root.querySelector('#location-type').value;
+        const locationCodes = {
+          abrera: 'GV6V+62 Abrera',
+          sansa: "CRJ3+HG Sant Sadurní d'Anoia",
+          disfrimur: "CRM4+G2 Sant Sadurní d'Anoia"
+        };
+        const locationCoordinates = {
+          abrera: '41.510562, 1.892562',
+          sansa: '41.431438, 1.803813',
+          disfrimur: '41.433813, 1.805063'
+        };
+        root.querySelector('#location-reference-label').textContent = coordinatesMode ? 'Coordenadas' : 'Plus Code';
+        root.querySelector('#location-gps').placeholder = coordinatesMode ? 'Ej. 41.5167, 1.9012' : 'Ej. GV6V+62 Abrera';
+        root.querySelector('#location-gps').value = coordinatesMode ? (locationCoordinates[locationType] || '') : (locationCodes[locationType] || '');
+        updateCallScript();
+      });
+      root.querySelector('#location-gps').addEventListener('input', updateCallScript);
+      root.querySelector('#case-number-call').addEventListener('input', event => {
+        root.querySelector('#case-number').value = event.target.value;
+      });
+      root.querySelector('#case-number').addEventListener('input', event => {
+        root.querySelector('#case-number-call').value = event.target.value;
+      });
+      root.querySelectorAll('input[name="start-mode"]').forEach(option => option.addEventListener('change', event => {
+        root.querySelector('#manual-access-note').hidden = event.target.value !== 'manual';
+        if (event.target.value === 'guided' && current === 0) {
+          current = 1;
+          root.querySelector('#wizard-notice').classList.remove('show');
+          render();
+        }
+      }));
+      root.querySelector('#access-manual-link').addEventListener('click', event => {
+        root.querySelector('#access-manual').checked = true;
+        root.querySelector('#manual-access-note').hidden = false;
+      });
+      root.querySelector('#close-manual').addEventListener('click', () => {
+        root.querySelector('#manual-view').hidden = true;
+        root.querySelector('#wizard-body').hidden = false;
+        root.querySelector('#wizard-body').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      root.querySelector('#pdf-prev').addEventListener('click', () => {
+        if (pdfCurrentPage > 0) pdfCurrentPage -= 1;
+        renderPdfViewer(true);
+      });
+      root.querySelector('#pdf-next').addEventListener('click', () => {
+        if (pdfCurrentPage < pdfPages.length - 1) pdfCurrentPage += 1;
+        renderPdfViewer(true);
+      });
+      root.querySelector('#pdf-zoom-out').addEventListener('click', () => {
+        pdfZoom = Math.max(0.75, pdfZoom - 0.25);
+        renderPdfViewer();
+      });
+      root.querySelector('#pdf-zoom-in').addEventListener('click', () => {
+        pdfZoom = Math.min(1.5, pdfZoom + 0.25);
+        renderPdfViewer();
+      });
+      root.querySelector('#pdf-fullscreen').addEventListener('click', async () => {
+        const viewer = root.querySelector('#manual-view');
+        if (viewer.requestFullscreen) await viewer.requestFullscreen();
+      });
+      const updateFollowStatus = () => {
+        const completed = root.querySelectorAll('.follow-check:checked').length;
+        const total = root.querySelectorAll('.follow-check').length;
+        root.querySelector('#follow-status span').textContent = completed + ' de ' + total + ' hitos confirmados · ' + root.querySelector('#follow-result').value + '.';
+      };
+      const toggleFollowDetail = (checkId, detailId) => {
+        const check = root.querySelector(checkId);
+        const detail = root.querySelector(detailId);
+        check.addEventListener('change', () => {
+          detail.hidden = !check.checked;
+          updateFollowStatus();
+        });
+      };
+      toggleFollowDetail('#follow-arrival', '#follow-arrival-detail');
+      toggleFollowDetail('#follow-diagnosis', '#follow-diagnosis-detail');
+      toggleFollowDetail('#follow-transfer', '#follow-transfer-detail');
+      root.querySelector('#follow-road-repair').addEventListener('change', event => {
+        if (event.target.checked) {
+          root.querySelector('#follow-transfer').checked = false;
+          root.querySelector('#follow-transfer-detail').hidden = true;
+          root.querySelector('#follow-result').value = 'Reparado en carretera';
+        }
+        updateFollowStatus();
+      });
+      root.querySelector('#follow-transfer').addEventListener('change', event => {
+        if (event.target.checked) {
+          root.querySelector('#follow-road-repair').checked = false;
+          root.querySelector('#follow-result').value = 'Trasladado a taller · mantener misma INC';
+        }
+      });
+      root.querySelectorAll('.follow-check:not(#follow-arrival):not(#follow-diagnosis):not(#follow-road-repair):not(#follow-transfer)').forEach(check => check.addEventListener('change', updateFollowStatus));
+      root.querySelector('#follow-result').addEventListener('change', event => {
+        const completed = root.querySelectorAll('.follow-check:checked').length;
+        const total = root.querySelectorAll('.follow-check').length;
+        root.querySelector('#follow-status span').textContent = completed + ' de ' + total + ' hitos confirmados · ' + event.target.value + '.';
+      });
+      root.querySelector('#wizard-location').addEventListener('input', updateCallScript);
+      root.querySelector('#road-name').addEventListener('input', updateCallScript);
+      root.querySelector('#road-pk').addEventListener('input', updateCallScript);
+      root.querySelector('#road-direction').addEventListener('change', updateCallScript);
+      root.querySelector('#wizard-fault').addEventListener('input', () => {
+        updateCallScript();
+        renderFaultSuggestions();
+      });
+      root.querySelector('#load-temperature').addEventListener('change', updateCallScript);
+      root.querySelector('#prev-step').addEventListener('click', () => { if (current > 0) current -= 1; render(); });
+      root.querySelector('#next-step').addEventListener('click', () => {
+        const notice = root.querySelector('#wizard-notice');
+        if (current === 0 && !root.querySelector('input[name="start-mode"]:checked')) {
+          notice.textContent = 'Elige si quieres acceder al manual o ser guiado por la app.';
+          notice.classList.add('show');
+          return;
+        }
+        if (current === 1 && !dfm.value) {
+          notice.textContent = 'Selecciona el DFM antes de continuar.';
+          notice.classList.add('show');
+          return;
+        }
+        if (current === 1 && !parseKilometres(root.querySelector('#wizard-km').value)) {
+          notice.textContent = 'Introduce los kilómetros actuales para comprobar el fin de contrato.';
+          notice.classList.add('show');
+          return;
+        }
+        if (current === 1 && !coverageAllowed) {
+          notice.textContent = 'No puedes continuar: se ha superado una condición del contrato. Llama a TM 606 655 189, Gestión BCN 697 728 258 o Área de Mantenimiento 669 208 633.';
+          notice.classList.add('show');
+          return;
+        }
+        if (current === 2 && !root.querySelector('#safe-place').checked) {
+          notice.textContent = 'Antes de continuar, confirma que el vehículo está en un lugar seguro o correctamente señalizado.';
+          notice.classList.add('show');
+          return;
+        }
+        if (current === 2 && !root.querySelector('#occupants-safe').checked) {
+          notice.textContent = 'Antes de continuar, confirma que el conductor y los ocupantes están fuera de peligro.';
+          notice.classList.add('show');
+          return;
+        }
+        if (current === 2) {
+          const phone = root.querySelector('#driver-phone').value.trim();
+          const phoneDigits = phone.replace(/\D/g, '');
+          const validPhone = phoneDigits.length >= 9 && phoneDigits.length <= 15;
+          if (!phone) {
+            notice.textContent = 'Introduce el teléfono del conductor antes de continuar.';
+            notice.classList.add('show');
+            return;
+          }
+          if (!validPhone) {
+            notice.textContent = 'El teléfono no tiene un formato válido. Usa 9 cifras o un prefijo internacional, por ejemplo +34 612 345 678.';
+            notice.classList.add('show');
+            return;
+          }
+        }
+        if (current === 3 && root.querySelector('#location-type').value === 'road') {
+          const roadComplete = root.querySelector('#road-name').value.trim() && root.querySelector('#road-pk').value.trim() && root.querySelector('#road-direction').value;
+          if (!roadComplete) {
+            notice.textContent = 'Para una avería en carretera debes indicar carretera, punto kilométrico y sentido.';
+            notice.classList.add('show');
+            return;
+          }
+        }
+        if (current === 3 && ['industrial', 'store', 'other'].includes(root.querySelector('#location-type').value) && !root.querySelector('#wizard-location').value.trim()) {
+          notice.textContent = 'Para polígono, tienda u otro debes completar la casilla Especificar.';
+          notice.classList.add('show');
+          return;
+        }
+        if (current === 4 && !root.querySelector('#summary-confirmed').checked) {
+          notice.textContent = 'Revisa el listado y confirma que los datos están preparados antes de pasar a la llamada.';
+          notice.classList.add('show');
+          return;
+        }
+        if (current === 5 && !coverageAllowed) {
+          notice.textContent = 'No puedes continuar ni activar el 24H. Llama por este orden: TM 606 655 189, Gestión Mantenimiento BCN 697 728 258 y Área de Mantenimiento 669 208 633.';
+          notice.classList.add('show');
+          return;
+        }
+        if (current === steps.length - 1 && root.querySelector('#follow-arrival').checked && !root.querySelector('#actual-arrival-time').value) {
+          notice.textContent = 'Indica la hora real de llegada del técnico.';
+          notice.classList.add('show');
+          return;
+        }
+        if (current === steps.length - 1 && root.querySelector('#follow-diagnosis').checked && !root.querySelector('#confirmed-diagnosis').value.trim()) {
+          notice.textContent = 'Escribe la descripción de la avería confirmada.';
+          notice.classList.add('show');
+          return;
+        }
+        if (current === steps.length - 1 && root.querySelector('#follow-transfer').checked && !root.querySelector('#transfer-workshop').value.trim()) {
+          notice.textContent = 'Indica el taller al que se ha trasladado el vehículo.';
+          notice.classList.add('show');
+          return;
+        }
+        notice.classList.remove('show');
+        if (current < steps.length - 1) {
+          current += 1;
+          updateCallScript();
+          render();
+        } else {
+          notice.textContent = 'Seguimiento 24H guardado. INC y línea AV permanecen abiertas hasta confirmar la reparación definitiva.';
+          notice.classList.add('show');
+        }
+      });
+      root.querySelector('#call-button').addEventListener('click', () => {
+        const vehicle = fleet[dfm.value];
+        const notice = root.querySelector('#wizard-notice');
+        if (!vehicle) {
+          notice.textContent = 'Selecciona primero el DFM.';
+          notice.classList.add('show');
+          return;
+        }
+        const callablePhone = vehicle.phone.replace(/[^\d+]/g, '');
+        if (!/^\+?\d{6,15}$/.test(callablePhone)) {
+          notice.textContent = 'Este vehículo todavía no tiene un teléfono 24H válido configurado. Consulta el manual e introdúcelo en la ficha del vehículo.';
+          notice.classList.add('show');
+          return;
+        }
+        notice.textContent = 'Abriendo la llamada a ' + vehicle.assistance + '. Activa el altavoz manualmente y vuelve a la app para consultar los datos y anotar el número del operador.';
+        notice.classList.add('show');
+        window.location.href = 'tel:' + callablePhone;
+      });
+      updateCoverage();
+      renderPdfViewer();
+      render();
+    })();
+  </script>
+</div>
+<footer class="app-footer">© 2026 Metrogestión. Todos los derechos reservados.</footer>
+</div>
+</body>
+</html>
