@@ -1,5 +1,11 @@
 # Metrogestión 24H — Memorando de versiones
 
+## Beta 1.7 — 29/07/2026
+
+- El DFM permanece visible en todos los pasos de la activación.
+- La matrícula también se muestra permanentemente.
+- La identificación se actualiza al escribir, seleccionar o introducir manualmente el vehículo.
+
 ## Beta 1.6 — 29/07/2026
 
 - El panel principal abre el asistente completo de activación 24H.
