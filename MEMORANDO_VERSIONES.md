@@ -1,5 +1,14 @@
 # Metrogestión 24H — Memorando de versiones
 
+## Beta 1.6 — 29/07/2026
+
+- El panel principal abre el asistente completo de activación 24H.
+- Comprobación automática del límite de kilómetros del contrato.
+- Comprobación del vencimiento por fecha: tres años para tractoras y cuatro para rígidos.
+- Bloqueo del avance cuando se supera cualquiera de las dos condiciones.
+- Aviso con los teléfonos de TM, Gestión Mantenimiento BCN y Área de Mantenimiento.
+- Botón para volver al panel principal.
+
 ## Beta 1.5 — 27/07/2026
 
 - Nueva pestaña «Mi cuenta» disponible para todos.
