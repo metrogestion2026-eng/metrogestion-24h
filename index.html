@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#075985">
-  <title>Metrogestión 24H · Beta 1.6</title>
+  <title>Metrogestión 24H · Beta 1.7</title>
   <style>
     :root {
       --background:#fff; --foreground:#172033; --primary:#075985;
@@ -38,7 +38,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Metrogestión 24H</strong><small>Beta 1.6</small></header>
+  <header class="app-head"><strong>Metrogestión 24H</strong><small>Beta 1.7</small></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -167,6 +167,10 @@
 
     <section id="view-versions" class="stack hidden">
       <div><strong>Memorando de versiones</strong><div class="text-small text-muted">Historial breve para consultar qué se ha modificado en cada publicación.</div></div>
+      <div class="card stack">
+        <strong>Beta 1.7 · 29/07/2026</strong>
+        <div>Se recupera la identificación permanente del vehículo: el DFM y la matrícula permanecen visibles durante todos los pasos de la activación.</div>
+      </div>
       <div class="card stack">
         <strong>Beta 1.6 · 29/07/2026</strong>
         <div>El botón Activar 24H abre el asistente completo. Se bloquea el avance cuando los kilómetros o la fecha superan el contrato y se muestran los teléfonos de escalado.</div>
@@ -696,7 +700,7 @@
       root.querySelectorAll('.app-tab').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
       root.querySelector('#incidence-search').addEventListener('input', renderIncidences);
       root.querySelector('#new-activation').addEventListener('click', () => {
-        window.location.href = 'activar-24h.html?v=1.6';
+        window.location.href = 'activar-24h.html?v=1.7';
       });
       root.querySelector('#back-incidences').addEventListener('click', () => setView('mine'));
       root.querySelector('#activation-guided').addEventListener('click', () => {
