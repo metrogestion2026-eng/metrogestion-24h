@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#075985">
-  <title>Metrogestión · Activar 24H Beta 1.6</title>
+  <title>Metrogestión · Activar 24H Beta 1.7</title>
   <style>
     :root {
       --background: #ffffff;
@@ -113,6 +113,8 @@
     #roadside-wizard .right { justify-content: flex-end; }
     #roadside-wizard .wizard-nav { position: sticky; bottom: 0; z-index: 10; justify-content: space-between; padding: 12px; margin: 0 -16px -16px; border-top: 1px solid var(--border); background: var(--background); box-shadow: 0 -6px 18px color-mix(in srgb, var(--foreground) 10%, transparent); }
     #roadside-wizard .wizard-nav .btn { min-height: 44px; }
+    #roadside-wizard .vehicle-context { position: sticky; top: 0; z-index: 9; padding: 10px 12px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 10px; background: var(--background); box-shadow: 0 4px 12px color-mix(in srgb, var(--foreground) 8%, transparent); }
+    #roadside-wizard .vehicle-context strong { color: var(--primary); }
     @media (max-width: 640px) {
       #roadside-wizard .grid-2, #roadside-wizard .vehicle-grid { grid-template-columns: 1fr; }
       #roadside-wizard .wide { grid-column: auto; }
@@ -121,12 +123,16 @@
   <div class="shell">
     <header class="top">
       <div class="brand"><i data-lucide="siren" aria-hidden="true"></i><span>Activar 24H</span></div>
-      <div class="actions"><button id="back-to-panel" type="button" class="btn btn-secondary">← Panel</button><span class="viz-badge">Beta 1.6</span><span class="viz-badge">Manual v2.1</span></div>
+      <div class="actions"><button id="back-to-panel" type="button" class="btn btn-secondary">← Panel</button><span class="viz-badge">Beta 1.7</span><span class="viz-badge">Manual v2.1</span></div>
     </header>
     <main id="wizard-body" class="body">
       <div>
         <div class="progress-label"><span id="step-label">Paso 0 de 7</span><span class="text-small text-muted" id="step-name">Manual o ser guiado</span></div>
         <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+      <div class="vehicle-context" aria-live="polite">
+        <span><span class="text-small text-muted">Vehículo activo</span><br><strong id="persistent-dfm">DFM —</strong></span>
+        <span><span class="text-small text-muted">Matrícula</span><br><strong id="persistent-plate">—</strong></span>
       </div>
 
       <section class="step active" data-step="-1" data-name="Manual o ser guiado">
@@ -1496,6 +1502,8 @@ Resumen de contactos
       const syncSelectedVehicle = () => {
         const key = resolveVehicleKey();
         const vehicle = getSelectedVehicle();
+        root.querySelector('#persistent-dfm').textContent = getDfmCode() ? 'DFM ' + getDfmCode() : 'DFM —';
+        root.querySelector('#persistent-plate').textContent = vehicle && vehicle.plate ? vehicle.plate : '—';
         root.querySelector('#manual-vehicle-panel').hidden = !dfm.value.trim() || Boolean(key);
         root.querySelector('#wizard-plate').textContent = vehicle ? vehicle.plate : '—';
         root.querySelector('#wizard-brand').textContent = vehicle ? vehicle.brand : '—';
