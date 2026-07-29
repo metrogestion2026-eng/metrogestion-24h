@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#075985">
-  <title>Metrogestión 24H · Beta 1.5</title>
+  <title>Metrogestión 24H · Beta 1.6</title>
   <style>
     :root {
       --background:#fff; --foreground:#172033; --primary:#075985;
@@ -38,7 +38,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Metrogestión 24H</strong><small>Beta 1.5</small></header>
+  <header class="app-head"><strong>Metrogestión 24H</strong><small>Beta 1.6</small></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -167,6 +167,10 @@
 
     <section id="view-versions" class="stack hidden">
       <div><strong>Memorando de versiones</strong><div class="text-small text-muted">Historial breve para consultar qué se ha modificado en cada publicación.</div></div>
+      <div class="card stack">
+        <strong>Beta 1.6 · 29/07/2026</strong>
+        <div>El botón Activar 24H abre el asistente completo. Se bloquea el avance cuando los kilómetros o la fecha superan el contrato y se muestran los teléfonos de escalado.</div>
+      </div>
       <div class="card stack">
         <strong>Beta 1.5 · 27/07/2026</strong>
         <div>Cada usuario puede cambiar su propio PIN confirmando el PIN actual y escribiendo dos veces el nuevo.</div>
@@ -692,18 +696,7 @@
       root.querySelectorAll('.app-tab').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
       root.querySelector('#incidence-search').addEventListener('input', renderIncidences);
       root.querySelector('#new-activation').addEventListener('click', () => {
-        root.querySelector('#activation-start').classList.remove('hidden');
-        root.querySelector('#activation-identification').classList.add('hidden');
-        root.querySelector('#activation-safety').classList.add('hidden');
-        root.querySelector('#activation-fault').classList.add('hidden');
-        root.querySelector('#activation-communication').classList.add('hidden');
-        root.querySelector('#activation-call').classList.add('hidden');
-        root.querySelector('#activation-register').classList.add('hidden');
-        root.querySelector('#activation-follow').classList.add('hidden');
-        root.querySelector('#activation-manual-note').classList.add('hidden');
-        root.querySelector('#activation-step-label').textContent = 'Paso 0 · Inicio';
-        root.querySelector('#activation-dfm-context strong').textContent = 'DFM —';
-        setView('activation');
+        window.location.href = 'activar-24h.html?v=1.6';
       });
       root.querySelector('#back-incidences').addEventListener('click', () => setView('mine'));
       root.querySelector('#activation-guided').addEventListener('click', () => {
