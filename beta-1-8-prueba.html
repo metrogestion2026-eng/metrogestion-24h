@@ -1,0 +1,1110 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#075985">
+  <title>Programa de gestión · Beta 1.8</title>
+  <style>
+    :root {
+      --background:#fff; --foreground:#172033; --primary:#075985;
+      --primary-foreground:#fff; --border:#d8e1ea; --muted:#f1f5f9;
+      --muted-foreground:#526273; --destructive:#dc2626;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; min-width:320px; color:var(--foreground); background:linear-gradient(180deg,#dceef8,#f8fafc 320px); font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    .app-frame { width:min(100%,980px); min-height:100vh; margin:auto; padding:16px; }
+    button,input,select,textarea { font:inherit; }
+    label { display:grid; gap:6px; font-weight:650; }
+    .card { padding:16px; background:#fff; border:1px solid var(--border); border-radius:14px; box-shadow:0 3px 14px rgba(15,23,42,.06); }
+    .btn { min-height:44px; padding:10px 14px; display:inline-flex; align-items:center; justify-content:center; border:1px solid transparent; border-radius:10px; font-weight:700; cursor:pointer; text-decoration:none; }
+    .btn-primary { color:#fff; background:var(--primary); }
+    .btn-secondary { color:var(--foreground); background:#fff; border-color:var(--border); }
+    .form-control,.form-select { width:100%; min-height:44px; padding:9px 11px; color:var(--foreground); background:#fff; border:1px solid #aebdca; border-radius:10px; }
+    textarea.form-control { min-height:90px; resize:vertical; }
+    .text-small { font-size:13px; }
+    .text-muted { color:var(--muted-foreground); }
+    .viz-row { display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; }
+    .app-head { margin-bottom:14px; padding:14px 16px; color:#fff; background:var(--primary); border-radius:14px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .app-head small { opacity:.8; }
+    .app-footer { padding:20px 8px 8px; text-align:center; color:var(--muted-foreground); font-size:12px; }
+    @media(max-width:600px) {
+      .app-frame { padding:0; }
+      .app-head { margin:0; border-radius:0; padding-top:max(14px,env(safe-area-inset-top)); }
+      #incidence-access-mockup { padding:14px; }
+      .btn { width:100%; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-frame">
+  <header class="app-head"><strong>Programa de gestión</strong><small>Beta 1.8 · Prueba</small></header>
+<div id="incidence-access-mockup">
+  <style>
+    #incidence-access-mockup { color: var(--foreground); }
+    #incidence-access-mockup .shell { display: grid; gap: 16px; }
+    #incidence-access-mockup .login-wrap { max-width: 440px; margin: 12px auto; display: grid; gap: 14px; }
+    #incidence-access-mockup .stack { display: grid; gap: 12px; }
+    #incidence-access-mockup .topbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    #incidence-access-mockup .brand { display: grid; gap: 2px; }
+    #incidence-access-mockup .brand strong { font-weight: 500; }
+    #incidence-access-mockup .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    #incidence-access-mockup .toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; align-items: end; }
+    #incidence-access-mockup .incidence-list { display: grid; gap: 10px; }
+    #incidence-access-mockup .incidence { width: 100%; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; text-align: left; align-items: center; }
+    #incidence-access-mockup .incidence-main { display: grid; gap: 4px; }
+    #incidence-access-mockup .meta { display: flex; gap: 8px 14px; flex-wrap: wrap; color: var(--muted-foreground); }
+    #incidence-access-mockup .status { font-weight: 500; }
+    #incidence-access-mockup .status.open { color: var(--foreground); }
+    #incidence-access-mockup .detail-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+    #incidence-access-mockup .detail-grid div { display: grid; gap: 3px; }
+    #incidence-access-mockup .detail-grid span { color: var(--muted-foreground); }
+    #incidence-access-mockup .user-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; }
+    #incidence-access-mockup .locked-tab { opacity:.62; border-style:dashed; }
+    #incidence-access-mockup .locked-tab::before { content:'🔒'; margin-right:6px; }
+    #incidence-access-mockup .module-tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; }
+    #incidence-access-mockup .module-tabs .btn { white-space:nowrap; }
+    #incidence-access-mockup .hotel-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    #incidence-access-mockup .metric { padding:13px; border:1px solid var(--border); border-radius:12px; background:#fff; display:grid; gap:3px; }
+    #incidence-access-mockup .metric strong { font-size:24px; }
+    #incidence-access-mockup .hotel-list { display:grid; gap:12px; }
+    #incidence-access-mockup .hotel-unit { border-left:8px solid #cbd5e1; }
+    #incidence-access-mockup .hotel-unit.status-free { background:#ecfdf3; border-left-color:#86d39a; }
+    #incidence-access-mockup .hotel-unit.status-plan { background:#fff9d9; border-left-color:#e8cf67; }
+    #incidence-access-mockup .hotel-unit.status-workshop { background:#f4ecfb; border-left-color:#bca0d8; }
+    #incidence-access-mockup .hotel-unit.status-ready { background:#eaf4ff; border-left-color:#8dbce5; }
+    #incidence-access-mockup .hotel-unit.status-route { background:#fff0df; border-left-color:#e6a564; }
+    #incidence-access-mockup .hotel-title { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    #incidence-access-mockup .badge { display:inline-flex; align-items:center; min-height:28px; padding:4px 9px; border-radius:999px; background:rgba(255,255,255,.72); border:1px solid rgba(82,98,115,.22); font-size:12px; font-weight:750; }
+    #incidence-access-mockup .priority-1 { color:#991b1b; border-color:#fecaca; background:#fff1f2; }
+    #incidence-access-mockup .stage-list { display:grid; gap:7px; margin:0; padding:0; list-style:none; }
+    #incidence-access-mockup .stage { display:flex; gap:9px; align-items:center; padding:8px 10px; border-radius:9px; background:rgba(255,255,255,.7); }
+    #incidence-access-mockup .stage.done { background:#dcfce7; color:#166534; }
+    #incidence-access-mockup .hotel-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    #incidence-access-mockup .hotel-actions .btn { min-height:38px; padding:7px 10px; font-size:13px; }
+    #incidence-access-mockup .sync-note { border-left:4px solid #f59e0b; background:#fffbeb; }
+    #incidence-access-mockup .hidden { display: none !important; }
+    @media (max-width: 560px) {
+      #incidence-access-mockup .toolbar, #incidence-access-mockup .detail-grid { grid-template-columns: 1fr; }
+      #incidence-access-mockup .incidence { grid-template-columns: 1fr; }
+      #incidence-access-mockup .hotel-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      #incidence-access-mockup .module-tabs .btn { width:auto; }
+    }
+  </style>
+
+  <section id="mock-login" class="login-wrap">
+    <div class="card stack">
+      <div>
+        <strong>Programa de gestión · Acceso</strong>
+        <div class="text-small text-muted">Cada usuario accede con su nombre y PIN personal.</div>
+      </div>
+      <label>Usuario
+        <select id="mock-user" class="form-select">
+          <option value="Metrogestión">Metrogestión · Administrador</option>
+          <option value="Diego">Diego · Usuario</option>
+          <option value="Ionut">Ionut · Usuario</option>
+        </select>
+      </label>
+      <label>PIN
+        <input id="mock-pin" class="form-control" type="password" inputmode="numeric" maxlength="6" placeholder="Introduce tu PIN">
+      </label>
+      <div id="login-message" class="text-small text-muted">Maqueta: introduce cualquier PIN de 4 a 6 cifras.</div>
+      <button id="mock-enter" class="btn btn-primary" type="button">Entrar</button>
+    </div>
+    <div class="text-small text-muted">Solo Metrogestión puede crear usuarios, cambiar PIN, bloquear accesos y consultar todas las incidencias.</div>
+  </section>
+
+  <section id="mock-app" class="shell hidden">
+    <div class="topbar">
+      <div class="brand">
+        <strong>Programa de gestión</strong>
+        <span id="session-label" class="text-small text-muted"></span>
+      </div>
+      <button id="mock-logout" class="btn btn-secondary" type="button">Cerrar sesión</button>
+    </div>
+
+    <nav class="tabs" aria-label="Secciones">
+      <button class="btn btn-primary app-tab" data-view="mine" type="button">Mis incidencias</button>
+      <button id="hotel-tab" class="btn btn-secondary app-tab" data-view="hotel" data-permission="hotel" type="button">Hotel</button>
+      <button id="activate-tab" class="btn btn-secondary" type="button">Activar 24H</button>
+      <button id="my-account-tab" class="btn btn-secondary app-tab" data-view="my-account" type="button">Mi cuenta</button>
+      <button id="all-tab" class="btn btn-secondary app-tab" data-view="all" type="button">Todas</button>
+      <button id="users-tab" class="btn btn-secondary app-tab" data-view="users" type="button">Usuarios</button>
+      <button id="settings-tab" class="btn btn-secondary app-tab" data-view="settings" type="button">Configuración</button>
+      <button id="versions-tab" class="btn btn-secondary app-tab" data-view="versions" type="button">Versiones</button>
+    </nav>
+
+    <section id="view-incidences" class="stack">
+      <div class="toolbar">
+        <label>Buscar incidencia
+          <input id="incidence-search" class="form-control" placeholder="DFM, matrícula, caso o descripción">
+        </label>
+        <button id="new-activation" class="btn btn-primary" type="button">+ Activar 24H</button>
+      </div>
+      <div id="view-heading"><strong>Mis incidencias</strong><div class="text-small text-muted">Solo aparecen las creadas por el usuario conectado.</div></div>
+      <div id="incidence-list" class="incidence-list"></div>
+      <div id="incidence-detail" class="card stack hidden"></div>
+    </section>
+
+    <section id="view-hotel" class="stack hidden">
+      <div class="topbar">
+        <div><strong>Hotel · Pizarra del día</strong><div id="hotel-date" class="text-small text-muted"></div></div>
+        <div class="hotel-actions">
+          <button id="hotel-new-planned" class="btn btn-secondary" type="button">+ Sustitución planificada</button>
+          <button id="hotel-new-urgent" class="btn btn-primary" type="button">⚠ Avería urgente</button>
+        </div>
+      </div>
+      <div class="card sync-note text-small"><strong>Beta 1.8 de prueba.</strong> La pantalla reproduce la lógica acordada. La lectura y escritura automática en MANTENIMENT se activará mediante un backend privado antes de usar datos reales.</div>
+      <div class="module-tabs" aria-label="Vistas de Hotel">
+        <button class="btn btn-primary hotel-subtab" data-hotel-view="board" type="button">Pizarra actual</button>
+        <button class="btn btn-secondary hotel-subtab" data-hotel-view="next" type="button">Próximos</button>
+        <button class="btn btn-secondary hotel-subtab" data-hotel-view="history" type="button">Histórico</button>
+        <button class="btn btn-secondary hotel-subtab" data-hotel-view="summary" type="button">Panel resumen</button>
+      </div>
+      <div id="hotel-board" class="stack">
+        <label>Buscar en la pizarra<input id="hotel-search" class="form-control" placeholder="DFM, matrícula, reserva, UPC, taller, causa o INC"></label>
+        <div id="hotel-summary-cards" class="hotel-summary"></div>
+        <div id="hotel-list" class="hotel-list"></div>
+      </div>
+      <div id="hotel-next" class="stack hidden">
+        <div><strong>Próximas sustituciones</strong><div class="text-small text-muted">Son previsiones. La decisión final siempre será manual.</div></div>
+        <div id="hotel-next-list" class="hotel-list"></div>
+      </div>
+      <div id="hotel-history" class="stack hidden">
+        <div class="detail-grid">
+          <label>Buscar en el histórico<input id="hotel-history-search" class="form-control" placeholder="Fecha, DFM, matrícula, UPC, taller, estado o causa"></label>
+          <label>Mes<input id="hotel-history-month" class="form-control" type="month" value="2026-07"></label>
+        </div>
+        <div class="card text-small">Las jornadas se archivan automáticamente a las 00:00. No se eliminan: solo los administradores autorizados pueden anularlas o corregirlas indicando un motivo.</div>
+        <div id="hotel-history-list" class="hotel-list"></div>
+      </div>
+      <div id="hotel-dashboard" class="stack hidden">
+        <div id="hotel-dashboard-cards" class="hotel-summary"></div>
+        <div class="card stack"><strong>Prioridades activas</strong><div id="hotel-priority-list"></div></div>
+      </div>
+      <div id="hotel-form" class="card stack hidden">
+        <div class="hotel-title"><strong id="hotel-form-title">Nueva sustitución</strong><button id="hotel-form-close" class="btn btn-secondary" type="button">Cerrar</button></div>
+        <div class="detail-grid">
+          <label>DFM o matrícula de flota<input id="hotel-form-vehicle" class="form-control" placeholder="Ej. 2709 o 7039NGM"></label>
+          <label>Reserva<select id="hotel-form-reserve" class="form-select"><option value="2499|2362MJT|PIÑA">2499 · 2362MJT · PIÑA</option><option value="2484|5719MHS|IVECO">2484 · 5719MHS · IVECO</option><option value="2573|3417MPH|MAN DUO">2573 · 3417MPH · MAN DUO</option><option value="R1434|R8940BDP|33 PLANCHA">R1434 · R8940BDP · 33 PLANCHA</option></select></label>
+          <label>Causa o avería<input id="hotel-form-cause" class="form-control" placeholder="MCD, ITV, 44TN o descripción libre"></label>
+          <label>INC existente<input id="hotel-form-inc" class="form-control" placeholder="Se buscará antes de crear una nueva"></label>
+          <label>Próximo lugar<select id="hotel-form-location" class="form-select"><option>Pendiente de llevar al taller</option><option>SANSA</option><option>ABRERA</option><option>AUTODIS</option><option>FRIGICOLL</option><option>FRIDIEL</option><option>DIRECAUTO</option><option>ODEXAN</option></select></label>
+          <label>Prioridad<select id="hotel-form-priority" class="form-select"><option value="1">1 · No operativo</option><option value="2">2 · Legal/caducidad</option><option value="3">3 · Seguridad</option><option value="4">4 · Confort</option><option value="5">5 · Mantenimiento</option></select></label>
+        </div>
+        <label><input id="hotel-form-exceptional" type="checkbox"> Sustitución excepcional por tiempo limitado</label>
+        <div id="hotel-exception-fields" class="detail-grid hidden"><label>Motivo obligatorio<input id="hotel-form-reason" class="form-control"></label><label>Fecha y hora límite<input id="hotel-form-limit" class="form-control" type="datetime-local"></label></div>
+        <div id="hotel-form-message" class="text-small text-muted"></div>
+        <button id="hotel-form-save" class="btn btn-primary" type="button">Guardar en la pizarra</button>
+      </div>
+    </section>
+
+    <section id="view-my-account" class="stack hidden">
+      <div><strong>Mi cuenta</strong><div class="text-small text-muted">Cada persona puede cambiar únicamente su propio PIN.</div></div>
+      <div class="card stack">
+        <label>Usuario<input id="own-account-name" class="form-control" disabled></label>
+        <label>PIN actual<input id="own-current-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+        <div class="detail-grid">
+          <label>Nuevo PIN<input id="own-new-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+          <label>Repetir nuevo PIN<input id="own-confirm-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+        </div>
+        <div id="own-pin-message" class="text-small text-muted"></div>
+        <button id="change-own-pin" class="btn btn-primary" type="button">Cambiar mi PIN</button>
+      </div>
+    </section>
+
+    <section id="view-users" class="stack hidden">
+      <div><strong>Administración de usuarios</strong><div class="text-small text-muted">Solo Metrogestión puede realizar cambios.</div></div>
+      <div id="admin-user-list" class="stack"></div>
+      <div class="card stack">
+        <strong>Crear usuario o administrador secundario</strong>
+        <div class="detail-grid">
+          <label>Nombre y apellidos<input id="new-user-name" class="form-control"></label>
+          <label>Teléfono vinculado<input id="new-user-phone" class="form-control" type="tel" inputmode="tel"></label>
+          <label>Correo vinculado<input id="new-user-email" class="form-control" type="email" autocomplete="email"></label>
+          <label>PIN inicial<input id="new-user-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+          <label>Permiso<select id="new-user-role" class="form-select"><option value="user">Usuario</option><option value="secondary">Administrador secundario</option></select></label>
+        </div>
+        <div id="user-admin-message" class="text-small text-muted"></div>
+        <button id="create-user" class="btn btn-primary" type="button">+ Crear cuenta</button>
+      </div>
+    </section>
+
+    <section id="view-settings" class="stack hidden">
+      <div><strong>Configuración administrativa</strong><div class="text-small text-muted">Los cambios no eliminan usuarios ni incidencias.</div></div>
+      <div class="card stack">
+        <label>Cuenta administradora<input id="admin-account-name" class="form-control" value="Metrogestión" disabled></label>
+        <label>Teléfono del administrador principal<input id="admin-phone" class="form-control" type="tel" inputmode="tel"></label>
+        <label>Correo administrativo vinculado<input id="admin-email" class="form-control" type="email" value="gestionmantenimientobcn@gmail.com"></label>
+        <div class="detail-grid">
+          <label>Nuevo PIN<input id="admin-new-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+          <label>Repetir nuevo PIN<input id="admin-confirm-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
+        </div>
+        <div id="admin-settings-message" class="text-small text-muted"></div>
+        <button id="save-admin-settings" class="btn btn-primary" type="button">Guardar datos y cambiar PIN</button>
+      </div>
+    </section>
+
+    <section id="view-versions" class="stack hidden">
+      <div><strong>Memorando de versiones</strong><div class="text-small text-muted">Historial breve para consultar qué se ha modificado en cada publicación.</div></div>
+      <div class="card stack">
+        <strong>Beta 1.8 · 01/08/2026 · Prueba</strong>
+        <div>El proyecto pasa a «Programa de gestión». Se incorpora Hotel con pizarra actual, próximos, histórico, resumen, colores pastel, etapas dinámicas y sustituciones planificadas o urgentes. Hotel queda reservado a administradores; todos los usuarios ven la pestaña y pueden solicitar acceso.</div>
+      </div>
+      <div class="card stack">
+        <strong>Beta 1.7 · 29/07/2026</strong>
+        <div>Se recupera la identificación permanente del vehículo: el DFM y la matrícula permanecen visibles durante todos los pasos de la activación.</div>
+      </div>
+      <div class="card stack">
+        <strong>Beta 1.6 · 29/07/2026</strong>
+        <div>El botón Activar 24H abre el asistente completo. Se bloquea el avance cuando los kilómetros o la fecha superan el contrato y se muestran los teléfonos de escalado.</div>
+      </div>
+      <div class="card stack">
+        <strong>Beta 1.5 · 27/07/2026</strong>
+        <div>Cada usuario puede cambiar su propio PIN confirmando el PIN actual y escribiendo dos veces el nuevo.</div>
+      </div>
+      <div class="card stack">
+        <strong>Beta 1.4 · 27/07/2026</strong>
+        <div>Edición de nombre, teléfono y correo de las cuentas ya creadas, con validación de datos obligatorios y duplicados.</div>
+      </div>
+      <div class="card stack">
+        <strong>Beta 1.3 · 27/07/2026</strong>
+        <div>Se incorpora este memorando de versiones dentro del panel de administración.</div>
+      </div>
+      <div class="card stack">
+        <strong>Beta 1.2 · 27/07/2026</strong>
+        <div>Gestión funcional de usuarios, cambio de PIN, teléfono y correo obligatorios, administradores secundarios y bloqueo de accesos.</div>
+      </div>
+      <div class="card stack">
+        <strong>Beta 1.1 · 27/07/2026</strong>
+        <div>Publicación inicial en GitHub Pages, acceso principal, módulo de activación 24H, buscador por DFM o matrícula y alta manual.</div>
+      </div>
+    </section>
+
+    <section id="view-activation" class="stack hidden">
+      <div class="topbar">
+        <div><strong>Nueva activación 24H</strong><div id="activation-step-label" class="text-small text-muted">Paso 0 · Inicio</div><div id="activation-dfm-context"><strong>DFM —</strong></div></div>
+        <button id="back-incidences" class="btn btn-secondary" type="button">← Volver a incidencias</button>
+      </div>
+      <div id="activation-start" class="card stack">
+        <strong>¿Cómo quieres realizar la activación?</strong>
+        <button id="activation-manual" class="btn btn-secondary" type="button">Consultar el manual</button>
+        <button id="activation-guided" class="btn btn-primary" type="button">Ser guiado por la app</button>
+      </div>
+      <div id="activation-identification" class="card stack hidden">
+        <strong>Identificar vehículo</strong>
+        <label>DFM o matrícula
+          <input id="activation-dfm" class="form-control" autocapitalize="characters" autocomplete="off" placeholder="Escribe el DFM o la matrícula">
+        </label>
+        <div id="vehicle-suggestions" class="stack hidden" aria-label="Vehículos encontrados"></div>
+        <div id="manual-vehicle-data" class="stack hidden">
+          <div class="text-small text-muted">DFM no encontrado. Completa los datos imprescindibles para continuar.</div>
+          <div class="detail-grid">
+            <label>Matrícula<input id="manual-plate" class="form-control" autocapitalize="characters" placeholder="Ej. 1234ABC"></label>
+            <label>Tipo de vehículo
+              <select id="manual-type" class="form-select"><option value="">Seleccionar…</option><option value="tractora">Tractora</option><option value="rigido">Rígido</option></select>
+            </label>
+            <label>Marca<input id="manual-brand" class="form-control" placeholder="IVECO, Mercedes, MAN…"></label>
+            <label>Fecha de matriculación<input id="manual-registration" class="form-control" type="date"></label>
+            <label>Fin de contrato<input id="manual-contract-km" class="form-control" inputmode="numeric" placeholder="Kilómetros de contrato"></label>
+            <label>Bastidor / VIN<input id="manual-vin" class="form-control" autocapitalize="characters" placeholder="Número de bastidor"></label>
+            <label>UPC<input id="manual-upc" class="form-control" placeholder="Conductor o grupo responsable"></label>
+            <label>Flota o reserva
+              <select id="manual-category" class="form-select"><option value="">Seleccionar…</option><option>FLOTA</option><option>RESERVA</option><option>OTRO</option></select>
+            </label>
+          </div>
+        </div>
+        <label>Kilómetros actuales<input id="activation-km" class="form-control" inputmode="numeric" placeholder="Ej. 425.300"></label>
+        <div id="activation-message" class="text-small text-muted"></div>
+        <div class="text-small text-muted">La versión completa continuará con seguridad, avería, ubicación, datos preparados, llamada y seguimiento.</div>
+        <div class="viz-row">
+          <button id="activation-previous" class="btn btn-secondary" type="button">← Paso anterior</button>
+          <button id="activation-next" class="btn btn-primary" type="button">Siguiente →</button>
+        </div>
+      </div>
+      <div id="activation-safety" class="card stack hidden">
+        <strong>Seguridad · Procedimiento 0</strong>
+        <label><input id="activation-safe" type="checkbox"> Vehículo detenido en lugar seguro o correctamente señalizado</label>
+        <label><input id="activation-driver-safe" type="checkbox"> Conductor y ocupantes fuera de peligro</label>
+        <label>Conductor<input class="form-control" placeholder="Nombre"></label>
+        <label>Teléfono<input class="form-control" type="tel" inputmode="tel" placeholder="Ej. 612 345 678"></label>
+        <div id="safety-message" class="text-small text-muted"></div>
+        <div class="viz-row">
+          <button id="safety-previous" class="btn btn-secondary" type="button">← Paso anterior</button>
+          <button id="safety-next" class="btn btn-primary" type="button">Siguiente →</button>
+        </div>
+      </div>
+      <div id="activation-fault" class="card stack hidden">
+        <strong>Ubicación y avería</strong>
+        <div class="detail-grid">
+          <label>Tipo de ubicación
+            <select id="activation-location-type" class="form-select"><option>Bloque logístico Abrera</option><option>Bloque logístico Sansa</option><option>Nave Disfrimur</option><option>Polígono</option><option>Tienda</option><option>Carretera / autopista / autovía</option><option>Otro</option></select>
+          </label>
+          <label>Formato de ubicación
+            <select id="activation-location-format" class="form-select"><option value="plus">Plus Code</option><option value="coordinates">Coordenadas</option></select>
+          </label>
+          <label><span id="activation-location-reference-label">Plus Code</span><input id="activation-location-text" class="form-control" value="GV6V+62 Abrera" placeholder="Ej. GV6V+62 Abrera"></label>
+          <label>Código de alarma<input id="activation-alarm-code" class="form-control" placeholder="Código, si aparece"></label>
+          <label>Color del aviso
+            <select id="activation-alarm-color" class="form-select"><option>Sin testigo</option><option>Amarillo</option><option>Rojo</option><option>Otro</option></select>
+          </label>
+          <label>Semirremolque<input id="activation-trailer" class="form-control" placeholder="Matrícula, si afecta"></label>
+        </div>
+        <label>Descripción literal del aviso<textarea id="activation-fault-text" class="form-control" rows="3" placeholder="Empieza a escribir, por ejemplo: fallo motor"></textarea></label>
+        <div class="text-small text-muted">En la versión completa aparecerán sugerencias de descripciones utilizadas anteriormente.</div>
+        <label>Carga
+          <select id="activation-load" class="form-select"><option>Sin carga</option><option>Con carga</option><option>Tractora suelta</option></select>
+        </label>
+        <div id="fault-message" class="text-small text-muted"></div>
+        <div class="viz-row"><button id="fault-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="fault-next" class="btn btn-primary" type="button">Siguiente →</button></div>
+      </div>
+      <div id="activation-communication" class="card stack hidden">
+        <strong>Datos preparados para comunicar</strong>
+        <div id="activation-summary" class="detail-grid"></div>
+        <label><input id="activation-summary-confirmed" type="checkbox"> He revisado los datos antes de llamar</label>
+        <div id="communication-message" class="text-small text-muted"></div>
+        <div class="viz-row"><button id="communication-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="communication-next" class="btn btn-primary" type="button">Siguiente →</button></div>
+      </div>
+      <div id="activation-call" class="card stack hidden">
+        <strong>Llamada y activación</strong>
+        <button class="btn btn-primary" type="button">Llamar al 24H</button>
+        <label>Número facilitado por el operador<input id="activation-case-number" class="form-control" placeholder="Admite letras, números y símbolos"></label>
+        <label>ETA aproximada<input id="activation-eta" class="form-control" type="time"></label>
+        <div id="call-message" class="text-small text-muted"></div>
+        <div class="viz-row"><button id="call-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="call-next" class="btn btn-primary" type="button">Siguiente →</button></div>
+      </div>
+      <div id="activation-register" class="card stack hidden">
+        <strong>Registrar activación</strong>
+        <label>Hora de activación<input id="activation-time" class="form-control" type="time"></label>
+        <label>Técnico, grúa o proveedor asignado<input id="activation-provider" class="form-control" placeholder="Nombre facilitado"></label>
+        <div id="register-message" class="text-small text-muted"></div>
+        <div class="viz-row"><button id="register-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="register-next" class="btn btn-primary" type="button">Siguiente →</button></div>
+      </div>
+      <div id="activation-follow" class="card stack hidden">
+        <strong>Seguimiento</strong>
+        <label><input type="checkbox"> Asistencia activada y caso registrado</label>
+        <label><input type="checkbox"> Técnico llegado</label>
+        <label><input type="checkbox"> Diagnóstico confirmado</label>
+        <label><input type="checkbox"> Reparado en carretera</label>
+        <label><input type="checkbox"> Trasladado a taller</label>
+        <div class="viz-row"><button id="follow-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="save-incidence" class="btn btn-primary" type="button">Guardar incidencia</button></div>
+      </div>
+      <div id="activation-manual-note" class="card hidden">El manual operativo se abrirá aquí sin abandonar la app.</div>
+    </section>
+  </section>
+
+  <script>
+    (() => {
+      const root = document.getElementById('incidence-access-mockup');
+      const incidences = [
+        { id: 'INC-2607241', creator: 'Diego', dfm: '2716', plate: '0511NGR', opened: '24/07/2026 · 08:35', status: 'Seguimiento abierto', caseNumber: 'ANS-24H/7845-B', fault: 'Fallo motor y pérdida de potencia', location: 'AP-7 · PK 183 · sentido Barcelona', eta: '09:40', realArrival: '09:52', diagnosis: 'Pendiente de confirmación', result: 'Técnico en ruta', workshop: '—' },
+        { id: 'INC-2607234', creator: 'Ionut', dfm: '2602', plate: '2097MST', opened: '23/07/2026 · 17:18', status: 'Trasladado a taller', caseNumber: 'MB/24H-A91#22', fault: 'El vehículo no arranca', location: 'Bloque logístico Abrera', eta: '18:05', realArrival: '18:16', diagnosis: 'Fallo de alimentación en batería', result: 'Trasladado a taller', workshop: 'Comercial Dimovil · San Ginés' },
+        { id: 'INC-2607219', creator: 'Metrogestión', dfm: '2697', plate: '5813NDL', opened: '21/07/2026 · 06:42', status: 'Reparado en carretera', caseNumber: 'MAN-20244/661', fault: 'Aviso de presión de aire', location: 'Bloque logístico Sansa', eta: '07:35', realArrival: '07:31', diagnosis: 'Racor de circuito neumático con fuga', result: 'Reparado en carretera', workshop: '—' }
+      ];
+      const knownDfms = ['2444','2484','2486','2489','2490','2493','2498','2499','2500','2501','2516','2517','2518','2521','2523','2525','2527','2531','2543','2544','2545','2547','2548','2550','2552','2553','2554','2556','2562','2563','2573','2591','2602','2604','2605','2606','2610','2611','2612','2617','2621','2622','2625','2632','2633','2637','2660','2675','2676','2686','2693','2696','2697','2700','2701','2709','2710','2712','2714','2715','2716','2718','2719','2720','2721','2723','2724','2725','2726','2731','2732','2744','2745','2746','2753'];
+      const vehicleIndex = [{"dfm":"2444","plate":"0763MCK"},{"dfm":"2484","plate":"5719MHS"},{"dfm":"2486","plate":"5170MHW"},{"dfm":"2489","plate":"6779MJM"},{"dfm":"2490","plate":"6774MJM"},{"dfm":"2493","plate":"9153MJR"},{"dfm":"2498","plate":"2369MJT"},{"dfm":"2499","plate":"2362MJT"},{"dfm":"2500","plate":"2688MJT"},{"dfm":"2501","plate":"2689MJT"},{"dfm":"2516","plate":"1860MLJ"},{"dfm":"2517","plate":"1857MLJ"},{"dfm":"2518","plate":"1859MLJ"},{"dfm":"2521","plate":"1850MLJ"},{"dfm":"2523","plate":"1848MLJ"},{"dfm":"2525","plate":"1856MLJ"},{"dfm":"2527","plate":"6935MLK"},{"dfm":"2531","plate":"3957MLR"},{"dfm":"2543","plate":"1845MMB"},{"dfm":"2544","plate":"1847MMB"},{"dfm":"2545","plate":"5020MMC"},{"dfm":"2547","plate":"5022MMC"},{"dfm":"2548","plate":"5023MMC"},{"dfm":"2550","plate":"5025MMC"},{"dfm":"2552","plate":"5027MMC"},{"dfm":"2553","plate":"5028MMC"},{"dfm":"2554","plate":"5030MMC"},{"dfm":"2556","plate":"5032MMC"},{"dfm":"2562","plate":"5050MMC"},{"dfm":"2563","plate":"5071MMC"},{"dfm":"2573","plate":"3417MPH"},{"dfm":"2591","plate":"2690MPX"},{"dfm":"2602","plate":"2097MST"},{"dfm":"2604","plate":"2096MST"},{"dfm":"2605","plate":"2071MST"},{"dfm":"2606","plate":"2070MST"},{"dfm":"2610","plate":"0175MTF"},{"dfm":"2611","plate":"0169MTF"},{"dfm":"2612","plate":"0168MTF"},{"dfm":"2617","plate":"0166MTF"},{"dfm":"2621","plate":"9269MTM"},{"dfm":"2622","plate":"9264MTM"},{"dfm":"2625","plate":"1614MTP"},{"dfm":"2632","plate":"6576MVL"},{"dfm":"2633","plate":"6575MVL"},{"dfm":"2637","plate":"2736MVH"},{"dfm":"2660","plate":"7546MWW"},{"dfm":"2675","plate":"7375MYF"},{"dfm":"2676","plate":"1802NBF"},{"dfm":"2686","plate":"4509NCM"},{"dfm":"2693","plate":"8860NCZ"},{"dfm":"2696","plate":"5805NDL"},{"dfm":"2697","plate":"5813NDL"},{"dfm":"2700","plate":"5882NDL"},{"dfm":"2701","plate":"0674NDW"},{"dfm":"2709","plate":"7039NGM"},{"dfm":"2710","plate":"7038NGM"},{"dfm":"2712","plate":"0514NGR"},{"dfm":"2714","plate":"0512NGR"},{"dfm":"2715","plate":"0509NGR"},{"dfm":"2716","plate":"0511NGR"},{"dfm":"2718","plate":"6129NGV"},{"dfm":"2719","plate":"6132NGV"},{"dfm":"2720","plate":"6130NGV"},{"dfm":"2721","plate":"6131NGV"},{"dfm":"2723","plate":"3476NGS"},{"dfm":"2724","plate":"4590NGW"},{"dfm":"2725","plate":"2742NHC"},{"dfm":"2726","plate":"2741NHC"},{"dfm":"2731","plate":"4446NHJ"},{"dfm":"2732","plate":"4447NHJ"},{"dfm":"2744","plate":"5496NJV"},{"dfm":"2745","plate":"7348NKN"},{"dfm":"2746","plate":"7349NKN"},{"dfm":"2753","plate":"3125NLH"}];
+      const userStorageKey = 'metrogestion24h_users_v1';
+      const defaultUsers = [
+        { id: 'principal', name: 'Metrogestión', phone: '', email: 'gestionmantenimientobcn@gmail.com', pin: '', role: 'primary', active: true },
+        { id: 'diego', name: 'Diego', phone: '', email: '', pin: '', role: 'user', active: true },
+        { id: 'ionut', name: 'Ionut', phone: '', email: '', pin: '', role: 'user', active: true }
+      ];
+      let users;
+      try {
+        users = JSON.parse(localStorage.getItem(userStorageKey)) || defaultUsers;
+      } catch {
+        users = defaultUsers;
+      }
+      const saveUsers = () => localStorage.setItem(userStorageKey, JSON.stringify(users));
+      let sessionUser = '';
+      let sessionUserId = '';
+      let view = 'mine';
+      const activationPanels = {
+        1: '#activation-identification',
+        2: '#activation-safety',
+        3: '#activation-fault',
+        5: '#activation-communication',
+        6: '#activation-call',
+        7: '#activation-register',
+        8: '#activation-follow'
+      };
+      const activationLabels = {
+        1: 'Paso 1 · Identificar vehículo',
+        2: 'Paso 2 · Seguridad',
+        3: 'Paso 3 · Ubicación y avería',
+        5: 'Paso 4 · Datos preparados',
+        6: 'Paso 5 · Contrato y llamada',
+        7: 'Paso 6 · Registrar activación',
+        8: 'Paso 7 · Seguimiento'
+      };
+      const showActivationStep = step => {
+        Object.values(activationPanels).forEach(selector => root.querySelector(selector).classList.add('hidden'));
+        root.querySelector('#activation-start').classList.add('hidden');
+        root.querySelector('#activation-manual-note').classList.add('hidden');
+        root.querySelector(activationPanels[step]).classList.remove('hidden');
+        root.querySelector('#activation-step-label').textContent = activationLabels[step];
+      };
+      const login = root.querySelector('#mock-login');
+      const app = root.querySelector('#mock-app');
+      const list = root.querySelector('#incidence-list');
+      const detail = root.querySelector('#incidence-detail');
+      const currentAccount = () => users.find(user => user.id === sessionUserId);
+      const isAdmin = () => ['primary', 'secondary'].includes(currentAccount()?.role);
+      const isPrimaryAdmin = () => currentAccount()?.role === 'primary';
+      const hotelStorageKey = 'metrogestion_hotel_beta18';
+      const defaultHotelUnits = [
+        { id:'hotel-2499', reserve:'2499', reservePlate:'2362MJT', reserveLabel:'PIÑA', fleet:'2709', fleetPlate:'7039NGM', upc:'DIEGO', location:'AUTODIS', state:'workshop', stateLabel:'En taller desde 30/07/2026', cause:'Consumo o pérdida de aceite', priority:1, inc:'INC provisional vinculada', next:'', stages:[{name:'AUTODIS',done:true},{name:'Diagnóstico y reparación',done:false},{name:'Recoger',done:false},{name:'Recuperar ruta y liberar reserva',done:false}] },
+        { id:'hotel-2484', reserve:'2484', reservePlate:'5719MHS', reserveLabel:'IVECO', fleet:'2497', fleetPlate:'2359MJT', upc:'DIEGO', location:'AUTODIS', state:'workshop', stateLabel:'En taller desde 27/07/2026', cause:'FG + EXT + MCD + HG + ITV', priority:2, inc:'Sin INC principal', next:'2617', stages:[{name:'EXT',done:true},{name:'AUTODIS',done:false},{name:'ITV',done:false},{name:'Recuperar',done:false}] },
+        { id:'hotel-2686', reserve:'2686', reservePlate:'4509NCM', reserveLabel:'MAN', fleet:'2518', fleetPlate:'1859MLJ', upc:'JEYSON', location:'STERN', state:'ready', stateLabel:'Terminado, pendiente de recoger', cause:'Frenos eje 2 + fallo nivel de agua', priority:3, inc:'INC relacionada', next:'', stages:[{name:'STERN',done:true},{name:'Recoger',done:false},{name:'Recuperar ruta',done:false}] },
+        { id:'hotel-2573', reserve:'2573', reservePlate:'3417MPH', reserveLabel:'MAN DUO', fleet:'2710', fleetPlate:'7038NGM', upc:'DIEGO', location:'AUTODIS', state:'route', stateLabel:'Recogido, pendiente de recuperar ruta', cause:'Fallo electrónico', priority:4, inc:'Sin INC principal', next:'2715', stages:[{name:'AUTODIS',done:true},{name:'Ruedas',done:true},{name:'Alineado',done:true},{name:'Recuperar ruta y liberar reserva',done:false}] },
+        { id:'hotel-r1434', reserve:'R1434', reservePlate:'R8940BDP', reserveLabel:'33 PLANCHA', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'GP + EXT + ITV + 44TN + MB', priority:3, inc:'Sin incidencia', next:'R1286', stages:[] }
+      ];
+      let hotelUnits;
+      try { hotelUnits = JSON.parse(localStorage.getItem(hotelStorageKey)) || defaultHotelUnits; }
+      catch { hotelUnits = defaultHotelUnits; }
+      const saveHotel = () => localStorage.setItem(hotelStorageKey, JSON.stringify(hotelUnits));
+      const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+      const stateOrder = [
+        ['plan','Parar'], ['workshop','Pendiente de llevar al taller'], ['workshop','En taller'],
+        ['ready','Terminado, pendiente de recoger'], ['route','Recogido, pendiente de recuperar ruta'], ['free','Reserva libre']
+      ];
+      const todayLabel = () => new Intl.DateTimeFormat('es-ES',{weekday:'long',day:'2-digit',month:'long',year:'numeric',timeZone:'Europe/Madrid'}).format(new Date());
+      const renderMetric = (label,value) => `<div class="metric"><strong>${value}</strong><span class="text-small text-muted">${escapeHtml(label)}</span></div>`;
+      const nextStageIndex = unit => unit.stages.findIndex(stage => !stage.done);
+      const renderHotelSummary = () => {
+        const occupied = hotelUnits.filter(unit => unit.fleet).length;
+        const free = hotelUnits.filter(unit => unit.state === 'free').length;
+        const workshop = hotelUnits.filter(unit => unit.state === 'workshop').length;
+        const ready = hotelUnits.filter(unit => ['ready','route'].includes(unit.state)).length;
+        const markup = renderMetric('Reservas ocupadas',occupied)+renderMetric('Reservas libres',free)+renderMetric('En taller',workshop)+renderMetric('Pendientes de recuperar',ready);
+        root.querySelector('#hotel-summary-cards').innerHTML = markup;
+        root.querySelector('#hotel-dashboard-cards').innerHTML = markup;
+        root.querySelector('#hotel-priority-list').innerHTML = hotelUnits.filter(unit => unit.state !== 'free').sort((a,b)=>a.priority-b.priority).map(unit => `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><strong>DFM ${escapeHtml(unit.fleet)}</strong><span>${escapeHtml(unit.cause)}</span></div>`).join('');
+      };
+      const renderHotelUnit = unit => {
+        const currentStage = nextStageIndex(unit);
+        const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':''}"><span>${stage.done?'✓':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}</span>${!stage.done && index===currentStage && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Marcar realizada</button>`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
+        return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
+          <div class="hotel-title"><div><strong>${escapeHtml(unit.reserveLabel)} · Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><div class="text-small">${unit.fleet?`Sustituye a DFM ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}`:'Disponible para asignar'}</div></div><div><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span> <span class="badge">${escapeHtml(unit.stateLabel)}</span></div></div>
+          <div class="detail-grid"><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Causa / pendientes</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
+          ${stages}
+        </article>`;
+      };
+      const bindHotelStageButtons = () => root.querySelectorAll('.hotel-stage-done').forEach(button => button.addEventListener('click', () => {
+        const unit = hotelUnits.find(item => item.id === button.dataset.id);
+        if (!unit || !isAdmin()) return;
+        unit.stages[Number(button.dataset.stage)].done = true;
+        saveHotel(); renderHotel();
+      }));
+      const renderHotel = () => {
+        root.querySelector('#hotel-date').textContent = todayLabel().replace(/^./, char => char.toUpperCase()) + ' · cierre automático a las 00:00';
+        const query = root.querySelector('#hotel-search').value.toLowerCase().trim();
+        const visible = hotelUnits.filter(unit => !query || Object.values(unit).flat(3).join(' ').toLowerCase().includes(query));
+        root.querySelector('#hotel-list').innerHTML = visible.map(renderHotelUnit).join('') || '<div class="card">No hay resultados en la pizarra actual.</div>';
+        root.querySelector('#hotel-next-list').innerHTML = hotelUnits.filter(unit=>unit.next).map(unit=>`<div class="card"><strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</strong><div>Próximo previsto: <strong>${escapeHtml(unit.next)}</strong></div><div class="text-small text-muted">Previsión no confirmada. La decisión final es manual.</div></div>`).join('') || '<div class="card">No hay próximas sustituciones planificadas.</div>';
+        root.querySelector('#hotel-history-list').innerHTML = [
+          {date:'29/07/2026',dfm:'2709',plate:'7039NGM',reserve:'2499',state:'En taller',place:'AUTODIS',cause:'Consumo o pérdida de aceite'},
+          {date:'29/07/2026',dfm:'2518',plate:'1859MLJ',reserve:'2686',state:'En taller',place:'STERN',cause:'Frenos eje 2 + nivel de agua'}
+        ].filter(item=>{const q=root.querySelector('#hotel-history-search').value.toLowerCase().trim();return !q||Object.values(item).join(' ').toLowerCase().includes(q)}).map(item=>`<div class="card"><strong>${item.date} · DFM ${item.dfm} · ${item.plate}</strong><div>Reserva ${item.reserve} · ${item.state} · ${item.place}</div><div class="text-small text-muted">${item.cause}</div></div>`).join('');
+        renderHotelSummary(); bindHotelStageButtons();
+      };
+      const setHotelSubView = next => {
+        ['board','next','history','dashboard'].forEach(name => root.querySelector('#hotel-'+name).classList.toggle('hidden', name !== (next==='summary'?'dashboard':next)));
+        root.querySelectorAll('.hotel-subtab').forEach(button => { const active=button.dataset.hotelView===next; button.classList.toggle('btn-primary',active); button.classList.toggle('btn-secondary',!active); });
+        renderHotel();
+      };
+      const renderLoginUsers = () => {
+        const select = root.querySelector('#mock-user');
+        select.replaceChildren();
+        users.filter(user => user.active).forEach(user => {
+          const option = document.createElement('option');
+          option.value = user.id;
+          option.textContent = user.name + (user.role === 'primary' ? ' · Administrador principal' : user.role === 'secondary' ? ' · Administrador' : ' · Usuario');
+          select.append(option);
+        });
+      };
+      const renderAdminUsers = () => {
+        const container = root.querySelector('#admin-user-list');
+        container.replaceChildren();
+        users.forEach(user => {
+          const row = document.createElement('div');
+          row.className = 'card stack';
+          const heading = document.createElement('strong');
+          heading.textContent = user.name;
+          const meta = document.createElement('div');
+          meta.className = 'text-small text-muted';
+          meta.textContent = (user.role === 'primary' ? 'Administrador principal' : user.role === 'secondary' ? 'Administrador secundario' : 'Usuario') + ' · ' + (user.active ? 'Activo' : 'Bloqueado') + (user.phone ? ' · ' + user.phone : ' · teléfono pendiente') + (user.email ? ' · ' + user.email : ' · correo pendiente');
+          const editGrid = document.createElement('div');
+          editGrid.className = 'detail-grid';
+          const nameLabel = document.createElement('label');
+          nameLabel.textContent = 'Nombre y apellidos';
+          const nameInput = document.createElement('input');
+          nameInput.className = 'form-control';
+          nameInput.value = user.name || '';
+          nameInput.disabled = user.role === 'primary';
+          nameLabel.append(nameInput);
+          const phoneLabel = document.createElement('label');
+          phoneLabel.textContent = 'Teléfono vinculado';
+          const phoneInput = document.createElement('input');
+          phoneInput.className = 'form-control';
+          phoneInput.type = 'tel';
+          phoneInput.inputMode = 'tel';
+          phoneInput.value = user.phone || '';
+          phoneLabel.append(phoneInput);
+          const emailLabel = document.createElement('label');
+          emailLabel.textContent = 'Correo vinculado';
+          const emailInput = document.createElement('input');
+          emailInput.className = 'form-control';
+          emailInput.type = 'email';
+          emailInput.value = user.email || '';
+          emailLabel.append(emailInput);
+          editGrid.append(nameLabel, phoneLabel, emailLabel);
+          const controls = document.createElement('div');
+          controls.className = 'viz-row';
+          const saveButton = document.createElement('button');
+          saveButton.type = 'button';
+          saveButton.className = 'btn btn-primary';
+          saveButton.textContent = 'Guardar datos';
+          saveButton.addEventListener('click', () => {
+            const name = nameInput.value.trim();
+            const phone = phoneInput.value.trim();
+            const email = emailInput.value.trim().toLowerCase();
+            const phoneDigits = phone.replace(/\D/g, '');
+            const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+            const message = root.querySelector('#user-admin-message');
+            if (!name || phoneDigits.length < 9 || !emailValid) {
+              message.textContent = 'Nombre, teléfono válido y correo válido son obligatorios para ' + user.name + '.';
+              return;
+            }
+            if (users.some(other => other.id !== user.id && (other.email?.toLowerCase() === email || String(other.phone || '').replace(/\D/g, '') === phoneDigits))) {
+              message.textContent = 'Ese teléfono o correo ya está vinculado a otra cuenta.';
+              return;
+            }
+            user.name = name;
+            user.phone = phone;
+            user.email = email;
+            saveUsers();
+            renderLoginUsers();
+            renderAdminUsers();
+            message.textContent = 'Datos de ' + name + ' guardados correctamente.';
+          });
+          const pinButton = document.createElement('button');
+          pinButton.type = 'button';
+          pinButton.className = 'btn btn-secondary';
+          pinButton.textContent = 'Cambiar PIN';
+          pinButton.addEventListener('click', () => {
+            const nextPin = window.prompt('Nuevo PIN de 4 a 6 cifras para ' + user.name + ':');
+            if (nextPin === null) return;
+            if (!/^\d{4,6}$/.test(nextPin)) {
+              root.querySelector('#user-admin-message').textContent = 'El PIN debe tener entre 4 y 6 cifras.';
+              return;
+            }
+            user.pin = nextPin;
+            saveUsers();
+            root.querySelector('#user-admin-message').textContent = 'PIN actualizado para ' + user.name + '.';
+          });
+          controls.append(saveButton, pinButton);
+          if (user.role !== 'primary') {
+            const roleButton = document.createElement('button');
+            roleButton.type = 'button';
+            roleButton.className = 'btn btn-secondary';
+            roleButton.textContent = user.role === 'secondary' ? 'Convertir en usuario' : 'Nombrar administrador';
+            roleButton.addEventListener('click', () => {
+              user.role = user.role === 'secondary' ? 'user' : 'secondary';
+              saveUsers();
+              renderAdminUsers();
+              renderLoginUsers();
+            });
+            const activeButton = document.createElement('button');
+            activeButton.type = 'button';
+            activeButton.className = 'btn btn-secondary';
+            activeButton.textContent = user.active ? 'Bloquear acceso' : 'Activar acceso';
+            activeButton.addEventListener('click', () => {
+              user.active = !user.active;
+              saveUsers();
+              renderAdminUsers();
+              renderLoginUsers();
+            });
+            controls.append(roleButton, activeButton);
+          }
+          row.append(heading, meta, editGrid, controls);
+          container.append(row);
+        });
+      };
+
+      const setView = next => {
+        if (next === 'hotel' && !isAdmin()) {
+          window.alert('No tienes permiso para acceder a Hotel. Solicita acceso al administrador principal.');
+          return;
+        }
+        if (next === 'all' && !isAdmin()) {
+          window.alert('No tienes permiso para consultar todas las incidencias. Solicita acceso al administrador principal.');
+          return;
+        }
+        if (['users','settings','versions'].includes(next) && !isPrimaryAdmin()) {
+          window.alert('Esta pestaña requiere permiso del administrador principal.');
+          return;
+        }
+        view = next;
+        root.querySelector('#view-incidences').classList.toggle('hidden', !['mine', 'all'].includes(view));
+        root.querySelector('#view-hotel').classList.toggle('hidden', view !== 'hotel');
+        root.querySelector('#view-my-account').classList.toggle('hidden', view !== 'my-account');
+        root.querySelector('#view-users').classList.toggle('hidden', view !== 'users');
+        root.querySelector('#view-settings').classList.toggle('hidden', view !== 'settings');
+        root.querySelector('#view-versions').classList.toggle('hidden', view !== 'versions');
+        root.querySelector('#view-activation').classList.toggle('hidden', view !== 'activation');
+        root.querySelector('.tabs').classList.toggle('hidden', view === 'activation');
+        root.querySelectorAll('.app-tab').forEach(button => {
+          const selected = button.dataset.view === view;
+          button.classList.toggle('btn-primary', selected);
+          button.classList.toggle('btn-secondary', !selected);
+        });
+        if (view === 'mine' || view === 'all') renderIncidences();
+        if (view === 'hotel') renderHotel();
+      };
+
+      const openDetail = incidence => {
+        detail.classList.remove('hidden');
+        detail.innerHTML = '';
+        const heading = document.createElement('strong');
+        heading.textContent = incidence.id + ' · DFM ' + incidence.dfm;
+        const grid = document.createElement('div');
+        grid.className = 'detail-grid';
+        [
+          ['Creada por', incidence.creator],
+          ['Número del operador', incidence.caseNumber],
+          ['Síntoma comunicado', incidence.fault],
+          ['Ubicación', incidence.location],
+          ['ETA aproximada', incidence.eta],
+          ['Llegada real', incidence.realArrival],
+          ['Diagnóstico confirmado', incidence.diagnosis],
+          ['Resultado', incidence.result],
+          ['Taller de traslado', incidence.workshop]
+        ].forEach(item => {
+          const field = document.createElement('div');
+          const label = document.createElement('span');
+          label.className = 'text-small';
+          label.textContent = item[0];
+          const value = document.createElement('strong');
+          value.textContent = item[1];
+          field.append(label, value);
+          grid.append(field);
+        });
+        detail.append(heading, grid);
+      };
+
+      const renderIncidences = () => {
+        const query = root.querySelector('#incidence-search').value.toLowerCase().trim();
+        const visible = incidences.filter(item => {
+          const allowed = view === 'all' && isAdmin() ? true : item.creator === sessionUser;
+          const searchable = Object.values(item).join(' ').toLowerCase();
+          return allowed && (!query || searchable.includes(query));
+        });
+        root.querySelector('#view-heading strong').textContent = view === 'all' ? 'Todas las incidencias' : 'Mis incidencias';
+        root.querySelector('#view-heading .text-small').textContent = view === 'all' ? 'Vista completa disponible únicamente para Metrogestión.' : 'Solo aparecen las creadas por el usuario conectado.';
+        list.replaceChildren();
+        detail.classList.add('hidden');
+        visible.forEach(item => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'card incidence';
+          const main = document.createElement('span');
+          main.className = 'incidence-main';
+          const title = document.createElement('strong');
+          title.textContent = item.id + ' · DFM ' + item.dfm + ' · ' + item.plate;
+          const meta = document.createElement('span');
+          meta.className = 'meta text-small';
+          meta.textContent = item.opened + ' · Creada por ' + item.creator;
+          main.append(title, meta);
+          const status = document.createElement('span');
+          status.className = 'status text-small open';
+          status.textContent = item.status;
+          button.append(main, status);
+          button.addEventListener('click', () => openDetail(item));
+          list.append(button);
+        });
+        if (!visible.length) {
+          const empty = document.createElement('div');
+          empty.className = 'card';
+          empty.textContent = 'No hay incidencias para esta vista.';
+          list.append(empty);
+        }
+      };
+
+      root.querySelector('#mock-enter').addEventListener('click', () => {
+        const pin = root.querySelector('#mock-pin').value.trim();
+        if (!/^\d{4,6}$/.test(pin)) {
+          root.querySelector('#login-message').textContent = 'Introduce entre 4 y 6 cifras para probar la maqueta.';
+          return;
+        }
+        const account = users.find(user => user.id === root.querySelector('#mock-user').value && user.active);
+        if (!account || (account.pin && account.pin !== pin)) {
+          root.querySelector('#login-message').textContent = 'Usuario o PIN incorrecto.';
+          return;
+        }
+        if (!account.pin) {
+          account.pin = pin;
+          saveUsers();
+        }
+        sessionUserId = account.id;
+        sessionUser = account.name;
+        login.classList.add('hidden');
+        app.classList.remove('hidden');
+        root.querySelector('#session-label').textContent = sessionUser + (account.role === 'primary' ? ' · Administrador principal' : account.role === 'secondary' ? ' · Administrador secundario' : ' · Usuario');
+        root.querySelector('#own-account-name').value = account.name;
+        root.querySelector('#hotel-tab').classList.toggle('locked-tab', !isAdmin());
+        root.querySelector('#all-tab').classList.toggle('locked-tab', !isAdmin());
+        root.querySelector('#users-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
+        root.querySelector('#settings-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
+        root.querySelector('#versions-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
+        if (isPrimaryAdmin()) {
+          root.querySelector('#admin-phone').value = account.phone || '';
+          root.querySelector('#admin-email').value = account.email || '';
+          renderAdminUsers();
+        }
+        setView('mine');
+      });
+      root.querySelector('#mock-logout').addEventListener('click', () => {
+        sessionUser = '';
+        sessionUserId = '';
+        root.querySelector('#mock-pin').value = '';
+        app.classList.add('hidden');
+        login.classList.remove('hidden');
+      });
+      root.querySelector('#change-own-pin').addEventListener('click', () => {
+        const account = currentAccount();
+        const currentPin = root.querySelector('#own-current-pin').value.trim();
+        const nextPin = root.querySelector('#own-new-pin').value.trim();
+        const confirmPin = root.querySelector('#own-confirm-pin').value.trim();
+        const message = root.querySelector('#own-pin-message');
+        if (!account || currentPin !== account.pin) {
+          message.textContent = 'El PIN actual no es correcto.';
+          return;
+        }
+        if (!/^\d{4,6}$/.test(nextPin)) {
+          message.textContent = 'El nuevo PIN debe tener entre 4 y 6 cifras.';
+          return;
+        }
+        if (nextPin !== confirmPin) {
+          message.textContent = 'Los dos nuevos PIN no coinciden.';
+          return;
+        }
+        if (nextPin === currentPin) {
+          message.textContent = 'El nuevo PIN debe ser diferente del actual.';
+          return;
+        }
+        account.pin = nextPin;
+        saveUsers();
+        root.querySelector('#own-current-pin').value = '';
+        root.querySelector('#own-new-pin').value = '';
+        root.querySelector('#own-confirm-pin').value = '';
+        message.textContent = 'Tu PIN se ha cambiado correctamente.';
+      });
+      root.querySelector('#create-user').addEventListener('click', () => {
+        if (!isPrimaryAdmin()) return;
+        const name = root.querySelector('#new-user-name').value.trim();
+        const phone = root.querySelector('#new-user-phone').value.trim();
+        const email = root.querySelector('#new-user-email').value.trim().toLowerCase();
+        const pin = root.querySelector('#new-user-pin').value.trim();
+        const role = root.querySelector('#new-user-role').value;
+        const phoneDigits = phone.replace(/\D/g, '');
+        const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        const message = root.querySelector('#user-admin-message');
+        if (!name || phoneDigits.length < 9 || !emailValid || !/^\d{4,6}$/.test(pin)) {
+          message.textContent = 'Son obligatorios nombre, teléfono válido, correo válido y PIN de 4 a 6 cifras.';
+          return;
+        }
+        if (users.some(user => user.email?.toLowerCase() === email || String(user.phone || '').replace(/\D/g, '') === phoneDigits)) {
+          message.textContent = 'Ese correo o teléfono ya está vinculado a otra cuenta.';
+          return;
+        }
+        users.push({
+          id: 'user-' + Date.now(),
+          name, phone, email, pin, role, active: true
+        });
+        saveUsers();
+        renderAdminUsers();
+        renderLoginUsers();
+        ['#new-user-name','#new-user-phone','#new-user-email','#new-user-pin'].forEach(selector => root.querySelector(selector).value = '');
+        message.textContent = 'Cuenta creada y vinculada correctamente.';
+      });
+      root.querySelector('#save-admin-settings').addEventListener('click', () => {
+        if (!isPrimaryAdmin()) return;
+        const account = currentAccount();
+        const phone = root.querySelector('#admin-phone').value.trim();
+        const email = root.querySelector('#admin-email').value.trim().toLowerCase();
+        const pin = root.querySelector('#admin-new-pin').value.trim();
+        const confirmPin = root.querySelector('#admin-confirm-pin').value.trim();
+        const message = root.querySelector('#admin-settings-message');
+        if (phone.replace(/\D/g, '').length < 9 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          message.textContent = 'El teléfono y el correo del administrador son obligatorios y deben ser válidos.';
+          return;
+        }
+        if ((pin || confirmPin) && (!/^\d{4,6}$/.test(pin) || pin !== confirmPin)) {
+          message.textContent = 'El nuevo PIN debe tener entre 4 y 6 cifras y coincidir en las dos casillas.';
+          return;
+        }
+        if (users.some(user => user.id !== account.id && (user.email?.toLowerCase() === email || String(user.phone || '').replace(/\D/g, '') === phone.replace(/\D/g, '')))) {
+          message.textContent = 'Ese teléfono o correo ya está vinculado a otra cuenta.';
+          return;
+        }
+        account.phone = phone;
+        account.email = email;
+        if (pin) account.pin = pin;
+        saveUsers();
+        renderAdminUsers();
+        renderLoginUsers();
+        root.querySelector('#admin-new-pin').value = '';
+        root.querySelector('#admin-confirm-pin').value = '';
+        message.textContent = 'Datos del administrador principal guardados.';
+      });
+      root.querySelectorAll('.app-tab').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
+      root.querySelector('#activate-tab').addEventListener('click', () => { window.location.href = 'activar-24h.html?v=1.8'; });
+      root.querySelectorAll('.hotel-subtab').forEach(button => button.addEventListener('click', () => setHotelSubView(button.dataset.hotelView)));
+      root.querySelector('#hotel-search').addEventListener('input', renderHotel);
+      root.querySelector('#hotel-history-search').addEventListener('input', renderHotel);
+      root.querySelector('#hotel-form-exceptional').addEventListener('change', event => root.querySelector('#hotel-exception-fields').classList.toggle('hidden', !event.target.checked));
+      root.querySelector('#hotel-form-close').addEventListener('click', () => root.querySelector('#hotel-form').classList.add('hidden'));
+      const openHotelForm = urgent => {
+        root.querySelector('#hotel-form').classList.remove('hidden');
+        root.querySelector('#hotel-form-title').textContent = urgent ? 'Avería urgente · Prioridad 1' : 'Sustitución planificada';
+        root.querySelector('#hotel-form').dataset.urgent = urgent ? '1' : '0';
+        root.querySelector('#hotel-form-priority').value = urgent ? '1' : '5';
+        root.querySelector('#hotel-form-message').textContent = urgent ? 'Si existe una INC o activación 24H abierta, se vinculará siempre antes de crear una provisional.' : 'La planificación no ocupará definitivamente la reserva hasta su confirmación.';
+        root.querySelector('#hotel-form').scrollIntoView({behavior:'smooth',block:'start'});
+      };
+      root.querySelector('#hotel-new-planned').addEventListener('click', () => openHotelForm(false));
+      root.querySelector('#hotel-new-urgent').addEventListener('click', () => openHotelForm(true));
+      root.querySelector('#hotel-form-save').addEventListener('click', () => {
+        if (!isAdmin()) return;
+        const typed = root.querySelector('#hotel-form-vehicle').value.trim().toUpperCase();
+        const vehicle = vehicleIndex.find(item => item.dfm === typed || item.plate === typed || `${item.dfm} · ${item.plate}` === typed);
+        const cause = root.querySelector('#hotel-form-cause').value.trim();
+        const exceptional = root.querySelector('#hotel-form-exceptional').checked;
+        const reason = root.querySelector('#hotel-form-reason').value.trim();
+        const limit = root.querySelector('#hotel-form-limit').value;
+        const message = root.querySelector('#hotel-form-message');
+        if (!vehicle || !cause) { message.textContent = 'Introduce un DFM o matrícula existente y la causa de la sustitución.'; return; }
+        if (exceptional && (!reason || !limit)) { message.textContent = 'Una sustitución excepcional necesita motivo y fecha/hora límite.'; return; }
+        const [reserve,reservePlate,reserveLabel] = root.querySelector('#hotel-form-reserve').value.split('|');
+        const existingInc = incidences.find(item => item.dfm === vehicle.dfm && !/cerrad/i.test(item.status));
+        const suppliedInc = root.querySelector('#hotel-form-inc').value.trim();
+        const urgent = root.querySelector('#hotel-form').dataset.urgent === '1';
+        hotelUnits.push({ id:'hotel-'+Date.now(), reserve,reservePlate,reserveLabel, fleet:vehicle.dfm,fleetPlate:vehicle.plate,upc:'Pendiente desde MANTENIMENT',location:root.querySelector('#hotel-form-location').value,state:urgent?'workshop':'plan',stateLabel:urgent?'Pendiente de llevar al taller':'Parar',cause,priority:Number(root.querySelector('#hotel-form-priority').value),inc:suppliedInc||(existingInc?existingInc.id:urgent?'INC provisional · pendiente de numerar':'Sin INC principal'),next:'',exceptional:exceptional?{reason,limit}:null,stages:[{name:'Confirmar sustitución',done:urgent},{name:root.querySelector('#hotel-form-location').value,done:false},{name:'Diagnóstico y trabajos',done:false},{name:'Recoger',done:false},{name:'Recuperar ruta y liberar reserva',done:false}] });
+        saveHotel(); renderHotel(); root.querySelector('#hotel-form').classList.add('hidden');
+      });
+      root.querySelector('#incidence-search').addEventListener('input', renderIncidences);
+      root.querySelector('#new-activation').addEventListener('click', () => {
+        window.location.href = 'activar-24h.html?v=1.8';
+      });
+      root.querySelector('#back-incidences').addEventListener('click', () => setView('mine'));
+      root.querySelector('#activation-guided').addEventListener('click', () => {
+        root.querySelector('#activation-start').classList.add('hidden');
+        root.querySelector('#activation-manual-note').classList.add('hidden');
+        root.querySelector('#activation-safety').classList.add('hidden');
+        root.querySelector('#activation-fault').classList.add('hidden');
+        root.querySelector('#activation-communication').classList.add('hidden');
+        root.querySelector('#activation-call').classList.add('hidden');
+        root.querySelector('#activation-register').classList.add('hidden');
+        root.querySelector('#activation-follow').classList.add('hidden');
+        root.querySelector('#activation-identification').classList.remove('hidden');
+        root.querySelector('#activation-step-label').textContent = 'Paso 1 · Identificar vehículo';
+      });
+      root.querySelector('#activation-manual').addEventListener('click', () => {
+        window.open('Manual_24H_DFM_v2_1.pdf', '_blank', 'noopener');
+      });
+      root.querySelector('#activation-previous').addEventListener('click', () => {
+        root.querySelector('#activation-identification').classList.add('hidden');
+        root.querySelector('#activation-start').classList.remove('hidden');
+        root.querySelector('#activation-step-label').textContent = 'Paso 0 · Inicio';
+      });
+      root.querySelector('#activation-next').addEventListener('click', () => {
+        const searchInput = root.querySelector('#activation-dfm');
+        const typedValue = searchInput.value.trim().toUpperCase();
+        const exactVehicle = vehicleIndex.find(vehicle => vehicle.dfm === typedValue || vehicle.plate === typedValue || (vehicle.dfm + ' · ' + vehicle.plate) === typedValue);
+        const dfmValue = searchInput.dataset.dfm || (exactVehicle ? exactVehicle.dfm : typedValue);
+        const kmValue = root.querySelector('#activation-km').value.replace(/\D/g, '');
+        if (!dfmValue) {
+          root.querySelector('#activation-message').textContent = 'Falta introducir o seleccionar el DFM.';
+          return;
+        }
+        if (!/^\d{4}$/.test(dfmValue)) {
+          root.querySelector('#activation-message').textContent = 'El DFM debe tener cuatro cifras, por ejemplo 2602.';
+          return;
+        }
+        if (!kmValue) {
+          root.querySelector('#activation-message').textContent = 'Falta introducir los kilómetros actuales.';
+          return;
+        }
+        if (!knownDfms.includes(dfmValue)) {
+          const requiredManualFields = [
+            ['#manual-plate', 'matrícula'],
+            ['#manual-type', 'tipo de vehículo'],
+            ['#manual-brand', 'marca'],
+            ['#manual-registration', 'fecha de matriculación'],
+            ['#manual-contract-km', 'fin de contrato'],
+            ['#manual-vin', 'bastidor'],
+            ['#manual-category', 'flota o reserva']
+          ];
+          const missing = requiredManualFields.filter(item => !root.querySelector(item[0]).value.trim()).map(item => item[1]);
+          if (missing.length) {
+            root.querySelector('#activation-message').textContent = 'Falta completar: ' + missing.join(', ') + '.';
+            return;
+          }
+        }
+        root.querySelector('#activation-message').textContent = '';
+        root.querySelector('#activation-identification').classList.add('hidden');
+        root.querySelector('#activation-safety').classList.remove('hidden');
+        root.querySelector('#activation-step-label').textContent = 'Paso 2 · Seguridad';
+      });
+      root.querySelector('#safety-previous').addEventListener('click', () => {
+        root.querySelector('#activation-safety').classList.add('hidden');
+        root.querySelector('#activation-identification').classList.remove('hidden');
+        root.querySelector('#activation-step-label').textContent = 'Paso 1 · Identificar vehículo';
+      });
+      root.querySelector('#safety-next').addEventListener('click', () => {
+        if (!root.querySelector('#activation-safe').checked || !root.querySelector('#activation-driver-safe').checked) {
+          root.querySelector('#safety-message').textContent = 'Confirma la señalización y que el conductor está fuera de peligro.';
+          return;
+        }
+        root.querySelector('#safety-message').textContent = '';
+        showActivationStep(3);
+      });
+      root.querySelector('#fault-previous').addEventListener('click', () => showActivationStep(2));
+      root.querySelector('#fault-next').addEventListener('click', () => {
+        if (!root.querySelector('#activation-fault-text').value.trim() || !root.querySelector('#activation-location-text').value.trim()) {
+          root.querySelector('#fault-message').textContent = 'Indica la ubicación y describe la avería.';
+          return;
+        }
+        root.querySelector('#fault-message').textContent = '';
+        const summary = root.querySelector('#activation-summary');
+        summary.innerHTML = '<div><span class="text-small">DFM</span><strong>' + root.querySelector('#activation-dfm').dataset.dfm + '</strong></div><div><span class="text-small">Avería</span><strong>' + root.querySelector('#activation-fault-text').value + '</strong></div><div><span class="text-small">Carga</span><strong>' + root.querySelector('#activation-load').value + '</strong></div><div><span class="text-small">Ubicación</span><strong>' + root.querySelector('#activation-location-text').value + '</strong></div>';
+        showActivationStep(5);
+      });
+      root.querySelector('#communication-previous').addEventListener('click', () => showActivationStep(3));
+      root.querySelector('#communication-next').addEventListener('click', () => {
+        if (!root.querySelector('#activation-summary-confirmed').checked) {
+          root.querySelector('#communication-message').textContent = 'Revisa y confirma los datos antes de continuar.';
+          return;
+        }
+        root.querySelector('#communication-message').textContent = '';
+        showActivationStep(6);
+      });
+      root.querySelector('#call-previous').addEventListener('click', () => showActivationStep(5));
+      root.querySelector('#call-next').addEventListener('click', () => {
+        if (!root.querySelector('#activation-case-number').value.trim() || !root.querySelector('#activation-eta').value) {
+          root.querySelector('#call-message').textContent = 'Introduce el número del operador y la ETA aproximada.';
+          return;
+        }
+        root.querySelector('#call-message').textContent = '';
+        showActivationStep(7);
+      });
+      root.querySelector('#register-previous').addEventListener('click', () => showActivationStep(6));
+      root.querySelector('#register-next').addEventListener('click', () => {
+        if (!root.querySelector('#activation-time').value || !root.querySelector('#activation-provider').value.trim()) {
+          root.querySelector('#register-message').textContent = 'Indica la hora de activación y el proveedor asignado.';
+          return;
+        }
+        root.querySelector('#register-message').textContent = '';
+        showActivationStep(8);
+      });
+      root.querySelector('#follow-previous').addEventListener('click', () => showActivationStep(7));
+      root.querySelector('#save-incidence').addEventListener('click', () => {
+        const code = root.querySelector('#activation-dfm').dataset.dfm;
+        const vehicle = vehicleIndex.find(item => item.dfm === code);
+        incidences.unshift({
+          id: 'INC-MAQUETA-' + String(incidences.length + 1).padStart(3, '0'),
+          creator: sessionUser,
+          dfm: code,
+          plate: vehicle ? vehicle.plate : root.querySelector('#manual-plate').value,
+          opened: 'Ahora',
+          status: 'Seguimiento abierto',
+          caseNumber: root.querySelector('#activation-case-number').value,
+          fault: root.querySelector('#activation-fault-text').value,
+          location: root.querySelector('#activation-location-text').value,
+          eta: root.querySelector('#activation-eta').value,
+          realArrival: 'Pendiente',
+          diagnosis: 'Pendiente de confirmación',
+          result: 'Seguimiento abierto',
+          workshop: '—'
+        });
+        setView('mine');
+      });
+      const fixedLocations = {
+        'Bloque logístico Abrera': 'GV6V+62 Abrera',
+        'Bloque logístico Sansa': "CRJ3+HG Sant Sadurní d'Anoia",
+        'Nave Disfrimur': "CRM4+G2 Sant Sadurní d'Anoia"
+      };
+      const fixedCoordinates = {
+        'Bloque logístico Abrera': '41.510562, 1.892562',
+        'Bloque logístico Sansa': '41.431438, 1.803813',
+        'Nave Disfrimur': '41.433813, 1.805063'
+      };
+      const refreshLocationFormat = () => {
+        const format = root.querySelector('#activation-location-format').value;
+        const input = root.querySelector('#activation-location-text');
+        const label = root.querySelector('#activation-location-reference-label');
+        const locationType = root.querySelector('#activation-location-type').value;
+        const fixedCode = fixedLocations[locationType];
+        const coordinates = fixedCoordinates[locationType];
+        if (format === 'coordinates') {
+          label.textContent = 'Coordenadas';
+          input.placeholder = 'Ej. 41.4932, 1.8736';
+          input.value = coordinates || '';
+        } else {
+          label.textContent = 'Plus Code';
+          input.placeholder = 'Ej. GV6V+62 Abrera';
+          input.value = fixedCode || '';
+        }
+      };
+      root.querySelector('#activation-location-format').addEventListener('change', refreshLocationFormat);
+      root.querySelector('#activation-location-type').addEventListener('change', () => {
+        const type = root.querySelector('#activation-location-type').value;
+        const fixedCode = fixedLocations[type];
+        if (fixedCode) {
+          root.querySelector('#activation-location-format').value = 'plus';
+          root.querySelector('#activation-location-text').value = fixedCode;
+        } else {
+          root.querySelector('#activation-location-text').value = '';
+        }
+        refreshLocationFormat();
+      });
+      root.querySelector('#activation-dfm').addEventListener('input', event => {
+        const input = event.target;
+        const value = input.value.trim().toUpperCase();
+        const exactVehicle = vehicleIndex.find(vehicle => vehicle.dfm === value || vehicle.plate === value || (vehicle.dfm + ' · ' + vehicle.plate) === value);
+        input.dataset.dfm = exactVehicle ? exactVehicle.dfm : (/^\d{4}$/.test(value) ? value : '');
+        const selectedDfm = input.dataset.dfm;
+        const showManual = /^\d{4}$/.test(selectedDfm) && !knownDfms.includes(selectedDfm);
+        root.querySelector('#activation-dfm-context strong').textContent = selectedDfm ? 'DFM ' + selectedDfm : 'DFM —';
+        root.querySelector('#manual-vehicle-data').classList.toggle('hidden', !showManual);
+        root.querySelector('#activation-message').textContent = showManual ? 'Este DFM no está en la base de datos. Introduce sus datos para esta asistencia.' : '';
+        const suggestions = root.querySelector('#vehicle-suggestions');
+        suggestions.replaceChildren();
+        if (value.length >= 2 && !exactVehicle) {
+          vehicleIndex.filter(vehicle => vehicle.dfm.includes(value) || vehicle.plate.includes(value)).slice(0, 8).forEach(vehicle => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'btn btn-secondary';
+            option.textContent = 'DFM ' + vehicle.dfm + ' · ' + vehicle.plate;
+            option.addEventListener('click', () => {
+              input.value = vehicle.dfm + ' · ' + vehicle.plate;
+              input.dataset.dfm = vehicle.dfm;
+              suggestions.classList.add('hidden');
+              root.querySelector('#manual-vehicle-data').classList.add('hidden');
+              root.querySelector('#activation-message').textContent = '';
+              root.querySelector('#activation-dfm-context strong').textContent = 'DFM ' + vehicle.dfm;
+            });
+            suggestions.append(option);
+          });
+        }
+        suggestions.classList.toggle('hidden', !suggestions.children.length);
+      });
+      renderLoginUsers();
+    })();
+  </script>
+</div>
+<footer class="app-footer">© 2026 Metrogestión. Todos los derechos reservados.</footer>
+</div>
+</body>
+</html>
