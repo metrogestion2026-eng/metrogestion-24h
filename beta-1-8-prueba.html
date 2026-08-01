@@ -75,6 +75,9 @@
     #incidence-access-mockup .hotel-unit.status-ready { background:#eaf4ff; border-left-color:#8dbce5; }
     #incidence-access-mockup .hotel-unit.status-route { background:#fff0df; border-left-color:#e6a564; }
     #incidence-access-mockup .hotel-title { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    #incidence-access-mockup .hotel-primary { display:grid; gap:2px; }
+    #incidence-access-mockup .hotel-primary strong { font-size:19px; }
+    #incidence-access-mockup .hotel-reserve { color:var(--muted-foreground); font-size:13px; font-weight:650; }
     #incidence-access-mockup .badge { display:inline-flex; align-items:center; min-height:28px; padding:4px 9px; border-radius:999px; background:rgba(255,255,255,.72); border:1px solid rgba(82,98,115,.22); font-size:12px; font-weight:750; }
     #incidence-access-mockup .priority-1 { color:#991b1b; border-color:#fecaca; background:#fff1f2; }
     #incidence-access-mockup .stage-list { display:grid; gap:7px; margin:0; padding:0; list-style:none; }
@@ -180,6 +183,7 @@
       </div>
       <div id="hotel-dashboard" class="stack hidden">
         <div id="hotel-dashboard-cards" class="hotel-summary"></div>
+        <div class="card stack"><strong>Vehículos en taller</strong><div id="hotel-workshop-list" class="stack"></div></div>
         <div class="card stack"><strong>Prioridades activas</strong><div id="hotel-priority-list"></div></div>
       </div>
       <div id="hotel-form" class="card stack hidden">
@@ -490,13 +494,19 @@
         const markup = renderMetric('Reservas ocupadas',occupied)+renderMetric('Reservas libres',free)+renderMetric('En taller',workshop)+renderMetric('Pendientes de recuperar',ready);
         root.querySelector('#hotel-summary-cards').innerHTML = markup;
         root.querySelector('#hotel-dashboard-cards').innerHTML = markup;
+        const workshopUnits = hotelUnits.filter(unit => unit.state === 'workshop');
+        root.querySelector('#hotel-workshop-list').innerHTML = workshopUnits.map(unit => {
+          const entryDate = (unit.stateLabel.match(/desde\s+(.+)$/i)||[])[1] || 'Fecha pendiente';
+          const vehicle = unit.fleet ? `${unit.fleet} · ${unit.fleetPlate}` : `${unit.reserve} · ${unit.reservePlate}`;
+          return `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><div><strong>${escapeHtml(vehicle)}</strong><div class="text-small">${escapeHtml(unit.location||'Taller sin indicar')} · Entrada: ${escapeHtml(entryDate)}</div><div class="text-small text-muted">Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</div></div></div>`;
+        }).join('') || '<div class="text-small text-muted">No hay vehículos en taller.</div>';
         root.querySelector('#hotel-priority-list').innerHTML = hotelUnits.filter(unit => unit.state !== 'free').sort((a,b)=>a.priority-b.priority).map(unit => `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><strong>DFM ${escapeHtml(unit.fleet)}</strong><span>${escapeHtml(unit.cause)}</span></div>`).join('');
       };
       const renderHotelUnit = unit => {
         const currentStage = nextStageIndex(unit);
         const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':''}"><span>${stage.done?'✓':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}</span>${!stage.done && index===currentStage && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Marcar realizada</button>`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
         return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
-          <div class="hotel-title"><div><strong>${escapeHtml(unit.reserveLabel)} · Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><div class="text-small">${unit.fleet?`Sustituye a DFM ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}`:'Disponible para asignar'}</div></div><div><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span> <span class="badge">${escapeHtml(unit.stateLabel)}</span></div></div>
+          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span> <span class="badge">${escapeHtml(unit.stateLabel)}</span></div></div>
           <div class="detail-grid"><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Causa / pendientes</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Trabajos del reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
           ${stages}
         </article>`;
