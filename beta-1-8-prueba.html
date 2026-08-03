@@ -258,8 +258,8 @@
     <section id="view-versions" class="stack hidden">
       <div><strong>Memorando de versiones</strong><div class="text-small text-muted">Historial breve para consultar qué se ha modificado en cada publicación.</div></div>
       <div class="card stack">
-        <strong>Beta 1.8 · 01/08/2026 · Prueba</strong>
-        <div>El proyecto pasa a «Programa de gestión». Se incorpora Hotel con pizarra actual, próximos, histórico, resumen, colores pastel, etapas dinámicas y sustituciones planificadas o urgentes. Datos de prueba cargados desde la pizarra real del 31/07/2026, incluyendo vehículos DFM y R.</div>
+        <strong>Beta 1.8 · 03/08/2026 · Prueba</strong>
+        <div>Hotel actualizado con la pizarra real del 03/08/2026, incluidos DFM y R. «Pendientes del propio reserva» recoge los trabajos del vehículo reserva y «Tipo de motor» sustituye a la etiqueta Modelo. Los colores y las etapas T se trasladan como estados de seguimiento.</div>
       </div>
       <div class="card stack">
         <strong>Beta 1.7 · 29/07/2026</strong>
@@ -485,24 +485,24 @@
       const currentAccount = () => users.find(user => user.id === sessionUserId);
       const isAdmin = () => ['primary', 'secondary'].includes(currentAccount()?.role);
       const isPrimaryAdmin = () => currentAccount()?.role === 'primary';
-      const hotelStorageKey = 'metrogestion_hotel_beta18_31jul_v2';
+      const hotelStorageKey = 'metrogestion_hotel_beta18_03ago_v1';
       const defaultHotelUnits = [
-        { id:'hotel-2499', reserve:'2499', reservePlate:'2362MJT', reserveLabel:'PIÑA', fleet:'2709', fleetPlate:'7039NGM', upc:'DIEGO', location:'AUTODIS', state:'workshop', stateLabel:'En taller desde 30/07/2026', cause:'MCD + ITV + 44TN', reserveTasks:'—', priority:2, inc:'Sin INC indicada', next:'', model:'AS440S50T/P', stages:[{name:'AUTODIS',done:true},{name:'ITV + 44TN',done:false},{name:'Liberar reserva',done:false}] },
-        { id:'hotel-2497', reserve:'2497', reservePlate:'2359MJT', reserveLabel:'IVECO', fleet:'2498', fleetPlate:'2369MJT', upc:'DIEGO', location:'AUTODIS', state:'workshop', stateLabel:'En taller desde 27/07/2026', cause:'FG + EXT + MCD + HG + ITV', reserveTasks:'EXT', priority:3, inc:'Sin INC indicada', next:'', model:'AT440S46TP', stages:[{name:'AUTODIS',done:true},{name:'ITV',done:false},{name:'Recuperar',done:false}] },
-        { id:'hotel-2686', reserve:'2686', reservePlate:'4509NCM', reserveLabel:'MAN', fleet:'2518', fleetPlate:'1859MLJ', upc:'JEYSON', location:'STERN', state:'workshop', stateLabel:'En taller desde 28/07/2026', cause:'Frenos eje 2 + nivel de agua', reserveTasks:'—', priority:3, inc:'Sin INC indicada', next:'', model:'ACTR 1846LS', stages:[{name:'STERN',done:true},{name:'Recuperar',done:false}] },
-        { id:'hotel-2715', reserve:'2715', reservePlate:'0509NGR', reserveLabel:'IVECO', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'—', reserveTasks:'—', priority:5, inc:'Sin incidencia', next:'', model:'AT440S46TP', stages:[] },
-        { id:'hotel-2501', reserve:'2501', reservePlate:'Sin matrícula indicada', reserveLabel:'ALICANTE', fleet:'2553', fleetPlate:'5028MMC', upc:'JEYSON', location:'ODEXAN', state:'workshop', stateLabel:'En taller desde 21/07/2026', cause:'Vuelco', reserveTasks:'—', priority:1, inc:'Sin INC indicada', next:'', model:'AT440S46TP', stages:[{name:'ODEXAN',done:true},{name:'AUTODIS',done:false},{name:'Recuperar',done:false}] },
-        { id:'hotel-2573', reserve:'2573', reservePlate:'3417MPH', reserveLabel:'MAN DUO', fleet:'2710', fleetPlate:'7038NGM', upc:'DIEGO', location:'AUTODIS', state:'route', stateLabel:'Recogido, pendiente de recuperar ruta', cause:'Fallo electrónico', reserveTasks:'EXT', priority:1, inc:'Sin INC indicada', next:'', model:'AS440S50T/P', stages:[{name:'AUTODIS',done:true},{name:'Ruedas',done:true},{name:'Alineado',done:true},{name:'Recuperar',done:false}] },
-        { id:'hotel-2545', reserve:'2545', reservePlate:'5020MMC', reserveLabel:'IVECO', fleet:'2716', fleetPlate:'0511NGR', upc:'DIEGO', location:'AUTODIS', state:'workshop', stateLabel:'En taller desde 28/07/2026', cause:'Aletas + ITV + 44TN + MCD + NIV + AVRT7', reserveTasks:'—', priority:2, inc:'Sin INC indicada', next:'RT cambio', model:'AS440S50T/P', stages:[{name:'AUTODIS',done:true},{name:'44TN + ITV',done:false},{name:'Recuperar',done:false}] },
-        { id:'hotel-2610', reserve:'2610', reservePlate:'0175MTF', reserveLabel:'MERCEDES', fleet:'2617', fleetPlate:'0166MTF', upc:'DIEGO', location:'SANSA', state:'plan', stateLabel:'Pendiente de llevar al taller', cause:'ITV + 44TN + frenos eje 1', reserveTasks:'—', priority:2, inc:'Sin INC indicada', next:'', model:'ACTR 1846LS', stages:[{name:'ITV + 44TN',done:true},{name:'STERN',done:false},{name:'Recuperar',done:false}] },
-        { id:'hotel-2676', reserve:'2676', reservePlate:'1802NBF', reserveLabel:'21P/CAP', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'plan', stateLabel:'Pendiente de llevar al taller', cause:'GP', reserveTasks:'GP', priority:3, inc:'Sin incidencia', next:'', model:'AD260S36Y/PS', stages:[{name:'GP',done:false},{name:'Liberar reserva',done:false}] },
-        { id:'hotel-2493', reserve:'2493', reservePlate:'9153MJR', reserveLabel:'18/CB', fleet:'2490', fleetPlate:'6774MJM', upc:'DIEGO', location:'SANSA', state:'plan', stateLabel:'Pendiente de llevar al taller', cause:'AV-W', reserveTasks:'—', priority:1, inc:'Sin INC indicada', next:'', model:'', stages:[] },
-        { id:'hotel-2745', reserve:'2745', reservePlate:'7348NKN', reserveLabel:'21/CB', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'—', reserveTasks:'—', priority:5, inc:'Sin incidencia', next:'', model:'', stages:[] },
-        { id:'hotel-r1434', reserve:'R1434', reservePlate:'R8940BDP', reserveLabel:'33 PLANCHA', fleet:'', fleetPlate:'', upc:'', location:'DIRECAUTO', state:'workshop', stateLabel:'En taller desde 21/07/2026', cause:'Sin causa indicada', reserveTasks:'—', priority:3, inc:'Sin incidencia', next:'', model:'VECTOR 19 HE', stages:[{name:'DIRECAUTO',done:true},{name:'Recuperar',done:false}] },
-        { id:'hotel-r1524', reserve:'R1524', reservePlate:'R5679BDV', reserveLabel:'33PL', fleet:'R1577', fleetPlate:'R4391BDW', upc:'JEYSON', location:'SANSA', state:'workshop', stateLabel:'En taller desde 30/07/2026', cause:'GM', reserveTasks:'—', priority:5, inc:'Sin INC indicada', next:'', model:'', stages:[{name:'DIRECAUTO',done:false},{name:'Recuperar',done:false}] },
-        { id:'hotel-r1334', reserve:'R1334', reservePlate:'R9265BDL', reserveLabel:'33/SD', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'—', reserveTasks:'RO', priority:5, inc:'Sin incidencia', next:'', model:'', stages:[] },
-        { id:'hotel-r1187', reserve:'R1187', reservePlate:'R8596BDC', reserveLabel:'T27/ALTO', fleet:'', fleetPlate:'', upc:'', location:'Sin indicar', state:'free', stateLabel:'Reserva libre', cause:'—', reserveTasks:'MB', priority:5, inc:'Sin incidencia', next:'', model:'VECTOR 19 HE', stages:[] },
-        { id:'hotel-r1269', reserve:'R1269', reservePlate:'R1553BDK', reserveLabel:'T33', fleet:'R1286', fleetPlate:'R6098BDK', upc:'JUAN', location:'SANSA', state:'plan', stateLabel:'Pendiente de llevar al taller', cause:'ITV + 44TN + BPW + MB + LKT + EXT + AV', reserveTasks:'RO', priority:2, inc:'Sin INC indicada', next:'', model:'VECTOR 19 HE', stages:[{name:'FRIDIEL',done:false},{name:'DIRECAUTO',done:true},{name:'ITV + 44TN',done:true},{name:'Recuperar',done:false}] }
+        { id:'hotel-2499', reserve:'2499', reservePlate:'2362MJT', reserveLabel:'PIÑA', fleet:'2709', fleetPlate:'7039NGM', upc:'DIEGO', location:'AUTODIS', state:'workshop', stateLabel:'En taller desde 30/07/2026', cause:'MCD + ITV + 44TN', reserveTasks:'', priority:2, inc:'Sin INC indicada', next:'', model:'AS440S50T/P', stages:[{name:'AUTODIS',done:true},{name:'ITV + 44TN',done:false},{name:'Liberar reserva',done:false}] },
+        { id:'hotel-2497', reserve:'2497', reservePlate:'2359MJT', reserveLabel:'IVECO', fleet:'2498', fleetPlate:'2369MJT', upc:'DIEGO', location:'AUTODIS', state:'ready', stateLabel:'Terminado, pendiente de recoger', cause:'FG + EXT + MCD + HG + ITV', reserveTasks:'EXT', priority:3, inc:'Sin INC indicada', next:'', model:'AT440S46TP', stages:[{name:'AUTODIS',done:true},{name:'ITV',done:false},{name:'Recuperar',done:false}] },
+        { id:'hotel-2686', reserve:'2686', reservePlate:'4509NCM', reserveLabel:'MAN', fleet:'2518', fleetPlate:'1859MLJ', upc:'JEYSON', location:'STERN', state:'ready', stateLabel:'Terminado, pendiente de recoger', cause:'Frenos eje 2 + H2O', reserveTasks:'', priority:3, inc:'Sin INC indicada', next:'', model:'ACTR 1846LS', stages:[{name:'STERN',done:true},{name:'Recuperar',done:false}] },
+        { id:'hotel-2715', reserve:'2715', reservePlate:'0509NGR', reserveLabel:'IVECO', fleet:'2725', fleetPlate:'2742NHC', upc:'IONUT', location:'SANSA', state:'plan', stateLabel:'Pendiente de llevar al taller', cause:'Aceite + manguetas + PA', reserveTasks:'', priority:3, inc:'AV-260622', next:'', model:'AT440S46TP', stages:[] },
+        { id:'hotel-2501', reserve:'2501', reservePlate:'Sin matrícula indicada', reserveLabel:'ALICANTE', fleet:'2553', fleetPlate:'5028MMC', upc:'JEYSON', location:'ODEXAN', state:'workshop', stateLabel:'En taller desde 21/07/2026', cause:'Vuelco', reserveTasks:'', priority:1, inc:'Sin INC indicada', next:'', model:'AT440S46TP', stages:[{name:'ODEXAN',done:true},{name:'AUTODIS',done:false},{name:'Recuperar',done:false}] },
+        { id:'hotel-2573', reserve:'2573', reservePlate:'3417MPH', reserveLabel:'MAN DUO', fleet:'2710', fleetPlate:'7038NGM', upc:'DIEGO', location:'AUTODIS', state:'workshop', stateLabel:'En taller desde 03/08/2026', cause:'Fallo electrónico', reserveTasks:'EXT', priority:1, inc:'Sin INC indicada', next:'2700', model:'AS440S50T/P', stages:[{name:'AUTODIS',done:true},{name:'Ruedas',done:true},{name:'Alineado',done:true},{name:'Recuperar',done:false}] },
+        { id:'hotel-2545', reserve:'2545', reservePlate:'5020MMC', reserveLabel:'IVECO', fleet:'2716', fleetPlate:'0511NGR', upc:'DIEGO', location:'AUTODIS', state:'ready', stateLabel:'Terminado, pendiente de recoger', cause:'Aletas + ITV + 44TN + MCD + NIV + AVRT7', reserveTasks:'', priority:2, inc:'Sin INC indicada', next:'', model:'AS440S50T/P', stages:[{name:'AUTODIS',done:true},{name:'Recuperar',done:false}] },
+        { id:'hotel-2610', reserve:'2610', reservePlate:'0175MTF', reserveLabel:'MERCEDES', fleet:'2617', fleetPlate:'0166MTF', upc:'DIEGO', location:'STERN', state:'workshop', stateLabel:'En taller desde 03/08/2026', cause:'ITV + 44TN + frenos eje 1', reserveTasks:'', priority:2, inc:'Sin INC indicada', next:'', model:'ACTR 1846LS', stages:[{name:'ITV + 44TN',done:true},{name:'STERN',done:true},{name:'Recuperar',done:false}] },
+        { id:'hotel-2676', reserve:'2676', reservePlate:'1802NBF', reserveLabel:'21P/CAP', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'', reserveTasks:'', priority:5, inc:'Sin incidencia', next:'', model:'AD260S36Y/PS', stages:[] },
+        { id:'hotel-2493', reserve:'2493', reservePlate:'9153MJR', reserveLabel:'18/CB', fleet:'2490', fleetPlate:'6774MJM', upc:'DIEGO', location:'DIESEL', state:'workshop', stateLabel:'En taller desde 22/07/2026', cause:'AV-W', reserveTasks:'', priority:1, inc:'Sin INC indicada', next:'', model:'', stages:[{name:'DIESEL',done:true},{name:'GP',done:false},{name:'Recuperar',done:false}] },
+        { id:'hotel-2745', reserve:'2745', reservePlate:'7348NKN', reserveLabel:'21/CB', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'', reserveTasks:'', priority:5, inc:'Sin incidencia', next:'', model:'', stages:[] },
+        { id:'hotel-r1434', reserve:'R1434', reservePlate:'R8940BDP', reserveLabel:'33 PLANCHA', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'', reserveTasks:'', priority:5, inc:'Sin incidencia', next:'R1320', model:'VECTOR 19 HE', stages:[] },
+        { id:'hotel-r1524', reserve:'R1524', reservePlate:'R5679BDV', reserveLabel:'33PL', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'', reserveTasks:'', priority:5, inc:'Sin incidencia', next:'', model:'', stages:[] },
+        { id:'hotel-r1334', reserve:'R1334', reservePlate:'R9265BDL', reserveLabel:'33/SD', fleet:'R1274', fleetPlate:'R4021BDK', upc:'RAÚL', location:'SANSA', state:'plan', stateLabel:'Pendiente de llevar al taller', cause:'AV-NARR', reserveTasks:'', priority:1, inc:'Sin INC indicada', next:'', model:'', stages:[{name:'FRIGICOLL',done:false},{name:'Recuperar',done:false}] },
+        { id:'hotel-r1187', reserve:'R1187', reservePlate:'R8596BDC', reserveLabel:'T27/ALTO', fleet:'R1408', fleetPlate:'R0058BDP', upc:'JEYSON', location:'SANSA', state:'plan', stateLabel:'Pendiente de llevar al taller', cause:'AV-C NARR', reserveTasks:'MB', priority:1, inc:'Sin INC indicada', next:'', model:'VECTOR 19 HE', stages:[{name:'FRIDIEL',done:false},{name:'Recuperar',done:false}] },
+        { id:'hotel-r1269', reserve:'R1269', reservePlate:'R1553BDK', reserveLabel:'T33', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'', reserveTasks:'RO', priority:5, inc:'Sin incidencia', next:'', model:'', stages:[] }
       ];
       let hotelUnits = [];
       let activePizarraId = null;
@@ -556,7 +556,7 @@
           es_flota:Boolean(unit.fleet), causa:unit.cause || '', prioridad:unit.priority || 5,
           estado:dbStateFromUnit(unit), lugar:unit.location || '',
           fecha_entrada:isoDateFromText(unit.stateLabel), incidencia:unit.inc || '',
-          proximo:unit.next || '', observaciones:'Carga inicial de la pizarra del 31/07/2026',
+          proximo:unit.next || '', observaciones:'Carga inicial de la pizarra del 03/08/2026',
           orden:index
         }));
         const { data:created, error } = await supabaseClient.from('registros_hotel').insert(rows).select('id, orden');
@@ -582,11 +582,55 @@
         if (count) return;
         const today = new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
         const { data:pizarras, error:pizarraError } = await supabaseClient.from('pizarras').upsert([
-          {fecha:'2026-07-31', estado:'archivada'},
           {fecha:today, estado:'en_curso'}
         ], {onConflict:'fecha'}).select('id, fecha');
         if (pizarraError) throw pizarraError;
         for (const pizarra of pizarras) await seedHotelPizarra(pizarra.id, defaultHotelUnits);
+      };
+      const syncCurrentPizarra03AugIfNeeded = async () => {
+        const marker = 'Pizarra 03/08/2026 sincronizada · v1';
+        if (!isPrimaryAdmin() || activePizarraDate !== '2026-08-03') return;
+        const { data:existingRows, error:readError } = await supabaseClient.from('registros_hotel')
+          .select('id, vehiculo_reserva, observaciones').eq('pizarra_id',activePizarraId);
+        if (readError) throw readError;
+        if ((existingRows || []).some(row => row.observaciones === marker)) return;
+        const byReserve = new Map((existingRows || []).map(row => [String(row.vehiculo_reserva).toUpperCase(), row]));
+        for (let index = 0; index < defaultHotelUnits.length; index += 1) {
+          const unit = defaultHotelUnits[index];
+          const payload = {
+            pizarra_id:activePizarraId,
+            vehiculo_sustituido:unit.fleet || '', matricula_sustituido:unit.fleetPlate || '',
+            vehiculo_reserva:unit.reserve, matricula_reserva:unit.reservePlate || '',
+            tipo_unidad:unit.reserveLabel || '', etiqueta_reserva:unit.reserveLabel || '',
+            upc:unit.upc || '', modelo:unit.model || '', trabajos_reserva:unit.reserveTasks || '',
+            es_flota:Boolean(unit.fleet), causa:unit.cause || '', prioridad:unit.priority || 5,
+            estado:dbStateFromUnit(unit), lugar:unit.location || '',
+            fecha_entrada:isoDateFromText(unit.stateLabel), incidencia:unit.inc || '',
+            proximo:unit.next || '', observaciones:marker, orden:index, oculto:false,
+            actualizado_en:new Date().toISOString(), modificado_por:sessionUserId
+          };
+          const existing = byReserve.get(unit.reserve.toUpperCase());
+          let recordId = existing?.id;
+          if (recordId) {
+            const { error:updateError } = await supabaseClient.from('registros_hotel').update(payload).eq('id',recordId);
+            if (updateError) throw updateError;
+          } else {
+            const { data:created, error:insertError } = await supabaseClient.from('registros_hotel').insert(payload).select('id').single();
+            if (insertError) throw insertError;
+            recordId = created.id;
+          }
+          const { error:deleteStagesError } = await supabaseClient.from('etapas_hotel').delete().eq('registro_hotel_id',recordId);
+          if (deleteStagesError) throw deleteStagesError;
+          if (unit.stages.length) {
+            const stageRows = unit.stages.map((stage,stageIndex) => ({
+              registro_hotel_id:recordId, nombre:stage.name, posicion:stageIndex + 1,
+              estado:stage.done ? 'realizada' : 'pendiente', lugar:unit.location || '',
+              fecha_real:stage.done ? new Date().toISOString() : null
+            }));
+            const { error:insertStagesError } = await supabaseClient.from('etapas_hotel').insert(stageRows);
+            if (insertStagesError) throw insertStagesError;
+          }
+        }
       };
       const subscribeHotelRealtime = () => {
         if (hotelRealtimeChannel) supabaseClient.removeChannel(hotelRealtimeChannel);
@@ -610,6 +654,7 @@
         if (!pizarra) return;
         activePizarraId = pizarra.id;
         activePizarraDate = pizarra.fecha;
+        await syncCurrentPizarra03AugIfNeeded();
         const { data:rows, error } = await supabaseClient.from('registros_hotel')
           .select('*, etapas_hotel(*)').eq('pizarra_id',activePizarraId).eq('oculto',false).order('orden');
         if (error) throw error;
@@ -621,7 +666,7 @@
         ['plan','Parar'], ['workshop','Pendiente de llevar al taller'], ['workshop','En taller'],
         ['ready','Terminado, pendiente de recoger'], ['route','Recogido, pendiente de recuperar ruta'], ['free','Reserva libre']
       ];
-      const hotelSourceDate = '31/07/2026';
+      const hotelSourceDate = '03/08/2026';
       const renderMetric = (label,value,filter) => `<button class="metric hotel-metric-filter ${hotelMetricFilter===filter?'active':''}" data-filter="${filter}" type="button"><strong>${value}</strong><span class="text-small text-muted">${escapeHtml(label)}</span></button>`;
       const nextStageIndex = unit => unit.stages.findIndex(stage => !stage.done && stage.status !== 'anulada');
       const renderHotelSummary = () => {
@@ -650,7 +695,7 @@
         const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${!stage.done && stage.status!=='anulada' && index===currentStage && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizada</button>`:''}${isAdmin()?`<button class="btn btn-secondary hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="btn btn-secondary hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
         return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
           <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span> <span class="badge">${escapeHtml(unit.stateLabel)}</span></div></div>
-          <div class="detail-grid"><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Causa / pendientes</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Trabajos del reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
+          <div class="detail-grid"><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Tipo de motor</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
           ${stages}
           ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar ficha</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ Añadir T</button></div>`:''}
         </article>`;
