@@ -65,7 +65,8 @@
     #incidence-access-mockup .module-tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; }
     #incidence-access-mockup .module-tabs .btn { white-space:nowrap; }
     #incidence-access-mockup .hotel-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
-    #incidence-access-mockup .metric { padding:13px; border:1px solid var(--border); border-radius:12px; background:#fff; display:grid; gap:3px; }
+    #incidence-access-mockup .metric { padding:13px; border:1px solid var(--border); border-radius:12px; background:#fff; display:grid; gap:3px; text-align:left; cursor:pointer; color:inherit; }
+    #incidence-access-mockup .metric.active { outline:3px solid #7dd3fc; border-color:var(--primary); }
     #incidence-access-mockup .metric strong { font-size:24px; }
     #incidence-access-mockup .hotel-list { display:grid; gap:12px; }
     #incidence-access-mockup .hotel-unit { border-left:8px solid #cbd5e1; }
@@ -83,6 +84,7 @@
     #incidence-access-mockup .stage-list { display:grid; gap:7px; margin:0; padding:0; list-style:none; }
     #incidence-access-mockup .stage { display:flex; gap:9px; align-items:center; padding:8px 10px; border-radius:9px; background:rgba(255,255,255,.7); }
     #incidence-access-mockup .stage.done { background:#dcfce7; color:#166534; }
+    #incidence-access-mockup .stage.annulled { background:#f1f5f9; color:#64748b; text-decoration:line-through; }
     #incidence-access-mockup .hotel-actions { display:flex; gap:8px; flex-wrap:wrap; }
     #incidence-access-mockup .hotel-actions .btn { min-height:38px; padding:7px 10px; font-size:13px; }
     #incidence-access-mockup .sync-note { border-left:4px solid #f59e0b; background:#fffbeb; }
@@ -170,6 +172,7 @@
       <div id="hotel-board" class="stack">
         <label>Buscar en la pizarra<input id="hotel-search" class="form-control" placeholder="DFM, matrícula, reserva, UPC, taller, causa o INC"></label>
         <div id="hotel-summary-cards" class="hotel-summary"></div>
+        <div id="hotel-active-filter" class="card text-small hidden"></div>
         <div id="hotel-list" class="hotel-list"></div>
       </div>
       <div id="hotel-next" class="stack hidden">
@@ -506,6 +509,7 @@
       let activePizarraDate = '';
       let hotelRealtimeChannel = null;
       let realtimeReloadTimer = null;
+      let hotelMetricFilter = 'all';
       const saveHotel = () => {};
       const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
       const isoDateFromText = value => {
@@ -535,7 +539,7 @@
         inc:row.incidencia || 'Sin incidencia', next:row.proximo || '', model:row.modelo || '',
         stages:(row.etapas_hotel || []).sort((a,b)=>a.posicion-b.posicion).map(stage => ({
           id:stage.id, name:stage.nombre, done:stage.estado === 'realizada',
-          status:stage.estado, location:stage.lugar || ''
+          status:stage.estado, location:stage.lugar || '', reason:stage.motivo_anulacion || ''
         }))
       });
       const dbStateFromUnit = unit => ({
@@ -618,14 +622,14 @@
         ['ready','Terminado, pendiente de recoger'], ['route','Recogido, pendiente de recuperar ruta'], ['free','Reserva libre']
       ];
       const hotelSourceDate = '31/07/2026';
-      const renderMetric = (label,value) => `<div class="metric"><strong>${value}</strong><span class="text-small text-muted">${escapeHtml(label)}</span></div>`;
-      const nextStageIndex = unit => unit.stages.findIndex(stage => !stage.done);
+      const renderMetric = (label,value,filter) => `<button class="metric hotel-metric-filter ${hotelMetricFilter===filter?'active':''}" data-filter="${filter}" type="button"><strong>${value}</strong><span class="text-small text-muted">${escapeHtml(label)}</span></button>`;
+      const nextStageIndex = unit => unit.stages.findIndex(stage => !stage.done && stage.status !== 'anulada');
       const renderHotelSummary = () => {
         const occupied = hotelUnits.filter(unit => unit.fleet).length;
         const free = hotelUnits.filter(unit => unit.state === 'free').length;
         const workshop = hotelUnits.filter(unit => unit.state === 'workshop').length;
         const ready = hotelUnits.filter(unit => ['ready','route'].includes(unit.state)).length;
-        const markup = renderMetric('Reservas ocupadas',occupied)+renderMetric('Reservas libres',free)+renderMetric('En taller',workshop)+renderMetric('Pendientes de recuperar',ready);
+        const markup = renderMetric('Reservas ocupadas',occupied,'occupied')+renderMetric('Reservas libres',free,'free')+renderMetric('En taller',workshop,'workshop')+renderMetric('Pendientes de recuperar',ready,'recover');
         root.querySelector('#hotel-summary-cards').innerHTML = markup;
         root.querySelector('#hotel-dashboard-cards').innerHTML = markup;
         const workshopUnits = hotelUnits.filter(unit => unit.state === 'workshop');
@@ -635,37 +639,130 @@
           return `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><div><strong>${escapeHtml(vehicle)}</strong><div class="text-small">${escapeHtml(unit.location||'Taller sin indicar')} · Entrada: ${escapeHtml(entryDate)}</div><div class="text-small text-muted">Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</div></div></div>`;
         }).join('') || '<div class="text-small text-muted">No hay vehículos en taller.</div>';
         root.querySelector('#hotel-priority-list').innerHTML = hotelUnits.filter(unit => unit.state !== 'free').sort((a,b)=>a.priority-b.priority).map(unit => `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><strong>DFM ${escapeHtml(unit.fleet)}</strong><span>${escapeHtml(unit.cause)}</span></div>`).join('');
+        root.querySelectorAll('.hotel-metric-filter').forEach(button => button.addEventListener('click', () => {
+          hotelMetricFilter = button.dataset.filter;
+          renderHotel();
+          root.querySelector('#hotel-list').scrollIntoView({behavior:'smooth',block:'start'});
+        }));
       };
       const renderHotelUnit = unit => {
         const currentStage = nextStageIndex(unit);
-        const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':''}"><span>${stage.done?'✓':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}</span>${!stage.done && index===currentStage && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Marcar realizada</button>`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
+        const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${!stage.done && stage.status!=='anulada' && index===currentStage && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizada</button>`:''}${isAdmin()?`<button class="btn btn-secondary hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="btn btn-secondary hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
         return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
           <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span> <span class="badge">${escapeHtml(unit.stateLabel)}</span></div></div>
           <div class="detail-grid"><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Causa / pendientes</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Trabajos del reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
           ${stages}
+          ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar ficha</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ Añadir T</button></div>`:''}
         </article>`;
       };
-      const bindHotelStageButtons = () => root.querySelectorAll('.hotel-stage-done').forEach(button => button.addEventListener('click', async () => {
-        const unit = hotelUnits.find(item => item.id === button.dataset.id);
-        if (!unit || !isAdmin()) return;
-        const stage = unit.stages[Number(button.dataset.stage)];
-        button.disabled = true;
-        const { error } = await supabaseClient.from('etapas_hotel').update({
-          estado:'realizada', fecha_real:new Date().toISOString(), modificado_por:sessionUserId,
-          actualizado_en:new Date().toISOString()
-        }).eq('id',stage.id);
-        if (error) {
-          button.disabled = false;
-          window.alert('No se pudo actualizar la etapa: ' + error.message);
-          return;
-        }
-        await loadHotelFromSupabase(false);
-      }));
+      const bindHotelStageButtons = () => {
+        root.querySelectorAll('.hotel-unit-edit').forEach(button => button.addEventListener('click', async () => {
+          const unit = hotelUnits.find(item => item.id === button.dataset.id);
+          if (!unit || !isAdmin()) return;
+          const location = window.prompt('Lugar o taller:', unit.location || '');
+          if (location === null) return;
+          const cause = window.prompt('Causa o trabajos pendientes:', unit.cause || '');
+          if (cause === null) return;
+          const priorityText = window.prompt('Prioridad del 1 al 5:', String(unit.priority || 5));
+          if (priorityText === null) return;
+          const priority = Number(priorityText);
+          if (![1,2,3,4,5].includes(priority)) { window.alert('La prioridad debe estar entre 1 y 5.'); return; }
+          const states = ['planificado','pendiente_taller','en_taller','terminado_pendiente_recogida','recogido_pendiente_ruta','reserva_liberada'];
+          const currentDbState = dbStateFromUnit(unit);
+          const stateText = window.prompt('Estado: 1 Parar · 2 Pendiente de taller · 3 En taller · 4 Terminado pendiente de recoger · 5 Recogido pendiente de ruta · 6 Reserva liberada', String(Math.max(1,states.indexOf(currentDbState)+1)));
+          if (stateText === null) return;
+          const state = states[Number(stateText)-1];
+          if (!state) { window.alert('Selecciona un estado del 1 al 6.'); return; }
+          let entryDate = null;
+          if (state === 'en_taller') {
+            const currentDate = isoDateFromText(unit.stateLabel)?.slice(0,10) || new Date().toISOString().slice(0,10);
+            const dateText = window.prompt('Fecha de entrada en taller (AAAA-MM-DD):', currentDate);
+            if (dateText === null) return;
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText)) { window.alert('La fecha debe tener formato AAAA-MM-DD.'); return; }
+            entryDate = dateText + 'T00:00:00+02:00';
+          }
+          const { error } = await supabaseClient.from('registros_hotel').update({
+            lugar:location.trim(), causa:cause.trim(), prioridad:priority, estado:state,
+            fecha_entrada:entryDate, modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+          }).eq('id',unit.id);
+          if (error) window.alert('No se pudo modificar la ficha: ' + error.message);
+          await loadHotelFromSupabase(false);
+        }));
+        root.querySelectorAll('.hotel-stage-done').forEach(button => button.addEventListener('click', async () => {
+          const unit = hotelUnits.find(item => item.id === button.dataset.id);
+          if (!unit || !isAdmin()) return;
+          const stage = unit.stages[Number(button.dataset.stage)];
+          button.disabled = true;
+          const { error } = await supabaseClient.from('etapas_hotel').update({
+            estado:'realizada', fecha_real:new Date().toISOString(), modificado_por:sessionUserId,
+            actualizado_en:new Date().toISOString()
+          }).eq('id',stage.id);
+          if (error) window.alert('No se pudo actualizar la etapa: ' + error.message);
+          await loadHotelFromSupabase(false);
+        }));
+        root.querySelectorAll('.hotel-stage-add').forEach(button => button.addEventListener('click', async () => {
+          const unit = hotelUnits.find(item => item.id === button.dataset.id);
+          if (!unit || !isAdmin()) return;
+          const name = window.prompt('Nombre de la nueva T:');
+          if (name === null) return;
+          if (!name.trim()) { window.alert('El nombre de la T es obligatorio.'); return; }
+          const location = window.prompt('Lugar o taller de esta T:', unit.location || '');
+          if (location === null) return;
+          const maxPosition = unit.stages.reduce((max,stage,index)=>Math.max(max,index+1),0);
+          const { error } = await supabaseClient.from('etapas_hotel').insert({
+            registro_hotel_id:unit.id, nombre:name.trim(), posicion:maxPosition+1,
+            estado:'pendiente', lugar:location.trim(), creado_por:sessionUserId,
+            modificado_por:sessionUserId
+          });
+          if (error) window.alert('No se pudo añadir la T: ' + error.message);
+          await loadHotelFromSupabase(false);
+        }));
+        root.querySelectorAll('.hotel-stage-edit').forEach(button => button.addEventListener('click', async () => {
+          const unit = hotelUnits.find(item => item.id === button.dataset.id);
+          if (!unit || !isAdmin()) return;
+          const stage = unit.stages[Number(button.dataset.stage)];
+          const name = window.prompt('Nombre de la T:', stage.name);
+          if (name === null) return;
+          if (!name.trim()) { window.alert('El nombre de la T es obligatorio.'); return; }
+          const location = window.prompt('Lugar o taller de esta T:', stage.location || unit.location || '');
+          if (location === null) return;
+          const { error } = await supabaseClient.from('etapas_hotel').update({
+            nombre:name.trim(), lugar:location.trim(), modificado_por:sessionUserId,
+            actualizado_en:new Date().toISOString()
+          }).eq('id',stage.id);
+          if (error) window.alert('No se pudo modificar la T: ' + error.message);
+          await loadHotelFromSupabase(false);
+        }));
+        root.querySelectorAll('.hotel-stage-annul').forEach(button => button.addEventListener('click', async () => {
+          const unit = hotelUnits.find(item => item.id === button.dataset.id);
+          if (!unit || !isAdmin()) return;
+          const stage = unit.stages[Number(button.dataset.stage)];
+          const reason = window.prompt('Motivo obligatorio para anular esta T:');
+          if (reason === null) return;
+          if (!reason.trim()) { window.alert('Debes indicar el motivo de la anulación.'); return; }
+          const { error } = await supabaseClient.from('etapas_hotel').update({
+            estado:'anulada', motivo_anulacion:reason.trim(), modificado_por:sessionUserId,
+            actualizado_en:new Date().toISOString()
+          }).eq('id',stage.id);
+          if (error) window.alert('No se pudo anular la T: ' + error.message);
+          await loadHotelFromSupabase(false);
+        }));
+      };
       const renderHotel = () => {
         const shownDate = activePizarraDate ? new Date(activePizarraDate + 'T12:00:00').toLocaleDateString('es-ES') : hotelSourceDate;
         root.querySelector('#hotel-date').textContent = 'Pizarra en curso del ' + shownDate + ' · sincronización en tiempo real';
         const query = root.querySelector('#hotel-search').value.toLowerCase().trim();
-        const visible = hotelUnits.filter(unit => !query || Object.values(unit).flat(3).join(' ').toLowerCase().includes(query));
+        const matchesMetric = unit => hotelMetricFilter === 'all'
+          || (hotelMetricFilter === 'occupied' && Boolean(unit.fleet))
+          || (hotelMetricFilter === 'free' && unit.state === 'free')
+          || (hotelMetricFilter === 'workshop' && unit.state === 'workshop')
+          || (hotelMetricFilter === 'recover' && ['ready','route'].includes(unit.state));
+        const visible = hotelUnits.filter(unit => matchesMetric(unit) && (!query || Object.values(unit).flat(3).join(' ').toLowerCase().includes(query)));
+        const filterLabels = {occupied:'Reservas ocupadas',free:'Reservas libres',workshop:'Vehículos en taller',recover:'Pendientes de recuperar'};
+        const activeFilter = root.querySelector('#hotel-active-filter');
+        activeFilter.classList.toggle('hidden', hotelMetricFilter === 'all');
+        activeFilter.innerHTML = hotelMetricFilter === 'all' ? '' : `<div class="viz-row"><strong>Mostrando: ${filterLabels[hotelMetricFilter]}</strong><button id="hotel-clear-filter" class="btn btn-secondary" type="button">Mostrar todo</button></div>`;
+        root.querySelector('#hotel-clear-filter')?.addEventListener('click', () => { hotelMetricFilter='all'; renderHotel(); });
         root.querySelector('#hotel-list').innerHTML = visible.map(renderHotelUnit).join('') || '<div class="card">No hay resultados en la pizarra actual.</div>';
         root.querySelector('#hotel-next-list').innerHTML = hotelUnits.filter(unit=>unit.next).map(unit=>`<div class="card"><strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</strong><div>Próximo previsto: <strong>${escapeHtml(unit.next)}</strong></div><div class="text-small text-muted">Previsión no confirmada. La decisión final es manual.</div></div>`).join('') || '<div class="card">No hay próximas sustituciones planificadas.</div>';
         root.querySelector('#hotel-history-list').innerHTML = [
