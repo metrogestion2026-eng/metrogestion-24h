@@ -98,23 +98,19 @@
   <section id="mock-login" class="login-wrap">
     <div class="card stack">
       <div>
-        <strong>Programa de gestión · Acceso</strong>
-        <div class="text-small text-muted">Cada usuario accede con su nombre y PIN personal.</div>
+        <strong>Programa de gestión · Acceso seguro</strong>
+        <div class="text-small text-muted">Acceso conectado a la base de datos de Metrogestión.</div>
       </div>
-      <label>Usuario
-        <select id="mock-user" class="form-select">
-          <option value="Metrogestión">Metrogestión · Administrador</option>
-          <option value="Diego">Diego · Usuario</option>
-          <option value="Ionut">Ionut · Usuario</option>
-        </select>
+      <label>Correo vinculado
+        <input id="mock-user" class="form-control" type="email" autocomplete="username" value="metrogestion2026@gmail.com" placeholder="correo@empresa.com">
       </label>
-      <label>PIN
-        <input id="mock-pin" class="form-control" type="password" inputmode="numeric" maxlength="6" placeholder="Introduce tu PIN">
+      <label>Contraseña o PIN de acceso
+        <input id="mock-pin" class="form-control" type="password" autocomplete="current-password" placeholder="Introduce tu clave privada">
       </label>
-      <div id="login-message" class="text-small text-muted">Maqueta: introduce cualquier PIN de 4 a 6 cifras.</div>
+      <div id="login-message" class="text-small text-muted">Utiliza la contraseña creada en Supabase. No se guarda en este dispositivo.</div>
       <button id="mock-enter" class="btn btn-primary" type="button">Entrar</button>
     </div>
-    <div class="text-small text-muted">Solo Metrogestión puede crear usuarios, cambiar PIN, bloquear accesos y consultar todas las incidencias.</div>
+    <div class="text-small text-muted">El acceso, los permisos y los cambios quedan protegidos y registrados.</div>
   </section>
 
   <section id="mock-app" class="shell hidden">
@@ -127,22 +123,29 @@
     </div>
 
     <nav class="tabs" aria-label="Secciones">
-      <button class="btn btn-primary app-tab" data-view="mine" type="button">Mis incidencias</button>
+      <button id="activate-tab" class="btn btn-primary app-tab" data-view="mine" type="button">Activar 24H</button>
       <button id="hotel-tab" class="btn btn-secondary app-tab" data-view="hotel" data-permission="hotel" type="button">Hotel</button>
-      <button id="activate-tab" class="btn btn-secondary" type="button">Activar 24H</button>
       <button id="my-account-tab" class="btn btn-secondary app-tab" data-view="my-account" type="button">Mi cuenta</button>
-      <button id="all-tab" class="btn btn-secondary app-tab" data-view="all" type="button">Todas</button>
       <button id="users-tab" class="btn btn-secondary app-tab" data-view="users" type="button">Usuarios</button>
       <button id="settings-tab" class="btn btn-secondary app-tab" data-view="settings" type="button">Configuración</button>
       <button id="versions-tab" class="btn btn-secondary app-tab" data-view="versions" type="button">Versiones</button>
+      <button id="suggestions-tab" class="btn btn-secondary app-tab" data-view="suggestions" type="button">Sugerencias</button>
     </nav>
 
     <section id="view-incidences" class="stack">
+      <div>
+        <strong>Activar 24H</strong>
+        <div class="text-small text-muted">Nueva asistencia, seguimiento y consulta de incidencias relacionadas.</div>
+      </div>
+      <div class="module-tabs" aria-label="Activar 24H e incidencias">
+        <button id="new-activation" class="btn btn-primary" type="button">+ Nueva activación</button>
+        <button id="incidences-mine" class="btn btn-secondary" type="button">Mis incidencias</button>
+        <button id="incidences-all" class="btn btn-secondary" type="button">Todas las incidencias</button>
+      </div>
       <div class="toolbar">
         <label>Buscar incidencia
           <input id="incidence-search" class="form-control" placeholder="DFM, matrícula, caso o descripción">
         </label>
-        <button id="new-activation" class="btn btn-primary" type="button">+ Activar 24H</button>
       </div>
       <div id="view-heading"><strong>Mis incidencias</strong><div class="text-small text-muted">Solo aparecen las creadas por el usuario conectado.</div></div>
       <div id="incidence-list" class="incidence-list"></div>
@@ -157,7 +160,7 @@
           <button id="hotel-new-urgent" class="btn btn-primary" type="button">⚠ Avería urgente</button>
         </div>
       </div>
-      <div class="card sync-note text-small"><strong>Beta 1.8 de prueba.</strong> La pantalla reproduce la lógica acordada. La lectura y escritura automática en MANTENIMENT se activará mediante un backend privado antes de usar datos reales.</div>
+      <div class="card sync-note text-small"><strong>Beta 1.8 conectada.</strong> Hotel utiliza una base de datos privada y sincronización en tiempo real. La conexión automática con MANTENIMENT se incorporará en una fase posterior.</div>
       <div class="module-tabs" aria-label="Vistas de Hotel">
         <button class="btn btn-primary hotel-subtab" data-hotel-view="board" type="button">Pizarra actual</button>
         <button class="btn btn-secondary hotel-subtab" data-hotel-view="next" type="button">Próximos</button>
@@ -285,6 +288,24 @@
       </div>
     </section>
 
+    <section id="view-suggestions" class="stack hidden">
+      <div><strong>Sugerencias</strong><div class="text-small text-muted">Envía una mejora, incidencia de uso o idea al administrador principal.</div></div>
+      <div class="card stack">
+        <label>Tipo
+          <select id="suggestion-type" class="form-select">
+            <option value="mejora">Propuesta de mejora</option>
+            <option value="fallo">He encontrado un fallo</option>
+            <option value="dato">Dato incorrecto o desactualizado</option>
+            <option value="otro">Otro</option>
+          </select>
+        </label>
+        <label>Asunto<input id="suggestion-subject" class="form-control" maxlength="120" placeholder="Resumen breve"></label>
+        <label>Sugerencia<textarea id="suggestion-message" class="form-control" maxlength="2000" placeholder="Explica qué propones o qué ha ocurrido"></textarea></label>
+        <div id="suggestion-status" class="text-small text-muted">La sugerencia quedará registrada antes de abrir el correo.</div>
+        <button id="send-suggestion" class="btn btn-primary" type="button">Guardar y enviar al administrador</button>
+      </div>
+    </section>
+
     <section id="view-activation" class="stack hidden">
       <div class="topbar">
         <div><strong>Nueva activación 24H</strong><div id="activation-step-label" class="text-small text-muted">Paso 0 · Inicio</div><div id="activation-dfm-context"><strong>DFM —</strong></div></div>
@@ -397,9 +418,15 @@
     </section>
   </section>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (() => {
       const root = document.getElementById('incidence-access-mockup');
+      const supabaseUrl = 'https://njtohfkqijoavtumtmza.supabase.co';
+      const supabaseKey = 'sb_publishable_w1a9DClOM0S4HVJdv_TbKg_W_UkN2W_';
+      const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      });
       const incidences = [
         { id: 'INC-2607241', creator: 'Diego', dfm: '2716', plate: '0511NGR', opened: '24/07/2026 · 08:35', status: 'Seguimiento abierto', caseNumber: 'ANS-24H/7845-B', fault: 'Fallo motor y pérdida de potencia', location: 'AP-7 · PK 183 · sentido Barcelona', eta: '09:40', realArrival: '09:52', diagnosis: 'Pendiente de confirmación', result: 'Técnico en ruta', workshop: '—' },
         { id: 'INC-2607234', creator: 'Ionut', dfm: '2602', plate: '2097MST', opened: '23/07/2026 · 17:18', status: 'Trasladado a taller', caseNumber: 'MB/24H-A91#22', fault: 'El vehículo no arranca', location: 'Bloque logístico Abrera', eta: '18:05', realArrival: '18:16', diagnosis: 'Fallo de alimentación en batería', result: 'Trasladado a taller', workshop: 'Comercial Dimovil · San Ginés' },
@@ -474,11 +501,118 @@
         { id:'hotel-r1187', reserve:'R1187', reservePlate:'R8596BDC', reserveLabel:'T27/ALTO', fleet:'', fleetPlate:'', upc:'', location:'Sin indicar', state:'free', stateLabel:'Reserva libre', cause:'—', reserveTasks:'MB', priority:5, inc:'Sin incidencia', next:'', model:'VECTOR 19 HE', stages:[] },
         { id:'hotel-r1269', reserve:'R1269', reservePlate:'R1553BDK', reserveLabel:'T33', fleet:'R1286', fleetPlate:'R6098BDK', upc:'JUAN', location:'SANSA', state:'plan', stateLabel:'Pendiente de llevar al taller', cause:'ITV + 44TN + BPW + MB + LKT + EXT + AV', reserveTasks:'RO', priority:2, inc:'Sin INC indicada', next:'', model:'VECTOR 19 HE', stages:[{name:'FRIDIEL',done:false},{name:'DIRECAUTO',done:true},{name:'ITV + 44TN',done:true},{name:'Recuperar',done:false}] }
       ];
-      let hotelUnits;
-      try { hotelUnits = JSON.parse(localStorage.getItem(hotelStorageKey)) || defaultHotelUnits; }
-      catch { hotelUnits = defaultHotelUnits; }
-      const saveHotel = () => localStorage.setItem(hotelStorageKey, JSON.stringify(hotelUnits));
+      let hotelUnits = [];
+      let activePizarraId = null;
+      let activePizarraDate = '';
+      let hotelRealtimeChannel = null;
+      let realtimeReloadTimer = null;
+      const saveHotel = () => {};
       const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+      const isoDateFromText = value => {
+        const match = String(value || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        return match ? `${match[3]}-${match[2]}-${match[1]}T00:00:00+02:00` : null;
+      };
+      const uiStateFromDb = state => ({
+        planificado:'plan', pendiente_taller:'plan', en_taller:'workshop',
+        terminado_pendiente_recogida:'ready', recogido_pendiente_ruta:'route',
+        reserva_liberada:'free', anulado:'plan'
+      }[state] || 'plan');
+      const stateLabelFromDb = row => ({
+        planificado:'Parar', pendiente_taller:'Pendiente de llevar al taller',
+        terminado_pendiente_recogida:'Terminado, pendiente de recoger',
+        recogido_pendiente_ruta:'Recogido, pendiente de recuperar ruta',
+        reserva_liberada:'Reserva libre', anulado:'Anulado'
+      }[row.estado] || (row.estado === 'en_taller'
+        ? `En taller${row.fecha_entrada ? ' desde ' + new Date(row.fecha_entrada).toLocaleDateString('es-ES') : ''}`
+        : row.estado));
+      const mapDbHotelUnit = row => ({
+        id:row.id, reserve:row.vehiculo_reserva, reservePlate:row.matricula_reserva,
+        reserveLabel:row.etiqueta_reserva || row.tipo_unidad || '',
+        fleet:row.vehiculo_sustituido || '', fleetPlate:row.matricula_sustituido || '',
+        upc:row.upc || '', location:row.lugar || '', state:uiStateFromDb(row.estado),
+        stateLabel:stateLabelFromDb(row), cause:row.causa || '',
+        reserveTasks:row.trabajos_reserva || '—', priority:row.prioridad,
+        inc:row.incidencia || 'Sin incidencia', next:row.proximo || '', model:row.modelo || '',
+        stages:(row.etapas_hotel || []).sort((a,b)=>a.posicion-b.posicion).map(stage => ({
+          id:stage.id, name:stage.nombre, done:stage.estado === 'realizada',
+          status:stage.estado, location:stage.lugar || ''
+        }))
+      });
+      const dbStateFromUnit = unit => ({
+        plan:'pendiente_taller', workshop:'en_taller', ready:'terminado_pendiente_recogida',
+        route:'recogido_pendiente_ruta', free:'reserva_liberada'
+      }[unit.state] || 'pendiente_taller');
+      const seedHotelPizarra = async (pizarraId, units) => {
+        const rows = units.map((unit,index) => ({
+          pizarra_id:pizarraId,
+          vehiculo_sustituido:unit.fleet || '', matricula_sustituido:unit.fleetPlate || '',
+          vehiculo_reserva:unit.reserve, matricula_reserva:unit.reservePlate || '',
+          tipo_unidad:unit.reserveLabel || '', etiqueta_reserva:unit.reserveLabel || '',
+          upc:unit.upc || '', modelo:unit.model || '', trabajos_reserva:unit.reserveTasks || '',
+          es_flota:Boolean(unit.fleet), causa:unit.cause || '', prioridad:unit.priority || 5,
+          estado:dbStateFromUnit(unit), lugar:unit.location || '',
+          fecha_entrada:isoDateFromText(unit.stateLabel), incidencia:unit.inc || '',
+          proximo:unit.next || '', observaciones:'Carga inicial de la pizarra del 31/07/2026',
+          orden:index
+        }));
+        const { data:created, error } = await supabaseClient.from('registros_hotel').insert(rows).select('id, orden');
+        if (error) throw error;
+        const stageRows = [];
+        created.forEach(createdRow => {
+          const unit = units[createdRow.orden];
+          (unit.stages || []).forEach((stage,index) => stageRows.push({
+            registro_hotel_id:createdRow.id, nombre:stage.name, posicion:index + 1,
+            estado:stage.done ? 'realizada' : 'pendiente', lugar:unit.location || '',
+            fecha_real:stage.done ? new Date().toISOString() : null
+          }));
+        });
+        if (stageRows.length) {
+          const { error:stageError } = await supabaseClient.from('etapas_hotel').insert(stageRows);
+          if (stageError) throw stageError;
+        }
+      };
+      const seedInitialHotelIfNeeded = async () => {
+        const { count, error:countError } = await supabaseClient
+          .from('registros_hotel').select('id', { count:'exact', head:true });
+        if (countError) throw countError;
+        if (count) return;
+        const today = new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+        const { data:pizarras, error:pizarraError } = await supabaseClient.from('pizarras').upsert([
+          {fecha:'2026-07-31', estado:'archivada'},
+          {fecha:today, estado:'en_curso'}
+        ], {onConflict:'fecha'}).select('id, fecha');
+        if (pizarraError) throw pizarraError;
+        for (const pizarra of pizarras) await seedHotelPizarra(pizarra.id, defaultHotelUnits);
+      };
+      const subscribeHotelRealtime = () => {
+        if (hotelRealtimeChannel) supabaseClient.removeChannel(hotelRealtimeChannel);
+        const reload = () => {
+          clearTimeout(realtimeReloadTimer);
+          realtimeReloadTimer = setTimeout(() => loadHotelFromSupabase(false), 250);
+        };
+        hotelRealtimeChannel = supabaseClient.channel('hotel-tiempo-real')
+          .on('postgres_changes',{event:'*',schema:'public',table:'pizarras'},reload)
+          .on('postgres_changes',{event:'*',schema:'public',table:'registros_hotel'},reload)
+          .on('postgres_changes',{event:'*',schema:'public',table:'etapas_hotel'},reload)
+          .on('postgres_changes',{event:'*',schema:'public',table:'talleres'},reload)
+          .subscribe();
+      };
+      const loadHotelFromSupabase = async (subscribe = true) => {
+        await supabaseClient.rpc('asegurar_pizarra_del_dia');
+        await seedInitialHotelIfNeeded();
+        const { data:pizarra, error:pizarraError } = await supabaseClient.from('pizarras')
+          .select('id, fecha').eq('estado','en_curso').order('fecha',{ascending:false}).limit(1).maybeSingle();
+        if (pizarraError) throw pizarraError;
+        if (!pizarra) return;
+        activePizarraId = pizarra.id;
+        activePizarraDate = pizarra.fecha;
+        const { data:rows, error } = await supabaseClient.from('registros_hotel')
+          .select('*, etapas_hotel(*)').eq('pizarra_id',activePizarraId).eq('oculto',false).order('orden');
+        if (error) throw error;
+        hotelUnits = (rows || []).map(mapDbHotelUnit);
+        renderHotel();
+        if (subscribe) subscribeHotelRealtime();
+      };
       const stateOrder = [
         ['plan','Parar'], ['workshop','Pendiente de llevar al taller'], ['workshop','En taller'],
         ['ready','Terminado, pendiente de recoger'], ['route','Recogido, pendiente de recuperar ruta'], ['free','Reserva libre']
@@ -511,14 +645,25 @@
           ${stages}
         </article>`;
       };
-      const bindHotelStageButtons = () => root.querySelectorAll('.hotel-stage-done').forEach(button => button.addEventListener('click', () => {
+      const bindHotelStageButtons = () => root.querySelectorAll('.hotel-stage-done').forEach(button => button.addEventListener('click', async () => {
         const unit = hotelUnits.find(item => item.id === button.dataset.id);
         if (!unit || !isAdmin()) return;
-        unit.stages[Number(button.dataset.stage)].done = true;
-        saveHotel(); renderHotel();
+        const stage = unit.stages[Number(button.dataset.stage)];
+        button.disabled = true;
+        const { error } = await supabaseClient.from('etapas_hotel').update({
+          estado:'realizada', fecha_real:new Date().toISOString(), modificado_por:sessionUserId,
+          actualizado_en:new Date().toISOString()
+        }).eq('id',stage.id);
+        if (error) {
+          button.disabled = false;
+          window.alert('No se pudo actualizar la etapa: ' + error.message);
+          return;
+        }
+        await loadHotelFromSupabase(false);
       }));
       const renderHotel = () => {
-        root.querySelector('#hotel-date').textContent = 'Pizarra cargada del ' + hotelSourceDate + ' · incluye vehículos DFM y R';
+        const shownDate = activePizarraDate ? new Date(activePizarraDate + 'T12:00:00').toLocaleDateString('es-ES') : hotelSourceDate;
+        root.querySelector('#hotel-date').textContent = 'Pizarra en curso del ' + shownDate + ' · sincronización en tiempo real';
         const query = root.querySelector('#hotel-search').value.toLowerCase().trim();
         const visible = hotelUnits.filter(unit => !query || Object.values(unit).flat(3).join(' ').toLowerCase().includes(query));
         root.querySelector('#hotel-list').innerHTML = visible.map(renderHotelUnit).join('') || '<div class="card">No hay resultados en la pizarra actual.</div>';
@@ -536,6 +681,7 @@
       };
       const renderLoginUsers = () => {
         const select = root.querySelector('#mock-user');
+        if (select.tagName === 'INPUT') return;
         select.replaceChildren();
         users.filter(user => user.active).forEach(user => {
           const option = document.createElement('option');
@@ -673,13 +819,18 @@
         root.querySelector('#view-users').classList.toggle('hidden', view !== 'users');
         root.querySelector('#view-settings').classList.toggle('hidden', view !== 'settings');
         root.querySelector('#view-versions').classList.toggle('hidden', view !== 'versions');
+        root.querySelector('#view-suggestions').classList.toggle('hidden', view !== 'suggestions');
         root.querySelector('#view-activation').classList.toggle('hidden', view !== 'activation');
         root.querySelector('.tabs').classList.toggle('hidden', view === 'activation');
         root.querySelectorAll('.app-tab').forEach(button => {
-          const selected = button.dataset.view === view;
+          const selected = button.dataset.view === view || (button.id === 'activate-tab' && view === 'all');
           button.classList.toggle('btn-primary', selected);
           button.classList.toggle('btn-secondary', !selected);
         });
+        root.querySelector('#incidences-mine').classList.toggle('btn-primary', view === 'mine');
+        root.querySelector('#incidences-mine').classList.toggle('btn-secondary', view !== 'mine');
+        root.querySelector('#incidences-all').classList.toggle('btn-primary', view === 'all');
+        root.querySelector('#incidences-all').classList.toggle('btn-secondary', view !== 'all');
         if (view === 'mine' || view === 'all') renderIncidences();
         if (view === 'hotel') renderHotel();
       };
@@ -752,21 +903,17 @@
         }
       };
 
-      root.querySelector('#mock-enter').addEventListener('click', () => {
-        const pin = root.querySelector('#mock-pin').value.trim();
-        if (!/^\d{4,6}$/.test(pin)) {
-          root.querySelector('#login-message').textContent = 'Introduce entre 4 y 6 cifras para probar la maqueta.';
-          return;
-        }
-        const account = users.find(user => user.id === root.querySelector('#mock-user').value && user.active);
-        if (!account || (account.pin && account.pin !== pin)) {
-          root.querySelector('#login-message').textContent = 'Usuario o PIN incorrecto.';
-          return;
-        }
-        if (!account.pin) {
-          account.pin = pin;
-          saveUsers();
-        }
+      const enterAuthenticatedApp = async authUser => {
+        const { data:profile, error:profileError } = await supabaseClient.from('usuarios').select('*').eq('id',authUser.id).single();
+        if (profileError) throw profileError;
+        if (!profile.activo) throw new Error('Esta cuenta está bloqueada. Contacta con Metrogestión.');
+        const account = {
+          id:profile.id, name:[profile.nombre,profile.apellidos].filter(Boolean).join(' ') || profile.correo,
+          phone:profile.telefono || '', email:profile.correo,
+          role:profile.tipo_usuario === 'administrador_principal' ? 'primary' : profile.tipo_usuario === 'administrador_secundario' ? 'secondary' : 'user',
+          permissions:profile.permisos || {}, active:profile.activo
+        };
+        users = [account];
         sessionUserId = account.id;
         sessionUser = account.name;
         login.classList.add('hidden');
@@ -774,7 +921,6 @@
         root.querySelector('#session-label').textContent = sessionUser + (account.role === 'primary' ? ' · Administrador principal' : account.role === 'secondary' ? ' · Administrador secundario' : ' · Usuario');
         root.querySelector('#own-account-name').value = account.name;
         root.querySelector('#hotel-tab').classList.toggle('locked-tab', !isAdmin());
-        root.querySelector('#all-tab').classList.toggle('locked-tab', !isAdmin());
         root.querySelector('#users-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
         root.querySelector('#settings-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
         root.querySelector('#versions-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
@@ -784,8 +930,41 @@
           renderAdminUsers();
         }
         setView('mine');
+        await supabaseClient.rpc('registrar_acceso',{
+          accion_recibida:'inicio_sesion', modulo_recibido:'programa_gestion',
+          resultado_recibido:'correcto', dispositivo_recibido:navigator.userAgent,
+          detalles_recibidos:{version:'Beta 1.8'}
+        });
+        await loadHotelFromSupabase(true);
+      };
+      root.querySelector('#mock-enter').addEventListener('click', async () => {
+        const email = root.querySelector('#mock-user').value.trim().toLowerCase();
+        const password = root.querySelector('#mock-pin').value;
+        const message = root.querySelector('#login-message');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password) {
+          message.textContent = 'Introduce el correo vinculado y tu contraseña.';
+          return;
+        }
+        const button = root.querySelector('#mock-enter');
+        button.disabled = true;
+        message.textContent = 'Comprobando acceso seguro…';
+        try {
+          const { data, error } = await supabaseClient.auth.signInWithPassword({email,password});
+          if (error) throw error;
+          await enterAuthenticatedApp(data.user);
+          message.textContent = '';
+        } catch (error) {
+          await supabaseClient.auth.signOut();
+          message.textContent = error.message === 'Invalid login credentials'
+            ? 'Correo o contraseña incorrectos.' : 'No se pudo acceder: ' + error.message;
+        } finally {
+          button.disabled = false;
+        }
       });
-      root.querySelector('#mock-logout').addEventListener('click', () => {
+      root.querySelector('#mock-logout').addEventListener('click', async () => {
+        try { await supabaseClient.rpc('registrar_acceso',{accion_recibida:'cierre_sesion',modulo_recibido:'programa_gestion'}); } catch {}
+        await supabaseClient.auth.signOut();
+        if (hotelRealtimeChannel) supabaseClient.removeChannel(hotelRealtimeChannel);
         sessionUser = '';
         sessionUserId = '';
         root.querySelector('#mock-pin').value = '';
@@ -879,8 +1058,42 @@
         root.querySelector('#admin-confirm-pin').value = '';
         message.textContent = 'Datos del administrador principal guardados.';
       });
+      root.querySelector('#send-suggestion').addEventListener('click', async () => {
+        const type = root.querySelector('#suggestion-type').value;
+        const subject = root.querySelector('#suggestion-subject').value.trim();
+        const messageText = root.querySelector('#suggestion-message').value.trim();
+        const status = root.querySelector('#suggestion-status');
+        const button = root.querySelector('#send-suggestion');
+        if (!subject || messageText.length < 10) {
+          status.textContent = 'Escribe un asunto y una explicación de al menos 10 caracteres.';
+          return;
+        }
+        button.disabled = true;
+        status.textContent = 'Guardando sugerencia…';
+        const { error } = await supabaseClient.from('sugerencias').insert({
+          tipo:type, asunto:subject, mensaje:messageText, creado_por:sessionUserId,
+          pagina:view, version_app:'Beta 1.8'
+        });
+        button.disabled = false;
+        if (error) {
+          status.textContent = 'No se pudo guardar: ' + error.message;
+          return;
+        }
+        status.textContent = 'Sugerencia registrada. Se abrirá tu correo para confirmar el envío.';
+        const body = [
+          'Usuario: ' + sessionUser,
+          'Correo vinculado: ' + (currentAccount()?.email || ''),
+          'Tipo: ' + type,
+          'Versión: Beta 1.8',
+          '', messageText
+        ].join('\n');
+        window.location.href = 'mailto:metrogestion2026@gmail.com?subject=' + encodeURIComponent('[Programa de gestión] ' + subject) + '&body=' + encodeURIComponent(body);
+        root.querySelector('#suggestion-subject').value = '';
+        root.querySelector('#suggestion-message').value = '';
+      });
       root.querySelectorAll('.app-tab').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
-      root.querySelector('#activate-tab').addEventListener('click', () => { window.location.href = 'activar-24h.html?v=1.8'; });
+      root.querySelector('#incidences-mine').addEventListener('click', () => setView('mine'));
+      root.querySelector('#incidences-all').addEventListener('click', () => setView('all'));
       root.querySelectorAll('.hotel-subtab').forEach(button => button.addEventListener('click', () => setHotelSubView(button.dataset.hotelView)));
       root.querySelector('#hotel-search').addEventListener('input', renderHotel);
       root.querySelector('#hotel-history-search').addEventListener('input', renderHotel);
@@ -896,7 +1109,7 @@
       };
       root.querySelector('#hotel-new-planned').addEventListener('click', () => openHotelForm(false));
       root.querySelector('#hotel-new-urgent').addEventListener('click', () => openHotelForm(true));
-      root.querySelector('#hotel-form-save').addEventListener('click', () => {
+      root.querySelector('#hotel-form-save').addEventListener('click', async () => {
         if (!isAdmin()) return;
         const typed = root.querySelector('#hotel-form-vehicle').value.trim().toUpperCase();
         const vehicle = vehicleIndex.find(item => item.dfm === typed || item.plate === typed || `${item.dfm} · ${item.plate}` === typed);
@@ -911,8 +1124,40 @@
         const existingInc = incidences.find(item => item.dfm === vehicle.dfm && !/cerrad/i.test(item.status));
         const suppliedInc = root.querySelector('#hotel-form-inc').value.trim();
         const urgent = root.querySelector('#hotel-form').dataset.urgent === '1';
-        hotelUnits.push({ id:'hotel-'+Date.now(), reserve,reservePlate,reserveLabel, fleet:vehicle.dfm,fleetPlate:vehicle.plate,upc:'Pendiente desde MANTENIMENT',location:root.querySelector('#hotel-form-location').value,state:urgent?'workshop':'plan',stateLabel:urgent?'Pendiente de llevar al taller':'Parar',cause,priority:Number(root.querySelector('#hotel-form-priority').value),inc:suppliedInc||(existingInc?existingInc.id:urgent?'INC provisional · pendiente de numerar':'Sin INC principal'),next:'',exceptional:exceptional?{reason,limit}:null,stages:[{name:'Confirmar sustitución',done:urgent},{name:root.querySelector('#hotel-form-location').value,done:false},{name:'Diagnóstico y trabajos',done:false},{name:'Recoger',done:false},{name:'Recuperar ruta y liberar reserva',done:false}] });
-        saveHotel(); renderHotel(); root.querySelector('#hotel-form').classList.add('hidden');
+        const location = root.querySelector('#hotel-form-location').value;
+        const record = {
+          pizarra_id:activePizarraId,
+          vehiculo_sustituido:vehicle.dfm, matricula_sustituido:vehicle.plate,
+          vehiculo_reserva:reserve, matricula_reserva:reservePlate,
+          tipo_unidad:reserveLabel, etiqueta_reserva:reserveLabel,
+          upc:'Pendiente desde MANTENIMENT', causa,
+          prioridad:Number(root.querySelector('#hotel-form-priority').value),
+          estado:'pendiente_taller', lugar:location,
+          incidencia:suppliedInc||(existingInc?existingInc.id:urgent?'INC provisional · pendiente de numerar':'Sin INC principal'),
+          sustitucion_temporal:exceptional,
+          motivo_sustitucion_temporal:exceptional?reason:'',
+          fecha_limite_sustitucion:exceptional?new Date(limit).toISOString():null,
+          orden:hotelUnits.length, creado_por:sessionUserId, modificado_por:sessionUserId
+        };
+        const saveButton = root.querySelector('#hotel-form-save');
+        saveButton.disabled = true;
+        message.textContent = 'Guardando y sincronizando…';
+        const { data:created, error } = await supabaseClient.from('registros_hotel').insert(record).select('id').single();
+        if (error) { message.textContent = 'No se pudo guardar: ' + error.message; saveButton.disabled = false; return; }
+        const stages = [
+          {name:'Confirmar sustitución',done:urgent}, {name:location,done:false},
+          {name:'Diagnóstico y trabajos',done:false}, {name:'Recoger',done:false},
+          {name:'Recuperar ruta y liberar reserva',done:false}
+        ].map((stage,index)=>({
+          registro_hotel_id:created.id, nombre:stage.name, posicion:index+1,
+          estado:stage.done?'realizada':'pendiente', lugar:location,
+          fecha_real:stage.done?new Date().toISOString():null, creado_por:sessionUserId, modificado_por:sessionUserId
+        }));
+        const { error:stageError } = await supabaseClient.from('etapas_hotel').insert(stages);
+        saveButton.disabled = false;
+        if (stageError) { message.textContent = 'Registro creado, pero fallaron las etapas: ' + stageError.message; return; }
+        await loadHotelFromSupabase(false);
+        root.querySelector('#hotel-form').classList.add('hidden');
       });
       root.querySelector('#incidence-search').addEventListener('input', renderIncidences);
       root.querySelector('#new-activation').addEventListener('click', () => {
@@ -1122,6 +1367,16 @@
         suggestions.classList.toggle('hidden', !suggestions.children.length);
       });
       renderLoginUsers();
+      supabaseClient.auth.getSession().then(async ({data}) => {
+        if (!data.session?.user) return;
+        try {
+          root.querySelector('#login-message').textContent = 'Recuperando sesión segura…';
+          await enterAuthenticatedApp(data.session.user);
+        } catch (error) {
+          await supabaseClient.auth.signOut();
+          root.querySelector('#login-message').textContent = 'No se pudo recuperar la sesión: ' + error.message;
+        }
+      });
     })();
   </script>
 </div>
