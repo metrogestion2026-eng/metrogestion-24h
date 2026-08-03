@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Gestión de mantenimientos 24H">
+  <rect width="512" height="512" rx="112" fill="#075985"/>
+  <path d="M119 153h274v206H119z" fill="#fff" opacity=".16"/>
+  <path d="M148 197h216v118H148z" fill="#fff"/>
+  <circle cx="193" cy="330" r="31" fill="#fff"/>
+  <circle cx="319" cy="330" r="31" fill="#fff"/>
+  <path d="M185 160h142l36 37H149z" fill="#fbbf24"/>
+  <path d="M238 221h36v28h28v36h-28v28h-36v-28h-28v-36h28z" fill="#075985"/>
+  <text x="256" y="112" text-anchor="middle" font-family="Arial, sans-serif" font-size="62" font-weight="700" fill="#fff">24H</text>
+</svg>
