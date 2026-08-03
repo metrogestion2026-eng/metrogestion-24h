@@ -1,0 +1,21 @@
+{
+  "name": "Gestión de mantenimientos · Activar 24H",
+  "short_name": "Gestión 24H",
+  "description": "Activación y seguimiento de asistencia 24H de Metrogestión",
+  "id": "/metrogestion-24h/beta-1-9-prueba.html",
+  "start_url": "/metrogestion-24h/beta-1-9-prueba.html",
+  "scope": "/metrogestion-24h/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#075985",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "icono-gestion-24h.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
