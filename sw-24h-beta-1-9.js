@@ -1,8 +1,10 @@
-const CACHE_NAME = 'gestion-24h-beta-1-9-v3';
+const CACHE_NAME = 'gestion-24h-beta-1-9-v4';
 const APP_FILES = [
   './beta-1-9-prueba.html',
   './manifest-24h-beta-1-9.json',
-  './icono-gestion-24h.svg'
+  './icono-gestion-24h.svg',
+  './icono-gestion-24h-192.png',
+  './icono-gestion-24h-512.png'
 ];
 
 self.addEventListener('install', event => {
