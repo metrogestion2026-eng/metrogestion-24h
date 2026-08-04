@@ -113,7 +113,10 @@
         <input id="mock-user" class="form-control" type="email" autocomplete="username" value="" placeholder="correo@empresa.com">
       </label>
       <label>Contraseña o PIN de acceso
-        <input id="mock-pin" class="form-control" type="password" autocomplete="current-password" placeholder="Introduce tu clave privada">
+        <div class="viz-row">
+          <input id="mock-pin" class="form-control" type="password" autocomplete="current-password" placeholder="Introduce tu clave privada">
+          <button id="toggle-login-password" class="btn btn-secondary" type="button" aria-pressed="false">Ver contraseña</button>
+        </div>
       </label>
       <div id="login-message" class="text-small text-muted">Utiliza la contraseña creada en Supabase. No se guarda en este dispositivo.</div>
       <button id="mock-enter" class="btn btn-primary" type="button">Entrar</button>
@@ -1109,6 +1112,14 @@
         } finally {
           button.disabled = false;
         }
+      });
+      root.querySelector('#toggle-login-password').addEventListener('click', event => {
+        const password = root.querySelector('#mock-pin');
+        const showing = password.type === 'text';
+        password.type = showing ? 'password' : 'text';
+        event.currentTarget.textContent = showing ? 'Ver contraseña' : 'Ocultar contraseña';
+        event.currentTarget.setAttribute('aria-pressed', String(!showing));
+        password.focus();
       });
       root.querySelector('#mock-logout').addEventListener('click', async () => {
         try { await supabaseClient.rpc('registrar_acceso',{accion_recibida:'cierre_sesion',modulo_recibido:'programa_gestion'}); } catch {}
