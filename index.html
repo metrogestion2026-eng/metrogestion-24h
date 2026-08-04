@@ -4,7 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#075985">
-  <title>Metrogestión 24H · Beta 1.7</title>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Gestión 24H">
+  <link rel="manifest" href="manifest-24h-beta-1-9.json">
+  <link rel="icon" href="icono-gestion-24h.svg" type="image/svg+xml">
+  <title>Gestión de mantenimientos · Activar 24H</title>
   <style>
     :root {
       --background:#fff; --foreground:#172033; --primary:#075985;
@@ -38,7 +44,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Metrogestión 24H</strong><small>Beta 1.7</small></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9</small><button id="install-app" class="btn btn-secondary" type="button">Instalar app</button></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -60,63 +66,153 @@
     #incidence-access-mockup .detail-grid div { display: grid; gap: 3px; }
     #incidence-access-mockup .detail-grid span { color: var(--muted-foreground); }
     #incidence-access-mockup .user-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; }
+    #incidence-access-mockup .locked-tab { opacity:.62; border-style:dashed; }
+    #incidence-access-mockup .locked-tab::before { content:'🔒'; margin-right:6px; }
+    #incidence-access-mockup .module-tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; }
+    #incidence-access-mockup .module-tabs .btn { white-space:nowrap; }
+    #incidence-access-mockup .hotel-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    #incidence-access-mockup .metric { padding:13px; border:1px solid var(--border); border-radius:12px; background:#fff; display:grid; gap:3px; text-align:left; cursor:pointer; color:inherit; }
+    #incidence-access-mockup .metric.active { outline:3px solid #7dd3fc; border-color:var(--primary); }
+    #incidence-access-mockup .metric strong { font-size:24px; }
+    #incidence-access-mockup .hotel-list { display:grid; gap:12px; }
+    #incidence-access-mockup .hotel-unit { border-left:8px solid #cbd5e1; }
+    #incidence-access-mockup .hotel-unit.status-free { background:#ecfdf3; border-left-color:#86d39a; }
+    #incidence-access-mockup .hotel-unit.status-plan { background:#fff9d9; border-left-color:#e8cf67; }
+    #incidence-access-mockup .hotel-unit.status-workshop { background:#f4ecfb; border-left-color:#bca0d8; }
+    #incidence-access-mockup .hotel-unit.status-ready { background:#eaf4ff; border-left-color:#8dbce5; }
+    #incidence-access-mockup .hotel-unit.status-route { background:#fff0df; border-left-color:#e6a564; }
+    #incidence-access-mockup .hotel-title { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    #incidence-access-mockup .hotel-primary { display:grid; gap:2px; }
+    #incidence-access-mockup .hotel-primary strong { font-size:19px; }
+    #incidence-access-mockup .hotel-reserve { color:var(--muted-foreground); font-size:13px; font-weight:650; }
+    #incidence-access-mockup .badge { display:inline-flex; align-items:center; min-height:28px; padding:4px 9px; border-radius:999px; background:rgba(255,255,255,.72); border:1px solid rgba(82,98,115,.22); font-size:12px; font-weight:750; }
+    #incidence-access-mockup .priority-1 { color:#991b1b; border-color:#fecaca; background:#fff1f2; }
+    #incidence-access-mockup .stage-list { display:grid; gap:7px; margin:0; padding:0; list-style:none; }
+    #incidence-access-mockup .stage { display:flex; gap:9px; align-items:center; padding:8px 10px; border-radius:9px; background:rgba(255,255,255,.7); }
+    #incidence-access-mockup .stage.done { background:#dcfce7; color:#166534; }
+    #incidence-access-mockup .stage.annulled { background:#f1f5f9; color:#64748b; text-decoration:line-through; }
+    #incidence-access-mockup .hotel-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    #incidence-access-mockup .hotel-actions .btn { min-height:38px; padding:7px 10px; font-size:13px; }
+    #incidence-access-mockup .sync-note { border-left:4px solid #f59e0b; background:#fffbeb; }
     #incidence-access-mockup .hidden { display: none !important; }
     @media (max-width: 560px) {
       #incidence-access-mockup .toolbar, #incidence-access-mockup .detail-grid { grid-template-columns: 1fr; }
       #incidence-access-mockup .incidence { grid-template-columns: 1fr; }
+      #incidence-access-mockup .hotel-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      #incidence-access-mockup .module-tabs .btn { width:auto; }
     }
   </style>
 
   <section id="mock-login" class="login-wrap">
     <div class="card stack">
       <div>
-        <strong>Activar 24H · Acceso</strong>
-        <div class="text-small text-muted">Cada usuario accede con su nombre y PIN personal.</div>
+        <strong>Programa de gestión · Acceso seguro</strong>
+        <div class="text-small text-muted">Acceso conectado a la base de datos de Metrogestión.</div>
       </div>
-      <label>Usuario
-        <select id="mock-user" class="form-select">
-          <option value="Metrogestión">Metrogestión · Administrador</option>
-          <option value="Diego">Diego · Usuario</option>
-          <option value="Ionut">Ionut · Usuario</option>
-        </select>
+      <label>Correo vinculado
+        <input id="mock-user" class="form-control" type="email" autocomplete="username" value="" placeholder="correo@empresa.com">
       </label>
-      <label>PIN
-        <input id="mock-pin" class="form-control" type="password" inputmode="numeric" maxlength="6" placeholder="Introduce tu PIN">
+      <label>Contraseña o PIN de acceso
+        <input id="mock-pin" class="form-control" type="password" autocomplete="current-password" placeholder="Introduce tu clave privada">
       </label>
-      <div id="login-message" class="text-small text-muted">Maqueta: introduce cualquier PIN de 4 a 6 cifras.</div>
+      <div id="login-message" class="text-small text-muted">Utiliza la contraseña creada en Supabase. No se guarda en este dispositivo.</div>
       <button id="mock-enter" class="btn btn-primary" type="button">Entrar</button>
     </div>
-    <div class="text-small text-muted">Solo Metrogestión puede crear usuarios, cambiar PIN, bloquear accesos y consultar todas las incidencias.</div>
+    <div class="text-small text-muted">El acceso, los permisos y los cambios quedan protegidos y registrados.</div>
   </section>
 
   <section id="mock-app" class="shell hidden">
     <div class="topbar">
       <div class="brand">
-        <strong>Activar 24H</strong>
+        <strong>Programa de gestión</strong>
         <span id="session-label" class="text-small text-muted"></span>
       </div>
       <button id="mock-logout" class="btn btn-secondary" type="button">Cerrar sesión</button>
     </div>
 
     <nav class="tabs" aria-label="Secciones">
-      <button class="btn btn-primary app-tab" data-view="mine" type="button">Mis incidencias</button>
+      <button id="activate-tab" class="btn btn-primary app-tab" data-view="mine" type="button">Activar 24H</button>
+      <button id="hotel-tab" class="btn btn-secondary app-tab locked-tab" data-view="hotel" aria-disabled="true" title="Hotel · En construcción" type="button">Hotel · En construcción</button>
       <button id="my-account-tab" class="btn btn-secondary app-tab" data-view="my-account" type="button">Mi cuenta</button>
-      <button id="all-tab" class="btn btn-secondary app-tab" data-view="all" type="button">Todas</button>
       <button id="users-tab" class="btn btn-secondary app-tab" data-view="users" type="button">Usuarios</button>
       <button id="settings-tab" class="btn btn-secondary app-tab" data-view="settings" type="button">Configuración</button>
       <button id="versions-tab" class="btn btn-secondary app-tab" data-view="versions" type="button">Versiones</button>
+      <button id="suggestions-tab" class="btn btn-secondary app-tab" data-view="suggestions" type="button">Sugerencias</button>
     </nav>
 
     <section id="view-incidences" class="stack">
+      <div>
+        <strong>Activar 24H</strong>
+        <div class="text-small text-muted">Nueva asistencia, seguimiento y consulta de incidencias relacionadas.</div>
+      </div>
+      <div class="module-tabs" aria-label="Activar 24H e incidencias">
+        <button id="new-activation" class="btn btn-primary" type="button">+ Nueva activación</button>
+        <button id="incidences-mine" class="btn btn-secondary" type="button">Mis incidencias</button>
+        <button id="incidences-all" class="btn btn-secondary" type="button">Todas las incidencias</button>
+      </div>
       <div class="toolbar">
         <label>Buscar incidencia
           <input id="incidence-search" class="form-control" placeholder="DFM, matrícula, caso o descripción">
         </label>
-        <button id="new-activation" class="btn btn-primary" type="button">+ Activar 24H</button>
       </div>
       <div id="view-heading"><strong>Mis incidencias</strong><div class="text-small text-muted">Solo aparecen las creadas por el usuario conectado.</div></div>
       <div id="incidence-list" class="incidence-list"></div>
       <div id="incidence-detail" class="card stack hidden"></div>
+    </section>
+
+    <section id="view-hotel" class="stack hidden">
+      <div class="topbar">
+        <div><strong>Hotel · Pizarra del día</strong><div id="hotel-date" class="text-small text-muted"></div></div>
+        <div class="hotel-actions">
+          <button id="hotel-new-planned" class="btn btn-secondary" type="button">+ Sustitución planificada</button>
+          <button id="hotel-new-urgent" class="btn btn-primary" type="button">⚠ Avería urgente</button>
+        </div>
+      </div>
+      <div class="card sync-note text-small"><strong>Beta 1.8 conectada.</strong> Hotel utiliza una base de datos privada y sincronización en tiempo real. La conexión automática con MANTENIMENT se incorporará en una fase posterior.</div>
+      <div class="module-tabs" aria-label="Vistas de Hotel">
+        <button class="btn btn-primary hotel-subtab" data-hotel-view="board" type="button">Pizarra actual</button>
+        <button class="btn btn-secondary hotel-subtab" data-hotel-view="next" type="button">Próximos</button>
+        <button class="btn btn-secondary hotel-subtab" data-hotel-view="history" type="button">Histórico</button>
+        <button class="btn btn-secondary hotel-subtab" data-hotel-view="summary" type="button">Panel resumen</button>
+      </div>
+      <div id="hotel-board" class="stack">
+        <label>Buscar en la pizarra<input id="hotel-search" class="form-control" placeholder="DFM, matrícula, reserva, UPC, taller, causa o INC"></label>
+        <div id="hotel-summary-cards" class="hotel-summary"></div>
+        <div id="hotel-active-filter" class="card text-small hidden"></div>
+        <div id="hotel-list" class="hotel-list"></div>
+      </div>
+      <div id="hotel-next" class="stack hidden">
+        <div><strong>Próximas sustituciones</strong><div class="text-small text-muted">Son previsiones. La decisión final siempre será manual.</div></div>
+        <div id="hotel-next-list" class="hotel-list"></div>
+      </div>
+      <div id="hotel-history" class="stack hidden">
+        <div class="detail-grid">
+          <label>Buscar en el histórico<input id="hotel-history-search" class="form-control" placeholder="Fecha, DFM, matrícula, UPC, taller, estado o causa"></label>
+          <label>Mes<input id="hotel-history-month" class="form-control" type="month" value="2026-07"></label>
+        </div>
+        <div class="card text-small">Las jornadas se archivan automáticamente a las 00:00. No se eliminan: solo los administradores autorizados pueden anularlas o corregirlas indicando un motivo.</div>
+        <div id="hotel-history-list" class="hotel-list"></div>
+      </div>
+      <div id="hotel-dashboard" class="stack hidden">
+        <div id="hotel-dashboard-cards" class="hotel-summary"></div>
+        <div class="card stack"><strong>Vehículos en taller</strong><div id="hotel-workshop-list" class="stack"></div></div>
+        <div class="card stack"><strong>Prioridades activas</strong><div id="hotel-priority-list"></div></div>
+      </div>
+      <div id="hotel-form" class="card stack hidden">
+        <div class="hotel-title"><strong id="hotel-form-title">Nueva sustitución</strong><button id="hotel-form-close" class="btn btn-secondary" type="button">Cerrar</button></div>
+        <div class="detail-grid">
+          <label>DFM o matrícula de flota<input id="hotel-form-vehicle" class="form-control" placeholder="Ej. 2709 o 7039NGM"></label>
+          <label>Reserva<select id="hotel-form-reserve" class="form-select"><option value="">Selecciona una reserva</option></select></label>
+          <label>Causa o avería<input id="hotel-form-cause" class="form-control" placeholder="MCD, ITV, 44TN o descripción libre"></label>
+          <label>INC existente<input id="hotel-form-inc" class="form-control" placeholder="Se buscará antes de crear una nueva"></label>
+          <label>Próximo lugar<select id="hotel-form-location" class="form-select"><option>Pendiente de llevar al taller</option><option>SANSA</option><option>ABRERA</option><option>AUTODIS</option><option>FRIGICOLL</option><option>FRIDIEL</option><option>DIRECAUTO</option><option>ODEXAN</option></select></label>
+          <label>Prioridad<select id="hotel-form-priority" class="form-select"><option value="1">1 · No operativo</option><option value="2">2 · Legal/caducidad</option><option value="3">3 · Seguridad</option><option value="4">4 · Confort</option><option value="5">5 · Mantenimiento</option></select></label>
+        </div>
+        <label><input id="hotel-form-exceptional" type="checkbox"> Sustitución excepcional por tiempo limitado</label>
+        <div id="hotel-exception-fields" class="detail-grid hidden"><label>Motivo obligatorio<input id="hotel-form-reason" class="form-control"></label><label>Fecha y hora límite<input id="hotel-form-limit" class="form-control" type="datetime-local"></label></div>
+        <div id="hotel-form-message" class="text-small text-muted"></div>
+        <button id="hotel-form-save" class="btn btn-primary" type="button">Guardar en la pizarra</button>
+      </div>
     </section>
 
     <section id="view-my-account" class="stack hidden">
@@ -155,7 +251,7 @@
       <div class="card stack">
         <label>Cuenta administradora<input id="admin-account-name" class="form-control" value="Metrogestión" disabled></label>
         <label>Teléfono del administrador principal<input id="admin-phone" class="form-control" type="tel" inputmode="tel"></label>
-        <label>Correo administrativo vinculado<input id="admin-email" class="form-control" type="email" value="gestionmantenimientobcn@gmail.com"></label>
+        <label>Correo administrativo vinculado<input id="admin-email" class="form-control" type="email" value=""></label>
         <div class="detail-grid">
           <label>Nuevo PIN<input id="admin-new-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
           <label>Repetir nuevo PIN<input id="admin-confirm-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
@@ -167,6 +263,10 @@
 
     <section id="view-versions" class="stack hidden">
       <div><strong>Memorando de versiones</strong><div class="text-small text-muted">Historial breve para consultar qué se ha modificado en cada publicación.</div></div>
+      <div class="card stack">
+        <strong>Beta 1.9 · 03/08/2026 · Revisión</strong>
+        <div>Activar 24H preparado como módulo principal instalable. Hotel permanece visible y bloqueado como «En construcción» hasta su revisión y autorización.</div>
+      </div>
       <div class="card stack">
         <strong>Beta 1.7 · 29/07/2026</strong>
         <div>Se recupera la identificación permanente del vehículo: el DFM y la matrícula permanecen visibles durante todos los pasos de la activación.</div>
@@ -194,6 +294,24 @@
       <div class="card stack">
         <strong>Beta 1.1 · 27/07/2026</strong>
         <div>Publicación inicial en GitHub Pages, acceso principal, módulo de activación 24H, buscador por DFM o matrícula y alta manual.</div>
+      </div>
+    </section>
+
+    <section id="view-suggestions" class="stack hidden">
+      <div><strong>Sugerencias</strong><div class="text-small text-muted">Envía una mejora, incidencia de uso o idea al administrador principal.</div></div>
+      <div class="card stack">
+        <label>Tipo
+          <select id="suggestion-type" class="form-select">
+            <option value="mejora">Propuesta de mejora</option>
+            <option value="fallo">He encontrado un fallo</option>
+            <option value="dato">Dato incorrecto o desactualizado</option>
+            <option value="otro">Otro</option>
+          </select>
+        </label>
+        <label>Asunto<input id="suggestion-subject" class="form-control" maxlength="120" placeholder="Resumen breve"></label>
+        <label>Sugerencia<textarea id="suggestion-message" class="form-control" maxlength="2000" placeholder="Explica qué propones o qué ha ocurrido"></textarea></label>
+        <div id="suggestion-status" class="text-small text-muted">La sugerencia quedará registrada antes de abrir el correo.</div>
+        <button id="send-suggestion" class="btn btn-primary" type="button">Guardar y enviar al administrador</button>
       </div>
     </section>
 
@@ -309,22 +427,20 @@
     </section>
   </section>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (() => {
       const root = document.getElementById('incidence-access-mockup');
-      const incidences = [
-        { id: 'INC-2607241', creator: 'Diego', dfm: '2716', plate: '0511NGR', opened: '24/07/2026 · 08:35', status: 'Seguimiento abierto', caseNumber: 'ANS-24H/7845-B', fault: 'Fallo motor y pérdida de potencia', location: 'AP-7 · PK 183 · sentido Barcelona', eta: '09:40', realArrival: '09:52', diagnosis: 'Pendiente de confirmación', result: 'Técnico en ruta', workshop: '—' },
-        { id: 'INC-2607234', creator: 'Ionut', dfm: '2602', plate: '2097MST', opened: '23/07/2026 · 17:18', status: 'Trasladado a taller', caseNumber: 'MB/24H-A91#22', fault: 'El vehículo no arranca', location: 'Bloque logístico Abrera', eta: '18:05', realArrival: '18:16', diagnosis: 'Fallo de alimentación en batería', result: 'Trasladado a taller', workshop: 'Comercial Dimovil · San Ginés' },
-        { id: 'INC-2607219', creator: 'Metrogestión', dfm: '2697', plate: '5813NDL', opened: '21/07/2026 · 06:42', status: 'Reparado en carretera', caseNumber: 'MAN-20244/661', fault: 'Aviso de presión de aire', location: 'Bloque logístico Sansa', eta: '07:35', realArrival: '07:31', diagnosis: 'Racor de circuito neumático con fuga', result: 'Reparado en carretera', workshop: '—' }
-      ];
-      const knownDfms = ['2444','2484','2486','2489','2490','2493','2498','2499','2500','2501','2516','2517','2518','2521','2523','2525','2527','2531','2543','2544','2545','2547','2548','2550','2552','2553','2554','2556','2562','2563','2573','2591','2602','2604','2605','2606','2610','2611','2612','2617','2621','2622','2625','2632','2633','2637','2660','2675','2676','2686','2693','2696','2697','2700','2701','2709','2710','2712','2714','2715','2716','2718','2719','2720','2721','2723','2724','2725','2726','2731','2732','2744','2745','2746','2753'];
-      const vehicleIndex = [{"dfm":"2444","plate":"0763MCK"},{"dfm":"2484","plate":"5719MHS"},{"dfm":"2486","plate":"5170MHW"},{"dfm":"2489","plate":"6779MJM"},{"dfm":"2490","plate":"6774MJM"},{"dfm":"2493","plate":"9153MJR"},{"dfm":"2498","plate":"2369MJT"},{"dfm":"2499","plate":"2362MJT"},{"dfm":"2500","plate":"2688MJT"},{"dfm":"2501","plate":"2689MJT"},{"dfm":"2516","plate":"1860MLJ"},{"dfm":"2517","plate":"1857MLJ"},{"dfm":"2518","plate":"1859MLJ"},{"dfm":"2521","plate":"1850MLJ"},{"dfm":"2523","plate":"1848MLJ"},{"dfm":"2525","plate":"1856MLJ"},{"dfm":"2527","plate":"6935MLK"},{"dfm":"2531","plate":"3957MLR"},{"dfm":"2543","plate":"1845MMB"},{"dfm":"2544","plate":"1847MMB"},{"dfm":"2545","plate":"5020MMC"},{"dfm":"2547","plate":"5022MMC"},{"dfm":"2548","plate":"5023MMC"},{"dfm":"2550","plate":"5025MMC"},{"dfm":"2552","plate":"5027MMC"},{"dfm":"2553","plate":"5028MMC"},{"dfm":"2554","plate":"5030MMC"},{"dfm":"2556","plate":"5032MMC"},{"dfm":"2562","plate":"5050MMC"},{"dfm":"2563","plate":"5071MMC"},{"dfm":"2573","plate":"3417MPH"},{"dfm":"2591","plate":"2690MPX"},{"dfm":"2602","plate":"2097MST"},{"dfm":"2604","plate":"2096MST"},{"dfm":"2605","plate":"2071MST"},{"dfm":"2606","plate":"2070MST"},{"dfm":"2610","plate":"0175MTF"},{"dfm":"2611","plate":"0169MTF"},{"dfm":"2612","plate":"0168MTF"},{"dfm":"2617","plate":"0166MTF"},{"dfm":"2621","plate":"9269MTM"},{"dfm":"2622","plate":"9264MTM"},{"dfm":"2625","plate":"1614MTP"},{"dfm":"2632","plate":"6576MVL"},{"dfm":"2633","plate":"6575MVL"},{"dfm":"2637","plate":"2736MVH"},{"dfm":"2660","plate":"7546MWW"},{"dfm":"2675","plate":"7375MYF"},{"dfm":"2676","plate":"1802NBF"},{"dfm":"2686","plate":"4509NCM"},{"dfm":"2693","plate":"8860NCZ"},{"dfm":"2696","plate":"5805NDL"},{"dfm":"2697","plate":"5813NDL"},{"dfm":"2700","plate":"5882NDL"},{"dfm":"2701","plate":"0674NDW"},{"dfm":"2709","plate":"7039NGM"},{"dfm":"2710","plate":"7038NGM"},{"dfm":"2712","plate":"0514NGR"},{"dfm":"2714","plate":"0512NGR"},{"dfm":"2715","plate":"0509NGR"},{"dfm":"2716","plate":"0511NGR"},{"dfm":"2718","plate":"6129NGV"},{"dfm":"2719","plate":"6132NGV"},{"dfm":"2720","plate":"6130NGV"},{"dfm":"2721","plate":"6131NGV"},{"dfm":"2723","plate":"3476NGS"},{"dfm":"2724","plate":"4590NGW"},{"dfm":"2725","plate":"2742NHC"},{"dfm":"2726","plate":"2741NHC"},{"dfm":"2731","plate":"4446NHJ"},{"dfm":"2732","plate":"4447NHJ"},{"dfm":"2744","plate":"5496NJV"},{"dfm":"2745","plate":"7348NKN"},{"dfm":"2746","plate":"7349NKN"},{"dfm":"2753","plate":"3125NLH"}];
+      const supabaseUrl = 'https://njtohfkqjjoavtumtmza.supabase.co';
+      const supabaseKey = 'sb_publishable_w1a9DClOM0S4HVJdv_TbKg_W_UkN2W_';
+      const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      });
+      const incidences = [];
+      let knownDfms = [];
+      let vehicleIndex = [];
       const userStorageKey = 'metrogestion24h_users_v1';
-      const defaultUsers = [
-        { id: 'principal', name: 'Metrogestión', phone: '', email: 'gestionmantenimientobcn@gmail.com', pin: '', role: 'primary', active: true },
-        { id: 'diego', name: 'Diego', phone: '', email: '', pin: '', role: 'user', active: true },
-        { id: 'ionut', name: 'Ionut', phone: '', email: '', pin: '', role: 'user', active: true }
-      ];
+      const defaultUsers = [];
       let users;
       try {
         users = JSON.parse(localStorage.getItem(userStorageKey)) || defaultUsers;
@@ -367,8 +483,353 @@
       const currentAccount = () => users.find(user => user.id === sessionUserId);
       const isAdmin = () => ['primary', 'secondary'].includes(currentAccount()?.role);
       const isPrimaryAdmin = () => currentAccount()?.role === 'primary';
+      const loadVehicleIndex = async () => {
+        const { data, error } = await supabaseClient
+          .from('vehiculos')
+          .select('dfm,matricula,categoria,tipo_motor')
+          .eq('activo', true)
+          .order('dfm');
+        if (error) throw new Error('No se pudo cargar la flota autorizada: ' + error.message);
+        vehicleIndex = (data || []).map(vehicle => ({
+          dfm: String(vehicle.dfm || ''),
+          plate: String(vehicle.matricula || '').toUpperCase(),
+          category: String(vehicle.categoria || '').toUpperCase(),
+          label: String(vehicle.tipo_motor || '').toUpperCase()
+        }));
+        knownDfms = vehicleIndex.map(vehicle => vehicle.dfm);
+        const reserveSelect = root.querySelector('#hotel-form-reserve');
+        const reserves = vehicleIndex.filter(vehicle => vehicle.category.includes('RESERVA'));
+        reserveSelect.innerHTML = '<option value="">Selecciona una reserva</option>' + reserves.map(vehicle =>
+          `<option value="${escapeHtml(vehicle.dfm)}|${escapeHtml(vehicle.plate)}|${escapeHtml(vehicle.label || 'RESERVA')}">${escapeHtml(vehicle.dfm)} · ${escapeHtml(vehicle.plate)} · ${escapeHtml(vehicle.label || 'RESERVA')}</option>`
+        ).join('');
+      };
+      const hotelStorageKey = 'metrogestion_hotel_beta18_03ago_v1';
+      const defaultHotelUnits = [];
+      let hotelUnits = [];
+      let activePizarraId = null;
+      let activePizarraDate = '';
+      let hotelRealtimeChannel = null;
+      let realtimeReloadTimer = null;
+      let hotelMetricFilter = 'all';
+      const saveHotel = () => {};
+      const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+      const isoDateFromText = value => {
+        const match = String(value || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        return match ? `${match[3]}-${match[2]}-${match[1]}T00:00:00+02:00` : null;
+      };
+      const uiStateFromDb = state => ({
+        planificado:'plan', pendiente_taller:'plan', en_taller:'workshop',
+        terminado_pendiente_recogida:'ready', recogido_pendiente_ruta:'route',
+        reserva_liberada:'free', anulado:'plan'
+      }[state] || 'plan');
+      const stateLabelFromDb = row => ({
+        planificado:'Parar', pendiente_taller:'Pendiente de llevar al taller',
+        terminado_pendiente_recogida:'Terminado, pendiente de recoger',
+        recogido_pendiente_ruta:'Recogido, pendiente de recuperar ruta',
+        reserva_liberada:'Reserva libre', anulado:'Anulado'
+      }[row.estado] || (row.estado === 'en_taller'
+        ? `En taller${row.fecha_entrada ? ' desde ' + new Date(row.fecha_entrada).toLocaleDateString('es-ES') : ''}`
+        : row.estado));
+      const mapDbHotelUnit = row => ({
+        id:row.id, reserve:row.vehiculo_reserva, reservePlate:row.matricula_reserva,
+        reserveLabel:row.etiqueta_reserva || row.tipo_unidad || '',
+        fleet:row.vehiculo_sustituido || '', fleetPlate:row.matricula_sustituido || '',
+        upc:row.upc || '', location:row.lugar || '', state:uiStateFromDb(row.estado),
+        stateLabel:stateLabelFromDb(row), cause:row.causa || '',
+        reserveTasks:row.trabajos_reserva || '—', priority:row.prioridad,
+        inc:row.incidencia || 'Sin incidencia', next:row.proximo || '', model:row.modelo || '',
+        stages:(row.etapas_hotel || []).sort((a,b)=>a.posicion-b.posicion).map(stage => ({
+          id:stage.id, name:stage.nombre, done:stage.estado === 'realizada',
+          status:stage.estado, location:stage.lugar || '', reason:stage.motivo_anulacion || '',
+          completedAt:stage.fecha_real || ''
+        }))
+      });
+      const dbStateFromUnit = unit => ({
+        plan:'pendiente_taller', workshop:'en_taller', ready:'terminado_pendiente_recogida',
+        route:'recogido_pendiente_ruta', free:'reserva_liberada'
+      }[unit.state] || 'pendiente_taller');
+      const seedHotelPizarra = async (pizarraId, units) => {
+        const rows = units.map((unit,index) => ({
+          pizarra_id:pizarraId,
+          vehiculo_sustituido:unit.fleet || '', matricula_sustituido:unit.fleetPlate || '',
+          vehiculo_reserva:unit.reserve, matricula_reserva:unit.reservePlate || '',
+          tipo_unidad:unit.reserveLabel || '', etiqueta_reserva:unit.reserveLabel || '',
+          upc:unit.upc || '', modelo:unit.model || '', trabajos_reserva:unit.reserveTasks || '',
+          es_flota:Boolean(unit.fleet), causa:unit.cause || '', prioridad:unit.priority || 5,
+          estado:dbStateFromUnit(unit), lugar:unit.location || '',
+          fecha_entrada:isoDateFromText(unit.stateLabel), incidencia:unit.inc || '',
+          proximo:unit.next || '', observaciones:'Carga inicial de la pizarra del 03/08/2026',
+          orden:index
+        }));
+        const { data:created, error } = await supabaseClient.from('registros_hotel').insert(rows).select('id, orden');
+        if (error) throw error;
+        const stageRows = [];
+        created.forEach(createdRow => {
+          const unit = units[createdRow.orden];
+          (unit.stages || []).forEach((stage,index) => stageRows.push({
+            registro_hotel_id:createdRow.id, nombre:stage.name, posicion:index + 1,
+            estado:stage.done ? 'realizada' : 'pendiente', lugar:unit.location || '',
+            fecha_real:stage.done ? new Date().toISOString() : null
+          }));
+        });
+        if (stageRows.length) {
+          const { error:stageError } = await supabaseClient.from('etapas_hotel').insert(stageRows);
+          if (stageError) throw stageError;
+        }
+      };
+      const seedInitialHotelIfNeeded = async () => {
+        const { count, error:countError } = await supabaseClient
+          .from('registros_hotel').select('id', { count:'exact', head:true });
+        if (countError) throw countError;
+        if (count) return;
+        const today = new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+        const { data:pizarras, error:pizarraError } = await supabaseClient.from('pizarras').upsert([
+          {fecha:today, estado:'en_curso'}
+        ], {onConflict:'fecha'}).select('id, fecha');
+        if (pizarraError) throw pizarraError;
+        for (const pizarra of pizarras) await seedHotelPizarra(pizarra.id, defaultHotelUnits);
+      };
+      const syncCurrentPizarra03AugIfNeeded = async () => {
+        const marker = 'Pizarra 03/08/2026 sincronizada · v1';
+        if (!isPrimaryAdmin() || activePizarraDate !== '2026-08-03') return;
+        const { data:existingRows, error:readError } = await supabaseClient.from('registros_hotel')
+          .select('id, vehiculo_reserva, observaciones').eq('pizarra_id',activePizarraId);
+        if (readError) throw readError;
+        if ((existingRows || []).some(row => row.observaciones === marker)) return;
+        const byReserve = new Map((existingRows || []).map(row => [String(row.vehiculo_reserva).toUpperCase(), row]));
+        for (let index = 0; index < defaultHotelUnits.length; index += 1) {
+          const unit = defaultHotelUnits[index];
+          const payload = {
+            pizarra_id:activePizarraId,
+            vehiculo_sustituido:unit.fleet || '', matricula_sustituido:unit.fleetPlate || '',
+            vehiculo_reserva:unit.reserve, matricula_reserva:unit.reservePlate || '',
+            tipo_unidad:unit.reserveLabel || '', etiqueta_reserva:unit.reserveLabel || '',
+            upc:unit.upc || '', modelo:unit.model || '', trabajos_reserva:unit.reserveTasks || '',
+            es_flota:Boolean(unit.fleet), causa:unit.cause || '', prioridad:unit.priority || 5,
+            estado:dbStateFromUnit(unit), lugar:unit.location || '',
+            fecha_entrada:isoDateFromText(unit.stateLabel), incidencia:unit.inc || '',
+            proximo:unit.next || '', observaciones:marker, orden:index, oculto:false,
+            actualizado_en:new Date().toISOString(), modificado_por:sessionUserId
+          };
+          const existing = byReserve.get(unit.reserve.toUpperCase());
+          let recordId = existing?.id;
+          if (recordId) {
+            const { error:updateError } = await supabaseClient.from('registros_hotel').update(payload).eq('id',recordId);
+            if (updateError) throw updateError;
+          } else {
+            const { data:created, error:insertError } = await supabaseClient.from('registros_hotel').insert(payload).select('id').single();
+            if (insertError) throw insertError;
+            recordId = created.id;
+          }
+          const { error:deleteStagesError } = await supabaseClient.from('etapas_hotel').delete().eq('registro_hotel_id',recordId);
+          if (deleteStagesError) throw deleteStagesError;
+          if (unit.stages.length) {
+            const stageRows = unit.stages.map((stage,stageIndex) => ({
+              registro_hotel_id:recordId, nombre:stage.name, posicion:stageIndex + 1,
+              estado:stage.done ? 'realizada' : 'pendiente', lugar:unit.location || '',
+              fecha_real:stage.done ? new Date().toISOString() : null
+            }));
+            const { error:insertStagesError } = await supabaseClient.from('etapas_hotel').insert(stageRows);
+            if (insertStagesError) throw insertStagesError;
+          }
+        }
+      };
+      const subscribeHotelRealtime = () => {
+        if (hotelRealtimeChannel) supabaseClient.removeChannel(hotelRealtimeChannel);
+        const reload = () => {
+          clearTimeout(realtimeReloadTimer);
+          realtimeReloadTimer = setTimeout(() => loadHotelFromSupabase(false), 250);
+        };
+        hotelRealtimeChannel = supabaseClient.channel('hotel-tiempo-real')
+          .on('postgres_changes',{event:'*',schema:'public',table:'pizarras'},reload)
+          .on('postgres_changes',{event:'*',schema:'public',table:'registros_hotel'},reload)
+          .on('postgres_changes',{event:'*',schema:'public',table:'etapas_hotel'},reload)
+          .on('postgres_changes',{event:'*',schema:'public',table:'talleres'},reload)
+          .subscribe();
+      };
+      const loadHotelFromSupabase = async (subscribe = true) => {
+        await supabaseClient.rpc('asegurar_pizarra_del_dia');
+        await seedInitialHotelIfNeeded();
+        const { data:pizarra, error:pizarraError } = await supabaseClient.from('pizarras')
+          .select('id, fecha').eq('estado','en_curso').order('fecha',{ascending:false}).limit(1).maybeSingle();
+        if (pizarraError) throw pizarraError;
+        if (!pizarra) return;
+        activePizarraId = pizarra.id;
+        activePizarraDate = pizarra.fecha;
+        await syncCurrentPizarra03AugIfNeeded();
+        const { data:rows, error } = await supabaseClient.from('registros_hotel')
+          .select('*, etapas_hotel(*)').eq('pizarra_id',activePizarraId).eq('oculto',false).order('orden');
+        if (error) throw error;
+        hotelUnits = (rows || []).map(mapDbHotelUnit);
+        renderHotel();
+        if (subscribe) subscribeHotelRealtime();
+      };
+      const stateOrder = [
+        ['plan','Parar'], ['workshop','Pendiente de llevar al taller'], ['workshop','En taller'],
+        ['ready','Terminado, pendiente de recoger'], ['route','Recogido, pendiente de recuperar ruta'], ['free','Reserva libre']
+      ];
+      const hotelSourceDate = '03/08/2026';
+      const renderMetric = (label,value,filter) => `<button class="metric hotel-metric-filter ${hotelMetricFilter===filter?'active':''}" data-filter="${filter}" type="button"><strong>${value}</strong><span class="text-small text-muted">${escapeHtml(label)}</span></button>`;
+      const nextStageIndex = unit => unit.stages.findIndex(stage => !stage.done && stage.status !== 'anulada');
+      const formatStageDate = value => value ? new Date(value).toLocaleString('es-ES', {
+        timeZone:'Europe/Madrid', day:'2-digit', month:'2-digit', year:'numeric',
+        hour:'2-digit', minute:'2-digit'
+      }) : '';
+      const renderHotelSummary = () => {
+        const occupied = hotelUnits.filter(unit => unit.fleet).length;
+        const free = hotelUnits.filter(unit => unit.state === 'free').length;
+        const workshop = hotelUnits.filter(unit => unit.state === 'workshop').length;
+        const ready = hotelUnits.filter(unit => ['ready','route'].includes(unit.state)).length;
+        const markup = renderMetric('Reservas ocupadas',occupied,'occupied')+renderMetric('Reservas libres',free,'free')+renderMetric('En taller',workshop,'workshop')+renderMetric('Pendientes de recuperar',ready,'recover');
+        root.querySelector('#hotel-summary-cards').innerHTML = markup;
+        root.querySelector('#hotel-dashboard-cards').innerHTML = markup;
+        const workshopUnits = hotelUnits.filter(unit => unit.state === 'workshop');
+        root.querySelector('#hotel-workshop-list').innerHTML = workshopUnits.map(unit => {
+          const entryDate = (unit.stateLabel.match(/desde\s+(.+)$/i)||[])[1] || 'Fecha pendiente';
+          const vehicle = unit.fleet ? `${unit.fleet} · ${unit.fleetPlate}` : `${unit.reserve} · ${unit.reservePlate}`;
+          return `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><div><strong>${escapeHtml(vehicle)}</strong><div class="text-small">${escapeHtml(unit.location||'Taller sin indicar')} · Entrada: ${escapeHtml(entryDate)}</div><div class="text-small text-muted">Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</div></div></div>`;
+        }).join('') || '<div class="text-small text-muted">No hay vehículos en taller.</div>';
+        root.querySelector('#hotel-priority-list').innerHTML = hotelUnits.filter(unit => unit.state !== 'free').sort((a,b)=>a.priority-b.priority).map(unit => `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><strong>DFM ${escapeHtml(unit.fleet)}</strong><span>${escapeHtml(unit.cause)}</span></div>`).join('');
+        root.querySelectorAll('.hotel-metric-filter').forEach(button => button.addEventListener('click', () => {
+          hotelMetricFilter = button.dataset.filter;
+          renderHotel();
+          root.querySelector('#hotel-list').scrollIntoView({behavior:'smooth',block:'start'});
+        }));
+      };
+      const renderHotelUnit = unit => {
+        const currentStage = nextStageIndex(unit);
+        const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${!stage.done && stage.status!=='anulada' && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}${isAdmin()?`<button class="btn btn-secondary hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="btn btn-secondary hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
+        return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
+          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span> <span class="badge">${escapeHtml(unit.stateLabel)}</span></div></div>
+          <div class="detail-grid"><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehículo sustituido</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
+          ${stages}
+          ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar ficha</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ Añadir T</button></div>`:''}
+        </article>`;
+      };
+      const bindHotelStageButtons = () => {
+        root.querySelectorAll('.hotel-unit-edit').forEach(button => button.addEventListener('click', async () => {
+          const unit = hotelUnits.find(item => item.id === button.dataset.id);
+          if (!unit || !isAdmin()) return;
+          const location = window.prompt('Lugar o taller:', unit.location || '');
+          if (location === null) return;
+          const cause = window.prompt('Causa o trabajos pendientes:', unit.cause || '');
+          if (cause === null) return;
+          const priorityText = window.prompt('Prioridad del 1 al 5:', String(unit.priority || 5));
+          if (priorityText === null) return;
+          const priority = Number(priorityText);
+          if (![1,2,3,4,5].includes(priority)) { window.alert('La prioridad debe estar entre 1 y 5.'); return; }
+          const states = ['planificado','pendiente_taller','en_taller','terminado_pendiente_recogida','recogido_pendiente_ruta','reserva_liberada'];
+          const currentDbState = dbStateFromUnit(unit);
+          const stateText = window.prompt('Estado: 1 Parar · 2 Pendiente de taller · 3 En taller · 4 Terminado pendiente de recoger · 5 Recogido pendiente de ruta · 6 Reserva liberada', String(Math.max(1,states.indexOf(currentDbState)+1)));
+          if (stateText === null) return;
+          const state = states[Number(stateText)-1];
+          if (!state) { window.alert('Selecciona un estado del 1 al 6.'); return; }
+          let entryDate = null;
+          if (state === 'en_taller') {
+            const currentDate = isoDateFromText(unit.stateLabel)?.slice(0,10) || new Date().toISOString().slice(0,10);
+            const dateText = window.prompt('Fecha de entrada en taller (AAAA-MM-DD):', currentDate);
+            if (dateText === null) return;
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText)) { window.alert('La fecha debe tener formato AAAA-MM-DD.'); return; }
+            entryDate = dateText + 'T00:00:00+02:00';
+          }
+          const { error } = await supabaseClient.from('registros_hotel').update({
+            lugar:location.trim(), causa:cause.trim(), prioridad:priority, estado:state,
+            fecha_entrada:entryDate, modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+          }).eq('id',unit.id);
+          if (error) window.alert('No se pudo modificar la ficha: ' + error.message);
+          await loadHotelFromSupabase(false);
+        }));
+        root.querySelectorAll('.hotel-stage-done').forEach(button => button.addEventListener('click', async () => {
+          const unit = hotelUnits.find(item => item.id === button.dataset.id);
+          if (!unit || !isAdmin()) return;
+          const stage = unit.stages[Number(button.dataset.stage)];
+          button.disabled = true;
+          const { error } = await supabaseClient.from('etapas_hotel').update({
+            estado:'realizada', fecha_real:new Date().toISOString(), modificado_por:sessionUserId,
+            actualizado_en:new Date().toISOString()
+          }).eq('id',stage.id);
+          if (error) window.alert('No se pudo actualizar la etapa: ' + error.message);
+          await loadHotelFromSupabase(false);
+        }));
+        root.querySelectorAll('.hotel-stage-add').forEach(button => button.addEventListener('click', async () => {
+          const unit = hotelUnits.find(item => item.id === button.dataset.id);
+          if (!unit || !isAdmin()) return;
+          const name = window.prompt('Nombre de la nueva T:');
+          if (name === null) return;
+          if (!name.trim()) { window.alert('El nombre de la T es obligatorio.'); return; }
+          const location = window.prompt('Lugar o taller de esta T:', unit.location || '');
+          if (location === null) return;
+          const maxPosition = unit.stages.reduce((max,stage,index)=>Math.max(max,index+1),0);
+          const { error } = await supabaseClient.from('etapas_hotel').insert({
+            registro_hotel_id:unit.id, nombre:name.trim(), posicion:maxPosition+1,
+            estado:'pendiente', lugar:location.trim(), creado_por:sessionUserId,
+            modificado_por:sessionUserId
+          });
+          if (error) window.alert('No se pudo añadir la T: ' + error.message);
+          await loadHotelFromSupabase(false);
+        }));
+        root.querySelectorAll('.hotel-stage-edit').forEach(button => button.addEventListener('click', async () => {
+          const unit = hotelUnits.find(item => item.id === button.dataset.id);
+          if (!unit || !isAdmin()) return;
+          const stage = unit.stages[Number(button.dataset.stage)];
+          const name = window.prompt('Nombre de la T:', stage.name);
+          if (name === null) return;
+          if (!name.trim()) { window.alert('El nombre de la T es obligatorio.'); return; }
+          const location = window.prompt('Lugar o taller de esta T:', stage.location || unit.location || '');
+          if (location === null) return;
+          const { error } = await supabaseClient.from('etapas_hotel').update({
+            nombre:name.trim(), lugar:location.trim(), modificado_por:sessionUserId,
+            actualizado_en:new Date().toISOString()
+          }).eq('id',stage.id);
+          if (error) window.alert('No se pudo modificar la T: ' + error.message);
+          await loadHotelFromSupabase(false);
+        }));
+        root.querySelectorAll('.hotel-stage-annul').forEach(button => button.addEventListener('click', async () => {
+          const unit = hotelUnits.find(item => item.id === button.dataset.id);
+          if (!unit || !isAdmin()) return;
+          const stage = unit.stages[Number(button.dataset.stage)];
+          const reason = window.prompt('Motivo obligatorio para anular esta T:');
+          if (reason === null) return;
+          if (!reason.trim()) { window.alert('Debes indicar el motivo de la anulación.'); return; }
+          const { error } = await supabaseClient.from('etapas_hotel').update({
+            estado:'anulada', motivo_anulacion:reason.trim(), modificado_por:sessionUserId,
+            actualizado_en:new Date().toISOString()
+          }).eq('id',stage.id);
+          if (error) window.alert('No se pudo anular la T: ' + error.message);
+          await loadHotelFromSupabase(false);
+        }));
+      };
+      const renderHotel = () => {
+        const shownDate = activePizarraDate ? new Date(activePizarraDate + 'T12:00:00').toLocaleDateString('es-ES') : hotelSourceDate;
+        root.querySelector('#hotel-date').textContent = 'Pizarra en curso del ' + shownDate + ' · sincronización en tiempo real';
+        const query = root.querySelector('#hotel-search').value.toLowerCase().trim();
+        const matchesMetric = unit => hotelMetricFilter === 'all'
+          || (hotelMetricFilter === 'occupied' && Boolean(unit.fleet))
+          || (hotelMetricFilter === 'free' && unit.state === 'free')
+          || (hotelMetricFilter === 'workshop' && unit.state === 'workshop')
+          || (hotelMetricFilter === 'recover' && ['ready','route'].includes(unit.state));
+        const visible = hotelUnits.filter(unit => matchesMetric(unit) && (!query || Object.values(unit).flat(3).join(' ').toLowerCase().includes(query)));
+        const filterLabels = {occupied:'Reservas ocupadas',free:'Reservas libres',workshop:'Vehículos en taller',recover:'Pendientes de recuperar'};
+        const activeFilter = root.querySelector('#hotel-active-filter');
+        activeFilter.classList.toggle('hidden', hotelMetricFilter === 'all');
+        activeFilter.innerHTML = hotelMetricFilter === 'all' ? '' : `<div class="viz-row"><strong>Mostrando: ${filterLabels[hotelMetricFilter]}</strong><button id="hotel-clear-filter" class="btn btn-secondary" type="button">Mostrar todo</button></div>`;
+        root.querySelector('#hotel-clear-filter')?.addEventListener('click', () => { hotelMetricFilter='all'; renderHotel(); });
+        root.querySelector('#hotel-list').innerHTML = visible.map(renderHotelUnit).join('') || '<div class="card">No hay resultados en la pizarra actual.</div>';
+        root.querySelector('#hotel-next-list').innerHTML = hotelUnits.filter(unit=>unit.next).map(unit=>`<div class="card"><strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</strong><div>Próximo previsto: <strong>${escapeHtml(unit.next)}</strong></div><div class="text-small text-muted">Previsión no confirmada. La decisión final es manual.</div></div>`).join('') || '<div class="card">No hay próximas sustituciones planificadas.</div>';
+        root.querySelector('#hotel-history-list').innerHTML = [
+          {date:'29/07/2026',dfm:'2709',plate:'7039NGM',reserve:'2499',state:'En taller',place:'AUTODIS',cause:'Consumo o pérdida de aceite'},
+          {date:'29/07/2026',dfm:'2518',plate:'1859MLJ',reserve:'2686',state:'En taller',place:'STERN',cause:'Frenos eje 2 + nivel de agua'}
+        ].filter(item=>{const q=root.querySelector('#hotel-history-search').value.toLowerCase().trim();return !q||Object.values(item).join(' ').toLowerCase().includes(q)}).map(item=>`<div class="card"><strong>${item.date} · DFM ${item.dfm} · ${item.plate}</strong><div>Reserva ${item.reserve} · ${item.state} · ${item.place}</div><div class="text-small text-muted">${item.cause}</div></div>`).join('');
+        renderHotelSummary(); bindHotelStageButtons();
+      };
+      const setHotelSubView = next => {
+        ['board','next','history','dashboard'].forEach(name => root.querySelector('#hotel-'+name).classList.toggle('hidden', name !== (next==='summary'?'dashboard':next)));
+        root.querySelectorAll('.hotel-subtab').forEach(button => { const active=button.dataset.hotelView===next; button.classList.toggle('btn-primary',active); button.classList.toggle('btn-secondary',!active); });
+        renderHotel();
+      };
       const renderLoginUsers = () => {
         const select = root.querySelector('#mock-user');
+        if (select.tagName === 'INPUT') return;
         select.replaceChildren();
         users.filter(user => user.active).forEach(user => {
           const option = document.createElement('option');
@@ -487,20 +948,39 @@
       };
 
       const setView = next => {
+        if (next === 'hotel') {
+          window.alert('Hotel está en construcción. Activar 24H es el módulo disponible en esta versión.');
+          return;
+        }
+        if (next === 'all' && !isAdmin()) {
+          window.alert('No tienes permiso para consultar todas las incidencias. Solicita acceso al administrador principal.');
+          return;
+        }
+        if (['users','settings','versions'].includes(next) && !isPrimaryAdmin()) {
+          window.alert('Esta pestaña requiere permiso del administrador principal.');
+          return;
+        }
         view = next;
         root.querySelector('#view-incidences').classList.toggle('hidden', !['mine', 'all'].includes(view));
+        root.querySelector('#view-hotel').classList.toggle('hidden', view !== 'hotel');
         root.querySelector('#view-my-account').classList.toggle('hidden', view !== 'my-account');
         root.querySelector('#view-users').classList.toggle('hidden', view !== 'users');
         root.querySelector('#view-settings').classList.toggle('hidden', view !== 'settings');
         root.querySelector('#view-versions').classList.toggle('hidden', view !== 'versions');
+        root.querySelector('#view-suggestions').classList.toggle('hidden', view !== 'suggestions');
         root.querySelector('#view-activation').classList.toggle('hidden', view !== 'activation');
         root.querySelector('.tabs').classList.toggle('hidden', view === 'activation');
         root.querySelectorAll('.app-tab').forEach(button => {
-          const selected = button.dataset.view === view;
+          const selected = button.dataset.view === view || (button.id === 'activate-tab' && view === 'all');
           button.classList.toggle('btn-primary', selected);
           button.classList.toggle('btn-secondary', !selected);
         });
+        root.querySelector('#incidences-mine').classList.toggle('btn-primary', view === 'mine');
+        root.querySelector('#incidences-mine').classList.toggle('btn-secondary', view !== 'mine');
+        root.querySelector('#incidences-all').classList.toggle('btn-primary', view === 'all');
+        root.querySelector('#incidences-all').classList.toggle('btn-secondary', view !== 'all');
         if (view === 'mine' || view === 'all') renderIncidences();
+        if (view === 'hotel') renderHotel();
       };
 
       const openDetail = incidence => {
@@ -571,39 +1051,69 @@
         }
       };
 
-      root.querySelector('#mock-enter').addEventListener('click', () => {
-        const pin = root.querySelector('#mock-pin').value.trim();
-        if (!/^\d{4,6}$/.test(pin)) {
-          root.querySelector('#login-message').textContent = 'Introduce entre 4 y 6 cifras para probar la maqueta.';
-          return;
-        }
-        const account = users.find(user => user.id === root.querySelector('#mock-user').value && user.active);
-        if (!account || (account.pin && account.pin !== pin)) {
-          root.querySelector('#login-message').textContent = 'Usuario o PIN incorrecto.';
-          return;
-        }
-        if (!account.pin) {
-          account.pin = pin;
-          saveUsers();
-        }
+      const enterAuthenticatedApp = async authUser => {
+        const { data:profile, error:profileError } = await supabaseClient.from('usuarios').select('*').eq('id',authUser.id).single();
+        if (profileError) throw profileError;
+        if (!profile.activo) throw new Error('Esta cuenta está bloqueada. Contacta con Metrogestión.');
+        const account = {
+          id:profile.id, name:[profile.nombre,profile.apellidos].filter(Boolean).join(' ') || profile.correo,
+          phone:profile.telefono || '', email:profile.correo,
+          role:profile.tipo_usuario === 'administrador_principal' ? 'primary' : profile.tipo_usuario === 'administrador_secundario' ? 'secondary' : 'user',
+          permissions:profile.permisos || {}, active:profile.activo
+        };
+        users = [account];
         sessionUserId = account.id;
         sessionUser = account.name;
         login.classList.add('hidden');
         app.classList.remove('hidden');
         root.querySelector('#session-label').textContent = sessionUser + (account.role === 'primary' ? ' · Administrador principal' : account.role === 'secondary' ? ' · Administrador secundario' : ' · Usuario');
         root.querySelector('#own-account-name').value = account.name;
-        root.querySelector('#all-tab').classList.toggle('hidden', !isAdmin());
-        root.querySelector('#users-tab').classList.toggle('hidden', !isPrimaryAdmin());
-        root.querySelector('#settings-tab').classList.toggle('hidden', !isPrimaryAdmin());
-        root.querySelector('#versions-tab').classList.toggle('hidden', !isPrimaryAdmin());
+        root.querySelector('#hotel-tab').classList.add('locked-tab');
+        root.querySelector('#users-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
+        root.querySelector('#settings-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
+        root.querySelector('#versions-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
         if (isPrimaryAdmin()) {
           root.querySelector('#admin-phone').value = account.phone || '';
           root.querySelector('#admin-email').value = account.email || '';
           renderAdminUsers();
         }
         setView('mine');
+        await supabaseClient.rpc('registrar_acceso',{
+          accion_recibida:'inicio_sesion', modulo_recibido:'programa_gestion',
+          resultado_recibido:'correcto', dispositivo_recibido:navigator.userAgent,
+          detalles_recibidos:{version:'Beta 1.9'}
+        });
+        await loadVehicleIndex();
+        await loadHotelFromSupabase(true);
+      };
+      root.querySelector('#mock-enter').addEventListener('click', async () => {
+        const email = root.querySelector('#mock-user').value.trim().toLowerCase();
+        const password = root.querySelector('#mock-pin').value;
+        const message = root.querySelector('#login-message');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password) {
+          message.textContent = 'Introduce el correo vinculado y tu contraseña.';
+          return;
+        }
+        const button = root.querySelector('#mock-enter');
+        button.disabled = true;
+        message.textContent = 'Comprobando acceso seguro…';
+        try {
+          const { data, error } = await supabaseClient.auth.signInWithPassword({email,password});
+          if (error) throw error;
+          await enterAuthenticatedApp(data.user);
+          message.textContent = '';
+        } catch (error) {
+          await supabaseClient.auth.signOut();
+          message.textContent = error.message === 'Invalid login credentials'
+            ? 'Correo o contraseña incorrectos.' : 'No se pudo acceder: ' + error.message;
+        } finally {
+          button.disabled = false;
+        }
       });
-      root.querySelector('#mock-logout').addEventListener('click', () => {
+      root.querySelector('#mock-logout').addEventListener('click', async () => {
+        try { await supabaseClient.rpc('registrar_acceso',{accion_recibida:'cierre_sesion',modulo_recibido:'programa_gestion'}); } catch {}
+        await supabaseClient.auth.signOut();
+        if (hotelRealtimeChannel) supabaseClient.removeChannel(hotelRealtimeChannel);
         sessionUser = '';
         sessionUserId = '';
         root.querySelector('#mock-pin').value = '';
@@ -697,10 +1207,112 @@
         root.querySelector('#admin-confirm-pin').value = '';
         message.textContent = 'Datos del administrador principal guardados.';
       });
+      root.querySelector('#send-suggestion').addEventListener('click', async () => {
+        const type = root.querySelector('#suggestion-type').value;
+        const subject = root.querySelector('#suggestion-subject').value.trim();
+        const messageText = root.querySelector('#suggestion-message').value.trim();
+        const status = root.querySelector('#suggestion-status');
+        const button = root.querySelector('#send-suggestion');
+        if (!subject || messageText.length < 10) {
+          status.textContent = 'Escribe un asunto y una explicación de al menos 10 caracteres.';
+          return;
+        }
+        button.disabled = true;
+        status.textContent = 'Guardando sugerencia…';
+        const { error } = await supabaseClient.from('sugerencias').insert({
+          tipo:type, asunto:subject, mensaje:messageText, creado_por:sessionUserId,
+          pagina:view, version_app:'Beta 1.9'
+        });
+        button.disabled = false;
+        if (error) {
+          status.textContent = 'No se pudo guardar: ' + error.message;
+          return;
+        }
+        status.textContent = 'Sugerencia registrada. Se abrirá tu correo para confirmar el envío.';
+        const body = [
+          'Usuario: ' + sessionUser,
+          'Correo vinculado: ' + (currentAccount()?.email || ''),
+          'Tipo: ' + type,
+          'Versión: Beta 1.9',
+          '', messageText
+        ].join('\n');
+        window.location.href = 'mailto:metrogestion2026@gmail.com?subject=' + encodeURIComponent('[Programa de gestión] ' + subject) + '&body=' + encodeURIComponent(body);
+        root.querySelector('#suggestion-subject').value = '';
+        root.querySelector('#suggestion-message').value = '';
+      });
       root.querySelectorAll('.app-tab').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
+      root.querySelector('#incidences-mine').addEventListener('click', () => setView('mine'));
+      root.querySelector('#incidences-all').addEventListener('click', () => setView('all'));
+      root.querySelectorAll('.hotel-subtab').forEach(button => button.addEventListener('click', () => setHotelSubView(button.dataset.hotelView)));
+      root.querySelector('#hotel-search').addEventListener('input', renderHotel);
+      root.querySelector('#hotel-history-search').addEventListener('input', renderHotel);
+      root.querySelector('#hotel-form-exceptional').addEventListener('change', event => root.querySelector('#hotel-exception-fields').classList.toggle('hidden', !event.target.checked));
+      root.querySelector('#hotel-form-close').addEventListener('click', () => root.querySelector('#hotel-form').classList.add('hidden'));
+      const openHotelForm = urgent => {
+        root.querySelector('#hotel-form').classList.remove('hidden');
+        root.querySelector('#hotel-form-title').textContent = urgent ? 'Avería urgente · Prioridad 1' : 'Sustitución planificada';
+        root.querySelector('#hotel-form').dataset.urgent = urgent ? '1' : '0';
+        root.querySelector('#hotel-form-priority').value = urgent ? '1' : '5';
+        root.querySelector('#hotel-form-message').textContent = urgent ? 'Si existe una INC o activación 24H abierta, se vinculará siempre antes de crear una provisional.' : 'La planificación no ocupará definitivamente la reserva hasta su confirmación.';
+        root.querySelector('#hotel-form').scrollIntoView({behavior:'smooth',block:'start'});
+      };
+      root.querySelector('#hotel-new-planned').addEventListener('click', () => openHotelForm(false));
+      root.querySelector('#hotel-new-urgent').addEventListener('click', () => openHotelForm(true));
+      root.querySelector('#hotel-form-save').addEventListener('click', async () => {
+        if (!isAdmin()) return;
+        const typed = root.querySelector('#hotel-form-vehicle').value.trim().toUpperCase();
+        const vehicle = vehicleIndex.find(item => item.dfm === typed || item.plate === typed || `${item.dfm} · ${item.plate}` === typed);
+        const cause = root.querySelector('#hotel-form-cause').value.trim();
+        const exceptional = root.querySelector('#hotel-form-exceptional').checked;
+        const reason = root.querySelector('#hotel-form-reason').value.trim();
+        const limit = root.querySelector('#hotel-form-limit').value;
+        const message = root.querySelector('#hotel-form-message');
+        if (!vehicle || !cause) { message.textContent = 'Introduce un DFM o matrícula existente y la causa de la sustitución.'; return; }
+        if (exceptional && (!reason || !limit)) { message.textContent = 'Una sustitución excepcional necesita motivo y fecha/hora límite.'; return; }
+        const reserveValue = root.querySelector('#hotel-form-reserve').value;
+        if (!reserveValue) { message.textContent = 'Selecciona el vehículo de reserva.'; return; }
+        const [reserve,reservePlate,reserveLabel] = reserveValue.split('|');
+        const existingInc = incidences.find(item => item.dfm === vehicle.dfm && !/cerrad/i.test(item.status));
+        const suppliedInc = root.querySelector('#hotel-form-inc').value.trim();
+        const urgent = root.querySelector('#hotel-form').dataset.urgent === '1';
+        const location = root.querySelector('#hotel-form-location').value;
+        const record = {
+          pizarra_id:activePizarraId,
+          vehiculo_sustituido:vehicle.dfm, matricula_sustituido:vehicle.plate,
+          vehiculo_reserva:reserve, matricula_reserva:reservePlate,
+          tipo_unidad:reserveLabel, etiqueta_reserva:reserveLabel,
+          upc:'Pendiente desde MANTENIMENT', causa,
+          prioridad:Number(root.querySelector('#hotel-form-priority').value),
+          estado:'pendiente_taller', lugar:location,
+          incidencia:suppliedInc||(existingInc?existingInc.id:urgent?'INC provisional · pendiente de numerar':'Sin INC principal'),
+          sustitucion_temporal:exceptional,
+          motivo_sustitucion_temporal:exceptional?reason:'',
+          fecha_limite_sustitucion:exceptional?new Date(limit).toISOString():null,
+          orden:hotelUnits.length, creado_por:sessionUserId, modificado_por:sessionUserId
+        };
+        const saveButton = root.querySelector('#hotel-form-save');
+        saveButton.disabled = true;
+        message.textContent = 'Guardando y sincronizando…';
+        const { data:created, error } = await supabaseClient.from('registros_hotel').insert(record).select('id').single();
+        if (error) { message.textContent = 'No se pudo guardar: ' + error.message; saveButton.disabled = false; return; }
+        const stages = [
+          {name:'Confirmar sustitución',done:urgent}, {name:location,done:false},
+          {name:'Diagnóstico y trabajos',done:false}, {name:'Recoger',done:false},
+          {name:'Recuperar ruta y liberar reserva',done:false}
+        ].map((stage,index)=>({
+          registro_hotel_id:created.id, nombre:stage.name, posicion:index+1,
+          estado:stage.done?'realizada':'pendiente', lugar:location,
+          fecha_real:stage.done?new Date().toISOString():null, creado_por:sessionUserId, modificado_por:sessionUserId
+        }));
+        const { error:stageError } = await supabaseClient.from('etapas_hotel').insert(stages);
+        saveButton.disabled = false;
+        if (stageError) { message.textContent = 'Registro creado, pero fallaron las etapas: ' + stageError.message; return; }
+        await loadHotelFromSupabase(false);
+        root.querySelector('#hotel-form').classList.add('hidden');
+      });
       root.querySelector('#incidence-search').addEventListener('input', renderIncidences);
       root.querySelector('#new-activation').addEventListener('click', () => {
-        window.location.href = 'activar-24h.html?v=1.7';
+        window.location.href = 'activar-24h.html?origen=beta-1-9';
       });
       root.querySelector('#back-incidences').addEventListener('click', () => setView('mine'));
       root.querySelector('#activation-guided').addEventListener('click', () => {
@@ -905,7 +1517,34 @@
         }
         suggestions.classList.toggle('hidden', !suggestions.children.length);
       });
+      let deferredInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', event => {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+      });
+      root.querySelector('#install-app').addEventListener('click', async () => {
+        if (deferredInstallPrompt) {
+          deferredInstallPrompt.prompt();
+          await deferredInstallPrompt.userChoice;
+          deferredInstallPrompt = null;
+          return;
+        }
+        window.alert('En Android abre el menú del navegador y pulsa «Instalar aplicación». En iPhone usa Compartir → «Añadir a pantalla de inicio».');
+      });
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => navigator.serviceWorker.register('sw-24h-beta-1-9.js').catch(() => {}));
+      }
       renderLoginUsers();
+      supabaseClient.auth.getSession().then(async ({data}) => {
+        if (!data.session?.user) return;
+        try {
+          root.querySelector('#login-message').textContent = 'Recuperando sesión segura…';
+          await enterAuthenticatedApp(data.session.user);
+        } catch (error) {
+          await supabaseClient.auth.signOut();
+          root.querySelector('#login-message').textContent = 'No se pudo recuperar la sesión: ' + error.message;
+        }
+      });
     })();
   </script>
 </div>
