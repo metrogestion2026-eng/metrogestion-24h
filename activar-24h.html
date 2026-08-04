@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#075985">
-  <title>Metrogestión · Activar 24H Beta 1.7</title>
+  <title>Programa de gestión · Activar 24H Beta 1.9</title>
   <style>
     :root {
       --background: #ffffff;
@@ -123,7 +123,7 @@
   <div class="shell">
     <header class="top">
       <div class="brand"><i data-lucide="siren" aria-hidden="true"></i><span>Activar 24H</span></div>
-      <div class="actions"><button id="back-to-panel" type="button" class="btn btn-secondary">← Panel</button><span class="viz-badge">Beta 1.7</span><span class="viz-badge">Manual v2.1</span></div>
+      <div class="actions"><button id="back-to-panel" type="button" class="btn btn-secondary">← Panel</button><span class="viz-badge">Beta 1.8</span><span class="viz-badge">Manual protegido</span></div>
     </header>
     <main id="wizard-body" class="body">
       <div>
@@ -139,10 +139,10 @@
         <div class="section-title">¿Cómo quieres realizar la activación 24H?</div>
         <div class="checklist">
           <input id="access-manual" type="radio" name="start-mode" value="manual" hidden>
-          <a id="access-manual-link" class="form-check" href="Manual_24H_DFM_v2_1.pdf" target="_blank" rel="noopener"><span aria-hidden="true">📄</span><span class="form-check-label"><strong>Abrir el manual PDF</strong><br><span class="text-small text-muted">Se abre fuera de la app, directamente en el visor PDF del teléfono</span></span></a>
+          <a id="access-manual-link" class="form-check" href="#"><span aria-hidden="true">📄</span><span class="form-check-label"><strong>Abrir el manual PDF</strong><br><span class="text-small text-muted">Se abre fuera de la app, directamente en el visor PDF del teléfono</span></span></a>
           <label class="form-check"><input id="continue-guided" class="form-check-input" type="radio" name="start-mode" value="guided"><span class="form-check-label"><strong>Ser guiado por la app</strong><br><span class="text-small text-muted">Continuar paso a paso con controles y avisos automáticos</span></span></label>
         </div>
-        <div id="manual-access-note" class="call-box" hidden><strong>Manual operativo · versión 2.1</strong><span>El PDF se ha abierto en una pestaña nueva.</span></div>
+        <div id="manual-access-note" class="call-box" hidden><strong>Manual operativo · versión 2.1</strong><span>El manual se abrirá mediante un enlace privado temporal.</span></div>
       </section>
 
       <section class="step" data-step="0" data-name="Identificar vehículo">
@@ -247,10 +247,8 @@
           <div><strong>Comprobación automática de cobertura</strong><div id="coverage-status" class="text-small text-muted">Selecciona el DFM y completa los datos contractuales.</div></div>
           <div id="coverage-detail" class="text-small"></div>
           <div id="coverage-escalation" class="contact-list" hidden>
-            <strong>No se puede continuar. Llama en este orden:</strong>
-            <a class="btn btn-secondary" href="tel:606655189"><i data-lucide="phone" aria-hidden="true"></i>1. Llamar ahora a TM · 606 655 189 · Ext. 4507</a>
-            <a class="btn btn-secondary" href="tel:697728258"><i data-lucide="phone" aria-hidden="true"></i>2. Llamar ahora a Gestión BCN · 697 728 258 · Ext. 4512</a>
-            <a class="btn btn-secondary" href="tel:669208633"><i data-lucide="phone" aria-hidden="true"></i>3. Llamar ahora al Área · 669 208 633 · Ext. 4135</a>
+            <strong>No se puede continuar. Utiliza los contactos internos protegidos:</strong>
+            <div id="secure-escalation-contacts" class="contact-list"></div>
           </div>
         </div>
         <div class="call-box">
@@ -267,7 +265,7 @@
           <label class="form-label">Número facilitado por el operador<input id="case-number-call" class="form-control" type="text" autocapitalize="characters" placeholder="Puede incluir letras, números o símbolos"></label>
         </div>
         <div class="script" id="call-script">Selecciona el DFM y completa los pasos anteriores para preparar el texto de la llamada.</div>
-        <div class="text-small text-muted">Si hay dudas de cobertura, taller, contraseña o canal: consultar a TM → Gestión de Mantenimiento Barcelona → Área de Mantenimiento.</div>
+        <div class="text-small text-muted">Si hay dudas de cobertura, utiliza los contactos internos protegidos en el orden indicado.</div>
       </section>
 
       <section class="step" data-step="5" data-name="Registrar activación">
@@ -304,941 +302,73 @@
     </main>
     <main id="manual-view" class="body" hidden>
       <div class="actions"><button id="close-manual" type="button" class="btn btn-secondary">← Volver al paso 0</button></div>
-      <div><div class="section-title">Manual de actuación ante avería DFM</div><div class="text-small text-muted">Versión 2.1 · 18/07/2026</div></div>
-      <div class="call-box"><strong>Manual PDF completo · 18 páginas</strong><span>La copia incluida en la app se abre automáticamente en el visor inferior. No necesita descarga.</span></div>
-      <div class="pdf-toolbar" aria-label="Controles del visor PDF">
-        <div class="pdf-toolbar-group"><button id="pdf-prev" type="button" class="btn btn-secondary" aria-label="Página anterior">←</button><strong id="pdf-page-label">Página 1 / 18</strong><button id="pdf-next" type="button" class="btn btn-secondary" aria-label="Página siguiente">→</button></div>
-        <div class="pdf-toolbar-group"><button id="pdf-zoom-out" type="button" class="btn btn-secondary" aria-label="Reducir">−</button><span id="pdf-zoom-label" class="text-small">100%</span><button id="pdf-zoom-in" type="button" class="btn btn-secondary" aria-label="Ampliar">+</button><button id="pdf-fullscreen" type="button" class="btn btn-primary"><i data-lucide="maximize" aria-hidden="true"></i>Pantalla completa</button></div>
+      <div><div class="section-title">Manual de actuación ante avería DFM</div><div class="text-small text-muted">Contenido protegido</div></div>
+      <div class="call-box"><strong>Manual privado</strong><span id="secure-manual-status">Inicia sesión para cargar el manual de forma segura.</span></div>
+      <a id="secure-manual-open" class="btn btn-primary" href="#" target="_blank" rel="noopener" hidden>Abrir manual PDF protegido</a>
+      <div id="manual-image-pages" class="manual-page-images" hidden></div>
+      <div hidden aria-hidden="true">
+        <span id="pdf-page-label"></span><span id="pdf-zoom-label"></span>
+        <button id="pdf-prev" type="button"></button><button id="pdf-next" type="button"></button>
+        <button id="pdf-zoom-out" type="button"></button><button id="pdf-zoom-in" type="button"></button>
+        <button id="pdf-fullscreen" type="button"></button>
       </div>
-      <div id="manual-image-pages" class="manual-page-images" aria-label="Manual PDF completo, 18 páginas" hidden>
-        <!-- MANUAL_IMAGE_PAGES_END -->
-      </div>
-      <div class="manual-text-pages" aria-label="Copia de texto accesible del manual">
-      <section class="doc-page" aria-label="Página 1 de 18"><div class="text-small text-muted">Página 1 de 18</div><pre>MANUAL OPERATIVO
-
-
-Actuación ante avería DFM
-Seguridad · Asistencia 24 h · Seguimiento · Registro de incidencias
-
-
-
-
- Aplicación                   Todos los UPC que gestionen vehículos DFM
-
- Delegación de referencia     Barcelona
-
- Área                         Gestión de Mantenimiento / Transporte
-
- Ámbito                       Averías en ruta, asistencia 24h, continuidad y registro
-
- Prioridad                    Seguridad, protección de la vía y continuidad del servicio
-
- Versión                      2.1 · 18/07/2026
-
-
-
-
-                            Documento operativo para todos los UPC · Uso interno</pre></section>
-      <section class="doc-page" aria-label="Página 2 de 18"><div class="text-small text-muted">Página 2 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                        Versión 2.1
-
-
-
-Criterio común para todos los UPC
-Este manual establece un único criterio de actuación. Debe seguirse en el orden indicado y actualizarse
-con cada comunicación relevante.
-
-Reglas obligatorias
-   ☐ La seguridad decide la actuación. Si existe duda sobre si puede circular, tratar el vehículo como no
-       apto hasta recibir valoración.
-
-   ☐ El aviso a TM Delegación Barcelona es obligatorio en todas las averías, aunque después intervenga
-       fabricante, taller o asistencia externa.
-
-   ☐ El UPC registra hechos objetivos. No incorpora opiniones, responsabilidades ni diagnósticos no
-       confirmados.
-
-   ☐ El número de asistencia, EXP, caso u O.R. es externo y debe anotarse como tal.
-
-   ☐ El UPC no escribe “INC” en el registro del programa: es una clasificación interna de
-       Mantenimiento.
-
-   ☐ La sustitución permite continuar el servicio, pero no cierra la avería del vehículo original.
-
-   ☐ La incidencia se actualiza cronológicamente y no se cierra sin diagnóstico confirmado, reparación,
-       estado final y salida de taller si procede.
-
-Cómo consultar el manual
- Necesidad                                        Procedimiento
-
- Recibir un aviso y proteger al conductor         0 · Actuación inmediata
-
- Activar asistencia y hacer seguimiento           1 · Asistencia según fabricante
-
- Documentar correctamente el caso                 2 · Registro en el programa de gestión
-
-
-
-  Secuencia común: PROTEGER → RECOPILAR → AVISAR → DECIDIR → ACTIVAR → SUSTITUIR SI PROCEDE
-  → REGISTRAR → SEGUIR → VERIFICAR → CERRAR.
-
-Control del documento
- Versión        Fecha                 Cambios principales
-
- 1.0            Julio 2026            Manual inicial de seguridad y asistencia por fabricante.
-
-                                      Unificación del criterio UPC, V16 conectada, continuidad, corrección MAN,
- 2.0            18/07/2026
-                                      separación del número externo y registro sin INC.
-
-                                      Volvo: Provehima. BPW: correo previo a posventa@bpwtrapaco.com y llamada
- 2.1            18/07/2026
-                                      posterior.
-
-
-
-                                                                                                    Uso interno | 2 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 3 de 18"><div class="text-small text-muted">Página 3 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                    Versión 2.1
-
-
-
-
-PROCEDIMIENTO 0
-
-
-Actuación inmediata al recibir un aviso de avería
-   Objetivo: Proteger al conductor y al resto de usuarios, obtener información suficiente y dirigir la avería
-   hacia la actuación correcta.
-
-Paso 1 · Recopilar la información inicial
-Antes de llamar a TM, al fabricante o al taller, recopilar:
-
-   • DFM y matrícula de la tractora o rígido.
-   • Matrícula del semirremolque o unidad acoplada, si procede.
-   • Nombre y teléfono directo del conductor.
-   • Ubicación exacta: vía, punto kilométrico, sentido, localidad, país y coordenadas GPS cuando sea
-      posible.
-   • Kilometraje y estado del vehículo: detenido, inmovilizado, circulando con limitación o en lugar
-      seguro.
-   • Descripción literal de la avería: mensaje, testigo, color, código, ruido, fuga o comportamiento.
-   • Fotografías del display y de la avería, siempre que puedan obtenerse sin riesgo.
-   • Carga: vacío/cargado y temperatura o riesgo para el producto si procede.
-   • Confirmación de si el vehículo puede continuar circulando con seguridad.
-
-Paso 2 · Aplicar las medidas de seguridad
-   Regla principal: No se realizará ninguna comprobación que obligue al conductor a exponerse al tráfico.
-   Si no puede salir con total seguridad, permanecerá dentro del vehículo con el cinturón abrochado.
-
-   ☐ Encender las luces de emergencia.
-
-   ☐ Activar y colocar la baliza V16 conectada y homologada en la parte más alta posible, sin exponerse
-      al tráfico.
-
-   ☐ No bajar por el lado de la circulación.
-
-   ☐ Si puede salir con seguridad, ponerse el chaleco reflectante y hacerlo por el lado protegido.
-
-   ☐ Situarse detrás de la barrera de seguridad o fuera de la calzada, siempre que pueda alcanzarse sin
-      riesgo.
-
-   ☐ No regresar al vehículo si ya se encuentra en una zona segura, salvo que pueda hacerse con total
-      seguridad.
-
-
-
-
-                                                                                               Uso interno | 3 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 4 de 18"><div class="text-small text-muted">Página 4 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                     Versión 2.1
-
-
-Referencia de seguridad vial: desde el 1 de enero de 2026 la señal V16 conectada sustituye a los
-triángulos y evita tener que caminar por la calzada para señalizar.
-
-Paso 3 · Avisar al 112 cuando proceda
-Si la avería se produce en autopista, autovía, vía de alta circulación o existe riesgo para la circulación,
-indicar al conductor que contacte directamente con el 112.
-
-   Si el conductor no puede llamar: El UPC contactará con el 112 y facilitará la ubicación, el teléfono del
-   conductor, el vehículo y todos los datos disponibles.
-
-Paso 4 · Aviso obligatorio a TM
-Avisar siempre a TM Delegación Barcelona. El aviso es obligatorio para cualquier avería y el contacto
-está disponible 24 horas.
-
- Contacto                        TM Delegación Barcelona
-
- Teléfono                        606 655 189
-
- Extensión                       4507
-
- Uso                             Primera referencia técnica interna en todas las averías
-
-
-Información mínima a trasladar a TM:
-
-   ☐ DFM y matrícula.
-
-   ☐ Ubicación, PK, sentido y coordenadas.
-
-   ☐ Descripción literal y fotografías disponibles.
-
-   ☐ Estado del vehículo y posibilidad de circular.
-
-   ☐ Carga y temperatura, si procede.
-
-   ☐ Llamada al 112 y medidas de seguridad ya aplicadas.
-
-Paso 5 · Decidir la actuación
-   1. ¿Puede circular con seguridad? realizar seguimiento y contactar con Gestión de Mantenimiento
-       Barcelona en horario de oficina para programar taller y sustitución si procede.
-   2. ¿No puede circular o existen dudas? verificar el contrato de mantenimiento y activar la asistencia
-       del fabricante según el Procedimiento 1.
-   3. ¿No hay contrato o no se puede comprobar. no improvisar la activación; consultar por este
-       orden: TM, Gestión de Mantenimiento Barcelona y Área de Mantenimiento.
-   4. ¿Existe riesgo inmediato? priorizar el 112, seguridad y retirada a zona segura antes que la
-       reparación en el lugar.
-
-
-
-                                                                                               Uso interno | 4 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 5 de 18"><div class="text-small text-muted">Página 5 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                   Versión 2.1
-
-
-
-Paso 6 · Dar continuidad al servicio
-  ☐ Comprobar disponibilidad y compatibilidad de la unidad sustituta.
-
-  ☐ Registrar qué unidad sustituye a cuál y dónde queda el vehículo averiado.
-
-  ☐ Informar al gerente de transporte correspondiente y a Operaciones.
-
-  ☐ Mantener abierto el seguimiento del vehículo original hasta su reparación y verificación.
-
-  ☐ Cuando vuelva a servicio, liberar la sustituta y actualizar la disponibilidad de ambas unidades.
-
-Cierre del Procedimiento 0
-  ☐ Medidas de seguridad aplicadas.
-
-  ☐ 112 avisado cuando procede.
-
-  ☐ TM informado obligatoriamente.
-
-  ☐ Gerente de transporte/Operaciones informados.
-
-  ☐ Capacidad de circular confirmada o descartada.
-
-  ☐ Siguiente actuación y responsable definidos.
-
-  ☐ Sustitución resuelta si el servicio lo requiere.
-
-Contactos internos de referencia
- Contacto                           Teléfono                Ext.   Uso
-
- TM Delegación Barcelona            606 655 189             4507   Aviso obligatorio y primera valoración.
-
- Gestión de Mantenimiento
-                                    697 728 258             4512   Contrato, taller, planificación y sustitución.
- Barcelona
-
- Área de Mantenimiento              669 208 633             4135   Soporte para todas las delegaciones.
-
-
-
-
-                                                                                              Uso interno | 5 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 6 de 18"><div class="text-small text-muted">Página 6 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                   Versión 2.1
-
-
-PROCEDIMIENTO 1
-
-
-Activación de asistencia según fabricante
-  Objetivo: Activar correctamente la asistencia cuando el vehículo no puede continuar, obtener el número
-  externo y mantener el seguimiento hasta la resolución.
-
-Cuándo se aplica
-Se aplica después del Procedimiento 0, una vez confirmada la imposibilidad de continuar con seguridad
-y la necesidad de asistencia externa.
-
-  Antes de llamar: Comprobar el contrato de mantenimiento. Si existen dudas sobre cobertura, taller,
-  contraseña o canal, consultar a TM → Gestión de Mantenimiento Barcelona → Área de Mantenimiento.
-
-Datos comunes para cualquier fabricante
-   ☐ Matrícula y DFM.
-
-   ☐ Kilometraje.
-
-   ☐ VIN/bastidor si lo solicita el fabricante.
-
-   ☐ Ubicación exacta o coordenadas GPS.
-
-   ☐ Descripción literal de la avería y código/color del aviso.
-
-   ☐ Teléfono directo del conductor.
-
-   ☐ Taller de referencia y clave de asistencia, si aplica.
-
-   ☐ Contrato de mantenimiento vigente.
-
-   ☐ Matrícula del semirremolque, carga y temperatura cuando afecten a la actuación.
-
-Seguimiento común después de la activación
-   ☐ Anotar el número externo de asistencia, EXP o caso.
-
-   ☐ Registrar hora de activación y hora prevista de llegada (ETA).
-
-   ☐ Actualizar la llegada real del técnico.
-
-   ☐ Añadir el diagnóstico solo cuando lo confirme el técnico, taller o fabricante.
-
-   ☐ Registrar reparación provisional o definitiva y piezas sustituidas.
-
-   ☐ Confirmar hora y estado operativo; si se traslada a taller, registrar destino y entrada.
-
-   ☐ No cerrar el caso del vehículo original porque exista sustitución.
-
-  Registro UPC: El UPC registra la incidencia en el programa de gestión, pero no escribe “INC”. El número
-  de asistencia, EXP, caso u O.R. se anota en el campo externo correspondiente y nunca se confunde con
-  una clasificación interna.
-
-
-                                                                                           Uso interno | 6 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 7 de 18"><div class="text-small text-muted">Página 7 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                      Versión 2.1
-
-
-
-Comunicación a Gestión de Mantenimiento
-Después de registrar la incidencia, enviar correo a jmruiz@disfrimur.com con matrícula, marca,
-ubicación, número externo de asistencia, taller asignado y una descripción breve y objetiva.
-
-Si el programa no está disponible, conservar una nota provisional con fecha, hora y todos los hitos;
-completar el registro cuando se restablezca el acceso. No inventar un código INC.
-
-
-Activación por fabricante
-
-IVECO
- Canal                           Llamada directa
-
- Asistencia                      IVECO Assistance Non Stop (ANS)
-
- Teléfono                        +800 8274 7368
-
- Condición                       Según contrato de la empresa
-
- Taller de referencia            Ginés Huertas · Molina de Segura, Murcia
-
-
-Solicitar la apertura de ANS, facilitar el taller de referencia y anotar número de asistencia, hora, ETA y
-comunicaciones posteriores.
-
-Mercedes-Benz Trucks
- Canal principal                 My TruckPoint
-
-                                 Mercedes-Benz Service24h · 00 800 57 777 777, solo si My TruckPoint no está
- Alternativo
-                                 disponible
-
- Taller de referencia            Comercial Dimovil
-
-                                 Polígono Centro Integrado del Transporte de Murcia, manzana 1 · 30169 San Ginés,
- Dirección
-                                 Murcia
-
-
-
-   Duplicidad: Antes de crear un caso, comprobar si ya existe uno abierto para el mismo vehículo.
-
-
-
-
-                                                                                                Uso interno | 7 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 8 de 18"><div class="text-small text-muted">Página 8 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                       Versión 2.1
-
-
-Paso 1 · Abrir My TruckPoint y entrar en Taller
-
-
-
-
-                   En el menú superior, seleccionar Taller y después Mercedes-Benz Trucks Service24h.
-
-
-
-
-                                                                                                        Uso interno | 8 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 9 de 18"><div class="text-small text-muted">Página 9 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                         Versión 2.1
-
-
-Paso 2 · Revisar casos y crear uno nuevo
-
-
-
-
-                Revisar primero los casos abiertos; si no existe uno para la unidad, pulsar Crear nuevo caso.
-
-Paso 3 · Seleccionar el vehículo
-
-
-
-
-                          Buscar por FIN/VIN o matrícula, verificar la unidad y pulsar Seleccionar.
-
-
-
-
-                                                                                                                Uso interno | 9 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 10 de 18"><div class="text-small text-muted">Página 10 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                      Versión 2.1
-
-
-Paso 4 · Completar y enviar
-
-
-
-
-Completar todos los campos obligatorios: FIN/VIN, matrícula, primera matriculación, kilómetros y datos
-del titular. Revisar las pantallas siguientes hasta el resumen y pulsar Enviar.
-
-   Resultado: My TruckPoint enviará el número de caso Service24h. Registrarlo como número externo y
-   continuar el seguimiento común.
-
-MAN
- Canal                           Llamada directa
-
- Asistencia                      MAN Mobile24
-
- Teléfono                        00800 66 24 53 24
-
- Clave                           20244
-
- Taller de referencia MAN        Serviman · km 377, calle Madrid · 30564 Lorquí, Murcia
-
-
-Solicitar la apertura, facilitar la clave cuando la pida el operador y anotar número externo, ETA y
-seguimiento.
-
-Volvo Trucks
- Canal                           Llamada directa
-
- Asistencia                      Volvo Action Service (VAS)
-
- Teléfono                        +34 900 98 32 51
-
- Taller de referencia            Provehima
-
-
-Solicitar la apertura de asistencia Volvo, indicar Provehima como taller de referencia, anotar el número
-externo y aplicar el seguimiento común hasta la finalización.
-
-
-
-                                                                                          Uso interno | 10 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 11 de 18"><div class="text-small text-muted">Página 11 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                   Versión 2.1
-
-
-
-BPW · Avería en semirremolque
- Correo previo                 posventa@bpwtrapaco.com
-
- Horario laboral               918 023 600
-
- Fuera de horario              800 780 78000
-
- Canal                         Llamada directa a Asistencia BPW
-
-
-
-  Orden obligatorio: 1. Preparar y enviar los datos a posventa@bpwtrapaco.com. 2. Después de enviar el
-  correo, llamar a Asistencia BPW en el teléfono correspondiente al horario.
-
-Datos que deben estar preparados
- Concepto                           Ejemplo
-
- Último mantenimiento               07/05/2026
-
- Matrícula tractora                 5022MMC
-
- Matrícula semirremolque            R9492BCZ
-
- Marca / modelo                     Lecsor / Spectrum
-
- Teléfono del vehículo              680 569 607
-
- Conductor                          Balbino
-
- Lugar / país                       43812 Puigpelat (Tarragona) / España
-
- Coordenadas                        41°16'51.7"N 1°17'00.2"E
-
- Tipo de freno / eje                Tambor / BPW
-
- Causa comunicada                   Pérdida de aire en actuador de freno
-
- Carga                              Vacío / Cargado
-
-
-
-Durante y después de la llamada
-  ☐ Número de expediente BPW y hora de apertura.
-
-  ☐ Nombre del operador, si lo facilita.
-
-  ☐ Taller asignado y ETA.
-
-  ☐ Diagnóstico confirmado y tiempo estimado.
-
-  ☐ Técnico desplazado y hora real de llegada.
-
-  ☐ Reparación, estado final y hora de finalización.
-
-
-
-
-                                                                                       Uso interno | 11 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 12 de 18"><div class="text-small text-muted">Página 12 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                   Versión 2.1
-
-
-
-Cierre del Procedimiento 1
-   ☐ Contrato o cobertura verificados.
-
-   ☐ Canal correcto de la marca utilizado.
-
-   ☐ Número externo y hora de activación registrados.
-
-   ☐ ETA y llegada real actualizadas.
-
-   ☐ Diagnóstico solo incorporado cuando ha sido confirmado.
-
-   ☐ Reparación/traslado y estado final anotados.
-
-   ☐ Programa de gestión actualizado sin escribir INC.
-
-   ☐ Gestión de Mantenimiento informado.
-PROCEDIMIENTO 2
-
-
-Registro de incidencias en el programa de gestión
-  Objetivo: Registrar todas las averías de forma homogénea, objetiva, cronológica y útil para el
-  seguimiento técnico, el análisis predictivo y las reclamaciones.
-
-  Corrección obligatoria: El UPC no debe escribir “INC” en el registro. INC es una clasificación interna de
-  Mantenimiento. El UPC introduce la matrícula, los hechos de la avería y los números externos de
-  asistencia, EXP, caso u O.R.
-
-Paso 1 · Introducir la matrícula
-Introducir la matrícula del vehículo. El programa completará automáticamente:
-
-   • DFM
-   • Matrícula
-   • Marca
-   • Modelo
-   • VIN
-   • Tipo de vehículo
-   • Delegación
-   • Plataforma
-   • Datos asociados del vehículo
-Antes de continuar, verificar que la unidad mostrada es la correcta.
-
-
-
-
-                                                                                            Uso interno | 12 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 13 de 18"><div class="text-small text-muted">Página 13 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                       Versión 2.1
-
-
-
-Paso 2 · Registrar los datos de apertura
- Campo                        Qué debe constar
-
- Fecha y hora                 Momento real de comunicación o detección.
-
- Lugar                        Vía, PK, sentido, localidad, país y coordenadas si están disponibles.
-
- Kilómetros                   Lectura comunicada o disponible en el sistema.
-
- Estado                       Detenido, inmovilizado, limitado, sustituido, en asistencia, en taller u operativo.
-
- Quién comunica               Conductor, Control Room, taller, fabricante u otra fuente identificada.
-
- Carga                        Vacío/cargado y temperatura si procede.
-
- Unidad acoplada              Matrícula del semirremolque cuando afecte al caso.
-
-
-
-
-Paso 3 · Describir la avería
-La descripción debe responder a cuatro preguntas:
-
- Pregunta                      Ejemplo objetivo
-
- ¿Qué ocurre?                  El conductor comunica que aparece fallo motor en rojo.
-
- ¿Dónde ocurre?                AP-7, PK 182, sentido Barcelona.
-
- ¿Qué consecuencias tiene?     El vehículo pierde potencia y queda detenido en zona segura.
-
- ¿Qué actuación se realiza?    Se sustituye la tractora y se activa asistencia 24 h.
-
-
-
-
-Información imprescindible
-  ☐ Código de avería y color del aviso.
-
-  ☐ Fotografías del display y de la avería.
-
-  ☐ Número externo de asistencia, EXP, caso u O.R.
-
-  ☐ Taller asignado.
-
-  ☐ Hora de activación y ETA.
-
-  ☐ Hora real de llegada del técnico.
-
-  ☐ Diagnóstico confirmado.
-
-  ☐ Reparación o traslado.
-
-  ☐ Hora en que el vehículo queda operativo.
-
-  ☐ Unidad sustituta y situación del vehículo original.
-
-
-
-
-                                                                                                      Uso interno | 13 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 14 de 18"><div class="text-small text-muted">Página 14 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                         Versión 2.1
-
-
-
-Número interno y números externos
- Elemento                             Criterio UPC
-
- INC                                  No se escribe en el registro; es una clasificación interna de Mantenimiento.
-
- N.º asistencia / caso / EXP          Se registra como referencia externa con proveedor y hora de apertura.
-
- O.R. / recepción                     Se añade cuando el taller la facilita, sin borrar el número de asistencia.
-
- Varios números                       Se conservan todos cronológicamente bajo la misma incidencia.
-
-
-
-
-Redacción objetiva
- Correcto                                                       Incorrecto
-
- El conductor comunica que aparece fallo motor en rojo
-                                                                Parece que tiene un problema de motor.
- durante la circulación.
-
- Se observa pérdida de refrigerante bajo el vehículo.           Seguro que se ha roto la bomba de agua.
-
- El taller confirma holgura en las manguetas de dirección.      Las manguetas están mal porque ya son viejas.
-
-
-No incluir:
-
-   • Opiniones.
-   • Hipótesis.
-   • Diagnósticos sin confirmar.
-   • Responsabilidades.
-   • Valoraciones personales.
-
-   Diagnóstico: Sólo se incorpora cuando lo confirma el técnico, taller o fabricante. Debe diferenciarse del
-   síntoma comunicado al abrir la incidencia.
-
-Actualización cronológica
-Cada nueva actuación se añade sin borrar el hito anterior. Ejemplo:
-
- Hora               Hito
-
- 09:20              Aviso del conductor: fallo motor rojo y pérdida de potencia.
-
- 09:25              Vehículo detenido en zona segura; TM informado.
-
- 09:35              Asistencia activada; número externo y ETA registrados.
-
- 10:15              Llegada del técnico.
-
- 11:05              Diagnóstico confirmado por el técnico.
-
- 11:40              Reparación finalizada y prueba realizada.
-
-
-
-                                                                                                       Uso interno | 14 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 15 de 18"><div class="text-small text-muted">Página 15 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                         Versión 2.1
-
-
-
- Hora                Hito
-
- 12:20               Vehículo operativo; sustitución liberada si procede.
-
-
-
-
-Sustitución y continuidad
-   ☐ Registrar la unidad original y la sustituta.
-
-   ☐ Indicar dónde queda el vehículo averiado y quién gestiona su reparación.
-
-   ☐ No cerrar la incidencia porque la ruta haya continuado.
-
-   ☐ Actualizar la liberación de la sustituta cuando la original vuelva a servicio.
-
-Cierre de la incidencia
-La incidencia no se cerrará hasta disponer de:
-
-   ☐ Diagnóstico definitivo confirmado.
-
-   ☐ Reparación realizada o resolución final documentada.
-
-   ☐ Estado final del vehículo y prueba cuando proceda.
-
-   ☐ Fecha/hora de operatividad.
-
-   ☐ Fecha de salida del taller si procede.
-
-   ☐ Unidad sustituta liberada o situación final definida.
-
-   ☐ Números externos, O.R. y documentos enlazados cuando estén disponibles.
-
-Ejemplo completo de registro
- Apertura                            14/07/2026 · 09:50 · Bloque Sant Sadurní · comunica Jeyson Horjuela
-
- Unidad                              DFM 2746 (7349NKN) · 19.078 km · vehículo detenido
-
- Síntoma                             Al dar contacto, el vehículo no permite seleccionar marcha.
-
- Actuación inicial                   TM informado; servicio reorganizado y asistencia activada.
-
- Número externo                      EXP-5403956
-
- Cronología                          13:00 llegada del técnico · 13:45 reparación finalizada
-
- Diagnóstico                         Fallo del mando del cambio, confirmado por el técnico.
-
- Reparación                          Sustitución del mando del cambio.
-
- Resultado                           Vehículo operativo a las 13:45.
-
-
-
-
-                                                                                                   Uso interno | 15 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 16 de 18"><div class="text-small text-muted">Página 16 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                       Versión 2.1
-
-
-
-Plantilla para copiar
- Unidad                          [matrícula] · [DFM autocompletado] · [km]
-
- Aviso                           [fecha] [hora] · [lugar] · comunica [persona/teléfono]
-
- Estado                          [detenido / limitado / sustituido / asistencia / taller / operativo]
-
- Síntoma                         [mensaje literal, código, color, comportamiento]
-
- Carga                           [vacío/cargado · temperatura]
-
- Actuación                       [TM / 112 / sustitución / asistencia / taller]
-
- Externo                         [proveedor · n.º asistencia/EXP/caso · O.R.]
-
- Cronología                      [hora · hito]
-
- Diagnóstico                     [solo confirmado]
-
- Reparación                      [trabajo y piezas]
-
- Cierre                          [operativo · fecha/hora · documentos · sustituta]
-
-
-
-
-Objetivo del registro
-El registro debe permitir que cualquier UPC, gestor o responsable conozca sin llamadas adicionales:
-
-   • Qué ocurrió, dónde y cuándo.
-   • Qué riesgo o consecuencia produjo.
-   • Qué actuación se realizó y quién intervino.
-   • Cuál fue el diagnóstico confirmado y la reparación.
-   • Cuánto tiempo permaneció inmovilizado.
-   • Qué números externos y documentos respaldan el caso.
-   • Si la avería es recurrente y qué seguimiento requiere.
-
-  Finalidad: El registro no es solo administrativo: sustenta el seguimiento técnico, el análisis predictivo, la
-  detección de recurrencias y las reclamaciones ante fabricantes y proveedores.
-
-Lista final de comprobación del UPC
-   ☐ Matrícula correcta y datos autocompletados verificados.
-
-   ☐ Sin código INC escrito en el registro.
-
-   ☐ Fecha, hora, lugar, km, estado y comunicante completos.
-
-   ☐ Síntoma literal separado del diagnóstico.
-
-   ☐ Número externo, proveedor, ETA y taller anotados.
-
-   ☐ Hitos ordenados cronológicamente.
-
-                                                                                                        Uso interno | 16 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 17 de 18"><div class="text-small text-muted">Página 17 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                 Versión 2.1
-
-
-  ☐ Sustitución y situación de la unidad original registrada.
-
-  ☐ Diagnóstico y reparación confirmados.
-
-  ☐ Estado final, hora operativa y salida de taller informados.
-
-  ☐ Incidencia cerrada solo cuando el ciclo está completo.
-
-
-
-
-                                                                  Uso interno | 17 / 18</pre></section>
-      <section class="doc-page" aria-label="Página 18 de 18"><div class="text-small text-muted">Página 18 de 18</div><pre>MANUAL DFM | CRITERIO COMÚN UPC                    Versión 2.1
-
-
-
-Resumen de contactos
-
- Servicio                          Teléfono / canal                           Dato adicional
-
- TM Barcelona                      606 655 189 · Ext. 4507                    Aviso obligatorio 24h
-
- Gestión Mantenimiento BCN         697 728 258 · Ext. 4512                    Contrato, taller y planificación
-
- Área de Mantenimiento             669 208 633 · Ext. 4135                    Todas las delegaciones
-
- IVECO ANS                         +800 8274 7368                             Ginés Huertas
-
- Mercedes Service24h               My TruckPoint / 00 800 57 777 777          Comercial Dimovil
-
- MAN Mobile24                      00800 66 24 53 24                          Clave 20244 · Serviman
-
- Volvo VAS                         +34 900 98 32 51                           Taller: Provehima
-
- BPW correo previo                 posventa@bpwtrapaco.com                    Enviar datos antes de llamar
-
- BPW laboral                       918 023 600                                Llamar después del correo
-
- BPW fuera de horario              800 780 78000                              Llamar después del correo
-
- Gestión por correo                jmruiz@disfrimur.com                       Después del registro
-
-
-
-  Resultado esperado: Todos los UPC protegen, comunican, activan, registran y cierran con el mismo
-  criterio; cualquier persona puede reconstruir la avería y su resolución desde el programa de gestión.
-
-
-
-
-                                                                                            Uso interno | 18 / 18</pre></section>
-      </div>
-      <div class="text-small text-muted">Las páginas conservan el diseño visual del PDF original y están integradas en la app para evitar bloqueos.</div>
-      <div class="call-box"><strong>Regla principal</strong><span>La seguridad decide la actuación. Si existen dudas sobre si el vehículo puede circular, se considera no apto hasta recibir valoración.</span></div>
-      <div class="coverage-card"><strong>Procedimiento 0 · Orden de actuación</strong><ol><li>Proteger al conductor, ocupantes y vehículo.</li><li>Recopilar DFM, matrícula, teléfono, ubicación, kilómetros y descripción literal.</li><li>Avisar obligatoriamente a TM Delegación Barcelona.</li><li>Comprobar el contrato antes de activar asistencia externa.</li><li>Registrar número externo, ETA y seguimiento.</li></ol></div>
-      <div class="coverage-card"><strong>Contactos internos · llamar en este orden</strong><div class="contact-list"><a class="btn btn-secondary" href="tel:606655189">1. TM Barcelona · 606 655 189 · Ext. 4507</a><a class="btn btn-secondary" href="tel:697728258">2. Gestión Mantenimiento BCN · 697 728 258 · Ext. 4512</a><a class="btn btn-secondary" href="tel:669208633">3. Área de Mantenimiento · 669 208 633 · Ext. 4135</a></div></div>
-      <div class="coverage-card"><strong>Asistencia por fabricante</strong><div class="timeline"><div class="timeline-row"><strong>IVECO</strong><span>ANS · +800 8274 7368 · Ginés Huertas</span></div><div class="timeline-row"><strong>Mercedes</strong><span>My TruckPoint · Comercial Dimovil</span></div><div class="timeline-row"><strong>MAN</strong><span>Mobile24 · 00800 66 24 53 24 · clave 20244 · Serviman</span></div><div class="timeline-row"><strong>Volvo</strong><span>VAS · +34 900 98 32 51 · Provehima</span></div></div></div>
-      <div class="call-box"><strong>Registro obligatorio</strong><span>Anotar número externo, hora de activación, ETA, llegada real, diagnóstico confirmado, reparación o traslado y estado operativo final. Una sustitución no cierra la incidencia original.</span></div>
     </main>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     (() => {
       const root = document.getElementById('roadside-wizard');
+      const supabaseUrl = 'https://njtohfkqjjoavtumtmza.supabase.co';
+      const supabaseKey = 'sb_publishable_w1a9DClOM0S4HVJdv_TbKg_W_UkN2W_';
+      const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      });
       root.querySelector('#back-to-panel').addEventListener('click', () => {
         if (history.length > 1) history.back();
         else window.location.href = './';
       });
-      const fleet = {
-        '2444': {"plate":"0763MCK","type":"18/FB","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2022-11-23","category":"FLOTA","brand":"IVECO","vin":"WJME62RP00C478981","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2484': {"plate":"5719MHS","type":"TR","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-06-23","category":"RESERVA","brand":"IVECO","vin":"WJMM62AT50C482481","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2486': {"plate":"5170MHW","type":"18/HWA","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2023-06-28","category":"FLOTA","brand":"IVECO","vin":"ZCFE62RP00C505124","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2489': {"plate":"6779MJM","type":"18/HB","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2023-07-27","category":"RESERVA","brand":"IVECO","vin":"ZCFE62RP20C505125","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2490': {"plate":"6774MJM","type":"18/HA","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2023-07-27","category":"FLOTA","brand":"IVECO","vin":"ZCFE62RP50C505619","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2493': {"plate":"9153MJR","type":"18/CB","upc":"","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2023-08-01","category":"RESERVA","brand":"IVECO","vin":"ZCFE62RP10C505617","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2498': {"plate":"2369MJT","type":"TR","upc":"DIEGO","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-08-04","category":"FLOTA","brand":"IVECO","vin":"WJMM62AT30C482057","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2499': {"plate":"2362MJT","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-08-04","category":"RESERVA","brand":"IVECO","vin":"WJMM62AT90C482337","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2500': {"plate":"2688MJT","type":"TRDUO","upc":"","motor":"","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-08-04","category":"FLOTA","brand":"DAF","vin":"XLRTEF5300G462946","assistance":"DAF International Truck Service","phone":"Consultar manual"},
-        '2501': {"plate":"2689MJT","type":"TRDUO","upc":"ALICANTE","motor":"","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-08-04","category":"RESERVA","brand":"DAF","vin":"","assistance":"DAF International Truck Service","phone":"Consultar manual"},
-        '2516': {"plate":"1860MLJ","type":"TR","upc":"JEYSON","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340310660263","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2517': {"plate":"1857MLJ","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340110660262","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2518': {"plate":"1859MLJ","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340X10660261","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2521': {"plate":"1850MLJ","type":"TR","upc":"DIEGO","motor":"ACTR 1846LS","driverPhone":"618014354","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340810668469","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2523': {"plate":"1848MLJ","type":"TR","upc":"JEYSON","motor":"ACTR 1846LS","driverPhone":"697727767","contractKm":535000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340410669831","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2525': {"plate":"1856MLJ","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"660595032","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2023-11-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340010681216","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2527': {"plate":"6935MLK","type":"TR","upc":"IONUT","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-11-08","category":"FLOTA","brand":"IVECO","vin":"WJMM62AT20C486133","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2531': {"plate":"3957MLR","type":"TR","upc":"IONUT","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-11-22","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT20C494888","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2543': {"plate":"1845MMB","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-11","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT90C49539","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2544': {"plate":"1847MMB","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-11","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT20C495233","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2545': {"plate":"5020MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT80C495060","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2547': {"plate":"5022MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT90C495388","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2548': {"plate":"5023MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"RESERVA","brand":"IVECO","vin":"ZCFM62AT10C495062","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2550': {"plate":"5025MMC","type":"TR","upc":"IONUT","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT30C495550","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2552': {"plate":"5027MMC","type":"TR","upc":"DIEGO","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT70C495549","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2553': {"plate":"5028MMC","type":"TR","upc":"IONUT","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62ATX0C496517","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2554': {"plate":"5030MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT70C495390","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2556': {"plate":"5032MMC","type":"TR","upc":"IONUT","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT80C495673","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2562': {"plate":"5050MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT00C495389","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2563': {"plate":"5071MMC","type":"TR","upc":"","motor":"AT440S46TP","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2023-12-13","category":"FLOTA","brand":"IVECO","vin":"ZCFM62AT60C496515","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2573': {"plate":"3417MPH","type":"TR DUO","upc":"","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2024-03-26","category":"R1121-R1315","brand":"MAN","vin":"WMA06KZZ4RM944257","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
-        '2591': {"plate":"2690MPX","type":"21/HWP","upc":"DIEGO","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2024-04-24","category":"FLOTA","brand":"IVECO","vin":"ZCFE62RPX0C517037","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2602': {"plate":"2097MST","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"660594335","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340710736003","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2604': {"plate":"2096MST","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"660594485","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340510733441","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2605': {"plate":"2071MST","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340810738942","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2606': {"plate":"2070MST","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"669415689","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-02","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340310749640","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2610': {"plate":"0175MTF","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-25","category":"RESERVA","brand":"MERCEDES","vin":"W1T96340510749641","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2611': {"plate":"0169MTF","type":"TR","upc":"DIEGO","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-25","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340710752234","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2612': {"plate":"0168MTF","type":"TR","upc":"RAUL","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-25","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340910752235","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2617': {"plate":"0166MTF","type":"TR","upc":"DIEGO","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-07-25","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340110751869","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2621': {"plate":"9269MTM","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-08-12","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340410768584","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2622': {"plate":"9264MTM","type":"TR","upc":"RAUL","motor":"ACTR 1846LS","driverPhone":"616930221","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-08-12","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340010759560","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2625': {"plate":"1614MTP","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-08-19","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340X10751868","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2632': {"plate":"6576MVL","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-10-01","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340810784822","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2633': {"plate":"6575MVL","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-10-01","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340010785060","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2637': {"plate":"2736MVH","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2024-09-26","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340510784566","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2660': {"plate":"7546MWW","type":"21/HA","upc":"DIEGO","motor":"AD260S36Y/PS","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2024-12-04","category":"FLOTA","brand":"IVECO","vin":"ZCFE62RP90C537747","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2675': {"plate":"7375MYF","type":"21/CAP","upc":"","motor":"","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2025-02-04","category":"FRAGADIS","brand":"IVECO","vin":"ZCFE62RP40C537610","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2676': {"plate":"1802NBF","type":"21/CAP","upc":"DIEGO","motor":"","driverPhone":"","contractKm":550000,"vehicleClass":"rigido","registrationDate":"2025-04-01","category":"RESERVA","brand":"IVECO","vin":"ZCFEE2RP60C550605","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2686': {"plate":"4509NCM","type":"TR","upc":"","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2025-06-06","category":"RESERVA","brand":"MAN","vin":"WMA08KZZ3SP301509","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
-        '2693': {"plate":"8860NCZ","type":"TR FRA","upc":"","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2025-06-26","category":"FLOTA","brand":"MAN","vin":"WMA08KZZ5SP305013","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
-        '2696': {"plate":"5805NDL","type":"TR","upc":"","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2025-07-09","category":"FLOTA","brand":"MAN","vin":"WMA08KZZ3SP305043","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
-        '2697': {"plate":"5813NDL","type":"TR","upc":"IONUT","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2025-07-09","category":"FLOTA","brand":"MAN","vin":"WMA08KZZ2SP305048","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
-        '2700': {"plate":"5882NDL","type":"TR","upc":"IONUT","motor":"","driverPhone":"","contractKm":515000,"vehicleClass":"tractora","registrationDate":"2025-07-09","category":"FLOTA","brand":"MAN","vin":"WMA08KZZ6SP304422","assistance":"MAN Mobile24","phone":"00800 66 24 53 24"},
-        '2701': {"plate":"0674NDW","type":"TR","upc":"IONUT","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-07-24","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU00C561533","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2709': {"plate":"7039NGM","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-09","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AUX0C564097","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2710': {"plate":"7038NGM","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-09","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU90C564110","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2712': {"plate":"0514NGR","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-15","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU20C564109","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2714': {"plate":"0512NGR","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-15","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU30C564104","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2715': {"plate":"0509NGR","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-15","category":"RESERVA","brand":"IVECO","vin":"ZCFME2AU80C564115","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2716': {"plate":"0511NGR","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-15","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU60C564114","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2718': {"plate":"6129NGV","type":"TR","upc":"IONUT","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-23","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AUX0C564102","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2719': {"plate":"6132NGV","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-23","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU30C564099","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2720': {"plate":"6130NGV","type":"TR","upc":"IONUT","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-23","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU40C564113","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2721': {"plate":"6131NGV","type":"TR","upc":"DIEGO","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-23","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU70C564106","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2723': {"plate":"3476NGS","type":"21/HAP","upc":"","motor":"","driverPhone":"","contractKm":425000,"vehicleClass":"rigido","registrationDate":"2025-10-17","category":"FRAGADIS","brand":"VOLVO","vin":"YV2VZ60C5SZ164082","assistance":"Volvo Action Service (VAS)","phone":"+34 900 98 32 51"},
-        '2724': {"plate":"4590NGW","type":"21/HAP","upc":"","motor":"","driverPhone":"","contractKm":425000,"vehicleClass":"rigido","registrationDate":"2025-10-24","category":"FRAGADIS","brand":"VOLVO","vin":"YV2VZ60C5SZ164194","assistance":"Volvo Action Service (VAS)","phone":"+34 900 98 32 51"},
-        '2725': {"plate":"2742NHC","type":"TR","upc":"JUAN","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-31","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU20C564112","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2726': {"plate":"2741NHC","type":"TR","upc":"","motor":"AS440S50T/P","driverPhone":"","contractKm":550000,"vehicleClass":"tractora","registrationDate":"2025-10-31","category":"FLOTA","brand":"IVECO","vin":"ZCFME2AU00C564111","assistance":"IVECO Assistance Non Stop (ANS)","phone":"+800 8274 7368"},
-        '2731': {"plate":"4446NHJ","type":"TR","upc":"","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2025-11-12","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340110856511","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2732': {"plate":"4447NHJ","type":"TR","upc":"IONUT","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2025-11-12","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340310856512","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"},
-        '2744': {"plate":"5496NJV","type":"21/CA","upc":"DIEGO","motor":"","driverPhone":"","contractKm":425000,"vehicleClass":"rigido","registrationDate":"2026-01-13","category":"FLOTA","brand":"VOLVO","vin":"YV2VZ60C4SZ164171","assistance":"Volvo Action Service (VAS)","phone":"+34 900 98 32 51"},
-        '2745': {"plate":"7348NKN","type":"21/BCSP","upc":"DIEGO","motor":"","driverPhone":"","contractKm":425000,"vehicleClass":"rigido","registrationDate":"2026-02-16","category":"RESERVA","brand":"VOLVO","vin":"YV2VZ60COTZ164539","assistance":"Volvo Action Service (VAS)","phone":"+34 900 98 32 51"},
-        '2746': {"plate":"7349NKN","type":"21/BCSP","upc":"DIEGO","motor":"","driverPhone":"","contractKm":425000,"vehicleClass":"rigido","registrationDate":"2026-02-16","category":"FLOTA","brand":"VOLVO","vin":"YV2VZ60C9TZ164538","assistance":"Volvo Action Service (VAS)","phone":"+34 900 98 32 51"},
-        '2753': {"plate":"3125NLH","type":"TR","upc":"JEYSON","motor":"ACTR 1846LS","driverPhone":"","contractKm":475000,"vehicleClass":"tractora","registrationDate":"2026-03-11","category":"FLOTA","brand":"MERCEDES","vin":"W1T96340010854510","assistance":"Mercedes-Benz Service24h","phone":"00800 57 777 777"}
+      let fleet = {};
+      let fleetLoaded = false;
+      const assistanceForBrand = brandValue => {
+        const brand = String(brandValue || '').toUpperCase();
+        return { brand, assistance: 'Asistencia 24H según ficha protegida', phone: '' };
       };
-      const manufacturerProtocols = {
-        IVECO: { workshop: 'Ginés Huertas · Molina de Segura, Murcia', assistanceData: 'IVECO Assistance Non Stop (ANS) · sin clave indicada' },
-        MERCEDES: { workshop: 'Comercial Dimovil · San Ginés, Murcia', assistanceData: 'My TruckPoint · alternativa Service24h si no está disponible' },
-        MAN: { workshop: 'Serviman · Lorquí, Murcia', assistanceData: 'Clave 20244 · MAN Mobile24' },
-        VOLVO: { workshop: 'Provehima', assistanceData: 'Volvo Action Service (VAS) · sin clave indicada' }
+      let manufacturerProtocols = {};
+      let privateConfiguration = { escalation: [], manualUrl: '' };
+      const loadPrivateConfiguration = async () => {
+        const { data, error } = await supabaseClient
+          .from('configuracion_privada')
+          .select('clave,valor')
+          .in('clave', ['protocolos_24h', 'manual_24h']);
+        if (error) {
+          console.warn('Configuración privada no disponible:', error.message);
+          return;
+        }
+        const protocolsRow = (data || []).find(row => row.clave === 'protocolos_24h');
+        const manualRow = (data || []).find(row => row.clave === 'manual_24h');
+        const protocolsValue = protocolsRow?.valor || {};
+        privateConfiguration.escalation = Array.isArray(protocolsValue.escalation) ? protocolsValue.escalation : [];
+        manufacturerProtocols = protocolsValue.protocols || {};
+        const contactsRoot = root.querySelector('#secure-escalation-contacts');
+        contactsRoot.replaceChildren();
+        privateConfiguration.escalation.forEach((contact, index) => {
+          const link = document.createElement('a');
+          link.className = 'btn btn-secondary';
+          link.href = 'tel:' + String(contact.phone || '').replace(/[^+\d]/g, '');
+          link.textContent = (index + 1) + '. ' + contact.name + (contact.extension ? ' · Ext. ' + contact.extension : '');
+          contactsRoot.append(link);
+        });
+        if (manualRow?.valor?.bucket && manualRow?.valor?.path) {
+          const { data:signedData, error:signedError } = await supabaseClient.storage
+            .from(manualRow.valor.bucket)
+            .createSignedUrl(manualRow.valor.path, 900);
+          if (!signedError && signedData?.signedUrl) {
+            privateConfiguration.manualUrl = signedData.signedUrl;
+            root.querySelector('#secure-manual-open').href = signedData.signedUrl;
+            root.querySelector('#secure-manual-open').hidden = false;
+            root.querySelector('#secure-manual-status').textContent = 'Manual cargado. El enlace privado caduca en 15 minutos.';
+          }
+        }
       };
       const faultHistory = [
         'Fallo motor',
@@ -1303,6 +433,61 @@ Resumen de contactos
       const steps = Array.from(root.querySelectorAll('.step'));
       const dfm = root.querySelector('#wizard-dfm');
       const normalizeVehicleText = value => String(value || '').toUpperCase().replace(/[\s-]/g, '');
+      const fillFleetOptions = () => {
+        const fleetOptions = root.querySelector('#fleet-options');
+        fleetOptions.replaceChildren();
+        Object.keys(fleet).sort((a, b) => Number(a) - Number(b)).forEach(code => {
+          const option = document.createElement('option');
+          option.value = 'DFM ' + code + ' · ' + (fleet[code].plate || 'sin matrícula');
+          option.label = (fleet[code].category || 'Vehículo') + ' · ' + (fleet[code].brand || '');
+          fleetOptions.append(option);
+        });
+      };
+      const loadSecureFleet = async () => {
+        const notice = root.querySelector('#wizard-notice');
+        dfm.disabled = true;
+        dfm.placeholder = 'Cargando vehículos autorizados…';
+        const { data:sessionData, error:sessionError } = await supabaseClient.auth.getSession();
+        if (sessionError || !sessionData.session?.user) {
+          window.location.replace('./?continuar=24h');
+          return;
+        }
+        await loadPrivateConfiguration();
+        const { data, error } = await supabaseClient
+          .from('vehiculos')
+          .select('dfm,matricula,tipo,upc,tipo_motor,telefono_camion,fin_contrato_km,clase_vehiculo,fecha_matriculacion,categoria,marca,bastidor,asistencia,telefono_asistencia')
+          .eq('activo', true)
+          .order('dfm');
+        if (error) {
+          notice.textContent = 'No se pudieron cargar los vehículos de forma segura: ' + error.message + '. Vuelve al panel e inicia sesión de nuevo.';
+          notice.classList.add('show');
+          dfm.placeholder = 'Vehículos no disponibles';
+          return;
+        }
+        fleet = Object.fromEntries((data || []).map(row => {
+          const protocol = assistanceForBrand(row.marca);
+          return [String(row.dfm), {
+            plate: row.matricula || '',
+            type: row.tipo || '',
+            upc: row.upc || '',
+            motor: row.tipo_motor || '',
+            driverPhone: row.telefono_camion || '',
+            contractKm: Number(row.fin_contrato_km) || 0,
+            vehicleClass: row.clase_vehiculo || '',
+            registrationDate: row.fecha_matriculacion || '',
+            category: row.categoria || '',
+            brand: protocol.brand,
+            vin: row.bastidor || '',
+            assistance: row.asistencia || protocol.assistance,
+            phone: row.telefono_asistencia || protocol.phone
+          }];
+        }));
+        fleetLoaded = true;
+        fillFleetOptions();
+        dfm.disabled = false;
+        dfm.placeholder = 'Escribe, por ejemplo: 2521 o 1850MLJ';
+        syncSelectedVehicle();
+      };
       const resolveVehicleKey = () => {
         const raw = String(dfm.value || '').trim();
         const direct = raw.match(/(?:DFM\s*)?(\d{3,5})/i);
@@ -1342,6 +527,41 @@ Resumen de contactos
           assistance: protocolNames[brand] || 'Asistencia 24H según marca',
           phone: root.querySelector('#manual-assistance-phone').value.trim()
         };
+      };
+      const saveManualVehicle = async () => {
+        const code = getDfmCode();
+        if (!/^\d{4}$/.test(code)) throw new Error('El nuevo DFM debe tener exactamente 4 cifras.');
+        const vehicle = getManualVehicle();
+        const { data, error } = await supabaseClient.from('vehiculos').insert({
+          dfm: code,
+          matricula: vehicle.plate,
+          tipo: vehicle.vehicleClass === 'tractora' ? 'TR' : 'RIGIDO',
+          upc: vehicle.upc || null,
+          telefono_camion: vehicle.driverPhone || null,
+          fin_contrato_km: vehicle.contractKm,
+          clase_vehiculo: vehicle.vehicleClass,
+          fecha_matriculacion: vehicle.registrationDate,
+          categoria: 'ALTA MANUAL APP',
+          marca: vehicle.brand,
+          bastidor: vehicle.vin || null,
+          asistencia: vehicle.assistance,
+          telefono_asistencia: vehicle.phone || null,
+          activo: true,
+          origen: 'APP 24H'
+        }).select('dfm,matricula,tipo,upc,tipo_motor,telefono_camion,fin_contrato_km,clase_vehiculo,fecha_matriculacion,categoria,marca,bastidor,asistencia,telefono_asistencia').single();
+        if (error) throw new Error('No se pudo guardar el nuevo DFM: ' + error.message);
+        const protocol = assistanceForBrand(data.marca);
+        fleet[code] = {
+          plate: data.matricula || '', type: data.tipo || '', upc: data.upc || '', motor: data.tipo_motor || '',
+          driverPhone: data.telefono_camion || '', contractKm: Number(data.fin_contrato_km) || 0,
+          vehicleClass: data.clase_vehiculo || '', registrationDate: data.fecha_matriculacion || '',
+          category: data.categoria || '', brand: protocol.brand, vin: data.bastidor || '',
+          assistance: data.asistencia || protocol.assistance, phone: data.telefono_asistencia || protocol.phone
+        };
+        fillFleetOptions();
+        dfm.value = 'DFM ' + code + ' · ' + (fleet[code].plate || 'sin matrícula');
+        syncSelectedVehicle();
+        return code;
       };
       const getSelectedVehicle = () => {
         const key = resolveVehicleKey();
@@ -1418,7 +638,7 @@ Resumen de contactos
           if (kmExceeded) reasons.push('kilometraje contractual superado');
           status.textContent = 'FUERA DE COBERTURA · ' + reasons.join(' y ');
           kmWarning.hidden = false;
-          kmWarning.textContent = 'NO SE PUEDE CONTINUAR · ' + reasons.join(' y ') + '. Actual: ' + kmValue.toLocaleString('es-ES') + ' km · Fin de contrato: ' + kmLimit.toLocaleString('es-ES') + ' km. Llama a TM 606 655 189, Gestión BCN 697 728 258 o Área de Mantenimiento 669 208 633.';
+          kmWarning.textContent = 'NO SE PUEDE CONTINUAR · ' + reasons.join(' y ') + '. Actual: ' + kmValue.toLocaleString('es-ES') + ' km · Fin de contrato: ' + kmLimit.toLocaleString('es-ES') + ' km. Utiliza los contactos internos protegidos que aparecen en esta pantalla.';
           return;
         }
         coverageAllowed = true;
@@ -1523,13 +743,6 @@ Resumen de contactos
       };
       dfm.addEventListener('input', syncSelectedVehicle);
       dfm.addEventListener('change', syncSelectedVehicle);
-      const fleetOptions = root.querySelector('#fleet-options');
-      Object.keys(fleet).sort((a, b) => Number(a) - Number(b)).forEach(code => {
-        const option = document.createElement('option');
-        option.value = 'DFM ' + code + ' · ' + (fleet[code].plate || 'sin matrícula');
-        option.label = (fleet[code].category || 'Vehículo') + ' · ' + (fleet[code].brand || '');
-        fleetOptions.append(option);
-      });
       root.querySelectorAll('#manual-vehicle-panel input, #manual-vehicle-panel select').forEach(field => {
         field.addEventListener('input', syncSelectedVehicle);
         field.addEventListener('change', syncSelectedVehicle);
@@ -1593,8 +806,12 @@ Resumen de contactos
         }
       }));
       root.querySelector('#access-manual-link').addEventListener('click', event => {
+        event.preventDefault();
         root.querySelector('#access-manual').checked = true;
         root.querySelector('#manual-access-note').hidden = false;
+        root.querySelector('#wizard-body').hidden = true;
+        root.querySelector('#manual-view').hidden = false;
+        if (privateConfiguration.manualUrl) window.open(privateConfiguration.manualUrl, '_blank', 'noopener');
       });
       root.querySelector('#close-manual').addEventListener('click', () => {
         root.querySelector('#manual-view').hidden = true;
@@ -1667,8 +884,13 @@ Resumen de contactos
       });
       root.querySelector('#load-temperature').addEventListener('change', updateCallScript);
       root.querySelector('#prev-step').addEventListener('click', () => { if (current > 0) current -= 1; render(); });
-      root.querySelector('#next-step').addEventListener('click', () => {
+      root.querySelector('#next-step').addEventListener('click', async () => {
         const notice = root.querySelector('#wizard-notice');
+        if (!fleetLoaded) {
+          notice.textContent = 'Espera a que termine la carga segura de vehículos antes de continuar.';
+          notice.classList.add('show');
+          return;
+        }
         if (current === 0 && !root.querySelector('input[name="start-mode"]:checked')) {
           notice.textContent = 'Elige si quieres acceder al manual o ser guiado por la app.';
           notice.classList.add('show');
@@ -1686,6 +908,15 @@ Resumen de contactos
             notice.classList.add('show');
             return;
           }
+          try {
+            notice.textContent = 'Guardando el nuevo DFM en la base segura…';
+            notice.classList.add('show');
+            await saveManualVehicle();
+          } catch (error) {
+            notice.textContent = error.message;
+            notice.classList.add('show');
+            return;
+          }
         }
         if (current === 1 && !parseKilometres(root.querySelector('#wizard-km').value)) {
           notice.textContent = 'Introduce los kilómetros actuales para comprobar el fin de contrato.';
@@ -1693,7 +924,7 @@ Resumen de contactos
           return;
         }
         if (current === 1 && !coverageAllowed) {
-          notice.textContent = 'No puedes continuar: se ha superado una condición del contrato. Llama a TM 606 655 189, Gestión BCN 697 728 258 o Área de Mantenimiento 669 208 633.';
+          notice.textContent = 'No puedes continuar: se ha superado una condición del contrato. Utiliza los contactos internos protegidos que aparecen en esta pantalla.';
           notice.classList.add('show');
           return;
         }
@@ -1741,7 +972,7 @@ Resumen de contactos
           return;
         }
         if (current === 5 && !coverageAllowed) {
-          notice.textContent = 'No puedes continuar ni activar el 24H. Llama por este orden: TM 606 655 189, Gestión Mantenimiento BCN 697 728 258 y Área de Mantenimiento 669 208 633.';
+          notice.textContent = 'No puedes continuar ni activar el 24H. Utiliza los contactos internos protegidos en el orden indicado.';
           notice.classList.add('show');
           return;
         }
@@ -1791,6 +1022,11 @@ Resumen de contactos
       updateCoverage();
       renderPdfViewer();
       render();
+      loadSecureFleet().catch(error => {
+        const notice = root.querySelector('#wizard-notice');
+        notice.textContent = 'No se pudo iniciar la carga segura: ' + error.message;
+        notice.classList.add('show');
+      });
     })();
   </script>
 </div>
