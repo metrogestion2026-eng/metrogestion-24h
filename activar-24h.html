@@ -151,7 +151,8 @@
           <input id="wizard-dfm" class="form-control" list="fleet-options" autocomplete="off" placeholder="Escribe, por ejemplo: 2521 o 1850MLJ">
           <datalist id="fleet-options"></datalist>
           <div id="vehicle-suggestions" class="suggestions" role="listbox" aria-label="Vehículos coincidentes" hidden></div>
-          <span class="text-small text-muted">Mientras escribes aparecerán los vehículos coincidentes.</span>
+          <select id="vehicle-picker" class="form-select" aria-label="Seleccionar DFM y matrícula"><option value="">Selecciona DFM · matrícula</option></select>
+          <span id="vehicle-load-status" class="text-small text-muted">Cargando la lista protegida de vehículos…</span>
         </label>
         <div id="manual-vehicle-panel" class="call-box" hidden>
           <strong>Vehículo no encontrado en la base</strong>
@@ -437,11 +438,31 @@
       const fillFleetOptions = () => {
         const fleetOptions = root.querySelector('#fleet-options');
         fleetOptions.replaceChildren();
-        Object.keys(fleet).sort((a, b) => Number(a) - Number(b)).forEach(code => {
+        const codes = Object.keys(fleet).sort((a, b) => Number(a) - Number(b));
+        codes.forEach(code => {
           const option = document.createElement('option');
           option.value = 'DFM ' + code + ' · ' + (fleet[code].plate || 'sin matrícula');
           option.label = (fleet[code].category || 'Vehículo') + ' · ' + (fleet[code].brand || '');
           fleetOptions.append(option);
+        });
+        fillVehiclePicker(codes);
+        root.querySelector('#vehicle-load-status').textContent = codes.length
+          ? codes.length + ' vehículos disponibles · busca por DFM o matrícula'
+          : 'No se ha cargado ningún vehículo. Revisa el permiso de lectura de la cuenta.';
+      };
+      const fillVehiclePicker = codes => {
+        const picker = root.querySelector('#vehicle-picker');
+        picker.replaceChildren();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = codes.length ? 'Selecciona DFM · matrícula' : 'Sin vehículos disponibles';
+        picker.append(placeholder);
+        codes.forEach(code => {
+          const vehicle = fleet[code];
+          const option = document.createElement('option');
+          option.value = code;
+          option.textContent = 'DFM ' + code + ' · ' + (vehicle.plate || 'sin matrícula');
+          picker.append(option);
         });
       };
       const renderVehicleSuggestions = () => {
@@ -449,6 +470,7 @@
         const query = normalizeVehicleText(dfm.value);
         panel.replaceChildren();
         if (!query || !fleetLoaded) {
+          if (fleetLoaded) fillVehiclePicker(Object.keys(fleet).sort((a, b) => Number(a) - Number(b)));
           panel.hidden = true;
           return;
         }
@@ -457,6 +479,7 @@
           return normalizeVehicleText(code).includes(query)
             || normalizeVehicleText(vehicle.plate).includes(query);
         }).slice(0, 12);
+        fillVehiclePicker(matches);
         matches.forEach(code => {
           const vehicle = fleet[code];
           const button = document.createElement('button');
@@ -790,6 +813,13 @@
         syncSelectedVehicle();
       });
       dfm.addEventListener('focus', renderVehicleSuggestions);
+      root.querySelector('#vehicle-picker').addEventListener('change', event => {
+        const code = event.target.value;
+        if (!code || !fleet[code]) return;
+        dfm.value = 'DFM ' + code + ' · ' + (fleet[code].plate || 'sin matrícula');
+        root.querySelector('#vehicle-suggestions').hidden = true;
+        syncSelectedVehicle();
+      });
       root.querySelectorAll('#manual-vehicle-panel input, #manual-vehicle-panel select').forEach(field => {
         field.addEventListener('input', syncSelectedVehicle);
         field.addEventListener('change', syncSelectedVehicle);
