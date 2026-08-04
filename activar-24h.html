@@ -150,6 +150,7 @@
         <label class="form-label">DFM o matrícula
           <input id="wizard-dfm" class="form-control" list="fleet-options" autocomplete="off" placeholder="Escribe, por ejemplo: 2521 o 1850MLJ">
           <datalist id="fleet-options"></datalist>
+          <div id="vehicle-suggestions" class="suggestions" role="listbox" aria-label="Vehículos coincidentes" hidden></div>
           <span class="text-small text-muted">Mientras escribes aparecerán los vehículos coincidentes.</span>
         </label>
         <div id="manual-vehicle-panel" class="call-box" hidden>
@@ -443,6 +444,36 @@
           fleetOptions.append(option);
         });
       };
+      const renderVehicleSuggestions = () => {
+        const panel = root.querySelector('#vehicle-suggestions');
+        const query = normalizeVehicleText(dfm.value);
+        panel.replaceChildren();
+        if (!query || !fleetLoaded) {
+          panel.hidden = true;
+          return;
+        }
+        const matches = Object.keys(fleet).filter(code => {
+          const vehicle = fleet[code];
+          return normalizeVehicleText(code).includes(query)
+            || normalizeVehicleText(vehicle.plate).includes(query);
+        }).slice(0, 12);
+        matches.forEach(code => {
+          const vehicle = fleet[code];
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'suggestion';
+          button.setAttribute('role', 'option');
+          button.textContent = 'DFM ' + code + ' · ' + (vehicle.plate || 'sin matrícula')
+            + (vehicle.brand ? ' · ' + vehicle.brand : '');
+          button.addEventListener('click', () => {
+            dfm.value = 'DFM ' + code + ' · ' + (vehicle.plate || 'sin matrícula');
+            panel.hidden = true;
+            syncSelectedVehicle();
+          });
+          panel.append(button);
+        });
+        panel.hidden = matches.length === 0;
+      };
       const loadSecureFleet = async () => {
         const notice = root.querySelector('#wizard-notice');
         dfm.disabled = true;
@@ -453,11 +484,20 @@
           return;
         }
         await loadPrivateConfiguration();
-        const { data, error } = await supabaseClient
+        let { data, error } = await supabaseClient
           .from('vehiculos')
           .select('dfm,matricula,tipo,upc,tipo_motor,telefono_camion,fin_contrato_km,clase_vehiculo,fecha_matriculacion,categoria,marca,bastidor,asistencia,telefono_asistencia')
           .eq('activo', true)
           .order('dfm');
+        if (error) {
+          const fallback = await supabaseClient
+            .from('vehiculos')
+            .select('*')
+            .eq('activo', true)
+            .order('dfm');
+          data = fallback.data;
+          error = fallback.error;
+        }
         if (error) {
           notice.textContent = 'No se pudieron cargar los vehículos de forma segura: ' + error.message + '. Vuelve al panel e inicia sesión de nuevo.';
           notice.classList.add('show');
@@ -485,7 +525,7 @@
         fleetLoaded = true;
         fillFleetOptions();
         dfm.disabled = false;
-        dfm.placeholder = 'Escribe, por ejemplo: 2521 o 1850MLJ';
+        dfm.placeholder = 'Busca entre ' + Object.keys(fleet).length + ' vehículos por DFM o matrícula';
         syncSelectedVehicle();
       };
       const resolveVehicleKey = () => {
@@ -741,8 +781,15 @@
         updateCoverage();
         updateCallScript();
       };
-      dfm.addEventListener('input', syncSelectedVehicle);
-      dfm.addEventListener('change', syncSelectedVehicle);
+      dfm.addEventListener('input', () => {
+        renderVehicleSuggestions();
+        syncSelectedVehicle();
+      });
+      dfm.addEventListener('change', () => {
+        renderVehicleSuggestions();
+        syncSelectedVehicle();
+      });
+      dfm.addEventListener('focus', renderVehicleSuggestions);
       root.querySelectorAll('#manual-vehicle-panel input, #manual-vehicle-panel select').forEach(field => {
         field.addEventListener('input', syncSelectedVehicle);
         field.addEventListener('change', syncSelectedVehicle);
