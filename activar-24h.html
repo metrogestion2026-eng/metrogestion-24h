@@ -521,6 +521,14 @@
           data = fallback.data;
           error = fallback.error;
         }
+        if (!error && (!data || data.length === 0)) {
+          const unfiltered = await supabaseClient
+            .from('vehiculos')
+            .select('*')
+            .order('dfm');
+          data = unfiltered.data;
+          error = unfiltered.error;
+        }
         if (error) {
           notice.textContent = 'No se pudieron cargar los vehículos de forma segura: ' + error.message + '. Vuelve al panel e inicia sesión de nuevo.';
           notice.classList.add('show');
@@ -549,6 +557,12 @@
         fillFleetOptions();
         dfm.disabled = false;
         dfm.placeholder = 'Busca entre ' + Object.keys(fleet).length + ' vehículos por DFM o matrícula';
+        if (Object.keys(fleet).length === 0) {
+          const { data:permissionActive } = await supabaseClient.rpc('usuario_gestion_activo');
+          root.querySelector('#vehicle-load-status').textContent = permissionActive
+            ? 'Usuario autorizado, pero la tabla vehículos ha devuelto 0 registros.'
+            : 'La cuenta está autenticada, pero no figura como usuario activo para consultar vehículos.';
+        }
         syncSelectedVehicle();
       };
       const resolveVehicleKey = () => {
