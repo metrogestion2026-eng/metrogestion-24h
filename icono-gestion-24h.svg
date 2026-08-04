@@ -1,10 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Gestión de mantenimientos 24H">
-  <rect width="512" height="512" rx="112" fill="#075985"/>
-  <path d="M119 153h274v206H119z" fill="#fff" opacity=".16"/>
-  <path d="M148 197h216v118H148z" fill="#fff"/>
-  <circle cx="193" cy="330" r="31" fill="#fff"/>
-  <circle cx="319" cy="330" r="31" fill="#fff"/>
-  <path d="M185 160h142l36 37H149z" fill="#fbbf24"/>
-  <path d="M238 221h36v28h28v36h-28v28h-36v-28h-28v-36h28z" fill="#075985"/>
-  <text x="256" y="112" text-anchor="middle" font-family="Arial, sans-serif" font-size="62" font-weight="700" fill="#fff">24H</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Metrogestión 24H">
+  <defs>
+    <linearGradient id="bg" x1="56" y1="36" x2="456" y2="476" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B6B93"/>
+      <stop offset="1" stop-color="#032F4A"/>
+    </linearGradient>
+    <linearGradient id="alert" x1="182" y1="88" x2="330" y2="168" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD45A"/>
+      <stop offset="1" stop-color="#FF8A1F"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#001726" flood-opacity=".34"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path d="M0 379 512 210v302H0Z" fill="#042A42" opacity=".44"/>
+  <circle cx="414" cy="96" r="88" fill="#28A9D4" opacity=".13"/>
+
+  <g filter="url(#shadow)">
+    <path d="M176 158h160l20 78H156Z" fill="url(#alert)"/>
+    <path d="M204 128h104l17 41H187Z" fill="#F8FAFC"/>
+    <path d="M224 127V97h64v30" fill="none" stroke="#F8FAFC" stroke-width="18" stroke-linecap="round"/>
+
+    <path d="M104 220h247c16 0 30 8 38 22l43 74c6 10 9 21 9 33v37H80V244c0-13 11-24 24-24Z" fill="#F8FAFC"/>
+    <path d="M351 247h23l38 69h-61Z" fill="#68C7E5"/>
+    <path d="M117 252h190v67H117Z" fill="#DDF3FA"/>
+    <path d="M80 342h361v44H80Z" fill="#E9F4F8"/>
+    <circle cx="160" cy="389" r="47" fill="#052F49" stroke="#F8FAFC" stroke-width="16"/>
+    <circle cx="160" cy="389" r="15" fill="#FFAA32"/>
+    <circle cx="364" cy="389" r="47" fill="#052F49" stroke="#F8FAFC" stroke-width="16"/>
+    <circle cx="364" cy="389" r="15" fill="#FFAA32"/>
+
+    <path d="M231 260h44v25h25v44h-25v25h-44v-25h-25v-44h25Z" fill="#0879A2"/>
+  </g>
+
+  <g aria-label="24H">
+    <rect x="91" y="52" width="126" height="72" rx="28" fill="#FF9D2E"/>
+    <text x="154" y="102" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="49" font-weight="900" fill="#062F49">24H</text>
+  </g>
+
+  <path d="M352 84h69M387 49v69" stroke="#F8FAFC" stroke-width="13" stroke-linecap="round" opacity=".92"/>
 </svg>
