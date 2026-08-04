@@ -110,7 +110,7 @@
         <div class="text-small text-muted">Acceso conectado a la base de datos de Metrogestión.</div>
       </div>
       <label>Correo vinculado
-        <input id="mock-user" class="form-control" type="email" autocomplete="username" value="metrogestion2026@gmail.com" placeholder="correo@empresa.com">
+        <input id="mock-user" class="form-control" type="email" autocomplete="username" value="" placeholder="correo@empresa.com">
       </label>
       <label>Contraseña o PIN de acceso
         <input id="mock-pin" class="form-control" type="password" autocomplete="current-password" placeholder="Introduce tu clave privada">
@@ -202,7 +202,7 @@
         <div class="hotel-title"><strong id="hotel-form-title">Nueva sustitución</strong><button id="hotel-form-close" class="btn btn-secondary" type="button">Cerrar</button></div>
         <div class="detail-grid">
           <label>DFM o matrícula de flota<input id="hotel-form-vehicle" class="form-control" placeholder="Ej. 2709 o 7039NGM"></label>
-          <label>Reserva<select id="hotel-form-reserve" class="form-select"><option value="2499|2362MJT|PIÑA">2499 · 2362MJT · PIÑA</option><option value="2484|5719MHS|IVECO">2484 · 5719MHS · IVECO</option><option value="2573|3417MPH|MAN DUO">2573 · 3417MPH · MAN DUO</option><option value="R1434|R8940BDP|33 PLANCHA">R1434 · R8940BDP · 33 PLANCHA</option></select></label>
+          <label>Reserva<select id="hotel-form-reserve" class="form-select"><option value="">Selecciona una reserva</option></select></label>
           <label>Causa o avería<input id="hotel-form-cause" class="form-control" placeholder="MCD, ITV, 44TN o descripción libre"></label>
           <label>INC existente<input id="hotel-form-inc" class="form-control" placeholder="Se buscará antes de crear una nueva"></label>
           <label>Próximo lugar<select id="hotel-form-location" class="form-select"><option>Pendiente de llevar al taller</option><option>SANSA</option><option>ABRERA</option><option>AUTODIS</option><option>FRIGICOLL</option><option>FRIDIEL</option><option>DIRECAUTO</option><option>ODEXAN</option></select></label>
@@ -251,7 +251,7 @@
       <div class="card stack">
         <label>Cuenta administradora<input id="admin-account-name" class="form-control" value="Metrogestión" disabled></label>
         <label>Teléfono del administrador principal<input id="admin-phone" class="form-control" type="tel" inputmode="tel"></label>
-        <label>Correo administrativo vinculado<input id="admin-email" class="form-control" type="email" value="gestionmantenimientobcn@gmail.com"></label>
+        <label>Correo administrativo vinculado<input id="admin-email" class="form-control" type="email" value=""></label>
         <div class="detail-grid">
           <label>Nuevo PIN<input id="admin-new-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
           <label>Repetir nuevo PIN<input id="admin-confirm-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
@@ -436,19 +436,11 @@
       const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
       });
-      const incidences = [
-        { id: 'INC-2607241', creator: 'Diego', dfm: '2716', plate: '0511NGR', opened: '24/07/2026 · 08:35', status: 'Seguimiento abierto', caseNumber: 'ANS-24H/7845-B', fault: 'Fallo motor y pérdida de potencia', location: 'AP-7 · PK 183 · sentido Barcelona', eta: '09:40', realArrival: '09:52', diagnosis: 'Pendiente de confirmación', result: 'Técnico en ruta', workshop: '—' },
-        { id: 'INC-2607234', creator: 'Ionut', dfm: '2602', plate: '2097MST', opened: '23/07/2026 · 17:18', status: 'Trasladado a taller', caseNumber: 'MB/24H-A91#22', fault: 'El vehículo no arranca', location: 'Bloque logístico Abrera', eta: '18:05', realArrival: '18:16', diagnosis: 'Fallo de alimentación en batería', result: 'Trasladado a taller', workshop: 'Comercial Dimovil · San Ginés' },
-        { id: 'INC-2607219', creator: 'Metrogestión', dfm: '2697', plate: '5813NDL', opened: '21/07/2026 · 06:42', status: 'Reparado en carretera', caseNumber: 'MAN-20244/661', fault: 'Aviso de presión de aire', location: 'Bloque logístico Sansa', eta: '07:35', realArrival: '07:31', diagnosis: 'Racor de circuito neumático con fuga', result: 'Reparado en carretera', workshop: '—' }
-      ];
-      const knownDfms = ['2444','2484','2486','2489','2490','2493','2498','2499','2500','2501','2516','2517','2518','2521','2523','2525','2527','2531','2543','2544','2545','2547','2548','2550','2552','2553','2554','2556','2562','2563','2573','2591','2602','2604','2605','2606','2610','2611','2612','2617','2621','2622','2625','2632','2633','2637','2660','2675','2676','2686','2693','2696','2697','2700','2701','2709','2710','2712','2714','2715','2716','2718','2719','2720','2721','2723','2724','2725','2726','2731','2732','2744','2745','2746','2753'];
-      const vehicleIndex = [{"dfm":"2444","plate":"0763MCK"},{"dfm":"2484","plate":"5719MHS"},{"dfm":"2486","plate":"5170MHW"},{"dfm":"2489","plate":"6779MJM"},{"dfm":"2490","plate":"6774MJM"},{"dfm":"2493","plate":"9153MJR"},{"dfm":"2498","plate":"2369MJT"},{"dfm":"2499","plate":"2362MJT"},{"dfm":"2500","plate":"2688MJT"},{"dfm":"2501","plate":"2689MJT"},{"dfm":"2516","plate":"1860MLJ"},{"dfm":"2517","plate":"1857MLJ"},{"dfm":"2518","plate":"1859MLJ"},{"dfm":"2521","plate":"1850MLJ"},{"dfm":"2523","plate":"1848MLJ"},{"dfm":"2525","plate":"1856MLJ"},{"dfm":"2527","plate":"6935MLK"},{"dfm":"2531","plate":"3957MLR"},{"dfm":"2543","plate":"1845MMB"},{"dfm":"2544","plate":"1847MMB"},{"dfm":"2545","plate":"5020MMC"},{"dfm":"2547","plate":"5022MMC"},{"dfm":"2548","plate":"5023MMC"},{"dfm":"2550","plate":"5025MMC"},{"dfm":"2552","plate":"5027MMC"},{"dfm":"2553","plate":"5028MMC"},{"dfm":"2554","plate":"5030MMC"},{"dfm":"2556","plate":"5032MMC"},{"dfm":"2562","plate":"5050MMC"},{"dfm":"2563","plate":"5071MMC"},{"dfm":"2573","plate":"3417MPH"},{"dfm":"2591","plate":"2690MPX"},{"dfm":"2602","plate":"2097MST"},{"dfm":"2604","plate":"2096MST"},{"dfm":"2605","plate":"2071MST"},{"dfm":"2606","plate":"2070MST"},{"dfm":"2610","plate":"0175MTF"},{"dfm":"2611","plate":"0169MTF"},{"dfm":"2612","plate":"0168MTF"},{"dfm":"2617","plate":"0166MTF"},{"dfm":"2621","plate":"9269MTM"},{"dfm":"2622","plate":"9264MTM"},{"dfm":"2625","plate":"1614MTP"},{"dfm":"2632","plate":"6576MVL"},{"dfm":"2633","plate":"6575MVL"},{"dfm":"2637","plate":"2736MVH"},{"dfm":"2660","plate":"7546MWW"},{"dfm":"2675","plate":"7375MYF"},{"dfm":"2676","plate":"1802NBF"},{"dfm":"2686","plate":"4509NCM"},{"dfm":"2693","plate":"8860NCZ"},{"dfm":"2696","plate":"5805NDL"},{"dfm":"2697","plate":"5813NDL"},{"dfm":"2700","plate":"5882NDL"},{"dfm":"2701","plate":"0674NDW"},{"dfm":"2709","plate":"7039NGM"},{"dfm":"2710","plate":"7038NGM"},{"dfm":"2712","plate":"0514NGR"},{"dfm":"2714","plate":"0512NGR"},{"dfm":"2715","plate":"0509NGR"},{"dfm":"2716","plate":"0511NGR"},{"dfm":"2718","plate":"6129NGV"},{"dfm":"2719","plate":"6132NGV"},{"dfm":"2720","plate":"6130NGV"},{"dfm":"2721","plate":"6131NGV"},{"dfm":"2723","plate":"3476NGS"},{"dfm":"2724","plate":"4590NGW"},{"dfm":"2725","plate":"2742NHC"},{"dfm":"2726","plate":"2741NHC"},{"dfm":"2731","plate":"4446NHJ"},{"dfm":"2732","plate":"4447NHJ"},{"dfm":"2744","plate":"5496NJV"},{"dfm":"2745","plate":"7348NKN"},{"dfm":"2746","plate":"7349NKN"},{"dfm":"2753","plate":"3125NLH"}];
+      const incidences = [];
+      let knownDfms = [];
+      let vehicleIndex = [];
       const userStorageKey = 'metrogestion24h_users_v1';
-      const defaultUsers = [
-        { id: 'principal', name: 'Metrogestión', phone: '', email: 'gestionmantenimientobcn@gmail.com', pin: '', role: 'primary', active: true },
-        { id: 'diego', name: 'Diego', phone: '', email: '', pin: '', role: 'user', active: true },
-        { id: 'ionut', name: 'Ionut', phone: '', email: '', pin: '', role: 'user', active: true }
-      ];
+      const defaultUsers = [];
       let users;
       try {
         users = JSON.parse(localStorage.getItem(userStorageKey)) || defaultUsers;
@@ -491,25 +483,28 @@
       const currentAccount = () => users.find(user => user.id === sessionUserId);
       const isAdmin = () => ['primary', 'secondary'].includes(currentAccount()?.role);
       const isPrimaryAdmin = () => currentAccount()?.role === 'primary';
+      const loadVehicleIndex = async () => {
+        const { data, error } = await supabaseClient
+          .from('vehiculos')
+          .select('dfm,matricula,categoria,tipo_motor')
+          .eq('activo', true)
+          .order('dfm');
+        if (error) throw new Error('No se pudo cargar la flota autorizada: ' + error.message);
+        vehicleIndex = (data || []).map(vehicle => ({
+          dfm: String(vehicle.dfm || ''),
+          plate: String(vehicle.matricula || '').toUpperCase(),
+          category: String(vehicle.categoria || '').toUpperCase(),
+          label: String(vehicle.tipo_motor || '').toUpperCase()
+        }));
+        knownDfms = vehicleIndex.map(vehicle => vehicle.dfm);
+        const reserveSelect = root.querySelector('#hotel-form-reserve');
+        const reserves = vehicleIndex.filter(vehicle => vehicle.category.includes('RESERVA'));
+        reserveSelect.innerHTML = '<option value="">Selecciona una reserva</option>' + reserves.map(vehicle =>
+          `<option value="${escapeHtml(vehicle.dfm)}|${escapeHtml(vehicle.plate)}|${escapeHtml(vehicle.label || 'RESERVA')}">${escapeHtml(vehicle.dfm)} · ${escapeHtml(vehicle.plate)} · ${escapeHtml(vehicle.label || 'RESERVA')}</option>`
+        ).join('');
+      };
       const hotelStorageKey = 'metrogestion_hotel_beta18_03ago_v1';
-      const defaultHotelUnits = [
-        { id:'hotel-2499', reserve:'2499', reservePlate:'2362MJT', reserveLabel:'PIÑA', fleet:'2709', fleetPlate:'7039NGM', upc:'DIEGO', location:'AUTODIS', state:'workshop', stateLabel:'En taller desde 30/07/2026', cause:'MCD + ITV + 44TN', reserveTasks:'', priority:2, inc:'Sin INC indicada', next:'', model:'AS440S50T/P', stages:[{name:'AUTODIS',done:true},{name:'ITV + 44TN',done:false},{name:'Liberar reserva',done:false}] },
-        { id:'hotel-2497', reserve:'2497', reservePlate:'2359MJT', reserveLabel:'IVECO', fleet:'2498', fleetPlate:'2369MJT', upc:'DIEGO', location:'AUTODIS', state:'ready', stateLabel:'Terminado, pendiente de recoger', cause:'FG + EXT + MCD + HG + ITV', reserveTasks:'EXT', priority:3, inc:'Sin INC indicada', next:'', model:'AT440S46TP', stages:[{name:'AUTODIS',done:true},{name:'ITV',done:false},{name:'Recuperar',done:false}] },
-        { id:'hotel-2686', reserve:'2686', reservePlate:'4509NCM', reserveLabel:'MAN', fleet:'2518', fleetPlate:'1859MLJ', upc:'JEYSON', location:'STERN', state:'ready', stateLabel:'Terminado, pendiente de recoger', cause:'Frenos eje 2 + H2O', reserveTasks:'', priority:3, inc:'Sin INC indicada', next:'', model:'ACTR 1846LS', stages:[{name:'STERN',done:true},{name:'Recuperar',done:false}] },
-        { id:'hotel-2715', reserve:'2715', reservePlate:'0509NGR', reserveLabel:'IVECO', fleet:'2725', fleetPlate:'2742NHC', upc:'IONUT', location:'SANSA', state:'plan', stateLabel:'Pendiente de llevar al taller', cause:'Aceite + manguetas + PA', reserveTasks:'', priority:3, inc:'AV-260622', next:'', model:'AT440S46TP', stages:[] },
-        { id:'hotel-2501', reserve:'2501', reservePlate:'Sin matrícula indicada', reserveLabel:'ALICANTE', fleet:'2553', fleetPlate:'5028MMC', upc:'JEYSON', location:'ODEXAN', state:'workshop', stateLabel:'En taller desde 21/07/2026', cause:'Vuelco', reserveTasks:'', priority:1, inc:'Sin INC indicada', next:'', model:'AT440S46TP', stages:[{name:'ODEXAN',done:true},{name:'AUTODIS',done:false},{name:'Recuperar',done:false}] },
-        { id:'hotel-2573', reserve:'2573', reservePlate:'3417MPH', reserveLabel:'MAN DUO', fleet:'2710', fleetPlate:'7038NGM', upc:'DIEGO', location:'AUTODIS', state:'workshop', stateLabel:'En taller desde 03/08/2026', cause:'Fallo electrónico', reserveTasks:'EXT', priority:1, inc:'Sin INC indicada', next:'2700', model:'AS440S50T/P', stages:[{name:'AUTODIS',done:true},{name:'Ruedas',done:true},{name:'Alineado',done:true},{name:'Recuperar',done:false}] },
-        { id:'hotel-2545', reserve:'2545', reservePlate:'5020MMC', reserveLabel:'IVECO', fleet:'2716', fleetPlate:'0511NGR', upc:'DIEGO', location:'AUTODIS', state:'ready', stateLabel:'Terminado, pendiente de recoger', cause:'Aletas + ITV + 44TN + MCD + NIV + AVRT7', reserveTasks:'', priority:2, inc:'Sin INC indicada', next:'', model:'AS440S50T/P', stages:[{name:'AUTODIS',done:true},{name:'Recuperar',done:false}] },
-        { id:'hotel-2610', reserve:'2610', reservePlate:'0175MTF', reserveLabel:'MERCEDES', fleet:'2617', fleetPlate:'0166MTF', upc:'DIEGO', location:'STERN', state:'workshop', stateLabel:'En taller desde 03/08/2026', cause:'ITV + 44TN + frenos eje 1', reserveTasks:'', priority:2, inc:'Sin INC indicada', next:'', model:'ACTR 1846LS', stages:[{name:'ITV + 44TN',done:true},{name:'STERN',done:true},{name:'Recuperar',done:false}] },
-        { id:'hotel-2676', reserve:'2676', reservePlate:'1802NBF', reserveLabel:'21P/CAP', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'', reserveTasks:'', priority:5, inc:'Sin incidencia', next:'', model:'AD260S36Y/PS', stages:[] },
-        { id:'hotel-2493', reserve:'2493', reservePlate:'9153MJR', reserveLabel:'18/CB', fleet:'2490', fleetPlate:'6774MJM', upc:'DIEGO', location:'DIESEL', state:'workshop', stateLabel:'En taller desde 22/07/2026', cause:'AV-W', reserveTasks:'', priority:1, inc:'Sin INC indicada', next:'', model:'', stages:[{name:'DIESEL',done:true},{name:'GP',done:false},{name:'Recuperar',done:false}] },
-        { id:'hotel-2745', reserve:'2745', reservePlate:'7348NKN', reserveLabel:'21/CB', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'', reserveTasks:'', priority:5, inc:'Sin incidencia', next:'', model:'', stages:[] },
-        { id:'hotel-r1434', reserve:'R1434', reservePlate:'R8940BDP', reserveLabel:'33 PLANCHA', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'', reserveTasks:'', priority:5, inc:'Sin incidencia', next:'R1320', model:'VECTOR 19 HE', stages:[] },
-        { id:'hotel-r1524', reserve:'R1524', reservePlate:'R5679BDV', reserveLabel:'33PL', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'', reserveTasks:'', priority:5, inc:'Sin incidencia', next:'', model:'', stages:[] },
-        { id:'hotel-r1334', reserve:'R1334', reservePlate:'R9265BDL', reserveLabel:'33/SD', fleet:'R1274', fleetPlate:'R4021BDK', upc:'RAÚL', location:'SANSA', state:'plan', stateLabel:'Pendiente de llevar al taller', cause:'AV-NARR', reserveTasks:'', priority:1, inc:'Sin INC indicada', next:'', model:'', stages:[{name:'FRIGICOLL',done:false},{name:'Recuperar',done:false}] },
-        { id:'hotel-r1187', reserve:'R1187', reservePlate:'R8596BDC', reserveLabel:'T27/ALTO', fleet:'R1408', fleetPlate:'R0058BDP', upc:'JEYSON', location:'SANSA', state:'plan', stateLabel:'Pendiente de llevar al taller', cause:'AV-C NARR', reserveTasks:'MB', priority:1, inc:'Sin INC indicada', next:'', model:'VECTOR 19 HE', stages:[{name:'FRIDIEL',done:false},{name:'Recuperar',done:false}] },
-        { id:'hotel-r1269', reserve:'R1269', reservePlate:'R1553BDK', reserveLabel:'T33', fleet:'', fleetPlate:'', upc:'', location:'SANSA', state:'free', stateLabel:'Reserva libre', cause:'', reserveTasks:'RO', priority:5, inc:'Sin incidencia', next:'', model:'', stages:[] }
-      ];
+      const defaultHotelUnits = [];
       let hotelUnits = [];
       let activePizarraId = null;
       let activePizarraDate = '';
@@ -1088,6 +1083,7 @@
           resultado_recibido:'correcto', dispositivo_recibido:navigator.userAgent,
           detalles_recibidos:{version:'Beta 1.9'}
         });
+        await loadVehicleIndex();
         await loadHotelFromSupabase(true);
       };
       root.querySelector('#mock-enter').addEventListener('click', async () => {
@@ -1273,7 +1269,9 @@
         const message = root.querySelector('#hotel-form-message');
         if (!vehicle || !cause) { message.textContent = 'Introduce un DFM o matrícula existente y la causa de la sustitución.'; return; }
         if (exceptional && (!reason || !limit)) { message.textContent = 'Una sustitución excepcional necesita motivo y fecha/hora límite.'; return; }
-        const [reserve,reservePlate,reserveLabel] = root.querySelector('#hotel-form-reserve').value.split('|');
+        const reserveValue = root.querySelector('#hotel-form-reserve').value;
+        if (!reserveValue) { message.textContent = 'Selecciona el vehículo de reserva.'; return; }
+        const [reserve,reservePlate,reserveLabel] = reserveValue.split('|');
         const existingInc = incidences.find(item => item.dfm === vehicle.dfm && !/cerrad/i.test(item.status));
         const suppliedInc = root.querySelector('#hotel-form-inc').value.trim();
         const urgent = root.querySelector('#hotel-form').dataset.urgent === '1';
@@ -1314,12 +1312,7 @@
       });
       root.querySelector('#incidence-search').addEventListener('input', renderIncidences);
       root.querySelector('#new-activation').addEventListener('click', () => {
-        ['#activation-identification','#activation-safety','#activation-fault','#activation-communication','#activation-call','#activation-register','#activation-follow'].forEach(selector => root.querySelector(selector).classList.add('hidden'));
-        root.querySelector('#activation-start').classList.remove('hidden');
-        root.querySelector('#activation-manual-note').classList.add('hidden');
-        root.querySelector('#activation-step-label').textContent = 'Paso 0 · Inicio';
-        root.querySelector('#activation-dfm-context strong').textContent = 'DFM —';
-        setView('activation');
+        window.location.href = 'activar-24h.html?origen=beta-1-9';
       });
       root.querySelector('#back-incidences').addEventListener('click', () => setView('mine'));
       root.querySelector('#activation-guided').addEventListener('click', () => {
