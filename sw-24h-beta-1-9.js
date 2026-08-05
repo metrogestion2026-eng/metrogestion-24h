@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gestion-24h-beta-1-9-v7';
+const CACHE_NAME = 'gestion-24h-beta-1-9-v8';
 const APP_FILES = [
   './index.html',
   './beta-1-9-prueba.html',
@@ -10,8 +10,6 @@ const APP_FILES = [
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES)));
-  // Renovación excepcional para sacar los móviles de la versión antigua.
-  self.skipWaiting();
 });
 
 self.addEventListener('message', event => {
