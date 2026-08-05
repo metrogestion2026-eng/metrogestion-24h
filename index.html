@@ -44,7 +44,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9</small><button id="install-app" class="btn btn-secondary" type="button">Instalar app</button></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -1527,20 +1527,6 @@
           });
         }
         suggestions.classList.toggle('hidden', !suggestions.children.length);
-      });
-      let deferredInstallPrompt = null;
-      window.addEventListener('beforeinstallprompt', event => {
-        event.preventDefault();
-        deferredInstallPrompt = event;
-      });
-      root.querySelector('#install-app').addEventListener('click', async () => {
-        if (deferredInstallPrompt) {
-          deferredInstallPrompt.prompt();
-          await deferredInstallPrompt.userChoice;
-          deferredInstallPrompt = null;
-          return;
-        }
-        window.alert('En Android abre el menú del navegador y pulsa «Instalar aplicación». En iPhone usa Compartir → «Añadir a pantalla de inicio».');
       });
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => navigator.serviceWorker.register('sw-24h-beta-1-9.js').catch(() => {}));
