@@ -1,5 +1,6 @@
-const CACHE_NAME = 'gestion-24h-beta-1-9-v6';
+const CACHE_NAME = 'gestion-24h-beta-1-9-v7';
 const APP_FILES = [
+  './index.html',
   './beta-1-9-prueba.html',
   './manifest-24h-beta-1-9.json',
   './icono-gestion-24h.svg',
@@ -9,6 +10,8 @@ const APP_FILES = [
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES)));
+  // Renovación excepcional para sacar los móviles de la versión antigua.
+  self.skipWaiting();
 });
 
 self.addEventListener('message', event => {
@@ -16,10 +19,14 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(
-    keys.filter(key => key.startsWith('gestion-24h-') && key !== CACHE_NAME).map(key => caches.delete(key))
-  )));
-  self.clients.claim();
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(key => key.startsWith('gestion-24h-') && key !== CACHE_NAME)
+          .map(key => caches.delete(key))
+      ))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', event => {
@@ -28,5 +35,22 @@ self.addEventListener('fetch', event => {
   if (requestUrl.origin !== self.location.origin) return;
   const allowedPaths = APP_FILES.map(file => new URL(file, self.location.href).pathname);
   if (!allowedPaths.includes(requestUrl.pathname)) return;
+
+  const isMainScreen = requestUrl.pathname.endsWith('/index.html')
+    || requestUrl.pathname.endsWith('/beta-1-9-prueba.html');
+
+  if (isMainScreen) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
 });
