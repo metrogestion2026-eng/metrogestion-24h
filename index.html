@@ -108,7 +108,7 @@
   </style>
 
   <section id="mock-login" class="login-wrap">
-    <div class="card stack">
+    <form id="login-form" class="card stack" autocomplete="on">
       <div>
         <strong>Programa de gestión · Acceso seguro</strong>
         <div class="text-small text-muted">Acceso conectado a la base de datos de Metrogestión.</div>
@@ -122,9 +122,13 @@
           <button id="toggle-login-password" class="btn btn-secondary" type="button" aria-pressed="false">Ver contraseña</button>
         </div>
       </label>
-      <div id="login-message" class="text-small text-muted">Utiliza la contraseña creada en Supabase. No se guarda en este dispositivo.</div>
-      <button id="mock-enter" class="btn btn-primary" type="button">Entrar</button>
-    </div>
+      <div id="login-message" class="text-small text-muted">Utiliza la contraseña creada en Supabase.</div>
+      <div class="card text-small" style="background:#fffbeb;border-color:#f5d88b">
+        <strong>¿Guardar usuario y contraseña?</strong><br>
+        Chrome podrá preguntártelo al entrar. Acepta solamente si este es tu teléfono personal autorizado.
+      </div>
+      <button id="mock-enter" class="btn btn-primary" type="submit">Entrar</button>
+    </form>
     <div class="text-small text-muted">El acceso, los permisos y los cambios quedan protegidos y registrados.</div>
   </section>
 
@@ -1093,7 +1097,8 @@
         await loadVehicleIndex();
         await loadHotelFromSupabase(true);
       };
-      root.querySelector('#mock-enter').addEventListener('click', async () => {
+      root.querySelector('#login-form').addEventListener('submit', async event => {
+        event.preventDefault();
         const email = root.querySelector('#mock-user').value.trim().toLowerCase();
         const password = root.querySelector('#mock-pin').value;
         const message = root.querySelector('#login-message');
