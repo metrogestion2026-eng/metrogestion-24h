@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gestion-24h-beta-1-9-v5';
+const CACHE_NAME = 'gestion-24h-beta-1-9-v6';
 const APP_FILES = [
   './beta-1-9-prueba.html',
   './manifest-24h-beta-1-9.json',
