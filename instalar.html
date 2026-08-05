@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#075985">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Metrogestión">
+  <link rel="manifest" href="manifest-24h-beta-1-9.json">
+  <link rel="icon" href="icono-gestion-24h-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icono-gestion-24h-192.png">
+  <title>Instalar Metrogestión</title>
+  <style>
+    :root{color-scheme:light;--blue:#075985;--dark:#032f4a;--orange:#ff9d2e;--border:#d7e3ec}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:22px;background:linear-gradient(155deg,#d9eef7,#f8fafc 54%,#e5edf3);color:#172033;font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+    main{width:min(100%,430px);padding:28px 22px;text-align:center;background:#fff;border:1px solid var(--border);border-radius:24px;box-shadow:0 18px 50px rgba(3,47,74,.17)}
+    img{width:148px;height:148px;border-radius:34px;box-shadow:0 14px 30px rgba(3,47,74,.22)}
+    h1{margin:20px 0 4px;color:var(--dark);font-size:27px}
+    .subtitle{margin:0 0 22px;color:#526273}
+    button{width:100%;min-height:54px;border:0;border-radius:14px;background:var(--blue);color:#fff;font:700 17px system-ui;cursor:pointer;box-shadow:0 8px 18px rgba(7,89,133,.24)}
+    button:disabled{opacity:.62}
+    #status{min-height:48px;margin:16px 0 0;padding:12px;border-radius:12px;background:#eef6fa;color:#31485a}
+    #help{display:none;margin-top:14px;padding:14px;text-align:left;border:1px solid #f0c77a;border-radius:12px;background:#fff8e8}
+    .done{background:#eaf8ef!important;color:#17623a!important}
+    footer{margin-top:20px;color:#71808d;font-size:12px}
+  </style>
+</head>
+<body>
+<main>
+  <img src="icono-gestion-24h-512.png" alt="Icono de Metrogestión 24H">
+  <h1>Metrogestión 24H</h1>
+  <p class="subtitle">Instala la aplicación segura de gestión de mantenimientos.</p>
+  <button id="install" type="button">Instalar Metrogestión</button>
+  <div id="status" aria-live="polite">Pulsa el botón y confirma la instalación en tu teléfono.</div>
+  <div id="help">
+    <strong>Si no aparece la ventana:</strong><br>
+    abre el menú ⋮ de Chrome y pulsa <strong>«Instalar aplicación»</strong> o <strong>«Instal·la i crea una drecera»</strong>.
+  </div>
+  <footer>© 2026 Metrogestión · Todos los derechos reservados.</footer>
+</main>
+<script>
+  let installPrompt = null;
+  const button = document.querySelector('#install');
+  const status = document.querySelector('#status');
+  const help = document.querySelector('#help');
+
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    installPrompt = event;
+  });
+
+  window.addEventListener('appinstalled', () => {
+    installPrompt = null;
+    button.disabled = true;
+    button.textContent = 'Aplicación instalada';
+    status.classList.add('done');
+    status.textContent = 'Ya puedes cerrar esta página. Abre Metrogestión tocando su icono en la pantalla del móvil.';
+    help.style.display = 'none';
+  });
+
+  button.addEventListener('click', async () => {
+    if (!installPrompt) {
+      status.textContent = 'Chrome no ha mostrado la instalación automática. Utiliza el menú ⋮.';
+      help.style.display = 'block';
+      return;
+    }
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    installPrompt = null;
+    if (choice.outcome === 'accepted') {
+      status.textContent = 'Instalando… Cuando termine, cierra esta página y abre el icono de Metrogestión.';
+    } else {
+      status.textContent = 'Instalación cancelada. Puedes volver a pulsar el botón o utilizar el menú ⋮.';
+      help.style.display = 'block';
+    }
+  });
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw-24h-beta-1-9.js').catch(() => {}));
+  }
+</script>
+</body>
+</html>
