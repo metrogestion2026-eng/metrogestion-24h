@@ -242,6 +242,11 @@
 
     <section id="view-users" class="stack hidden">
       <div><strong>Administración de usuarios</strong><div class="text-small text-muted">Solo Metrogestión puede realizar cambios.</div></div>
+      <div class="card stack">
+        <div class="topbar"><div><strong>Dispositivos solicitados</strong><div class="text-small text-muted">Aprueba únicamente el dispositivo que reconozcas.</div></div><button id="refresh-devices" class="btn btn-secondary" type="button">Actualizar</button></div>
+        <div id="admin-device-message" class="text-small text-muted"></div>
+        <div id="admin-device-list" class="stack"></div>
+      </div>
       <div id="admin-user-list" class="stack"></div>
       <div class="card stack">
         <strong>Crear usuario o administrador secundario</strong>
@@ -444,8 +449,18 @@
       const root = document.getElementById('incidence-access-mockup');
       const supabaseUrl = 'https://njtohfkqjjoavtumtmza.supabase.co';
       const supabaseKey = 'sb_publishable_w1a9DClOM0S4HVJdv_TbKg_W_UkN2W_';
+      const deviceStorageKey = 'metrogestion_device_token_v1';
+      let deviceToken = localStorage.getItem(deviceStorageKey);
+      if (!deviceToken || deviceToken.length < 32) {
+        const bytes = new Uint8Array(32);
+        crypto.getRandomValues(bytes);
+        deviceToken = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+        localStorage.setItem(deviceStorageKey, deviceToken);
+      }
+      const deviceName = [navigator.userAgentData?.platform || navigator.platform || 'Dispositivo', /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'móvil' : 'ordenador'].join(' · ');
       const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
-        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+        global: { headers: { 'x-device-token': deviceToken } }
       });
       const incidences = [];
       let knownDfms = [];
@@ -1062,7 +1077,69 @@
         }
       };
 
+      const renderAdminDevices = async () => {
+        const container = root.querySelector('#admin-device-list');
+        const message = root.querySelector('#admin-device-message');
+        if (!container || !isPrimaryAdmin()) return;
+        message.textContent = 'Consultando solicitudes…';
+        const {data,error} = await supabaseClient.rpc('listar_dispositivos_administracion');
+        if (error) { message.textContent = 'No se pudieron cargar los dispositivos: ' + error.message; return; }
+        container.replaceChildren();
+        const devices = data || [];
+        message.textContent = devices.length ? devices.length + ' dispositivo(s) registrado(s).' : 'Todavía no hay solicitudes.';
+        devices.forEach(device => {
+          const row = document.createElement('div');
+          row.className = 'card stack';
+          const title = document.createElement('strong');
+          title.textContent = (device.nombre_usuario || 'Usuario sin nombre') + ' · ' + (device.estado || 'pendiente').toUpperCase();
+          const meta = document.createElement('div');
+          meta.className = 'text-small text-muted';
+          meta.textContent = [device.correo, device.telefono, device.nombre_dispositivo].filter(Boolean).join(' · ');
+          const controls = document.createElement('div');
+          controls.className = 'viz-row';
+          if (device.estado !== 'aprobado') {
+            const approve = document.createElement('button');
+            approve.type = 'button'; approve.className = 'btn btn-primary'; approve.textContent = 'Aprobar dispositivo';
+            approve.addEventListener('click', async () => {
+              approve.disabled = true;
+              const {error:approveError} = await supabaseClient.rpc('resolver_dispositivo',{dispositivo_recibido:device.dispositivo_id,aprobar:true,motivo_recibido:'Aprobado por administrador principal'});
+              if (approveError) { message.textContent = 'No se pudo aprobar: ' + approveError.message; approve.disabled = false; return; }
+              await renderAdminDevices();
+            });
+            controls.append(approve);
+          }
+          if (!['rechazado','revocado'].includes(device.estado)) {
+            const reject = document.createElement('button');
+            reject.type = 'button'; reject.className = 'btn btn-secondary'; reject.textContent = device.estado === 'aprobado' ? 'Revocar acceso' : 'Rechazar';
+            reject.addEventListener('click', async () => {
+              const reason = window.prompt('Motivo obligatorio:');
+              if (!reason?.trim()) return;
+              reject.disabled = true;
+              const {error:rejectError} = await supabaseClient.rpc('resolver_dispositivo',{dispositivo_recibido:device.dispositivo_id,aprobar:false,motivo_recibido:reason.trim()});
+              if (rejectError) { message.textContent = 'No se pudo resolver: ' + rejectError.message; reject.disabled = false; return; }
+              await renderAdminDevices();
+            });
+            controls.append(reject);
+          }
+          row.append(title,meta,controls);
+          container.append(row);
+        });
+      };
       const enterAuthenticatedApp = async authUser => {
+        const {data:deviceRows,error:deviceError} = await supabaseClient.rpc('comprobar_dispositivo',{token_recibido:deviceToken});
+        if (deviceError) throw deviceError;
+        const deviceCheck = deviceRows?.[0];
+        if (!deviceCheck?.permitido) {
+          if (!deviceCheck || deviceCheck.estado === 'no_registrado') {
+            const {error:requestError} = await supabaseClient.rpc('solicitar_dispositivo',{
+              token_recibido:deviceToken, nombre_recibido:deviceName, agente_recibido:navigator.userAgent
+            });
+            if (requestError) throw requestError;
+            throw new Error('Solicitud enviada. El administrador principal debe aprobar este dispositivo antes de entrar.');
+          }
+          if (deviceCheck.estado === 'pendiente') throw new Error('Este dispositivo está pendiente de aprobación.');
+          throw new Error('Este dispositivo no está autorizado. Contacta con el administrador principal.');
+        }
         const { data:profile, error:profileError } = await supabaseClient.from('usuarios').select('*').eq('id',authUser.id).single();
         if (profileError) throw profileError;
         if (!profile.activo) throw new Error('Esta cuenta está bloqueada. Contacta con Metrogestión.');
@@ -1087,6 +1164,7 @@
           root.querySelector('#admin-phone').value = account.phone || '';
           root.querySelector('#admin-email').value = account.email || '';
           renderAdminUsers();
+          await renderAdminDevices();
         }
         setView('mine');
         await supabaseClient.rpc('registrar_acceso',{
@@ -1097,6 +1175,7 @@
         await loadVehicleIndex();
         await loadHotelFromSupabase(true);
       };
+      root.querySelector('#refresh-devices').addEventListener('click', renderAdminDevices);
       root.querySelector('#login-form').addEventListener('submit', async event => {
         event.preventDefault();
         const email = root.querySelector('#mock-user').value.trim().toLowerCase();
