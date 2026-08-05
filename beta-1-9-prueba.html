@@ -1571,16 +1571,9 @@
         });
       }
       renderLoginUsers();
-      supabaseClient.auth.getSession().then(async ({data}) => {
-        if (!data.session?.user) return;
-        try {
-          root.querySelector('#login-message').textContent = 'Recuperando sesión segura…';
-          await enterAuthenticatedApp(data.session.user);
-        } catch (error) {
-          await supabaseClient.auth.signOut();
-          root.querySelector('#login-message').textContent = 'No se pudo recuperar la sesión: ' + error.message;
-        }
-      });
+      // Por seguridad, la pantalla principal siempre exige confirmar las credenciales.
+      // La sesión técnica puede mantenerse para navegar por los pasos después de entrar.
+      root.querySelector('#mock-user').focus();
     })();
   </script>
 </div>
