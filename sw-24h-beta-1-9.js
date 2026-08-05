@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gestion-24h-beta-1-9-v4';
+const CACHE_NAME = 'gestion-24h-beta-1-9-v5';
 const APP_FILES = [
   './beta-1-9-prueba.html',
   './manifest-24h-beta-1-9.json',
@@ -9,7 +9,10 @@ const APP_FILES = [
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES)));
-  self.skipWaiting();
+});
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
