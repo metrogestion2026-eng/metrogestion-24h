@@ -512,7 +512,7 @@
       const loadVehicleIndex = async () => {
         const { data, error } = await supabaseClient
           .from('vehiculos')
-          .select('dfm,matricula,categoria,tipo_motor')
+          .select('dfm,matricula,categoria,tipo_motor,fin_contrato_km,fecha_matriculacion,clase_vehiculo,marca,bastidor,upc,telefono_camion')
           .eq('activo', true)
           .order('dfm');
         if (error) throw new Error('No se pudo cargar la flota autorizada: ' + error.message);
@@ -520,7 +520,14 @@
           dfm: String(vehicle.dfm || ''),
           plate: String(vehicle.matricula || '').toUpperCase(),
           category: String(vehicle.categoria || '').toUpperCase(),
-          label: String(vehicle.tipo_motor || '').toUpperCase()
+          label: String(vehicle.tipo_motor || '').toUpperCase(),
+          contractKm: Number(String(vehicle.fin_contrato_km || '').replace(/\\D/g, '')) || 0,
+          registrationDate: vehicle.fecha_matriculacion || '',
+          vehicleClass: String(vehicle.clase_vehiculo || '').toLowerCase(),
+          brand: String(vehicle.marca || '').toUpperCase(),
+          vin: String(vehicle.bastidor || '').toUpperCase(),
+          upc: String(vehicle.upc || ''),
+          vehiclePhone: String(vehicle.telefono_camion || '')
         }));
         knownDfms = vehicleIndex.map(vehicle => vehicle.dfm);
         const reserveSelect = root.querySelector('#hotel-form-reserve');
@@ -1452,6 +1459,47 @@
           root.querySelector('#activation-message').textContent = 'Falta introducir los kilómetros actuales.';
           return;
         }
+        const selectedVehicle = exactVehicle || vehicleIndex.find(vehicle => vehicle.dfm === dfmValue);
+        const currentKm = Number(kmValue);
+        const contractKm = selectedVehicle
+          ? Number(selectedVehicle.contractKm || 0)
+          : Number(root.querySelector('#manual-contract-km').value.replace(/\\D/g, ''));
+        const registrationDate = selectedVehicle
+          ? selectedVehicle.registrationDate
+          : root.querySelector('#manual-registration').value;
+        const rawVehicleClass = selectedVehicle
+          ? selectedVehicle.vehicleClass
+          : root.querySelector('#manual-type').value;
+        const vehicleClass = String(rawVehicleClass || '').toLowerCase()
+          .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
+        const contractReasons = [];
+        if (contractKm > 0 && currentKm > contractKm) {
+          contractReasons.push('kilometraje contractual superado: ' +
+            currentKm.toLocaleString('es-ES') + ' km actuales frente a ' +
+            contractKm.toLocaleString('es-ES') + ' km de límite');
+        }
+        const contractYears = vehicleClass.includes('tractora') ? 3
+          : vehicleClass.includes('rigid') ? 4 : 0;
+        if (registrationDate && contractYears) {
+          const contractExpiry = new Date(registrationDate + 'T00:00:00');
+          contractExpiry.setFullYear(contractExpiry.getFullYear() + contractYears);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          if (today > contractExpiry) {
+            contractReasons.push('fecha contractual superada desde ' +
+              contractExpiry.toLocaleDateString('es-ES'));
+          }
+        }
+        if (contractReasons.length) {
+          const contractMessage = root.querySelector('#activation-message');
+          contractMessage.style.color = '#b91c1c';
+          contractMessage.style.fontWeight = '700';
+          contractMessage.textContent = 'NO SE PUEDE CONTINUAR · ' + contractReasons.join(' y ') +
+            '. Contacta con TM, Gestión de Mantenimiento BCN o Área de Mantenimiento.';
+          return;
+        }
+        root.querySelector('#activation-message').style.color = '';
+        root.querySelector('#activation-message').style.fontWeight = '';
         if (!knownDfms.includes(dfmValue)) {
           const requiredManualFields = [
             ['#manual-plate', 'matrícula'],
