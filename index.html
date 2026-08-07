@@ -376,8 +376,8 @@
         <strong>Seguridad · Procedimiento 0</strong>
         <label><input id="activation-safe" type="checkbox"> Vehículo detenido en lugar seguro o correctamente señalizado</label>
         <label><input id="activation-driver-safe" type="checkbox"> Conductor y ocupantes fuera de peligro</label>
-        <label>Conductor<input class="form-control" placeholder="Nombre"></label>
-        <label>Teléfono<input class="form-control" type="tel" inputmode="tel" placeholder="Ej. 612 345 678"></label>
+        <label>Conductor<input id="activation-driver-name" class="form-control" placeholder="Nombre"></label>
+        <label>Teléfono<input id="activation-driver-phone" class="form-control" type="tel" inputmode="tel" placeholder="Ej. 612 345 678"></label>
         <div id="safety-message" class="text-small text-muted"></div>
         <div class="viz-row">
           <button id="safety-previous" class="btn btn-secondary" type="button">← Paso anterior</button>
@@ -411,7 +411,8 @@
       </div>
       <div id="activation-communication" class="card stack hidden">
         <strong>Datos preparados para comunicar</strong>
-        <div id="activation-summary" class="detail-grid"></div>
+        <div id="activation-summary" class="stack" aria-live="polite"></div>
+        <div id="activation-communication-script" class="card text-small"></div>
         <label><input id="activation-summary-confirmed" type="checkbox"> He revisado los datos antes de llamar</label>
         <div id="communication-message" class="text-small text-muted"></div>
         <div class="viz-row"><button id="communication-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="communication-next" class="btn btn-primary" type="button">Siguiente →</button></div>
@@ -529,6 +530,82 @@
         });
         panel.classList.toggle('hidden', matches.length === 0);
       };
+      const renderActivationCommunicationSummary = () => {
+        const dfm = root.querySelector('#activation-dfm').dataset.dfm ||
+          root.querySelector('#activation-dfm').value.trim().split('·')[0].replace(/\D/g, '');
+        const vehicle = vehicleIndex.find(item => item.dfm === dfm);
+        const manual = !vehicle;
+        const plate = vehicle?.plate || root.querySelector('#manual-plate').value.trim().toUpperCase();
+        const brand = vehicle?.brand || root.querySelector('#manual-brand').value.trim().toUpperCase();
+        const vin = vehicle?.vin || root.querySelector('#manual-vin').value.trim().toUpperCase();
+        const upc = vehicle?.upc || root.querySelector('#manual-upc').value.trim();
+        const vehicleClass = vehicle?.vehicleClass || root.querySelector('#manual-type').value;
+        const registration = vehicle?.registrationDate || root.querySelector('#manual-registration').value;
+        const contractKm = vehicle?.contractKm || Number(root.querySelector('#manual-contract-km').value.replace(/\D/g, ''));
+        const currentKm = Number(root.querySelector('#activation-km').value.replace(/\D/g, ''));
+        const driverName = root.querySelector('#activation-driver-name').value.trim();
+        const driverPhone = root.querySelector('#activation-driver-phone').value.trim();
+        const locationType = root.querySelector('#activation-location-type').value;
+        const locationFormat = root.querySelector('#activation-location-format').value === 'coordinates' ? 'Coordenadas' : 'Plus Code';
+        const location = root.querySelector('#activation-location-text').value.trim();
+        const fault = root.querySelector('#activation-fault-text').value.trim();
+        const alarmCode = root.querySelector('#activation-alarm-code').value.trim();
+        const alarmColor = root.querySelector('#activation-alarm-color').value;
+        const trailer = root.querySelector('#activation-trailer').value.trim().toUpperCase();
+        const load = root.querySelector('#activation-load').value;
+        const registrationText = registration
+          ? new Date(registration + 'T00:00:00').toLocaleDateString('es-ES') : '';
+        const items = [
+          ['DFM y matrícula', 'DFM ' + dfm + (plate ? ' · ' + plate : ''), true],
+          ['Marca y bastidor', [brand, vin].filter(Boolean).join(' · '), true],
+          ['UPC', upc, false],
+          ['Tipo y matriculación', [vehicleClass, registrationText].filter(Boolean).join(' · '), true],
+          ['Kilómetros y contrato', currentKm.toLocaleString('es-ES') + ' km actuales' +
+            (contractKm ? ' · límite ' + Number(contractKm).toLocaleString('es-ES') + ' km' : ''), true],
+          ['Comprobación de seguridad', root.querySelector('#activation-safe').checked ? 'Vehículo seguro o señalizado' : '', true],
+          ['Conductor fuera de peligro', root.querySelector('#activation-driver-safe').checked ? 'Confirmado' : '', true],
+          ['Conductor y teléfono', [driverName, driverPhone].filter(Boolean).join(' · '), true],
+          ['Tipo de ubicación', locationType, true],
+          [locationFormat, location, true],
+          ['Avería literal', fault, true],
+          ['Código y color del aviso', (alarmCode || 'Sin código') + ' · ' + alarmColor, false],
+          ['Semirremolque', trailer, false],
+          ['Carga', load, true],
+          ['Canal 24H', [vehicle?.assistance, vehicle?.assistancePhone].filter(Boolean).join(' · '), false]
+        ];
+        const summary = root.querySelector('#activation-summary');
+        summary.replaceChildren();
+        let missingRequired = false;
+        items.forEach(([labelText,valueText,required]) => {
+          const missing = required && !valueText;
+          if (missing) missingRequired = true;
+          const row = document.createElement('div');
+          row.className = 'card';
+          row.style.display = 'grid';
+          row.style.gridTemplateColumns = '82px minmax(0,1fr)';
+          row.style.gap = '10px';
+          const state = document.createElement('strong');
+          state.textContent = missing ? 'FALTA' : (valueText ? 'OK' : 'OPCIONAL');
+          state.style.color = missing ? '#b91c1c' : '#166534';
+          const detail = document.createElement('div');
+          const label = document.createElement('strong');
+          label.textContent = labelText;
+          const value = document.createElement('div');
+          value.className = 'text-small text-muted';
+          value.textContent = valueText || (required ? 'Dato necesario antes de llamar' : 'No informado');
+          detail.append(label,value);
+          row.append(state,detail);
+          summary.append(row);
+        });
+        root.querySelector('#activation-communication-script').textContent =
+          'DFM ' + dfm + ', matrícula ' + (plate || 'pendiente') + ', marca ' + (brand || 'pendiente') +
+          ', ubicado en ' + (location || 'ubicación pendiente') + '. Avería comunicada: ' +
+          (fault || 'pendiente') + '. Conductor: ' + (driverName || 'pendiente') +
+          (driverPhone ? ', teléfono ' + driverPhone : '') + '.';
+        root.querySelector('#activation-summary-confirmed').checked = false;
+        root.querySelector('#communication-message').textContent = missingRequired
+          ? 'Revisa los datos marcados como FALTA antes de realizar la llamada.' : '';
+      };
       const activationPanels = {
         1: '#activation-identification',
         2: '#activation-safety',
@@ -564,7 +641,7 @@
       const loadVehicleIndex = async () => {
         const { data, error } = await supabaseClient
           .from('vehiculos')
-          .select('dfm,matricula,categoria,tipo_motor,fin_contrato_km,fecha_matriculacion,clase_vehiculo,marca,bastidor,upc,telefono_camion')
+          .select('dfm,matricula,categoria,tipo_motor,fin_contrato_km,fecha_matriculacion,clase_vehiculo,marca,bastidor,upc,telefono_camion,asistencia,telefono_asistencia')
           .eq('activo', true)
           .order('dfm');
         if (error) throw new Error('No se pudo cargar la flota autorizada: ' + error.message);
@@ -579,7 +656,9 @@
           brand: String(vehicle.marca || '').toUpperCase(),
           vin: String(vehicle.bastidor || '').toUpperCase(),
           upc: String(vehicle.upc || ''),
-          vehiclePhone: String(vehicle.telefono_camion || '')
+          vehiclePhone: String(vehicle.telefono_camion || ''),
+          assistance: String(vehicle.asistencia || ''),
+          assistancePhone: String(vehicle.telefono_asistencia || '')
         }));
         knownDfms = vehicleIndex.map(vehicle => vehicle.dfm);
         const reserveSelect = root.querySelector('#hotel-form-reserve');
@@ -1597,8 +1676,7 @@
           return;
         }
         root.querySelector('#fault-message').textContent = '';
-        const summary = root.querySelector('#activation-summary');
-        summary.innerHTML = '<div><span class="text-small">DFM</span><strong>' + root.querySelector('#activation-dfm').dataset.dfm + '</strong></div><div><span class="text-small">Avería</span><strong>' + root.querySelector('#activation-fault-text').value + '</strong></div><div><span class="text-small">Carga</span><strong>' + root.querySelector('#activation-load').value + '</strong></div><div><span class="text-small">Ubicación</span><strong>' + root.querySelector('#activation-location-text').value + '</strong></div>';
+        renderActivationCommunicationSummary();
         showActivationStep(5);
       });
       root.querySelector('#communication-previous').addEventListener('click', () => showActivationStep(3));
