@@ -521,7 +521,7 @@
           plate: String(vehicle.matricula || '').toUpperCase(),
           category: String(vehicle.categoria || '').toUpperCase(),
           label: String(vehicle.tipo_motor || '').toUpperCase(),
-          contractKm: Number(String(vehicle.fin_contrato_km || '').replace(/\\D/g, '')) || 0,
+          contractKm: Number(String(vehicle.fin_contrato_km || '').replace(/\D/g, '')) || 0,
           registrationDate: vehicle.fecha_matriculacion || '',
           vehicleClass: String(vehicle.clase_vehiculo || '').toLowerCase(),
           brand: String(vehicle.marca || '').toUpperCase(),
@@ -1463,7 +1463,7 @@
         const currentKm = Number(kmValue);
         const contractKm = selectedVehicle
           ? Number(selectedVehicle.contractKm || 0)
-          : Number(root.querySelector('#manual-contract-km').value.replace(/\\D/g, ''));
+          : Number(root.querySelector('#manual-contract-km').value.replace(/\D/g, ''));
         const registrationDate = selectedVehicle
           ? selectedVehicle.registrationDate
           : root.querySelector('#manual-registration').value;
@@ -1471,7 +1471,7 @@
           ? selectedVehicle.vehicleClass
           : root.querySelector('#manual-type').value;
         const vehicleClass = String(rawVehicleClass || '').toLowerCase()
-          .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const contractReasons = [];
         if (contractKm > 0 && currentKm > contractKm) {
           contractReasons.push('kilometraje contractual superado: ' +
