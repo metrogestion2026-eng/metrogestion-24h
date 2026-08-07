@@ -504,7 +504,8 @@
         detail.style.color = '';
         detail.style.fontWeight = '';
         detail.textContent = (assistance24h.name || 'Asistencia 24H') + ' · ' + phone +
-          '. Cuando se abra la llamada, activa el altavoz manualmente para consultar los datos.';
+          '. Cuando se abra la llamada, activa el altavoz manualmente y vuelve a Metrogestión para consultar los datos.';
+        saveActivationCallDraft();
         window.location.href = 'tel:' + dialNumber;
       };
       const prepareAssistanceStep = () => {
@@ -534,6 +535,34 @@
       let sessionUser = '';
       let sessionUserId = '';
       let view = 'mine';
+      const callReturnKey = 'metrogestion24h_call_return_until';
+      const activationDraftKey = 'metrogestion24h_activation_call_draft';
+      const saveActivationCallDraft = () => {
+        const fields = {};
+        root.querySelectorAll('#view-activation input[id], #view-activation select[id], #view-activation textarea[id]').forEach(field => {
+          fields[field.id] = field.type === 'checkbox'
+            ? {checked:field.checked}
+            : {value:field.value};
+        });
+        fields.__dfm = root.querySelector('#activation-dfm').dataset.dfm || '';
+        localStorage.setItem(activationDraftKey, JSON.stringify(fields));
+        localStorage.setItem(callReturnKey, String(Date.now() + 15 * 60 * 1000));
+      };
+      const restoreActivationCallDraft = () => {
+        let fields;
+        try { fields = JSON.parse(localStorage.getItem(activationDraftKey) || '{}'); } catch { fields = {}; }
+        Object.entries(fields).forEach(([id,state]) => {
+          if (id === '__dfm') return;
+          const field = root.querySelector('#' + CSS.escape(id));
+          if (!field) return;
+          if (field.type === 'checkbox') field.checked = Boolean(state.checked);
+          else if (Object.prototype.hasOwnProperty.call(state,'value')) field.value = state.value;
+        });
+        const dfmInput = root.querySelector('#activation-dfm');
+        dfmInput.dataset.dfm = fields.__dfm || '';
+        root.querySelector('#activation-dfm-context strong').textContent =
+          fields.__dfm ? 'DFM ' + fields.__dfm : 'DFM —';
+      };
       const faultHistoryKey = 'metrogestion_fault_history_v1';
       const defaultFaultHistory = [
         'Fallo motor',
@@ -1413,6 +1442,8 @@
         if (hotelRealtimeChannel) supabaseClient.removeChannel(hotelRealtimeChannel);
         sessionUser = '';
         sessionUserId = '';
+        localStorage.removeItem(callReturnKey);
+        localStorage.removeItem(activationDraftKey);
         root.querySelector('#mock-pin').value = '';
         app.classList.add('hidden');
         login.classList.remove('hidden');
@@ -1907,9 +1938,33 @@
         });
       }
       renderLoginUsers();
-      // Por seguridad, la pantalla principal siempre exige confirmar las credenciales.
-      // La sesión técnica puede mantenerse para navegar por los pasos después de entrar.
-      root.querySelector('#mock-user').focus();
+      const resumeAfterAssistanceCall = async () => {
+        const returnUntil = Number(localStorage.getItem(callReturnKey) || 0);
+        if (!returnUntil || returnUntil <= Date.now()) {
+          localStorage.removeItem(callReturnKey);
+          localStorage.removeItem(activationDraftKey);
+          root.querySelector('#mock-user').focus();
+          return;
+        }
+        const {data,error} = await supabaseClient.auth.getSession();
+        if (error || !data?.session?.user) {
+          localStorage.removeItem(callReturnKey);
+          root.querySelector('#mock-user').focus();
+          return;
+        }
+        await enterAuthenticatedApp(data.session.user);
+        restoreActivationCallDraft();
+        setView('activation');
+        renderActivationCommunicationSummary();
+        showActivationStep(5);
+        root.querySelector('#communication-message').textContent =
+          'Llamada en curso: activa el altavoz y utiliza este listado para comunicar los datos.';
+      };
+      resumeAfterAssistanceCall().catch(error => {
+        root.querySelector('#login-message').textContent =
+          'La llamada continúa. Por seguridad, confirma nuevamente el acceso: ' + error.message;
+        root.querySelector('#mock-user').focus();
+      });
     })();
   </script>
 </div>
