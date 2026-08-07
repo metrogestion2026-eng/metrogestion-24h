@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.2</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.3</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -510,9 +510,14 @@
         detail.textContent = (assistance24h.name || 'Asistencia 24H') + ' · ' + phone +
           '. Cuando se abra la llamada, activa el altavoz manualmente y vuelve a Metrogestión para consultar los datos.';
         saveActivationCallDraft();
-        // Abrimos el marcador en la misma tarea de la PWA. Android conserva así
-        // la pantalla activa y, al volver, no reinicia el acceso.
-        window.location.href = 'tel:' + dialNumber;
+        // El enlace telefónico entrega la llamada a Android sin sustituir
+        // la pantalla de Metrogestión en la tarea de la PWA.
+        const dialLink = document.createElement('a');
+        dialLink.href = 'tel:' + dialNumber;
+        dialLink.style.display = 'none';
+        document.body.append(dialLink);
+        dialLink.click();
+        setTimeout(() => dialLink.remove(), 1000);
       };
       const prepareAssistanceStep = () => {
         const vehicle = currentActivationVehicle();
@@ -546,6 +551,8 @@
       let view = 'mine';
       const callReturnKey = 'metrogestion24h_call_return_until';
       const activationDraftKey = 'metrogestion24h_activation_call_draft';
+      const callSessionKey = 'metrogestion24h_call_session_v1';
+      let activeAuthSession = null;
       const saveActivationCallDraft = () => {
         const fields = {};
         root.querySelectorAll('#view-activation input[id], #view-activation select[id], #view-activation textarea[id]').forEach(field => {
@@ -556,6 +563,13 @@
         fields.__dfm = root.querySelector('#activation-dfm').dataset.dfm || '';
         localStorage.setItem(activationDraftKey, JSON.stringify(fields));
         localStorage.setItem(callReturnKey, String(Date.now() + 30 * 60 * 1000));
+        if (activeAuthSession?.access_token && activeAuthSession?.refresh_token) {
+          localStorage.setItem(callSessionKey, JSON.stringify({
+            access_token: activeAuthSession.access_token,
+            refresh_token: activeAuthSession.refresh_token,
+            expiresAt: Date.now() + 30 * 60 * 1000
+          }));
+        }
       };
       const restoreActivationCallDraft = () => {
         let fields;
@@ -1435,6 +1449,7 @@
         try {
           const { data, error } = await supabaseClient.auth.signInWithPassword({email,password});
           if (error) throw error;
+          activeAuthSession = data.session || null;
           await enterAuthenticatedApp(data.user);
           message.textContent = '';
         } catch (error) {
@@ -1461,6 +1476,8 @@
         sessionUserId = '';
         localStorage.removeItem(callReturnKey);
         localStorage.removeItem(activationDraftKey);
+        localStorage.removeItem(callSessionKey);
+        activeAuthSession = null;
         root.querySelector('#mock-pin').value = '';
         app.classList.add('hidden');
         login.classList.remove('hidden');
@@ -1941,7 +1958,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=27');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=28');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
@@ -1980,13 +1997,28 @@
           root.querySelector('#mock-user').focus();
           return;
         }
-        const {data,error} = await supabaseClient.auth.getSession();
-        if (error || !data?.session?.user) {
+        let {data,error} = await supabaseClient.auth.getSession();
+        let recoveredSession = data?.session || null;
+        if (error || !recoveredSession?.user) {
+          let savedCallSession = null;
+          try { savedCallSession = JSON.parse(localStorage.getItem(callSessionKey) || 'null'); } catch {}
+          if (savedCallSession?.expiresAt > Date.now() &&
+              savedCallSession.access_token && savedCallSession.refresh_token) {
+            const restored = await supabaseClient.auth.setSession({
+              access_token: savedCallSession.access_token,
+              refresh_token: savedCallSession.refresh_token
+            });
+            if (!restored.error) recoveredSession = restored.data?.session || null;
+          }
+        }
+        if (!recoveredSession?.user) {
           localStorage.removeItem(callReturnKey);
+          localStorage.removeItem(callSessionKey);
           root.querySelector('#mock-user').focus();
           return;
         }
-        await enterAuthenticatedApp(data.session.user);
+        activeAuthSession = recoveredSession;
+        await enterAuthenticatedApp(recoveredSession.user);
         restoreActivationCallDraft();
         setView('activation');
         renderActivationCommunicationSummary();
