@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.1</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -767,11 +767,9 @@
         const phoneField = root.querySelector('#activation-driver-phone');
         if (!phoneField) return;
         const vehicleDfm = String(vehicle?.dfm || '');
-        if (phoneField.dataset.vehicleDfm !== vehicleDfm) {
-          phoneField.value = String(vehicle?.vehiclePhone || '').trim();
-          phoneField.dataset.vehicleDfm = vehicleDfm;
-          phoneField.dataset.source = phoneField.value ? 'alta' : '';
-        }
+        phoneField.value = String(vehicle?.vehiclePhone || '').trim();
+        phoneField.dataset.vehicleDfm = vehicleDfm;
+        phoneField.dataset.source = phoneField.value ? 'alta' : '';
       };
       const hotelStorageKey = 'metrogestion_hotel_beta18_03ago_v1';
       const defaultHotelUnits = [];
@@ -1710,6 +1708,11 @@
         }
         const selectedVehicle = exactVehicle || vehicleIndex.find(vehicle => vehicle.dfm === dfmValue);
         applyVehiclePhone(selectedVehicle || { dfm: dfmValue, vehiclePhone: '' });
+        const truckPhone = String(selectedVehicle?.vehiclePhone || '').trim();
+        root.querySelector('#activation-driver-phone').value = truckPhone;
+        root.querySelector('#safety-message').textContent = truckPhone
+          ? 'Teléfono del camión cargado automáticamente desde ALTA: ' + truckPhone
+          : 'Este vehículo no tiene teléfono registrado en ALTA.';
         const currentKm = Number(kmValue);
         const contractKm = selectedVehicle
           ? Number(selectedVehicle.contractKm || 0)
@@ -1937,7 +1940,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=25');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
