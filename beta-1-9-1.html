@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.1</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.2</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -510,8 +510,9 @@
         detail.textContent = (assistance24h.name || 'Asistencia 24H') + ' · ' + phone +
           '. Cuando se abra la llamada, activa el altavoz manualmente y vuelve a Metrogestión para consultar los datos.';
         saveActivationCallDraft();
-        const phoneWindow = window.open('tel:' + dialNumber, '_blank');
-        if (!phoneWindow) window.location.assign('tel:' + dialNumber);
+        // Abrimos el marcador en la misma tarea de la PWA. Android conserva así
+        // la pantalla activa y, al volver, no reinicia el acceso.
+        window.location.href = 'tel:' + dialNumber;
       };
       const prepareAssistanceStep = () => {
         const vehicle = currentActivationVehicle();
@@ -1940,7 +1941,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=26');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=27');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
@@ -1993,9 +1994,21 @@
         root.querySelector('#communication-message').textContent =
           'Llamada en curso: activa el altavoz y utiliza este listado para comunicar los datos.';
       };
+      const returnFromPhoneDialer = () => {
+        const returnUntil = Number(localStorage.getItem(callReturnKey) || 0);
+        if (document.visibilityState !== 'visible' || returnUntil <= Date.now() || !sessionUserId) return;
+        restoreActivationCallDraft();
+        setView('activation');
+        renderActivationCommunicationSummary();
+        showActivationStep(5);
+        root.querySelector('#communication-message').textContent =
+          'Has vuelto de la llamada. La sesión sigue abierta y estos son los datos que debes comunicar.';
+      };
+      document.addEventListener('visibilitychange', returnFromPhoneDialer);
+      window.addEventListener('pageshow', returnFromPhoneDialer);
       resumeAfterAssistanceCall().catch(error => {
         root.querySelector('#login-message').textContent =
-          'La llamada continúa. Por seguridad, confirma nuevamente el acceso: ' + error.message;
+          'No se pudo recuperar automáticamente la sesión de llamada: ' + error.message;
         root.querySelector('#mock-user').focus();
       });
     })();
