@@ -1411,7 +1411,7 @@
       });
       root.querySelector('#incidence-search').addEventListener('input', renderIncidences);
       root.querySelector('#new-activation').addEventListener('click', () => {
-        window.location.href = 'activar-24h.html?origen=beta-1-9&v=buscador-3';
+        setView('activation');
       });
       root.querySelector('#back-incidences').addEventListener('click', () => setView('mine'));
       root.querySelector('#activation-guided').addEventListener('click', () => {
