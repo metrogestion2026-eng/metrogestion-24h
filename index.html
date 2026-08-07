@@ -737,7 +737,7 @@
       const loadVehicleIndex = async () => {
         const { data, error } = await supabaseClient
           .from('vehiculos')
-          .select('dfm,matricula,categoria,tipo_motor,fin_contrato_km,fecha_matriculacion,clase_vehiculo,marca,bastidor,upc,telefono_camion,asistencia,telefono_asistencia')
+          .select('*')
           .eq('activo', true)
           .order('dfm');
         if (error) throw new Error('No se pudo cargar la flota autorizada: ' + error.message);
@@ -752,7 +752,7 @@
           brand: String(vehicle.marca || '').toUpperCase(),
           vin: String(vehicle.bastidor || '').toUpperCase(),
           upc: String(vehicle.upc || ''),
-          vehiclePhone: String(vehicle.telefono_camion || ''),
+          vehiclePhone: String(vehicle.telefono_camion || vehicle.telefono || vehicle.telefono_vehiculo || vehicle.movil || vehicle.phone || ''),
           assistance: String(vehicle.asistencia || ''),
           assistancePhone: String(vehicle.telefono_asistencia || '')
         }));
