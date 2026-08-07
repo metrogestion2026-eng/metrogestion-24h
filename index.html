@@ -419,7 +419,8 @@
       </div>
       <div id="activation-call" class="card stack hidden">
         <strong>Llamada y activación</strong>
-        <button class="btn btn-primary" type="button">Llamar al 24H</button>
+        <div id="activation-call-detail" class="text-small text-muted">Se utilizará el teléfono 24H registrado para el vehículo.</div>
+        <button id="activation-call-button" class="btn btn-primary" type="button">📞 Llamar al 24H</button>
         <label>Número facilitado por el operador<input id="activation-case-number" class="form-control" placeholder="Admite letras, números y símbolos"></label>
         <label>ETA aproximada<input id="activation-eta" class="form-control" type="time"></label>
         <div id="call-message" class="text-small text-muted"></div>
@@ -1689,6 +1690,31 @@
         showActivationStep(6);
       });
       root.querySelector('#call-previous').addEventListener('click', () => showActivationStep(5));
+      root.querySelector('#activation-call-button').addEventListener('click', () => {
+        const dfm = root.querySelector('#activation-dfm').dataset.dfm ||
+          root.querySelector('#activation-dfm').value.trim().split('·')[0].replace(/\D/g, '');
+        const vehicle = vehicleIndex.find(item => item.dfm === dfm);
+        const phone = String(vehicle?.assistancePhone || '').trim();
+        const detail = root.querySelector('#activation-call-detail');
+        if (!phone) {
+          detail.style.color = '#b91c1c';
+          detail.style.fontWeight = '700';
+          detail.textContent = 'No hay un teléfono 24H registrado para el DFM ' + dfm +
+            '. Contacta con TM, Gestión de Mantenimiento BCN o Área de Mantenimiento.';
+          return;
+        }
+        const dialNumber = phone.replace(/[^+\d]/g, '');
+        if (!dialNumber) {
+          detail.style.color = '#b91c1c';
+          detail.textContent = 'El teléfono 24H registrado no tiene un formato válido: ' + phone;
+          return;
+        }
+        detail.style.color = '';
+        detail.style.fontWeight = '';
+        detail.textContent = (vehicle?.assistance || 'Asistencia 24H') + ' · ' + phone +
+          '. Cuando se abra la llamada, activa el altavoz manualmente para consultar los datos.';
+        window.location.href = 'tel:' + dialNumber;
+      });
       root.querySelector('#call-next').addEventListener('click', () => {
         if (!root.querySelector('#activation-case-number').value.trim() || !root.querySelector('#activation-eta').value) {
           root.querySelector('#call-message').textContent = 'Introduce el número del operador y la ETA aproximada.';
