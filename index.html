@@ -422,6 +422,10 @@
         <div id="activation-call-detail" class="text-small text-muted">Se utilizará el teléfono 24H registrado para el vehículo.</div>
         <button id="activation-call-button" class="btn btn-primary" type="button">📞 Llamar al 24H</button>
         <button id="activation-call-fallback" class="btn btn-secondary hidden" type="button">No tengo acceso · Llamar a Service24h</button>
+        <div class="card stack" style="background:#f8fafc">
+          <strong>Datos para comunicar durante la llamada</strong>
+          <div id="activation-call-summary" class="stack"></div>
+        </div>
         <label>Número facilitado por el operador<input id="activation-case-number" class="form-control" placeholder="Admite letras, números y símbolos"></label>
         <label>ETA aproximada<input id="activation-eta" class="form-control" type="time"></label>
         <div id="call-message" class="text-small text-muted"></div>
@@ -506,7 +510,8 @@
         detail.textContent = (assistance24h.name || 'Asistencia 24H') + ' · ' + phone +
           '. Cuando se abra la llamada, activa el altavoz manualmente y vuelve a Metrogestión para consultar los datos.';
         saveActivationCallDraft();
-        window.location.href = 'tel:' + dialNumber;
+        const phoneWindow = window.open('tel:' + dialNumber, '_blank');
+        if (!phoneWindow) window.location.assign('tel:' + dialNumber);
       };
       const prepareAssistanceStep = () => {
         const vehicle = currentActivationVehicle();
@@ -522,6 +527,9 @@
         detail.textContent = isMercedes
           ? 'Mercedes-Benz: crea primero la asistencia en My TruckPoint. Solo si no tienes acceso, utiliza Service24h · 00 800 57 777 777.'
           : ([assistance24h.name, assistance24h.phone, assistance24h.note].filter(Boolean).join(' · ') || 'Consulta el canal 24H del manual.');
+        const callSummary = root.querySelector('#activation-call-summary');
+        const preparedSummary = root.querySelector('#activation-summary');
+        callSummary.replaceChildren(...Array.from(preparedSummary.children, item => item.cloneNode(true)));
       };
       const userStorageKey = 'metrogestion24h_users_v1';
       const defaultUsers = [];
@@ -546,7 +554,7 @@
         });
         fields.__dfm = root.querySelector('#activation-dfm').dataset.dfm || '';
         localStorage.setItem(activationDraftKey, JSON.stringify(fields));
-        localStorage.setItem(callReturnKey, String(Date.now() + 15 * 60 * 1000));
+        localStorage.setItem(callReturnKey, String(Date.now() + 30 * 60 * 1000));
       };
       const restoreActivationCallDraft = () => {
         let fields;
