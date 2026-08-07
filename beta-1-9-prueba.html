@@ -468,6 +468,20 @@
       const incidences = [];
       let knownDfms = [];
       let vehicleIndex = [];
+      const brandAssistance24h = [
+        {brand:'MERCEDES', name:'Mercedes-Benz Service24h', phone:'00 800 57 777 777', note:'Alternativo si My TruckPoint no está disponible'},
+        {brand:'IVECO', name:'IVECO Assistance Non Stop (ANS)', phone:'+800 8274 7368', note:''},
+        {brand:'MAN', name:'MAN Mobile24', phone:'00800 66 24 53 24', note:'Clave 20244'},
+        {brand:'VOLVO', name:'Volvo Action Service (VAS)', phone:'+34 900 98 32 51', note:''}
+      ];
+      const resolveVehicleAssistance = vehicle => {
+        const configuredName = String(vehicle?.assistance || '').trim();
+        const configuredPhone = String(vehicle?.assistancePhone || '').trim();
+        if (configuredPhone) return {name: configuredName || 'Asistencia 24H', phone: configuredPhone, note:''};
+        const brand = String(vehicle?.brand || '').toUpperCase();
+        const fallback = brandAssistance24h.find(item => brand.includes(item.brand));
+        return fallback || {name: configuredName || '', phone:'', note:''};
+      };
       const userStorageKey = 'metrogestion24h_users_v1';
       const defaultUsers = [];
       let users;
@@ -536,6 +550,9 @@
           root.querySelector('#activation-dfm').value.trim().split('·')[0].replace(/\D/g, '');
         const vehicle = vehicleIndex.find(item => item.dfm === dfm);
         const manual = !vehicle;
+        const assistance24h = resolveVehicleAssistance(vehicle || {
+          brand: root.querySelector('#manual-brand').value.trim().toUpperCase()
+        });
         const plate = vehicle?.plate || root.querySelector('#manual-plate').value.trim().toUpperCase();
         const brand = vehicle?.brand || root.querySelector('#manual-brand').value.trim().toUpperCase();
         const vin = vehicle?.vin || root.querySelector('#manual-vin').value.trim().toUpperCase();
@@ -572,7 +589,7 @@
           ['Código y color del aviso', (alarmCode || 'Sin código') + ' · ' + alarmColor, false],
           ['Semirremolque', trailer, false],
           ['Carga', load, true],
-          ['Canal 24H', [vehicle?.assistance, vehicle?.assistancePhone].filter(Boolean).join(' · '), false]
+          ['Canal 24H', [assistance24h.name, assistance24h.phone, assistance24h.note].filter(Boolean).join(' · '), false]
         ];
         const summary = root.querySelector('#activation-summary');
         summary.replaceChildren();
@@ -1695,7 +1712,8 @@
         const dfm = root.querySelector('#activation-dfm').dataset.dfm ||
           root.querySelector('#activation-dfm').value.trim().split('·')[0].replace(/\D/g, '');
         const vehicle = vehicleIndex.find(item => item.dfm === dfm);
-        const phone = String(vehicle?.assistancePhone || '').trim();
+        const assistance24h = resolveVehicleAssistance(vehicle);
+        const phone = assistance24h.phone;
         const detail = root.querySelector('#activation-call-detail');
         if (!phone) {
           detail.style.color = '#b91c1c';
@@ -1712,7 +1730,8 @@
         }
         detail.style.color = '';
         detail.style.fontWeight = '';
-        detail.textContent = (vehicle?.assistance || 'Asistencia 24H') + ' · ' + phone +
+        detail.textContent = (assistance24h.name || 'Asistencia 24H') + ' · ' + phone +
+          (assistance24h.note ? ' · ' + assistance24h.note : '') +
           '. Cuando se abra la llamada, activa el altavoz manualmente para consultar los datos.';
         window.location.href = 'tel:' + dialNumber;
       });
