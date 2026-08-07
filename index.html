@@ -400,8 +400,9 @@
           </label>
           <label>Semirremolque<input id="activation-trailer" class="form-control" placeholder="Matrícula, si afecta"></label>
         </div>
-        <label>Descripción literal del aviso<textarea id="activation-fault-text" class="form-control" rows="3" placeholder="Empieza a escribir, por ejemplo: fallo motor"></textarea></label>
-        <div class="text-small text-muted">En la versión completa aparecerán sugerencias de descripciones utilizadas anteriormente.</div>
+        <label>Descripción literal del aviso<textarea id="activation-fault-text" class="form-control" rows="3" placeholder="Empieza a escribir, por ejemplo: fallo motor" autocomplete="off" aria-controls="activation-fault-suggestions" aria-autocomplete="list"></textarea></label>
+        <div class="text-small text-muted">Escribe al menos 3 letras y selecciona una descripción coincidente.</div>
+        <div id="activation-fault-suggestions" class="stack hidden" role="listbox" aria-label="Descripciones anteriores parecidas"></div>
         <label>Carga
           <select id="activation-load" class="form-select"><option>Sin carga</option><option>Con carga</option><option>Tractora suelta</option></select>
         </label>
@@ -477,6 +478,57 @@
       let sessionUser = '';
       let sessionUserId = '';
       let view = 'mine';
+      const faultHistoryKey = 'metrogestion_fault_history_v1';
+      const defaultFaultHistory = [
+        'Fallo motor',
+        'Testigo rojo de motor',
+        'Pérdida de potencia del motor',
+        'El vehículo no arranca',
+        'Fuga de refrigerante',
+        'Presión de aceite baja',
+        'Fallo del sistema AdBlue',
+        'Avería en la caja de cambios',
+        'Pinchazo o reventón de neumático',
+        'Se para el equipo de frío',
+        'El equipo de frío no alcanza la temperatura',
+        'Fallo de climatización',
+        'Fallo en pantalla',
+        'Silbido en el turbo'
+      ];
+      let learnedFaultHistory = [];
+      try { learnedFaultHistory = JSON.parse(localStorage.getItem(faultHistoryKey)) || []; } catch {}
+      const normalizeFaultText = value => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const allFaultDescriptions = () => [...new Set([...learnedFaultHistory, ...defaultFaultHistory])];
+      const rememberFaultDescription = value => {
+        const description = String(value || '').trim();
+        if (description.length < 3) return;
+        learnedFaultHistory = [description, ...learnedFaultHistory.filter(item => normalizeFaultText(item) !== normalizeFaultText(description))].slice(0, 50);
+        localStorage.setItem(faultHistoryKey, JSON.stringify(learnedFaultHistory));
+      };
+      const renderActivationFaultSuggestions = () => {
+        const input = root.querySelector('#activation-fault-text');
+        const panel = root.querySelector('#activation-fault-suggestions');
+        const query = normalizeFaultText(input.value);
+        panel.replaceChildren();
+        if (query.length < 3) { panel.classList.add('hidden'); return; }
+        const matches = allFaultDescriptions()
+          .filter(description => normalizeFaultText(description).includes(query))
+          .slice(0, 6);
+        matches.forEach(description => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn btn-secondary';
+          button.setAttribute('role', 'option');
+          button.textContent = description;
+          button.addEventListener('click', () => {
+            input.value = description;
+            panel.classList.add('hidden');
+            input.focus();
+          });
+          panel.append(button);
+        });
+        panel.classList.toggle('hidden', matches.length === 0);
+      };
       const activationPanels = {
         1: '#activation-identification',
         2: '#activation-safety',
@@ -1535,6 +1587,10 @@
         showActivationStep(3);
       });
       root.querySelector('#fault-previous').addEventListener('click', () => showActivationStep(2));
+      root.querySelector('#activation-fault-text').addEventListener('input', renderActivationFaultSuggestions);
+      root.querySelector('#activation-fault-text').addEventListener('blur', () => {
+        setTimeout(() => root.querySelector('#activation-fault-suggestions').classList.add('hidden'), 180);
+      });
       root.querySelector('#fault-next').addEventListener('click', () => {
         if (!root.querySelector('#activation-fault-text').value.trim() || !root.querySelector('#activation-location-text').value.trim()) {
           root.querySelector('#fault-message').textContent = 'Indica la ubicación y describe la avería.';
@@ -1574,6 +1630,7 @@
       });
       root.querySelector('#follow-previous').addEventListener('click', () => showActivationStep(7));
       root.querySelector('#save-incidence').addEventListener('click', () => {
+        rememberFaultDescription(root.querySelector('#activation-fault-text').value);
         const code = root.querySelector('#activation-dfm').dataset.dfm;
         const vehicle = vehicleIndex.find(item => item.dfm === code);
         incidences.unshift({
