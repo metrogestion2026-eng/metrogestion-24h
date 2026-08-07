@@ -763,6 +763,16 @@
           `<option value="${escapeHtml(vehicle.dfm)}|${escapeHtml(vehicle.plate)}|${escapeHtml(vehicle.label || 'RESERVA')}">${escapeHtml(vehicle.dfm)} · ${escapeHtml(vehicle.plate)} · ${escapeHtml(vehicle.label || 'RESERVA')}</option>`
         ).join('');
       };
+      const applyVehiclePhone = vehicle => {
+        const phoneField = root.querySelector('#activation-driver-phone');
+        if (!phoneField) return;
+        const vehicleDfm = String(vehicle?.dfm || '');
+        if (phoneField.dataset.vehicleDfm !== vehicleDfm) {
+          phoneField.value = String(vehicle?.vehiclePhone || '').trim();
+          phoneField.dataset.vehicleDfm = vehicleDfm;
+          phoneField.dataset.source = phoneField.value ? 'alta' : '';
+        }
+      };
       const hotelStorageKey = 'metrogestion_hotel_beta18_03ago_v1';
       const defaultHotelUnits = [];
       let hotelUnits = [];
@@ -1647,7 +1657,16 @@
         root.querySelector('#hotel-form').classList.add('hidden');
       });
       root.querySelector('#incidence-search').addEventListener('input', renderIncidences);
-      root.querySelector('#new-activation').addEventListener('click', () => {
+      root.querySelector('#new-activation').addEventListener('click', async () => {
+        const button = root.querySelector('#new-activation');
+        button.disabled = true;
+        try {
+          await loadVehicleIndex();
+        } catch (error) {
+          console.warn(error);
+        } finally {
+          button.disabled = false;
+        }
         setView('activation');
       });
       root.querySelector('#back-incidences').addEventListener('click', () => setView('mine'));
@@ -1690,6 +1709,7 @@
           return;
         }
         const selectedVehicle = exactVehicle || vehicleIndex.find(vehicle => vehicle.dfm === dfmValue);
+        applyVehiclePhone(selectedVehicle || { dfm: dfmValue, vehiclePhone: '' });
         const currentKm = Number(kmValue);
         const contractKm = selectedVehicle
           ? Number(selectedVehicle.contractKm || 0)
@@ -1886,6 +1906,7 @@
         const value = input.value.trim().toUpperCase();
         const exactVehicle = vehicleIndex.find(vehicle => vehicle.dfm === value || vehicle.plate === value || (vehicle.dfm + ' · ' + vehicle.plate) === value);
         input.dataset.dfm = exactVehicle ? exactVehicle.dfm : (/^\d{4}$/.test(value) ? value : '');
+        if (exactVehicle) applyVehiclePhone(exactVehicle);
         const selectedDfm = input.dataset.dfm;
         const showManual = /^\d{4}$/.test(selectedDfm) && !knownDfms.includes(selectedDfm);
         root.querySelector('#activation-dfm-context strong').textContent = selectedDfm ? 'DFM ' + selectedDfm : 'DFM —';
@@ -1902,6 +1923,7 @@
             option.addEventListener('click', () => {
               input.value = vehicle.dfm + ' · ' + vehicle.plate;
               input.dataset.dfm = vehicle.dfm;
+              applyVehiclePhone(vehicle);
               suggestions.classList.add('hidden');
               root.querySelector('#manual-vehicle-data').classList.add('hidden');
               root.querySelector('#activation-message').textContent = '';
