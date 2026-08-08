@@ -151,7 +151,7 @@
 
     <nav class="tabs" aria-label="Secciones">
       <button id="activate-tab" class="btn btn-primary app-tab" data-view="activation" type="button">Activar 24H</button>
-      <button id="hotel-tab" class="btn btn-secondary app-tab locked-tab" data-view="hotel" aria-disabled="true" title="Hotel · Pizarra diaria · En construcción" type="button">Hotel · Pizarra diaria</button>
+      <button id="hotel-tab" class="btn btn-secondary app-tab locked-tab" data-view="hotel" aria-disabled="true" title="Hotel · Acceso para administradores" type="button">Hotel · Pizarra diaria</button>
       <button class="btn btn-secondary app-tab locked-tab" data-view="reservas" aria-disabled="true" title="Reservas · En construcción" type="button">Reservas</button>
       <button class="btn btn-secondary app-tab locked-tab" data-view="predictivo" aria-disabled="true" title="Mantenimiento predictivo · En construcción" type="button">Mantenimiento predictivo</button>
       <button class="btn btn-secondary app-tab locked-tab" data-view="itv-tramites" aria-disabled="true" title="Planificación ITV y trámites · En construcción" type="button">ITV y trámites</button>
@@ -1515,7 +1515,6 @@
 
       const setView = next => {
         const constructionModules = {
-          hotel: 'Hotel · Pizarra diaria',
           reservas: 'Reservas',
           predictivo: 'Mantenimiento predictivo',
           'itv-tramites': 'Planificación ITV y trámites',
@@ -1524,6 +1523,10 @@
         };
         if (constructionModules[next]) {
           window.alert(constructionModules[next] + '\n\nMódulo en construcción. Próximamente disponible según los permisos asignados.');
+          return;
+        }
+        if (next === 'hotel' && !isAdmin()) {
+          window.alert('El Hotel está disponible únicamente para administradores autorizados.');
           return;
         }
         if (next === 'all' && !canViewAllIncidences()) {
@@ -1803,7 +1806,8 @@
         app.classList.remove('hidden');
         root.querySelector('#session-label').textContent = sessionUser + (account.role === 'primary' ? ' · Administrador principal' : account.role === 'secondary' ? ' · Administrador secundario' : ' · Usuario');
         root.querySelector('#own-account-name').value = account.name;
-        root.querySelector('#hotel-tab').classList.add('locked-tab');
+        root.querySelector('#hotel-tab').classList.toggle('locked-tab', !isAdmin());
+        root.querySelector('#hotel-tab').setAttribute('aria-disabled', String(!isAdmin()));
         root.querySelector('#users-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
         root.querySelector('#settings-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
         root.querySelector('#versions-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
