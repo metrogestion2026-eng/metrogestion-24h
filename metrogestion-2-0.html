@@ -1228,6 +1228,14 @@
         timeZone:'Europe/Madrid', day:'2-digit', month:'2-digit', year:'numeric',
         hour:'2-digit', minute:'2-digit'
       }) : '';
+      const stageDateForEdit = value => {
+        const date = value ? new Date(value) : new Date();
+        const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+          timeZone:'Europe/Madrid', year:'numeric', month:'2-digit', day:'2-digit',
+          hour:'2-digit', minute:'2-digit', hourCycle:'h23'
+        }).formatToParts(date).filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
+        return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+      };
       const renderHotelSummary = () => {
         const occupied = hotelUnits.filter(unit => unit.fleet).length;
         const free = hotelUnits.filter(unit => unit.state === 'free').length;
@@ -1281,7 +1289,7 @@
           <div class="hotel-actions"><button class="btn btn-primary hotel-edit-save" data-id="${escapeHtml(unit.id)}" type="button">Guardar todos los cambios</button><button class="btn btn-secondary hotel-edit-cancel" data-id="${escapeHtml(unit.id)}" type="button">Cancelar</button></div>
           <div class="text-small hotel-edit-message"></div>
         </div>` : '';
-        const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${!stage.done && stage.status!=='anulada' && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}${isAdmin()?`<button class="btn btn-secondary hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="btn btn-secondary hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
+        const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${!stage.done && stage.status!=='anulada' && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}${isAdmin()?`<button class="btn btn-secondary hotel-stage-date" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar fecha T</button><button class="btn btn-secondary hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="btn btn-secondary hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
         return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
           <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)} · Parado: ${escapeHtml(shownStopDate)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
           <div class="detail-grid"><div><span class="text-small">Marca</span><strong>${escapeHtml(unit.brand||'—')}</strong></div><div><span class="text-small">Tipo de motor</span><strong>${escapeHtml(unit.engine||'—')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehículo sustituido</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
@@ -1385,6 +1393,34 @@
             modificado_por:sessionUserId
           });
           if (error) window.alert('No se pudo añadir la T: ' + error.message);
+          await loadHotelFromSupabase(false);
+        }));
+        root.querySelectorAll('.hotel-stage-date').forEach(button => button.addEventListener('click', async () => {
+          const unit = hotelUnits.find(item => item.id === button.dataset.id);
+          if (!unit || !isAdmin()) return;
+          const stage = unit.stages[Number(button.dataset.stage)];
+          const dateText = window.prompt(
+            'Fecha y hora real de la T (AAAA-MM-DD HH:MM).\nDéjala vacía para volver a dejar la T pendiente:',
+            stage.done && stage.completedAt ? stageDateForEdit(stage.completedAt) : stageDateForEdit()
+          );
+          if (dateText === null) return;
+          const normalized = dateText.trim();
+          if (normalized && !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(normalized)) {
+            window.alert('Usa el formato AAAA-MM-DD HH:MM. Ejemplo: 2026-08-03 16:30.');
+            return;
+          }
+          const parsedDate = normalized ? new Date(normalized.replace(' ','T')) : null;
+          if (parsedDate && Number.isNaN(parsedDate.getTime())) {
+            window.alert('La fecha introducida no es válida.');
+            return;
+          }
+          button.disabled = true;
+          const { error } = await supabaseClient.from('etapas_hotel').update({
+            estado:normalized?'realizada':'pendiente',
+            fecha_real:parsedDate ? parsedDate.toISOString() : null,
+            motivo_anulacion:'', modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+          }).eq('id',stage.id);
+          if (error) window.alert('No se pudo modificar la fecha de la T: ' + error.message);
           await loadHotelFromSupabase(false);
         }));
         root.querySelectorAll('.hotel-stage-edit').forEach(button => button.addEventListener('click', async () => {
