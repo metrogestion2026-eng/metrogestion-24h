@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.9</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.10</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -428,8 +428,9 @@
       <div id="activation-call" class="card stack hidden">
         <strong>Llamada y activación</strong>
         <div id="activation-call-detail" class="text-small text-muted">Se utilizará el teléfono 24H registrado para el vehículo.</div>
-        <button id="activation-call-button" class="btn btn-primary" type="button">📞 Llamar al 24H</button>
-        <button id="activation-call-fallback" class="btn btn-secondary hidden" type="button">No tengo acceso · Llamar a Service24h</button>
+        <button id="activation-call-button" class="btn btn-primary hidden" type="button">Abrir My TruckPoint</button>
+        <a id="activation-phone-link" class="btn btn-primary hidden" href="#">📞 Teléfono 24H</a>
+        <a id="activation-call-fallback" class="btn btn-secondary hidden" href="#">No tengo acceso · Service24h</a>
         <div class="card stack" style="background:#f8fafc">
           <strong>Datos para comunicar durante la llamada</strong>
           <div id="activation-call-summary" class="stack"></div>
@@ -524,45 +525,43 @@
         }
         return localIso;
       };
-      const dialAssistancePhone = assistance24h => {
-        const detail = root.querySelector('#activation-call-detail');
-        const phone = String(assistance24h?.phone || '');
+      const configureAssistancePhoneLink = (link, assistance24h, prefix) => {
+        const phone = String(assistance24h?.phone || '').trim();
         const dialNumber = phone.replace(/[^+\d]/g, '');
-        if (!dialNumber) {
-          detail.style.color = '#b91c1c';
-          detail.style.fontWeight = '700';
-          detail.textContent = 'No hay teléfono 24H en el manual para esta marca. Contacta con TM, Gestión de Mantenimiento BCN o Área de Mantenimiento.';
-          return;
-        }
-        detail.style.color = '';
-        detail.style.fontWeight = '';
-        detail.textContent = (assistance24h.name || 'Asistencia 24H') + ' · ' + phone +
-          '. Cuando se abra la llamada, activa el altavoz manualmente y vuelve a Metrogestión para consultar los datos.';
-        registerActivationMoment();
-        saveActivationCallDraft();
-        // El enlace telefónico entrega la llamada a Android sin sustituir
-        // la pantalla de Metrogestión en la tarea de la PWA.
-        const dialLink = document.createElement('a');
-        dialLink.href = 'tel:' + dialNumber;
-        dialLink.style.display = 'none';
-        document.body.append(dialLink);
-        dialLink.click();
-        setTimeout(() => dialLink.remove(), 1000);
+        link.classList.toggle('hidden', !dialNumber);
+        link.href = dialNumber ? 'tel:' + dialNumber : '#';
+        link.textContent = dialNumber
+          ? '📞 ' + (prefix || 'Llamar a ') + (assistance24h.name || 'Asistencia 24H') + ' · ' + phone
+          : 'Teléfono 24H no disponible';
+        link.onclick = dialNumber ? () => {
+          registerActivationMoment();
+          saveActivationCallDraft();
+        } : event => event.preventDefault();
+        return Boolean(dialNumber);
       };
       const prepareAssistanceStep = () => {
         const vehicle = currentActivationVehicle();
         const assistance24h = resolveVehicleAssistance(vehicle);
         const isMercedes = String(vehicle.brand || '').toUpperCase().includes('MERCEDES');
         const primary = root.querySelector('#activation-call-button');
+        const phoneLink = root.querySelector('#activation-phone-link');
         const fallback = root.querySelector('#activation-call-fallback');
         const detail = root.querySelector('#activation-call-detail');
-        fallback.classList.toggle('hidden', !isMercedes);
-        primary.textContent = isMercedes ? 'Abrir My TruckPoint' : '📞 Llamar al 24H';
+        primary.classList.toggle('hidden', !isMercedes);
+        primary.textContent = 'Abrir My TruckPoint';
+        phoneLink.classList.add('hidden');
+        fallback.classList.add('hidden');
+        if (isMercedes) {
+          configureAssistancePhoneLink(fallback, assistance24h, 'No tengo acceso · Llamar a ');
+          fallback.classList.remove('hidden');
+        } else {
+          configureAssistancePhoneLink(phoneLink, assistance24h, 'Llamar a ');
+        }
         detail.style.color = '';
         detail.style.fontWeight = '';
         detail.textContent = isMercedes
-          ? 'Mercedes-Benz: crea primero la asistencia en My TruckPoint. Solo si no tienes acceso, utiliza Service24h · 00 800 57 777 777.'
-          : ([assistance24h.name, assistance24h.phone, assistance24h.note].filter(Boolean).join(' · ') || 'Consulta el canal 24H del manual.');
+          ? 'Mercedes-Benz: crea primero la asistencia en My TruckPoint. Si no tienes acceso, pulsa el enlace telefónico alternativo.'
+          : ([assistance24h.name, assistance24h.phone, assistance24h.note].filter(Boolean).join(' · ') || 'No hay teléfono 24H disponible para esta marca. Contacta con TM, Gestión de Mantenimiento BCN o Área de Mantenimiento.');
         const callSummary = root.querySelector('#activation-call-summary');
         const preparedSummary = root.querySelector('#activation-summary');
         callSummary.replaceChildren(...Array.from(preparedSummary.children, item => item.cloneNode(true)));
@@ -1873,18 +1872,10 @@
       root.querySelector('#activation-call-button').addEventListener('click', () => {
         const vehicle = currentActivationVehicle();
         const assistance24h = resolveVehicleAssistance(vehicle);
-        if (String(vehicle.brand || '').toUpperCase().includes('MERCEDES')) {
-          registerActivationMoment();
-          saveActivationCallDraft();
-          window.open(assistance24h.primaryUrl, '_blank', 'noopener');
-          return;
-        }
-        dialAssistancePhone(assistance24h);
-      });
-      root.querySelector('#activation-call-fallback').addEventListener('click', () => {
-        const vehicle = currentActivationVehicle();
-        const assistance24h = resolveVehicleAssistance(vehicle);
-        dialAssistancePhone(assistance24h);
+        if (!String(vehicle.brand || '').toUpperCase().includes('MERCEDES')) return;
+        registerActivationMoment();
+        saveActivationCallDraft();
+        window.open(assistance24h.primaryUrl, '_blank', 'noopener');
       });
       root.querySelector('#call-next').addEventListener('click', () => {
         if (!root.querySelector('#activation-case-number').value.trim() || !root.querySelector('#activation-eta').value) {
@@ -1998,7 +1989,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=34');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=35');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
