@@ -85,6 +85,11 @@
     #incidence-access-mockup .hotel-unit.status-workshop { background:#f4ecfb; border-left-color:#bca0d8; }
     #incidence-access-mockup .hotel-unit.status-ready { background:#eaf4ff; border-left-color:#8dbce5; }
     #incidence-access-mockup .hotel-unit.status-route { background:#fff0df; border-left-color:#e6a564; }
+    #incidence-access-mockup .hotel-unit.contract-expired { border-color:#dc2626; box-shadow:0 0 0 3px rgba(220,38,38,.16), 0 10px 24px rgba(127,29,29,.12); }
+    #incidence-access-mockup .hotel-contract-alerts { display:grid; gap:8px; }
+    #incidence-access-mockup .hotel-contract-alert { display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border:2px solid #dc2626; border-radius:11px; background:#fff1f2; color:#991b1b; font-weight:800; }
+    #incidence-access-mockup .hotel-contract-alert .contract-icon { font-size:22px; line-height:1; }
+    #incidence-access-mockup .metric.contract-metric { border-color:#dc2626; background:#fff1f2; color:#991b1b; }
     #incidence-access-mockup .hotel-title { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     #incidence-access-mockup .hotel-primary { display:grid; gap:2px; }
     #incidence-access-mockup .hotel-primary strong { font-size:19px; }
@@ -1092,6 +1097,39 @@
         ['otro','Otro movimiento']
       ];
       const movementLabel = value => hotelMovementOptions.find(option => option[0] === value)?.[1] || 'Otro movimiento';
+      const vehicleContractAlert = (dfm, plate, role) => {
+        const code = String(dfm || '').trim().toUpperCase();
+        const registration = String(plate || '').trim().toUpperCase();
+        if (!code && !registration) return null;
+        const vehicle = vehicleIndex.find(item => item.dfm === code || (registration && item.plate === registration));
+        if (!vehicle?.registrationDate) return null;
+        const years = vehicle.vehicleClass.includes('tractora') ? 3
+          : vehicle.vehicleClass.includes('rigid') ? 4 : 0;
+        if (!years) return null;
+        const expiry = new Date(vehicle.registrationDate + 'T12:00:00');
+        expiry.setFullYear(expiry.getFullYear() + years);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        if (today <= expiry) return null;
+        return {
+          role,
+          dfm:vehicle.dfm || code,
+          plate:vehicle.plate || registration,
+          expiry,
+          reason:'fecha contractual superada'
+        };
+      };
+      const contractAlertsForUnit = unit => [
+        vehicleContractAlert(unit.fleet, unit.fleetPlate, 'Vehículo de flota'),
+        vehicleContractAlert(unit.reserve, unit.reservePlate, 'Reserva')
+      ].filter(Boolean);
+      const renderContractAlerts = unit => {
+        const alerts = contractAlertsForUnit(unit);
+        if (!alerts.length) return '';
+        return `<div class="hotel-contract-alerts" role="alert">${alerts.map(alert =>
+          `<div class="hotel-contract-alert"><span class="contract-icon" aria-hidden="true">⚠</span><div>FUERA DE CONTRATO · ${escapeHtml(alert.role)} ${escapeHtml(alert.dfm)} · ${escapeHtml(alert.plate)}<div class="text-small">${escapeHtml(alert.reason)} desde ${escapeHtml(alert.expiry.toLocaleDateString('es-ES'))}</div></div></div>`
+        ).join('')}</div>`;
+      };
       const stateLabelFromDb = row => {
         const label = hotelStatusOptions.find(option => option[0] === row.estado)?.[1] || (row.estado === 'anulado' ? 'Anulado' : row.estado);
         return hotelWorkshopStates.includes(row.estado) && row.fecha_entrada
@@ -1282,7 +1320,7 @@
         ['ready','Terminado, pendiente de recoger'], ['route','Recogido, pendiente de recuperar ruta'], ['free','Reserva libre']
       ];
       const hotelSourceDate = '03/08/2026';
-      const renderMetric = (label,value,filter) => `<button class="metric hotel-metric-filter ${hotelMetricFilter===filter?'active':''}" data-filter="${filter}" type="button"><strong>${value}</strong><span class="text-small text-muted">${escapeHtml(label)}</span></button>`;
+      const renderMetric = (label,value,filter) => `<button class="metric hotel-metric-filter ${filter==='contract-expired'?'contract-metric':''} ${hotelMetricFilter===filter?'active':''}" data-filter="${filter}" type="button"><strong>${value}</strong><span class="text-small text-muted">${escapeHtml(label)}</span></button>`;
       const nextStageIndex = unit => unit.stages.findIndex(stage => !stage.done && stage.status !== 'anulada');
       const formatStageDate = value => value ? new Date(value).toLocaleString('es-ES', {
         timeZone:'Europe/Madrid', day:'2-digit', month:'2-digit', year:'numeric',
@@ -1304,13 +1342,15 @@
         const workshop = hotelUnits.filter(unit => hotelWorkshopStates.includes(unit.dbState)).length;
         const ready = hotelUnits.filter(unit => unit.dbState === 'terminado_pendiente_recogida').length;
         const route = hotelUnits.filter(unit => unit.dbState === 'recogido_pendiente_ruta').length;
+        const expiredContracts = hotelUnits.filter(unit => contractAlertsForUnit(unit).length).length;
         const markup = renderMetric('Movimientos activos',active,'occupied')
           +renderMetric('Reservas libres',free,'free')
           +renderMetric('Pendientes de parar',planned,'planned')
           +renderMetric('Pendientes de taller',pendingWorkshop,'pending-workshop')
           +renderMetric('En taller',workshop,'workshop')
           +renderMetric('Terminados para recoger',ready,'ready')
-          +renderMetric('Recogidos, recuperar ruta',route,'route');
+          +renderMetric('Recogidos, recuperar ruta',route,'route')
+          +renderMetric('Fuera de contrato',expiredContracts,'contract-expired');
         root.querySelector('#hotel-summary-cards').innerHTML = markup;
         root.querySelector('#hotel-dashboard-cards').innerHTML = markup;
         const workshopUnits = hotelUnits.filter(unit => unit.state === 'workshop');
@@ -1330,6 +1370,7 @@
         }));
       };
       const renderHotelUnit = unit => {
+        const contractAlerts = contractAlertsForUnit(unit);
         const currentStage = nextStageIndex(unit);
         const activeStages = unit.stages.filter(stage => stage.status !== 'anulada');
         const completedStages = activeStages.filter(stage => stage.done).length;
@@ -1372,8 +1413,9 @@
           <div class="text-small hotel-edit-message"></div>
         </div>` : '';
         const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${isAdmin()?`<select class="form-select hotel-stage-action" data-id="${escapeHtml(unit.id)}" data-stage="${index}" aria-label="Acciones de ${index+1}T"><option value="">Acciones T</option>${!stage.done&&stage.status!=='anulada'?'<option value="done">Marcar realizada</option>':''}<option value="date">Editar fecha</option><option value="edit">Modificar T</option>${stage.status!=='anulada'?'<option value="annul">Anular T</option>':''}</select>${!stage.done&&stage.status!=='anulada'?`<button class="hotel-stage-hidden-action hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}<button class="hotel-stage-hidden-action hotel-stage-date" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar fecha T</button><button class="hotel-stage-hidden-action hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="hotel-stage-hidden-action hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}<div class="stage-date-editor hidden" data-id="${escapeHtml(unit.id)}" data-stage="${index}"><label>Fecha y hora real<input class="form-control hotel-stage-date-input" type="datetime-local" value="${escapeHtml(stageDateForEdit(stage.completedAt).replace(' ','T'))}"></label><button class="btn btn-primary hotel-stage-date-save" type="button">Guardar fecha</button><button class="btn btn-secondary hotel-stage-date-pending" type="button">Dejar pendiente</button></div>`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
-        return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
+        return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)} ${contractAlerts.length?'contract-expired':''}">
           <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>${stopDateControl}`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
+          ${renderContractAlerts(unit)}
           <div class="detail-grid"><div><span class="text-small">Marca</span><strong>${escapeHtml(unit.brand||'—')}</strong></div><div><span class="text-small">Tipo de motor</span><strong>${escapeHtml(unit.engine||'—')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong>${entryDateControl}</div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehículo sustituido</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapas realizadas</span><strong>${activeStages.length?`${completedStages} de ${activeStages.length}`:'—'}</strong></div></div>
           ${stages}
           ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar todos los datos</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ Añadir T</button></div>`:''}
@@ -1495,13 +1537,22 @@
             fecha_limite_sustitucion:temporary ? new Date(value('temporaryLimit')).toISOString() : null,
             es_flota:Boolean(value('fleet')), modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
           };
-          const { error } = await supabaseClient.from('registros_hotel').update(payload).eq('id',button.dataset.id);
+          const { data:updatedRow, error } = await supabaseClient.from('registros_hotel')
+            .update(payload).eq('id',button.dataset.id).select('*').single();
           if (error) {
             message.textContent = 'No se pudo guardar: ' + error.message;
             button.disabled = false;
             return;
           }
           message.textContent = 'Datos guardados correctamente';
+          const unitIndex = hotelUnits.findIndex(item => item.id === button.dataset.id);
+          if (unitIndex >= 0 && updatedRow) {
+            updatedRow.etapas_hotel = hotelUnits[unitIndex].stages.map((stage,index) => ({
+              id:stage.id, nombre:stage.name, estado:stage.status, lugar:stage.location,
+              motivo_anulacion:stage.reason, fecha_real:stage.completedAt, posicion:index + 1
+            }));
+            hotelUnits[unitIndex] = mapDbHotelUnit(updatedRow);
+          }
           await loadHotelFromSupabase(false);
         }));
         root.querySelectorAll('.hotel-stage-done').forEach(button => button.addEventListener('click', async () => {
@@ -1616,9 +1667,10 @@
           || (hotelMetricFilter === 'pending-workshop' && unit.dbState === 'pendiente_taller')
           || (hotelMetricFilter === 'workshop' && hotelWorkshopStates.includes(unit.dbState))
           || (hotelMetricFilter === 'ready' && unit.dbState === 'terminado_pendiente_recogida')
-          || (hotelMetricFilter === 'route' && unit.dbState === 'recogido_pendiente_ruta');
+          || (hotelMetricFilter === 'route' && unit.dbState === 'recogido_pendiente_ruta')
+          || (hotelMetricFilter === 'contract-expired' && contractAlertsForUnit(unit).length);
         const visible = hotelUnits.filter(unit => matchesMetric(unit) && (!query || Object.values(unit).flat(3).join(' ').toLowerCase().includes(query)));
-        const filterLabels = {occupied:'Movimientos activos',free:'Reservas libres',planned:'Pendientes de parar','pending-workshop':'Pendientes de taller',workshop:'Vehículos en taller',ready:'Terminados para recoger',route:'Recogidos, recuperar ruta'};
+        const filterLabels = {occupied:'Movimientos activos',free:'Reservas libres',planned:'Pendientes de parar','pending-workshop':'Pendientes de taller',workshop:'Vehículos en taller',ready:'Terminados para recoger',route:'Recogidos, recuperar ruta','contract-expired':'Fuera de contrato'};
         const activeFilter = root.querySelector('#hotel-active-filter');
         activeFilter.classList.toggle('hidden', hotelMetricFilter === 'all');
         activeFilter.innerHTML = hotelMetricFilter === 'all' ? '' : `<div class="viz-row"><strong>Mostrando: ${filterLabels[hotelMetricFilter]}</strong><button id="hotel-clear-filter" class="btn btn-secondary" type="button">Mostrar todo</button></div>`;
