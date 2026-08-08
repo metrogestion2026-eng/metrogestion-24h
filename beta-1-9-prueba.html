@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.21</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.22</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -548,7 +548,14 @@
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
         global: { headers: { 'x-device-token': deviceToken } }
       });
-      const incidences = [];
+      const incidenceStorageKey = 'metrogestion24h_saved_incidents_v1';
+      let incidences = [];
+      try {
+        incidences = JSON.parse(localStorage.getItem(incidenceStorageKey) || '[]');
+        if (!Array.isArray(incidences)) incidences = [];
+      } catch {
+        incidences = [];
+      }
       let generatedFollowPdf = null;
       let generatedFollowPdfUrl = '';
       let capturedFollowPhotos = [];
@@ -2290,10 +2297,8 @@
         const attachmentFiles = selectedFollowFiles();
         const attachmentCount = attachmentFiles.length;
         const attachmentType = root.querySelector('#activation-attachment-type').value;
-        if (attachmentType === 'document-photo' && attachmentCount && !generatedFollowPdf) {
-          followMessage.textContent = 'Convierte primero las fotografías del documento en PDF o cambia el tipo de archivo.';
-          return;
-        }
+        // Las fotografías y los documentos son opcionales. Si aún no se ha
+        // generado el PDF, la incidencia se guarda igualmente como pendiente.
         incidences.unshift({
           id: 'INC-MAQUETA-' + String(incidences.length + 1).padStart(3, '0'),
           creator: sessionUser,
@@ -2316,8 +2321,18 @@
               ? attachmentCount + ' archivo(s) seleccionado(s)'
               : 'Fotografías o documentos pendientes'
         });
+        try {
+          localStorage.setItem(incidenceStorageKey, JSON.stringify(incidences));
+        } catch (error) {
+          console.warn('No se pudo conservar la copia local de incidencias', error);
+        }
+        const savedIncidence = incidences[0];
         clearActivationProgress();
+        root.querySelector('#incidence-search').value = '';
         setView('mine');
+        root.querySelector('#view-heading .text-small').textContent =
+          savedIncidence.id + ' guardada correctamente. Pulsa sobre ella para consultar todos los datos.';
+        window.scrollTo({top:0, behavior:'smooth'});
       });
       const fixedLocations = {
         'Bloque logístico Abrera': 'GV6V+62 Abrera',
@@ -2411,7 +2426,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=46');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=47');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
