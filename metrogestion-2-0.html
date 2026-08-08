@@ -89,6 +89,8 @@
     #incidence-access-mockup .hotel-primary { display:grid; gap:2px; }
     #incidence-access-mockup .hotel-primary strong { font-size:19px; }
     #incidence-access-mockup .hotel-reserve { color:var(--muted-foreground); font-size:13px; font-weight:650; }
+    #incidence-access-mockup .hotel-stop-date-control { display:flex; gap:7px; align-items:center; flex-wrap:wrap; color:var(--muted-foreground); font-size:13px; font-weight:700; }
+    #incidence-access-mockup .hotel-stop-date-control input { width:auto; min-height:36px; padding:5px 8px; }
     #incidence-access-mockup .badge { display:inline-flex; align-items:center; min-height:28px; padding:4px 9px; border-radius:999px; background:rgba(255,255,255,.72); border:1px solid rgba(82,98,115,.22); font-size:12px; font-weight:750; }
     #incidence-access-mockup .priority-1 { color:#991b1b; border-color:#fecaca; background:#fff1f2; }
     #incidence-access-mockup .stage-list { display:grid; gap:7px; margin:0; padding:0; list-style:none; }
@@ -1265,6 +1267,9 @@
         const activeStages = unit.stages.filter(stage => stage.status !== 'anulada');
         const completedStages = activeStages.filter(stage => stage.done).length;
         const shownStopDate = unit.stopDate ? new Date(unit.stopDate + 'T12:00:00').toLocaleDateString('es-ES') : 'Fecha de parada pendiente';
+        const stopDateControl = unit.fleet ? (isAdmin()
+          ? `<label class="hotel-stop-date-control">Parado: <input class="form-control hotel-stop-date" data-id="${escapeHtml(unit.id)}" type="date" value="${escapeHtml(unit.stopDate)}"></label>`
+          : `<span class="hotel-reserve">Parado: ${escapeHtml(shownStopDate)}</span>`) : '';
         const statusControl = isAdmin() ? `<select class="hotel-status-select" data-id="${escapeHtml(unit.id)}" aria-label="Estado de ${escapeHtml(unit.fleet || unit.reserve)}">${hotelStatusOptions.map(option=>`<option value="${option[0]}" ${unit.dbState===option[0]?'selected':''}>${escapeHtml(option[1])}</option>`).join('')}</select>` : `<span class="badge">${escapeHtml(unit.stateLabel)}</span>`;
         const editPanel = isAdmin() ? `<div class="hotel-edit-panel stack hidden" data-id="${escapeHtml(unit.id)}">
           <strong>Modificar todos los datos de la ficha</strong>
@@ -1296,7 +1301,7 @@
         </div>` : '';
         const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${!stage.done && stage.status!=='anulada' && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}${isAdmin()?`<button class="btn btn-secondary hotel-stage-date" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar fecha T</button><button class="btn btn-secondary hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="btn btn-secondary hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}<div class="stage-date-editor hidden" data-id="${escapeHtml(unit.id)}" data-stage="${index}"><label>Fecha y hora real<input class="form-control hotel-stage-date-input" type="datetime-local" value="${escapeHtml(stageDateForEdit(stage.completedAt).replace(' ','T'))}"></label><button class="btn btn-primary hotel-stage-date-save" type="button">Guardar fecha</button><button class="btn btn-secondary hotel-stage-date-pending" type="button">Dejar pendiente</button></div>`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
         return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
-          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)} · Parado: ${escapeHtml(shownStopDate)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
+          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>${stopDateControl}`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
           <div class="detail-grid"><div><span class="text-small">Marca</span><strong>${escapeHtml(unit.brand||'—')}</strong></div><div><span class="text-small">Tipo de motor</span><strong>${escapeHtml(unit.engine||'—')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehículo sustituido</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapas realizadas</span><strong>${activeStages.length?`${completedStages} de ${activeStages.length}`:'—'}</strong></div></div>
           ${stages}
           ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar ficha</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ Añadir T</button></div>`:''}
@@ -1304,6 +1309,20 @@
         </article>`;
       };
       const bindHotelStageButtons = () => {
+        root.querySelectorAll('.hotel-stop-date').forEach(input => input.addEventListener('change', async event => {
+          if (!isAdmin()) return;
+          const previousValue = hotelUnits.find(item => item.id === event.currentTarget.dataset.id)?.stopDate || '';
+          event.currentTarget.disabled = true;
+          const { error } = await supabaseClient.from('registros_hotel').update({
+            fecha_parada:event.currentTarget.value || null,
+            modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+          }).eq('id',event.currentTarget.dataset.id);
+          if (error) {
+            event.currentTarget.value = previousValue;
+            window.alert('No se pudo cambiar la fecha de parada: ' + error.message);
+          }
+          await loadHotelFromSupabase(false);
+        }));
         root.querySelectorAll('.hotel-status-select').forEach(select => select.addEventListener('change', async event => {
           if (!isAdmin()) return;
           const unit = hotelUnits.find(item => item.id === event.currentTarget.dataset.id);
