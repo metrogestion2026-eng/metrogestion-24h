@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.13</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.14</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -498,8 +498,13 @@
               <option value="document-photo">Foto de documento · convertir a PDF</option>
             </select>
           </label>
-          <label id="activation-attachment-label">Seleccionar fotografía
-            <input id="activation-follow-files" class="form-control" type="file" accept="image/*" capture="environment" multiple>
+          <div id="activation-camera-controls" class="stack">
+            <label class="btn btn-primary" for="activation-camera-photo">📷 Tomar foto con la cámara</label>
+            <input id="activation-camera-photo" class="hidden" type="file" accept="image/*" capture="environment">
+            <div id="activation-camera-count" class="text-small text-muted">Todavía no se han tomado fotografías.</div>
+          </div>
+          <label id="activation-attachment-label">Seleccionar fotografía o imagen guardada
+            <input id="activation-follow-files" class="form-control" type="file" accept="image/*" multiple>
           </label>
           <button id="activation-convert-pdf" class="btn btn-secondary hidden" type="button">Convertir las fotos en PDF</button>
           <div id="activation-attachment-message" class="text-small text-muted">Puedes adjuntar varias fotografías.</div>
@@ -536,6 +541,7 @@
       const incidences = [];
       let generatedFollowPdf = null;
       let generatedFollowPdfUrl = '';
+      let capturedFollowPhotos = [];
       let knownDfms = [];
       let vehicleIndex = [];
       const brandAssistance24h = [
@@ -2017,32 +2023,60 @@
         link.classList.add('hidden');
         link.removeAttribute('href');
       };
+      const selectedFollowFiles = () => [
+        ...capturedFollowPhotos,
+        ...Array.from(root.querySelector('#activation-follow-files').files || [])
+      ];
+      const renderCapturedPhotoCount = () => {
+        root.querySelector('#activation-camera-count').textContent = capturedFollowPhotos.length
+          ? capturedFollowPhotos.length + ' fotografía(s) tomada(s) con la cámara.'
+          : 'Todavía no se han tomado fotografías.';
+      };
       root.querySelector('#activation-attachment-type').addEventListener('change', event => {
         const input = root.querySelector('#activation-follow-files');
         const label = root.querySelector('#activation-attachment-label');
         const convert = root.querySelector('#activation-convert-pdf');
         const message = root.querySelector('#activation-attachment-message');
+        const cameraControls = root.querySelector('#activation-camera-controls');
         clearGeneratedFollowPdf();
+        capturedFollowPhotos = [];
+        renderCapturedPhotoCount();
         input.value = '';
         if (event.target.value === 'document') {
           input.accept = 'application/pdf,.pdf,.doc,.docx,.xls,.xlsx,image/*';
           input.removeAttribute('capture');
+          cameraControls.classList.add('hidden');
           label.firstChild.textContent = 'Seleccionar documento ';
           convert.classList.add('hidden');
           message.textContent = 'Puedes seleccionar un PDF, Word, Excel o una imagen.';
         } else if (event.target.value === 'document-photo') {
           input.accept = 'image/*';
-          input.setAttribute('capture','environment');
-          label.firstChild.textContent = 'Fotografiar las páginas del documento ';
+          input.removeAttribute('capture');
+          cameraControls.classList.remove('hidden');
+          label.firstChild.textContent = 'Seleccionar páginas ya fotografiadas ';
           convert.classList.remove('hidden');
           message.textContent = 'Fotografía una o varias páginas y pulsa «Convertir las fotos en PDF».';
         } else {
           input.accept = 'image/*';
-          input.setAttribute('capture','environment');
-          label.firstChild.textContent = 'Seleccionar fotografía ';
+          input.removeAttribute('capture');
+          cameraControls.classList.remove('hidden');
+          label.firstChild.textContent = 'Seleccionar fotografía o imagen guardada ';
           convert.classList.add('hidden');
           message.textContent = 'Puedes adjuntar varias fotografías.';
         }
+      });
+      root.querySelector('#activation-camera-photo').addEventListener('change', event => {
+        const photo = event.target.files?.[0];
+        if (!photo) return;
+        capturedFollowPhotos.push(photo);
+        clearGeneratedFollowPdf();
+        renderCapturedPhotoCount();
+        const total = selectedFollowFiles().length;
+        root.querySelector('#activation-attachment-message').textContent =
+          root.querySelector('#activation-attachment-type').value === 'document-photo'
+            ? total + ' página(s) preparadas. Puedes tomar otra foto o convertirlas en PDF.'
+            : total + ' fotografía(s) preparadas para adjuntar.';
+        event.target.value = '';
       });
       root.querySelector('#activation-follow-files').addEventListener('change', () => {
         clearGeneratedFollowPdf();
@@ -2066,7 +2100,7 @@
         image.src = source;
       });
       root.querySelector('#activation-convert-pdf').addEventListener('click', async event => {
-        const files = Array.from(root.querySelector('#activation-follow-files').files || []);
+        const files = selectedFollowFiles();
         const message = root.querySelector('#activation-attachment-message');
         if (!files.length) {
           message.textContent = 'Primero fotografía o selecciona al menos una página.';
@@ -2131,8 +2165,8 @@
         rememberFaultDescription(root.querySelector('#activation-fault-text').value);
         const code = root.querySelector('#activation-dfm').dataset.dfm;
         const vehicle = vehicleIndex.find(item => item.dfm === code);
-        const attachmentFiles = root.querySelector('#activation-follow-files').files;
-        const attachmentCount = attachmentFiles?.length || 0;
+        const attachmentFiles = selectedFollowFiles();
+        const attachmentCount = attachmentFiles.length;
         const attachmentType = root.querySelector('#activation-attachment-type').value;
         if (attachmentType === 'document-photo' && attachmentCount && !generatedFollowPdf) {
           followMessage.textContent = 'Convierte primero las fotografías del documento en PDF o cambia el tipo de archivo.';
@@ -2232,7 +2266,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=38');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=39');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
