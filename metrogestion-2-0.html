@@ -97,6 +97,7 @@
     #incidence-access-mockup .stage.annulled { background:#f1f5f9; color:#64748b; text-decoration:line-through; }
     #incidence-access-mockup .hotel-actions { display:flex; gap:8px; flex-wrap:wrap; }
     #incidence-access-mockup .hotel-actions .btn { min-height:38px; padding:7px 10px; font-size:13px; }
+    #incidence-access-mockup .hotel-status-select { width:min(100%,310px); min-height:36px; padding:5px 30px 5px 10px; border:1px solid rgba(82,98,115,.3); border-radius:10px; background:#fff; color:inherit; font-weight:750; }
     #incidence-access-mockup .sync-note { border-left:4px solid #f59e0b; background:#fffbeb; }
     #incidence-access-mockup .safety-check { display:grid; gap:8px; padding:10px 0; }
     #incidence-access-mockup .safety-check input[type="checkbox"] { width:28px; height:28px; margin:0; accent-color:var(--primary); }
@@ -1052,23 +1053,35 @@
         return match ? `${match[3]}-${match[2]}-${match[1]}T00:00:00+02:00` : null;
       };
       const uiStateFromDb = state => ({
-        planificado:'plan', pendiente_taller:'plan', en_taller:'workshop',
+        planificado:'plan', pendiente_taller:'plan', pendiente_diagnostico:'workshop',
+        pendiente_autorizacion:'workshop', en_taller:'workshop', pendiente_repuestos:'workshop',
         terminado_pendiente_recogida:'ready', recogido_pendiente_ruta:'route',
         reserva_liberada:'free', anulado:'plan'
       }[state] || 'plan');
-      const stateLabelFromDb = row => ({
-        planificado:'Parar', pendiente_taller:'Pendiente de llevar al taller',
-        terminado_pendiente_recogida:'Terminado, pendiente de recoger',
-        recogido_pendiente_ruta:'Recogido, pendiente de recuperar ruta',
-        reserva_liberada:'Reserva libre', anulado:'Anulado'
-      }[row.estado] || (row.estado === 'en_taller'
-        ? `En taller${row.fecha_entrada ? ' desde ' + new Date(row.fecha_entrada).toLocaleDateString('es-ES') : ''}`
-        : row.estado));
+      const hotelStatusOptions = [
+        ['planificado','Pendiente de parar'],
+        ['pendiente_taller','Pendiente de llevar al taller'],
+        ['pendiente_diagnostico','Pendiente de diagnóstico'],
+        ['pendiente_autorizacion','Pendiente de autorización'],
+        ['en_taller','Realizando trabajos en taller'],
+        ['pendiente_repuestos','Pendiente de repuestos'],
+        ['terminado_pendiente_recogida','Terminado, pendiente de recoger'],
+        ['recogido_pendiente_ruta','Recogido, pendiente de recuperar ruta'],
+        ['reserva_liberada','Reserva libre']
+      ];
+      const hotelWorkshopStates = ['pendiente_diagnostico','pendiente_autorizacion','en_taller','pendiente_repuestos'];
+      const stateLabelFromDb = row => {
+        const label = hotelStatusOptions.find(option => option[0] === row.estado)?.[1] || (row.estado === 'anulado' ? 'Anulado' : row.estado);
+        return hotelWorkshopStates.includes(row.estado) && row.fecha_entrada
+          ? `${label} desde ${new Date(row.fecha_entrada).toLocaleDateString('es-ES')}`
+          : label;
+      };
       const mapDbHotelUnit = row => ({
         id:row.id, reserve:row.vehiculo_reserva, reservePlate:row.matricula_reserva,
         reserveLabel:row.etiqueta_reserva || row.tipo_unidad || '',
         fleet:row.vehiculo_sustituido || '', fleetPlate:row.matricula_sustituido || '',
-        upc:row.upc || '', location:row.lugar || '', state:uiStateFromDb(row.estado),
+        upc:row.upc || '', location:row.lugar || '', state:uiStateFromDb(row.estado), dbState:row.estado,
+        entryDate:row.fecha_entrada || '',
         stateLabel:stateLabelFromDb(row), cause:row.causa || '',
         reserveTasks:row.trabajos_reserva || '—', priority:row.prioridad,
         inc:row.incidencia || 'Sin incidencia', next:row.proximo || '', model:row.modelo || '',
@@ -1232,15 +1245,34 @@
       };
       const renderHotelUnit = unit => {
         const currentStage = nextStageIndex(unit);
+        const statusControl = isAdmin() ? `<select class="hotel-status-select" data-id="${escapeHtml(unit.id)}" aria-label="Estado de ${escapeHtml(unit.fleet || unit.reserve)}">${hotelStatusOptions.map(option=>`<option value="${option[0]}" ${unit.dbState===option[0]?'selected':''}>${escapeHtml(option[1])}</option>`).join('')}</select>` : `<span class="badge">${escapeHtml(unit.stateLabel)}</span>`;
         const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${!stage.done && stage.status!=='anulada' && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}${isAdmin()?`<button class="btn btn-secondary hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="btn btn-secondary hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
         return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
-          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span> <span class="badge">${escapeHtml(unit.stateLabel)}</span></div></div>
+          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
           <div class="detail-grid"><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehículo sustituido</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
           ${stages}
           ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar ficha</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ Añadir T</button></div>`:''}
         </article>`;
       };
       const bindHotelStageButtons = () => {
+        root.querySelectorAll('.hotel-status-select').forEach(select => select.addEventListener('change', async event => {
+          if (!isAdmin()) return;
+          const unit = hotelUnits.find(item => item.id === event.currentTarget.dataset.id);
+          if (!unit) return;
+          const previousState = unit.dbState;
+          const nextState = event.currentTarget.value;
+          event.currentTarget.disabled = true;
+          const payload = {
+            estado:nextState, modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+          };
+          if (hotelWorkshopStates.includes(nextState) && !unit.entryDate) payload.fecha_entrada = new Date().toISOString();
+          const { error } = await supabaseClient.from('registros_hotel').update(payload).eq('id',unit.id);
+          if (error) {
+            event.currentTarget.value = previousState;
+            window.alert('No se pudo cambiar el estado: ' + error.message);
+          }
+          await loadHotelFromSupabase(false);
+        }));
         root.querySelectorAll('.hotel-unit-edit').forEach(button => button.addEventListener('click', async () => {
           const unit = hotelUnits.find(item => item.id === button.dataset.id);
           if (!unit || !isAdmin()) return;
@@ -1252,23 +1284,9 @@
           if (priorityText === null) return;
           const priority = Number(priorityText);
           if (![1,2,3,4,5].includes(priority)) { window.alert('La prioridad debe estar entre 1 y 5.'); return; }
-          const states = ['planificado','pendiente_taller','en_taller','terminado_pendiente_recogida','recogido_pendiente_ruta','reserva_liberada'];
-          const currentDbState = dbStateFromUnit(unit);
-          const stateText = window.prompt('Estado: 1 Parar · 2 Pendiente de taller · 3 En taller · 4 Terminado pendiente de recoger · 5 Recogido pendiente de ruta · 6 Reserva liberada', String(Math.max(1,states.indexOf(currentDbState)+1)));
-          if (stateText === null) return;
-          const state = states[Number(stateText)-1];
-          if (!state) { window.alert('Selecciona un estado del 1 al 6.'); return; }
-          let entryDate = null;
-          if (state === 'en_taller') {
-            const currentDate = isoDateFromText(unit.stateLabel)?.slice(0,10) || new Date().toISOString().slice(0,10);
-            const dateText = window.prompt('Fecha de entrada en taller (AAAA-MM-DD):', currentDate);
-            if (dateText === null) return;
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText)) { window.alert('La fecha debe tener formato AAAA-MM-DD.'); return; }
-            entryDate = dateText + 'T00:00:00+02:00';
-          }
           const { error } = await supabaseClient.from('registros_hotel').update({
-            lugar:location.trim(), causa:cause.trim(), prioridad:priority, estado:state,
-            fecha_entrada:entryDate, modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+            lugar:location.trim(), causa:cause.trim(), prioridad:priority,
+            modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
           }).eq('id',unit.id);
           if (error) window.alert('No se pudo modificar la ficha: ' + error.message);
           await loadHotelFromSupabase(false);
