@@ -1973,7 +1973,7 @@
           root.querySelector('#admin-email').value = profile.correo || '';
           root.querySelector('#admin-new-pin').value = '';
           root.querySelector('#admin-confirm-pin').value = '';
-          message.textContent = 'Teléfono y datos del administrador guardados y verificados en Supabase.';
+          message.textContent = 'Datos guardados correctamente';
         } catch (error) {
           message.textContent = 'No se pudieron guardar los datos: ' + (error?.message || 'error de conexión.');
         } finally {
