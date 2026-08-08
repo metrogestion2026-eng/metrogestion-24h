@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.19</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.20</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -656,11 +656,15 @@
       const saveActivationCallDraft = (markPhoneReturn = true) => {
         const fields = {};
         root.querySelectorAll('#view-activation input[id], #view-activation select[id], #view-activation textarea[id]').forEach(field => {
+          // Los navegadores no permiten restaurar el valor de un input file.
+          // Guardarlo provocaba que Android interrumpiera toda la recuperación.
+          if (field.type === 'file') return;
           fields[field.id] = field.type === 'checkbox'
             ? {checked:field.checked}
             : {value:field.value};
         });
         fields.__dfm = root.querySelector('#activation-dfm').dataset.dfm || '';
+        fields.__savedAt = new Date().toISOString();
         localStorage.setItem(activationDraftKey, JSON.stringify(fields));
         if (markPhoneReturn) localStorage.setItem(callReturnKey, String(Date.now() + 30 * 60 * 1000));
         if (markPhoneReturn && activeAuthSession?.access_token && activeAuthSession?.refresh_token) {
@@ -674,12 +678,18 @@
       const restoreActivationCallDraft = () => {
         let fields;
         try { fields = JSON.parse(localStorage.getItem(activationDraftKey) || '{}'); } catch { fields = {}; }
+        let restoredFields = 0;
         Object.entries(fields).forEach(([id,state]) => {
-          if (id === '__dfm') return;
+          if (id === '__dfm' || id === '__savedAt') return;
           const field = root.querySelector('#' + CSS.escape(id));
-          if (!field) return;
-          if (field.type === 'checkbox') field.checked = Boolean(state.checked);
-          else if (Object.prototype.hasOwnProperty.call(state,'value')) field.value = state.value;
+          if (!field || field.type === 'file') return;
+          try {
+            if (field.type === 'checkbox') field.checked = Boolean(state.checked);
+            else if (Object.prototype.hasOwnProperty.call(state,'value')) field.value = state.value;
+            restoredFields += 1;
+          } catch (error) {
+            console.warn('No se pudo recuperar el campo', id, error);
+          }
         });
         const dfmInput = root.querySelector('#activation-dfm');
         dfmInput.dataset.dfm = fields.__dfm || '';
@@ -696,6 +706,7 @@
                 hour:'2-digit', minute:'2-digit', second:'2-digit'
               });
         }
+        return restoredFields;
       };
       const activeActivationStep = () => {
         const entry = Object.entries(activationPanels).find(([,selector]) =>
@@ -735,13 +746,13 @@
           return false;
         }
         if (progress.userId && progress.userId !== sessionUserId) return false;
-        restoreActivationCallDraft();
+        const restoredFields = restoreActivationCallDraft();
         setView('activation');
         const step = Number(progress.step) || 1;
         if (step >= 5) renderActivationCommunicationSummary();
         showActivationStep(activationPanels[step] ? step : 1);
         root.querySelector('#activation-message').textContent =
-          'Activación pendiente recuperada automáticamente. Continúa desde el punto donde la dejaste.';
+          'Activación pendiente recuperada automáticamente: ' + restoredFields + ' datos. Continúa desde el punto donde la dejaste.';
         requestActivationWakeLock().catch(() => {});
         return true;
       };
