@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.3</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.4</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -433,7 +433,11 @@
       </div>
       <div id="activation-register" class="card stack hidden">
         <strong>Registrar activación</strong>
-        <label>Hora de activación<input id="activation-time" class="form-control" type="time"></label>
+        <input id="activation-time" type="hidden">
+        <div class="card text-small" style="background:#eff6ff">
+          <strong>Activación registrada automáticamente</strong>
+          <div id="activation-time-display" class="text-muted">Se registrará al pulsar el botón de activación o llamada 24H.</div>
+        </div>
         <label>Técnico, grúa o proveedor asignado<input id="activation-provider" class="form-control" placeholder="Nombre facilitado"></label>
         <div id="register-message" class="text-small text-muted"></div>
         <div class="viz-row"><button id="register-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="register-next" class="btn btn-primary" type="button">Siguiente →</button></div>
@@ -495,6 +499,23 @@
           brand: root.querySelector('#manual-brand').value.trim().toUpperCase()
         };
       };
+      const registerActivationMoment = () => {
+        const field = root.querySelector('#activation-time');
+        const display = root.querySelector('#activation-time-display');
+        if (field.value) return field.value;
+        const now = new Date();
+        const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+          .toISOString().slice(0, 19);
+        field.value = localIso;
+        field.dataset.recordedAt = now.toISOString();
+        if (display) {
+          display.textContent = now.toLocaleString('es-ES', {
+            day:'2-digit', month:'2-digit', year:'numeric',
+            hour:'2-digit', minute:'2-digit', second:'2-digit'
+          });
+        }
+        return localIso;
+      };
       const dialAssistancePhone = assistance24h => {
         const detail = root.querySelector('#activation-call-detail');
         const phone = String(assistance24h?.phone || '');
@@ -509,6 +530,7 @@
         detail.style.fontWeight = '';
         detail.textContent = (assistance24h.name || 'Asistencia 24H') + ' · ' + phone +
           '. Cuando se abra la llamada, activa el altavoz manualmente y vuelve a Metrogestión para consultar los datos.';
+        registerActivationMoment();
         saveActivationCallDraft();
         // El enlace telefónico entrega la llamada a Android sin sustituir
         // la pantalla de Metrogestión en la tarea de la PWA.
@@ -585,6 +607,17 @@
         dfmInput.dataset.dfm = fields.__dfm || '';
         root.querySelector('#activation-dfm-context strong').textContent =
           fields.__dfm ? 'DFM ' + fields.__dfm : 'DFM —';
+        const activationMoment = root.querySelector('#activation-time').value;
+        const activationDisplay = root.querySelector('#activation-time-display');
+        if (activationMoment && activationDisplay) {
+          const parsed = new Date(activationMoment);
+          activationDisplay.textContent = Number.isNaN(parsed.getTime())
+            ? activationMoment
+            : parsed.toLocaleString('es-ES', {
+                day:'2-digit', month:'2-digit', year:'numeric',
+                hour:'2-digit', minute:'2-digit', second:'2-digit'
+              });
+        }
       };
       const faultHistoryKey = 'metrogestion_fault_history_v1';
       const defaultFaultHistory = [
@@ -1833,6 +1866,8 @@
         const vehicle = currentActivationVehicle();
         const assistance24h = resolveVehicleAssistance(vehicle);
         if (String(vehicle.brand || '').toUpperCase().includes('MERCEDES')) {
+          registerActivationMoment();
+          saveActivationCallDraft();
           window.open(assistance24h.primaryUrl, '_blank', 'noopener');
           return;
         }
@@ -1853,10 +1888,11 @@
       });
       root.querySelector('#register-previous').addEventListener('click', () => showActivationStep(6));
       root.querySelector('#register-next').addEventListener('click', () => {
-        if (!root.querySelector('#activation-time').value || !root.querySelector('#activation-provider').value.trim()) {
-          root.querySelector('#register-message').textContent = 'Indica la hora de activación y el proveedor asignado.';
+        if (!root.querySelector('#activation-provider').value.trim()) {
+          root.querySelector('#register-message').textContent = 'Indica el técnico, la grúa o el proveedor asignado.';
           return;
         }
+        registerActivationMoment();
         root.querySelector('#register-message').textContent = '';
         showActivationStep(8);
       });
@@ -1876,6 +1912,7 @@
           fault: root.querySelector('#activation-fault-text').value,
           location: root.querySelector('#activation-location-text').value,
           eta: root.querySelector('#activation-eta').value,
+          activatedAt: root.querySelector('#activation-time').value,
           realArrival: 'Pendiente',
           diagnosis: 'Pendiente de confirmación',
           result: 'Seguimiento abierto',
@@ -1958,7 +1995,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=28');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=29');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
