@@ -1414,7 +1414,7 @@
           saveButton.type = 'button';
           saveButton.className = 'btn btn-primary';
           saveButton.textContent = 'Guardar datos';
-          saveButton.addEventListener('click', () => {
+          saveButton.addEventListener('click', async () => {
             const name = nameInput.value.trim();
             const phone = phoneInput.value.trim();
             const email = emailInput.value.trim().toLowerCase();
@@ -1427,6 +1427,38 @@
             }
             if (users.some(other => other.id !== user.id && (other.email?.toLowerCase() === email || String(other.phone || '').replace(/\D/g, '') === phoneDigits))) {
               message.textContent = 'Ese teléfono o correo ya está vinculado a otra cuenta.';
+              return;
+            }
+            if (user.role === 'primary') {
+              saveButton.disabled = true;
+              message.textContent = 'Guardando los datos en Supabase…';
+              try {
+                const { data:sessionData } = await supabaseClient.auth.getSession();
+                const accessToken = sessionData?.session?.access_token;
+                if (!accessToken) throw new Error('La sesión de administrador ha caducado. Cierra sesión y vuelve a entrar.');
+                const { data, error } = await supabaseClient.functions.invoke('crear-usuario-seguro', {
+                  body: { accion:'actualizar_administrador', nombreCompleto:name, telefono:phone, correo:email },
+                  headers: { Authorization:'Bearer ' + accessToken }
+                });
+                if (error) {
+                  let detail = '';
+                  try {
+                    const responseBody = await error.context?.json();
+                    detail = responseBody?.error || responseBody?.message || '';
+                  } catch {}
+                  throw new Error(detail || error.message || 'No se pudieron guardar los datos.');
+                }
+                if (!data?.ok || !data?.usuario) throw new Error(data?.error || 'El servidor no confirmó el guardado.');
+                await reloadAdminUsersFromSupabase();
+                const savedAdmin = users.find(account => account.id === user.id);
+                root.querySelector('#admin-phone').value = savedAdmin?.phone || phone;
+                root.querySelector('#admin-email').value = savedAdmin?.email || email;
+                message.textContent = 'Datos guardados correctamente';
+              } catch (error) {
+                message.textContent = 'No se pudieron guardar los datos: ' + (error?.message || 'error de conexión.');
+              } finally {
+                saveButton.disabled = false;
+              }
               return;
             }
             user.name = name;
