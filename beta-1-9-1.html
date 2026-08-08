@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.20</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.21</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -2403,18 +2403,15 @@
           if (progress?.expiresAt > Date.now()) requestActivationWakeLock().catch(() => {});
         }
       });
-      window.addEventListener('beforeunload', event => {
-        let progress = null;
-        try { progress = JSON.parse(localStorage.getItem(activationProgressKey) || 'null'); } catch {}
-        if (!progress || progress.expiresAt <= Date.now()) return;
+      window.addEventListener('beforeunload', () => {
+        // La llamada telefónica abre el marcador y Android dispara beforeunload.
+        // El borrador ya está guardado: no mostramos un aviso que bloquee la llamada.
         saveActivationProgress();
-        event.preventDefault();
-        event.returnValue = '';
       });
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=44');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=46');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
