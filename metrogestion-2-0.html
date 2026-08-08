@@ -98,6 +98,8 @@
     #incidence-access-mockup .hotel-actions { display:flex; gap:8px; flex-wrap:wrap; }
     #incidence-access-mockup .hotel-actions .btn { min-height:38px; padding:7px 10px; font-size:13px; }
     #incidence-access-mockup .hotel-status-select { width:min(100%,310px); min-height:36px; padding:5px 30px 5px 10px; border:1px solid rgba(82,98,115,.3); border-radius:10px; background:#fff; color:inherit; font-weight:750; }
+    #incidence-access-mockup .hotel-edit-panel { padding:14px; border:2px solid #93c5fd; border-radius:12px; background:rgba(255,255,255,.9); }
+    #incidence-access-mockup .hotel-edit-panel textarea { min-height:76px; resize:vertical; }
     #incidence-access-mockup .sync-note { border-left:4px solid #f59e0b; background:#fffbeb; }
     #incidence-access-mockup .safety-check { display:grid; gap:8px; padding:10px 0; }
     #incidence-access-mockup .safety-check input[type="checkbox"] { width:28px; height:28px; margin:0; accent-color:var(--primary); }
@@ -1081,10 +1083,12 @@
         reserveLabel:row.etiqueta_reserva || row.tipo_unidad || '',
         fleet:row.vehiculo_sustituido || '', fleetPlate:row.matricula_sustituido || '',
         upc:row.upc || '', location:row.lugar || '', state:uiStateFromDb(row.estado), dbState:row.estado,
-        entryDate:row.fecha_entrada || '',
+        entryDate:row.fecha_entrada || '', stopDate:row.fecha_parada || '',
         stateLabel:stateLabelFromDb(row), cause:row.causa || '',
         reserveTasks:row.trabajos_reserva || '—', priority:row.prioridad,
         inc:row.incidencia || 'Sin incidencia', next:row.proximo || '', model:row.modelo || '',
+        observations:row.observaciones || '', temporary:Boolean(row.sustitucion_temporal),
+        temporaryReason:row.motivo_sustitucion_temporal || '', temporaryLimit:row.fecha_limite_sustitucion || '',
         stages:(row.etapas_hotel || []).sort((a,b)=>a.posicion-b.posicion).map(stage => ({
           id:stage.id, name:stage.nombre, done:stage.estado === 'realizada',
           status:stage.estado, location:stage.lugar || '', reason:stage.motivo_anulacion || '',
@@ -1245,13 +1249,41 @@
       };
       const renderHotelUnit = unit => {
         const currentStage = nextStageIndex(unit);
+        const shownStopDate = unit.stopDate ? new Date(unit.stopDate + 'T12:00:00').toLocaleDateString('es-ES') : 'Fecha de parada pendiente';
         const statusControl = isAdmin() ? `<select class="hotel-status-select" data-id="${escapeHtml(unit.id)}" aria-label="Estado de ${escapeHtml(unit.fleet || unit.reserve)}">${hotelStatusOptions.map(option=>`<option value="${option[0]}" ${unit.dbState===option[0]?'selected':''}>${escapeHtml(option[1])}</option>`).join('')}</select>` : `<span class="badge">${escapeHtml(unit.stateLabel)}</span>`;
+        const editPanel = isAdmin() ? `<div class="hotel-edit-panel stack hidden" data-id="${escapeHtml(unit.id)}">
+          <strong>Modificar todos los datos de la ficha</strong>
+          <div class="detail-grid">
+            <label>DFM sustituido<input class="form-control" data-field="fleet" value="${escapeHtml(unit.fleet)}"></label>
+            <label>Matrícula sustituido<input class="form-control" data-field="fleetPlate" value="${escapeHtml(unit.fleetPlate)}"></label>
+            <label>Reserva<input class="form-control" data-field="reserve" value="${escapeHtml(unit.reserve)}"></label>
+            <label>Matrícula reserva<input class="form-control" data-field="reservePlate" value="${escapeHtml(unit.reservePlate)}"></label>
+            <label>Tipo / etiqueta reserva<input class="form-control" data-field="reserveLabel" value="${escapeHtml(unit.reserveLabel)}"></label>
+            <label>Fecha en que se para<input class="form-control" data-field="stopDate" type="date" value="${escapeHtml(unit.stopDate)}"></label>
+            <label>Fecha entrada en taller<input class="form-control" data-field="entryDate" type="date" value="${escapeHtml(unit.entryDate ? unit.entryDate.slice(0,10) : '')}"></label>
+            <label>Lugar / taller<input class="form-control" data-field="location" value="${escapeHtml(unit.location)}"></label>
+            <label>UPC<input class="form-control" data-field="upc" value="${escapeHtml(unit.upc)}"></label>
+            <label>INC principal<input class="form-control" data-field="inc" value="${escapeHtml(unit.inc)}"></label>
+            <label>Próximo previsto<input class="form-control" data-field="next" value="${escapeHtml(unit.next)}"></label>
+            <label>Modelo<input class="form-control" data-field="model" value="${escapeHtml(unit.model)}"></label>
+            <label>Prioridad<select class="form-select" data-field="priority">${[1,2,3,4,5].map(value=>`<option value="${value}" ${unit.priority===value?'selected':''}>${value}</option>`).join('')}</select></label>
+            <label>Fecha límite temporal<input class="form-control" data-field="temporaryLimit" type="datetime-local" value="${escapeHtml(unit.temporaryLimit ? unit.temporaryLimit.slice(0,16) : '')}"></label>
+          </div>
+          <label>Causa / pendientes del sustituido<textarea class="form-control" data-field="cause">${escapeHtml(unit.cause)}</textarea></label>
+          <label>Pendientes del propio reserva<textarea class="form-control" data-field="reserveTasks">${escapeHtml(unit.reserveTasks === '—' ? '' : unit.reserveTasks)}</textarea></label>
+          <label>Observaciones<textarea class="form-control" data-field="observations">${escapeHtml(unit.observations)}</textarea></label>
+          <label><input data-field="temporary" type="checkbox" ${unit.temporary?'checked':''}> Sustitución excepcional por tiempo limitado</label>
+          <label>Motivo de sustitución temporal<input class="form-control" data-field="temporaryReason" value="${escapeHtml(unit.temporaryReason)}"></label>
+          <div class="hotel-actions"><button class="btn btn-primary hotel-edit-save" data-id="${escapeHtml(unit.id)}" type="button">Guardar todos los cambios</button><button class="btn btn-secondary hotel-edit-cancel" data-id="${escapeHtml(unit.id)}" type="button">Cancelar</button></div>
+          <div class="text-small hotel-edit-message"></div>
+        </div>` : '';
         const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${!stage.done && stage.status!=='anulada' && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}${isAdmin()?`<button class="btn btn-secondary hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="btn btn-secondary hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
         return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
-          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
+          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)} · Parado: ${escapeHtml(shownStopDate)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
           <div class="detail-grid"><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehículo sustituido</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
           ${stages}
           ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar ficha</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ Añadir T</button></div>`:''}
+          ${editPanel}
         </article>`;
       };
       const bindHotelStageButtons = () => {
@@ -1273,22 +1305,52 @@
           }
           await loadHotelFromSupabase(false);
         }));
-        root.querySelectorAll('.hotel-unit-edit').forEach(button => button.addEventListener('click', async () => {
-          const unit = hotelUnits.find(item => item.id === button.dataset.id);
-          if (!unit || !isAdmin()) return;
-          const location = window.prompt('Lugar o taller:', unit.location || '');
-          if (location === null) return;
-          const cause = window.prompt('Causa o trabajos pendientes:', unit.cause || '');
-          if (cause === null) return;
-          const priorityText = window.prompt('Prioridad del 1 al 5:', String(unit.priority || 5));
-          if (priorityText === null) return;
-          const priority = Number(priorityText);
-          if (![1,2,3,4,5].includes(priority)) { window.alert('La prioridad debe estar entre 1 y 5.'); return; }
-          const { error } = await supabaseClient.from('registros_hotel').update({
-            lugar:location.trim(), causa:cause.trim(), prioridad:priority,
-            modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
-          }).eq('id',unit.id);
-          if (error) window.alert('No se pudo modificar la ficha: ' + error.message);
+        root.querySelectorAll('.hotel-unit-edit').forEach(button => button.addEventListener('click', () => {
+          if (!isAdmin()) return;
+          root.querySelector(`.hotel-edit-panel[data-id="${CSS.escape(button.dataset.id)}"]`)?.classList.remove('hidden');
+        }));
+        root.querySelectorAll('.hotel-edit-cancel').forEach(button => button.addEventListener('click', () => {
+          root.querySelector(`.hotel-edit-panel[data-id="${CSS.escape(button.dataset.id)}"]`)?.classList.add('hidden');
+        }));
+        root.querySelectorAll('.hotel-edit-save').forEach(button => button.addEventListener('click', async () => {
+          if (!isAdmin()) return;
+          const panel = root.querySelector(`.hotel-edit-panel[data-id="${CSS.escape(button.dataset.id)}"]`);
+          if (!panel) return;
+          const value = name => panel.querySelector(`[data-field="${name}"]`)?.value.trim() || '';
+          const reserve = value('reserve').toUpperCase();
+          const priority = Number(value('priority'));
+          const temporary = panel.querySelector('[data-field="temporary"]').checked;
+          const message = panel.querySelector('.hotel-edit-message');
+          if (!reserve || ![1,2,3,4,5].includes(priority)) {
+            message.textContent = 'La reserva y una prioridad válida son obligatorias.';
+            return;
+          }
+          if (temporary && (!value('temporaryReason') || !value('temporaryLimit'))) {
+            message.textContent = 'La sustitución temporal necesita motivo y fecha límite.';
+            return;
+          }
+          button.disabled = true;
+          message.textContent = 'Guardando todos los cambios…';
+          const payload = {
+            vehiculo_sustituido:value('fleet').toUpperCase(), matricula_sustituido:value('fleetPlate').toUpperCase(),
+            vehiculo_reserva:reserve, matricula_reserva:value('reservePlate').toUpperCase(),
+            tipo_unidad:value('reserveLabel'), etiqueta_reserva:value('reserveLabel'),
+            fecha_parada:value('stopDate') || null,
+            fecha_entrada:value('entryDate') ? value('entryDate') + 'T00:00:00+02:00' : null,
+            lugar:value('location'), upc:value('upc'), incidencia:value('inc'), proximo:value('next'),
+            modelo:value('model'), prioridad, causa:value('cause'), trabajos_reserva:value('reserveTasks'),
+            observaciones:value('observations'), sustitucion_temporal:temporary,
+            motivo_sustitucion_temporal:temporary ? value('temporaryReason') : '',
+            fecha_limite_sustitucion:temporary ? new Date(value('temporaryLimit')).toISOString() : null,
+            es_flota:Boolean(value('fleet')), modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+          };
+          const { error } = await supabaseClient.from('registros_hotel').update(payload).eq('id',button.dataset.id);
+          if (error) {
+            message.textContent = 'No se pudo guardar: ' + error.message;
+            button.disabled = false;
+            return;
+          }
+          message.textContent = 'Datos guardados correctamente';
           await loadHotelFromSupabase(false);
         }));
         root.querySelectorAll('.hotel-stage-done').forEach(button => button.addEventListener('click', async () => {
