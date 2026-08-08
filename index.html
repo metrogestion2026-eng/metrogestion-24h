@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.24</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.25</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -551,6 +551,7 @@
         global: { headers: { 'x-device-token': deviceToken } }
       });
       const incidenceStorageKey = 'metrogestion24h_saved_incidents_v1';
+      const incidenceAuditKey = 'metrogestion24h_incident_audit_v1';
       let incidences = [];
       try {
         incidences = JSON.parse(localStorage.getItem(incidenceStorageKey) || '[]');
@@ -1498,13 +1499,15 @@
           grid.append(field);
         });
         detail.append(heading, grid);
-        if (incidence.status !== 'Cerrada') {
+        if (incidence.status !== 'Cerrada' || isAdmin()) {
           const actions = document.createElement('div');
           actions.className = 'viz-row';
           const continueButton = document.createElement('button');
           continueButton.type = 'button';
           continueButton.className = 'btn btn-primary';
-          continueButton.textContent = 'Continuar y completar';
+          continueButton.textContent = incidence.status === 'Cerrada'
+            ? 'Modificar incidencia cerrada'
+            : 'Continuar y completar';
           continueButton.addEventListener('click', () => {
             editingIncidenceId = incidence.id;
             const setValue = (selector, value) => {
@@ -1541,6 +1544,36 @@
             window.scrollTo({top:0, behavior:'smooth'});
           });
           actions.append(continueButton);
+          if (isPrimaryAdmin()) {
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'btn btn-secondary';
+            deleteButton.textContent = 'Eliminar incidencia';
+            deleteButton.addEventListener('click', () => {
+              const reason = window.prompt('Motivo obligatorio de la eliminación:');
+              if (!reason || !reason.trim()) return;
+              if (!window.confirm('¿Eliminar ' + incidence.id + ' de la lista activa? El movimiento quedará registrado.')) return;
+              let audit = [];
+              try { audit = JSON.parse(localStorage.getItem(incidenceAuditKey) || '[]'); } catch {}
+              if (!Array.isArray(audit)) audit = [];
+              audit.unshift({
+                action:'eliminada',
+                incidence,
+                reason:reason.trim(),
+                by:sessionUser,
+                at:new Date().toISOString()
+              });
+              localStorage.setItem(incidenceAuditKey, JSON.stringify(audit));
+              const index = incidences.findIndex(item => item.id === incidence.id);
+              if (index >= 0) incidences.splice(index, 1);
+              localStorage.setItem(incidenceStorageKey, JSON.stringify(incidences));
+              detail.classList.add('hidden');
+              renderIncidences();
+              root.querySelector('#view-heading .text-small').textContent =
+                incidence.id + ' eliminada de la lista activa. El movimiento permanece en el registro administrativo.';
+            });
+            actions.append(deleteButton);
+          }
           detail.append(actions);
         }
       };
@@ -2482,7 +2515,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=49');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=50');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
