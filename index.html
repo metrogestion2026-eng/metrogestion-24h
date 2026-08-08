@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.7</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.8</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -100,6 +100,8 @@
     #incidence-access-mockup .sync-note { border-left:4px solid #f59e0b; background:#fffbeb; }
     #incidence-access-mockup .safety-check { display:grid; gap:8px; padding:10px 0; }
     #incidence-access-mockup .safety-check input[type="checkbox"] { width:28px; height:28px; margin:0; accent-color:var(--primary); }
+    #incidence-access-mockup .emergency-note { display:grid; gap:10px; padding:14px; color:#991b1b; background:#fff1f2; border:2px solid #ef4444; border-radius:12px; }
+    #incidence-access-mockup .emergency-note .btn { background:#dc2626; color:#fff; }
     #incidence-access-mockup .hidden { display: none !important; }
     @media (max-width: 560px) {
       #incidence-access-mockup .toolbar, #incidence-access-mockup .detail-grid { grid-template-columns: 1fr; }
@@ -378,6 +380,10 @@
         <strong>Seguridad · Procedimiento 0</strong>
         <label class="safety-check"><span>Vehículo detenido en lugar seguro o correctamente señalizado</span><input id="activation-safe" type="checkbox" aria-label="Confirmar vehículo seguro o señalizado"></label>
         <label class="safety-check"><span>Conductor y ocupantes fuera de peligro</span><input id="activation-driver-safe" type="checkbox" aria-label="Confirmar conductor y ocupantes fuera de peligro"></label>
+        <div class="emergency-note">
+          <strong>⚠ Si la situación genera peligro, avisa al conductor para que llame inmediatamente al 112.</strong>
+          <a class="btn" href="tel:112">📞 Llamar al 112</a>
+        </div>
         <label>Conductor<input id="activation-driver-name" class="form-control" placeholder="Nombre"></label>
         <label>Teléfono<input id="activation-driver-phone" class="form-control" type="tel" inputmode="tel" placeholder="Ej. 612 345 678"></label>
         <div id="safety-message" class="text-small text-muted"></div>
@@ -1992,7 +1998,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=32');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=33');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
