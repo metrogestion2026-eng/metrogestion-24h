@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gestion-metrogestion-2-0-v21';
+const CACHE_NAME = 'gestion-metrogestion-2-0-v22';
 const APP_FILES = [
   './metrogestion-2-0.html',
   './manifest-metrogestion-2-0.json',
