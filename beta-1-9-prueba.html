@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.11</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.12</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -461,12 +461,39 @@
         <div class="viz-row"><button id="register-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="register-next" class="btn btn-primary" type="button">Siguiente →</button></div>
       </div>
       <div id="activation-follow" class="card stack hidden">
-        <strong>Seguimiento</strong>
-        <label><input type="checkbox"> Asistencia activada y caso registrado</label>
-        <label><input type="checkbox"> Técnico llegado</label>
-        <label><input type="checkbox"> Diagnóstico confirmado</label>
-        <label><input type="checkbox"> Reparado en carretera</label>
-        <label><input type="checkbox"> Trasladado a taller</label>
+        <strong>Seguimiento de la asistencia</strong>
+        <div class="text-small text-muted">Puedes guardar la incidencia aunque todavía haya datos pendientes y completarlos posteriormente.</div>
+        <label class="safety-check"><span>Asistencia activada y caso registrado</span><input id="activation-assistance-confirmed" type="checkbox"></label>
+        <label class="safety-check"><span>Técnico llegado</span><input id="activation-technician-arrived" type="checkbox"></label>
+        <div id="activation-real-arrival-panel" class="card stack hidden" style="background:#eff6ff">
+          <label>Fecha y hora real de llegada
+            <input id="activation-real-arrival" class="form-control" type="datetime-local">
+          </label>
+          <div class="text-small text-muted">Esta hora es la llegada real. La ETA del paso anterior continúa siendo la hora aproximada facilitada.</div>
+        </div>
+        <label class="safety-check"><span>Diagnóstico confirmado</span><input id="activation-diagnosis-confirmed" type="checkbox"></label>
+        <div id="activation-diagnosis-panel" class="card stack hidden" style="background:#eff6ff">
+          <label>Descripción del diagnóstico
+            <textarea id="activation-diagnosis-text" class="form-control" rows="3" placeholder="Describe la avería confirmada por el técnico"></textarea>
+          </label>
+        </div>
+        <label>Resultado de la asistencia
+          <select id="activation-result" class="form-select">
+            <option value="">Pendiente de resolución</option>
+            <option value="road">Reparado en carretera</option>
+            <option value="workshop">Trasladado a taller</option>
+          </select>
+        </label>
+        <div id="activation-workshop-panel" class="card stack hidden" style="background:#fff7ed">
+          <label>Taller de destino
+            <input id="activation-workshop" class="form-control" placeholder="Nombre del taller al que se traslada">
+          </label>
+        </div>
+        <label>Fotografías de seguimiento
+          <input id="activation-follow-photos" class="form-control" type="file" accept="image/*" capture="environment" multiple>
+        </label>
+        <div class="text-small text-muted">Las fotografías y la reparación realizada pueden añadirse posteriormente; la incidencia mostrará que siguen pendientes.</div>
+        <div id="follow-message" class="text-small text-muted"></div>
         <div class="viz-row"><button id="follow-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="save-incidence" class="btn btn-primary" type="button">Guardar incidencia</button></div>
       </div>
       <div id="activation-manual-note" class="card hidden">El manual operativo se abrirá aquí sin abandonar la app.</div>
@@ -1948,26 +1975,64 @@
         showActivationStep(8);
       });
       root.querySelector('#follow-previous').addEventListener('click', () => showActivationStep(7));
+      root.querySelector('#activation-technician-arrived').addEventListener('change', event => {
+        const panel = root.querySelector('#activation-real-arrival-panel');
+        panel.classList.toggle('hidden', !event.target.checked);
+        if (event.target.checked && !root.querySelector('#activation-real-arrival').value) {
+          const now = new Date();
+          root.querySelector('#activation-real-arrival').value =
+            new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+        }
+      });
+      root.querySelector('#activation-diagnosis-confirmed').addEventListener('change', event => {
+        root.querySelector('#activation-diagnosis-panel').classList.toggle('hidden', !event.target.checked);
+        if (event.target.checked) root.querySelector('#activation-diagnosis-text').focus();
+      });
+      root.querySelector('#activation-result').addEventListener('change', event => {
+        const transferred = event.target.value === 'workshop';
+        root.querySelector('#activation-workshop-panel').classList.toggle('hidden', !transferred);
+        if (transferred) root.querySelector('#activation-workshop').focus();
+      });
       root.querySelector('#save-incidence').addEventListener('click', () => {
+        const arrived = root.querySelector('#activation-technician-arrived').checked;
+        const diagnosed = root.querySelector('#activation-diagnosis-confirmed').checked;
+        const resultValue = root.querySelector('#activation-result').value;
+        const workshop = root.querySelector('#activation-workshop').value.trim();
+        const followMessage = root.querySelector('#follow-message');
+        if (arrived && !root.querySelector('#activation-real-arrival').value) {
+          followMessage.textContent = 'Indica la fecha y hora real de llegada del técnico.';
+          return;
+        }
+        if (diagnosed && !root.querySelector('#activation-diagnosis-text').value.trim()) {
+          followMessage.textContent = 'Describe el diagnóstico confirmado.';
+          return;
+        }
+        if (resultValue === 'workshop' && !workshop) {
+          followMessage.textContent = 'Indica el taller al que se ha trasladado el vehículo.';
+          return;
+        }
+        followMessage.textContent = '';
         rememberFaultDescription(root.querySelector('#activation-fault-text').value);
         const code = root.querySelector('#activation-dfm').dataset.dfm;
         const vehicle = vehicleIndex.find(item => item.dfm === code);
+        const photoCount = root.querySelector('#activation-follow-photos').files?.length || 0;
         incidences.unshift({
           id: 'INC-MAQUETA-' + String(incidences.length + 1).padStart(3, '0'),
           creator: sessionUser,
           dfm: code,
           plate: vehicle ? vehicle.plate : root.querySelector('#manual-plate').value,
           opened: 'Ahora',
-          status: 'Seguimiento abierto',
+          status: resultValue ? 'Pendiente de cierre' : 'Seguimiento abierto',
           caseNumber: root.querySelector('#activation-case-number').value,
           fault: root.querySelector('#activation-fault-text').value,
           location: root.querySelector('#activation-location-text').value,
           eta: root.querySelector('#activation-eta').value,
           activatedAt: root.querySelector('#activation-time').value,
-          realArrival: 'Pendiente',
-          diagnosis: 'Pendiente de confirmación',
-          result: 'Seguimiento abierto',
-          workshop: '—'
+          realArrival: arrived ? root.querySelector('#activation-real-arrival').value : 'Pendiente',
+          diagnosis: diagnosed ? root.querySelector('#activation-diagnosis-text').value.trim() : 'Pendiente de confirmación',
+          result: resultValue === 'road' ? 'Reparado en carretera' : resultValue === 'workshop' ? 'Trasladado a taller' : 'Seguimiento abierto',
+          workshop: resultValue === 'workshop' ? workshop : '—',
+          photos: photoCount ? photoCount + ' fotografía(s) seleccionada(s)' : 'Fotografías pendientes'
         });
         setView('mine');
       });
@@ -2041,7 +2106,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=36');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=37');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
