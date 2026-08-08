@@ -758,6 +758,33 @@
         if (activationWakeLock) activationWakeLock.release().catch(() => {});
         activationWakeLock = null;
       };
+      const resetNewActivation = () => {
+        clearActivationProgress();
+        editingIncidenceId = '';
+        const activationView = root.querySelector('#view-activation');
+        activationView.querySelectorAll('input, textarea, select').forEach(field => {
+          if (field.type === 'checkbox' || field.type === 'radio') field.checked = false;
+          else if (field.tagName === 'SELECT') field.selectedIndex = 0;
+          else field.value = '';
+        });
+        const dfmInput = root.querySelector('#activation-dfm');
+        if (dfmInput) dfmInput.dataset.dfm = '';
+        root.querySelector('#activation-dfm-context strong').textContent = 'DFM —';
+        root.querySelector('#manual-vehicle-data').classList.add('hidden');
+        const suggestions = root.querySelector('#vehicle-suggestions');
+        suggestions.replaceChildren();
+        suggestions.classList.add('hidden');
+        const activationMessage = root.querySelector('#activation-message');
+        activationMessage.textContent = '';
+        activationMessage.style.color = '';
+        activationMessage.style.fontWeight = '';
+        const activationDisplay = root.querySelector('#activation-time-display');
+        if (activationDisplay) activationDisplay.textContent = 'Se registrará al pulsar el botón de activación o llamada 24H.';
+        root.querySelector('#activation-close-incidence').checked = false;
+        setView('activation');
+        showActivationStep(1);
+        window.scrollTo({top:0, behavior:'smooth'});
+      };
       const restoreActivationProgress = () => {
         let progress = null;
         try { progress = JSON.parse(localStorage.getItem(activationProgressKey) || 'null'); } catch {}
@@ -2008,18 +2035,17 @@
       });
       root.querySelector('#incidence-search').addEventListener('input', renderIncidences);
       root.querySelector('#new-activation').addEventListener('click', async () => {
-        editingIncidenceId = '';
-        root.querySelector('#activation-close-incidence').checked = false;
         const button = root.querySelector('#new-activation');
         button.disabled = true;
         try {
           await loadVehicleIndex();
+          resetNewActivation();
         } catch (error) {
           console.warn(error);
+          resetNewActivation();
         } finally {
           button.disabled = false;
         }
-        setView('activation');
       });
       root.querySelector('#back-incidences').addEventListener('click', () => setView('mine'));
       root.querySelector('#activation-guided').addEventListener('click', () => {
@@ -2567,7 +2593,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-metrogestion-2-0.js?v=1');
+            const registration = await navigator.serviceWorker.register('sw-metrogestion-2-0.js?v=2');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
