@@ -1,31 +1,42 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { corsHeaders as supabaseCorsHeaders } from 'jsr:@supabase/supabase-js@2/cors';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://metrogestion2026-eng.github.io',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+const allowedOrigins = new Set([
+  'https://metrogestion2026-eng.github.io',
+  'https://metrogestion-24h.upcnocturno.chatgpt.site',
+  'http://localhost:3000',
+]);
+
+const corsHeadersFor = (request: Request) => {
+  const origin = request.headers.get('Origin') || '';
+  return {
+    ...supabaseCorsHeaders,
+    'Access-Control-Allow-Origin': allowedOrigins.has(origin) ? origin : 'null',
+    'Vary': 'Origin',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
 };
 
-const json = (status: number, body: Record<string, unknown>) =>
+const json = (request: Request, status: number, body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+    headers: { ...corsHeadersFor(request), 'Content-Type': 'application/json; charset=utf-8' },
   });
 
 Deno.serve(async request => {
-  if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (request.method !== 'POST') return json(405, { error: 'Método no permitido.' });
+  if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(request) });
+  if (request.method !== 'POST') return json(request, 405, { error: 'Método no permitido.' });
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    return json(500, { error: 'Configuración segura incompleta.' });
+    return json(request, 500, { error: 'Configuración segura incompleta.' });
   }
 
   const authorization = request.headers.get('Authorization') || '';
   if (!authorization.startsWith('Bearer ')) {
-    return json(401, { error: 'Sesión no válida.' });
+    return json(request, 401, { error: 'Sesión no válida.' });
   }
 
   const callerClient = createClient(supabaseUrl, anonKey, {
@@ -33,7 +44,7 @@ Deno.serve(async request => {
     auth: { persistSession: false },
   });
   const { data: authData, error: authError } = await callerClient.auth.getUser();
-  if (authError || !authData.user) return json(401, { error: 'Sesión caducada o no válida.' });
+  if (authError || !authData.user) return json(request, 401, { error: 'Sesión caducada o no válida.' });
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -46,14 +57,14 @@ Deno.serve(async request => {
     .single();
 
   if (callerError || !caller || caller.activo !== true || caller.tipo_usuario !== 'administrador_principal') {
-    return json(403, { error: 'Solo el administrador principal puede crear usuarios.' });
+    return json(request, 403, { error: 'Solo el administrador principal puede crear usuarios.' });
   }
 
   let payload: Record<string, unknown>;
   try {
     payload = await request.json();
   } catch {
-    return json(400, { error: 'Datos de usuario no válidos.' });
+    return json(request, 400, { error: 'Datos de usuario no válidos.' });
   }
 
   const nombreCompleto = String(payload.nombreCompleto || '').trim().replace(/\s+/g, ' ');
@@ -70,7 +81,7 @@ Deno.serve(async request => {
 
   if (accion === 'actualizar_administrador') {
     if (!nombre || phoneDigits.length < 9 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
-      return json(400, { error: 'Nombre, teléfono y correo no tienen un formato válido.' });
+      return json(request, 400, { error: 'Nombre, teléfono y correo no tienen un formato válido.' });
     }
 
     const { data: duplicate } = await admin
@@ -79,7 +90,7 @@ Deno.serve(async request => {
       .neq('id', authData.user.id)
       .or(`correo.eq.${correo},telefono.eq.${telefono}`)
       .limit(1);
-    if (duplicate?.length) return json(409, { error: 'Ese correo o teléfono ya pertenece a otra cuenta.' });
+    if (duplicate?.length) return json(request, 409, { error: 'Ese correo o teléfono ya pertenece a otra cuenta.' });
 
     const { data: profile, error: updateError } = await admin
       .from('usuarios')
@@ -87,19 +98,19 @@ Deno.serve(async request => {
       .eq('id', authData.user.id)
       .select('*')
       .single();
-    if (updateError || !profile) return json(400, { error: 'No se pudieron guardar los datos del administrador.' });
+    if (updateError || !profile) return json(request, 400, { error: 'No se pudieron guardar los datos del administrador.' });
 
     const { error: authUpdateError } = await admin.auth.admin.updateUserById(authData.user.id, {
       email: correo,
       user_metadata: { nombre, apellidos, telefono },
     });
-    if (authUpdateError) return json(400, { error: 'El perfil se guardó, pero no se pudo actualizar la cuenta de acceso.' });
+    if (authUpdateError) return json(request, 400, { error: 'El perfil se guardó, pero no se pudo actualizar la cuenta de acceso.' });
 
-    return json(200, { ok: true, usuario: profile });
+    return json(request, 200, { ok: true, usuario: profile });
   }
 
   if (!nombre || phoneDigits.length < 9 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo) || !/^\d{4,6}$/.test(pin)) {
-    return json(400, { error: 'Nombre, teléfono, correo y PIN no tienen un formato válido.' });
+    return json(request, 400, { error: 'Nombre, teléfono, correo y PIN no tienen un formato válido.' });
   }
 
   const { data: duplicate } = await admin
@@ -107,7 +118,7 @@ Deno.serve(async request => {
     .select('id')
     .or(`correo.eq.${correo},telefono.eq.${telefono}`)
     .limit(1);
-  if (duplicate?.length) return json(409, { error: 'Ese correo o teléfono ya pertenece a otra cuenta.' });
+  if (duplicate?.length) return json(request, 409, { error: 'Ese correo o teléfono ya pertenece a otra cuenta.' });
 
   const permisos = rol === 'administrador_secundario'
     ? { incidencias: { ver_todas: false, editar_todas: false } }
@@ -122,7 +133,7 @@ Deno.serve(async request => {
 
   if (createError || !created.user) {
     const duplicateMessage = /already|registered|exists/i.test(createError?.message || '');
-    return json(duplicateMessage ? 409 : 400, {
+    return json(request, duplicateMessage ? 409 : 400, {
       error: duplicateMessage ? 'Ese correo ya está registrado.' : 'No se pudo crear la cuenta segura.',
     });
   }
@@ -142,7 +153,7 @@ Deno.serve(async request => {
 
   if (profileError) {
     await admin.auth.admin.deleteUser(created.user.id);
-    return json(400, { error: 'No se pudo completar el perfil. La cuenta incompleta ha sido anulada.' });
+    return json(request, 400, { error: 'No se pudo completar el perfil. La cuenta incompleta ha sido anulada.' });
   }
 
   await admin.from('registro_accesos').insert({
@@ -153,7 +164,7 @@ Deno.serve(async request => {
     detalles: { usuario_creado: created.user.id, correo, rol },
   });
 
-  return json(201, {
+  return json(request, 201, {
     ok: true,
     usuario: {
       id: created.user.id,
