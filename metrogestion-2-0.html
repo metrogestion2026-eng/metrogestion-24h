@@ -1869,14 +1869,15 @@
         app.classList.add('hidden');
         login.classList.remove('hidden');
       });
-      root.querySelector('#change-own-pin').addEventListener('click', () => {
+      root.querySelector('#change-own-pin').addEventListener('click', async () => {
         const account = currentAccount();
         const currentPin = root.querySelector('#own-current-pin').value.trim();
         const nextPin = root.querySelector('#own-new-pin').value.trim();
         const confirmPin = root.querySelector('#own-confirm-pin').value.trim();
         const message = root.querySelector('#own-pin-message');
-        if (!account || currentPin !== account.pin) {
-          message.textContent = 'El PIN actual no es correcto.';
+        const button = root.querySelector('#change-own-pin');
+        if (!account?.email || !currentPin) {
+          message.textContent = 'Introduce tu PIN actual.';
           return;
         }
         if (!/^\d{4,6}$/.test(nextPin)) {
@@ -1891,12 +1892,30 @@
           message.textContent = 'El nuevo PIN debe ser diferente del actual.';
           return;
         }
-        account.pin = nextPin;
-        saveUsers();
-        root.querySelector('#own-current-pin').value = '';
-        root.querySelector('#own-new-pin').value = '';
-        root.querySelector('#own-confirm-pin').value = '';
-        message.textContent = 'Tu PIN se ha cambiado correctamente.';
+        button.disabled = true;
+        message.textContent = 'Comprobando el PIN actual…';
+        try {
+          const { data:signInData, error:signInError } = await supabaseClient.auth.signInWithPassword({
+            email:account.email,
+            password:currentPin
+          });
+          if (signInError || signInData?.user?.id !== account.id) {
+            throw new Error('El PIN actual no es correcto.');
+          }
+          const { error:updateError } = await supabaseClient.auth.updateUser({ password:nextPin });
+          if (updateError) throw updateError;
+          activeAuthSession = signInData.session || activeAuthSession;
+          root.querySelector('#own-current-pin').value = '';
+          root.querySelector('#own-new-pin').value = '';
+          root.querySelector('#own-confirm-pin').value = '';
+          message.textContent = 'PIN cambiado correctamente';
+        } catch (error) {
+          message.textContent = error?.message === 'Invalid login credentials'
+            ? 'El PIN actual no es correcto.'
+            : 'No se pudo cambiar el PIN: ' + (error?.message || 'error de conexión.');
+        } finally {
+          button.disabled = false;
+        }
       });
       root.querySelector('#create-user').addEventListener('click', async () => {
         if (!isPrimaryAdmin()) return;
