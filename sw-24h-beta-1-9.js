@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gestion-24h-beta-1-9-v51';
+const CACHE_NAME = 'gestion-24h-beta-1-9-v52';
 const APP_FILES = [
   './index.html',
   './beta-1-9-prueba.html',
