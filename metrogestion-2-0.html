@@ -82,6 +82,7 @@
     #incidence-access-mockup .hotel-unit { border-left:8px solid #cbd5e1; }
     #incidence-access-mockup .hotel-unit.status-free { background:#ecfdf3; border-left-color:#86d39a; }
     #incidence-access-mockup .hotel-unit.status-plan { background:#fff9d9; border-left-color:#e8cf67; }
+    #incidence-access-mockup .hotel-unit.status-pending { background:#fff; border-left-color:#cbd5e1; }
     #incidence-access-mockup .hotel-unit.status-workshop { background:#f4ecfb; border-left-color:#bca0d8; }
     #incidence-access-mockup .hotel-unit.status-ready { background:#eaf4ff; border-left-color:#8dbce5; }
     #incidence-access-mockup .hotel-unit.status-route { background:#fff0df; border-left-color:#e6a564; }
@@ -1077,7 +1078,7 @@
         return match ? `${match[3]}-${match[2]}-${match[1]}T00:00:00+02:00` : null;
       };
       const uiStateFromDb = state => ({
-        planificado:'plan', pendiente_taller:'plan', pendiente_diagnostico:'workshop',
+        planificado:'plan', pendiente_taller:'pending', pendiente_diagnostico:'workshop',
         pendiente_autorizacion:'workshop', en_taller:'workshop', pendiente_repuestos:'workshop',
         terminado_pendiente_recogida:'ready', recogido_pendiente_ruta:'route',
         reserva_liberada:'free', anulado:'plan'
