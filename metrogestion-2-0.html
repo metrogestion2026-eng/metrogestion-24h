@@ -1719,6 +1719,29 @@
           container.append(row);
         });
       };
+      const profileToAccount = profile => ({
+        id: profile.id,
+        name: [profile.nombre, profile.apellidos].filter(Boolean).join(' ') || profile.correo,
+        phone: profile.telefono || '',
+        email: profile.correo || '',
+        role: profile.tipo_usuario === 'administrador_principal' ? 'primary' : profile.tipo_usuario === 'administrador_secundario' ? 'secondary' : 'user',
+        permissions: profile.permisos || {},
+        active: profile.activo === true
+      });
+
+      const reloadAdminUsersFromSupabase = async () => {
+        if (!isPrimaryAdmin()) return;
+        const { data:profiles, error } = await supabaseClient
+          .from('usuarios')
+          .select('*')
+          .order('creado_en', { ascending:true });
+        if (error) throw error;
+        users = (profiles || []).map(profileToAccount);
+        saveUsers();
+        renderAdminUsers();
+        renderLoginUsers();
+      };
+
       const enterAuthenticatedApp = async authUser => {
         const {data:deviceRows,error:deviceError} = await supabaseClient.rpc('comprobar_dispositivo',{token_recibido:deviceToken});
         if (deviceError) throw deviceError;
@@ -1737,12 +1760,7 @@
         const { data:profile, error:profileError } = await supabaseClient.from('usuarios').select('*').eq('id',authUser.id).single();
         if (profileError) throw profileError;
         if (!profile.activo) throw new Error('Esta cuenta está bloqueada. Contacta con Metrogestión.');
-        const account = {
-          id:profile.id, name:[profile.nombre,profile.apellidos].filter(Boolean).join(' ') || profile.correo,
-          phone:profile.telefono || '', email:profile.correo,
-          role:profile.tipo_usuario === 'administrador_principal' ? 'primary' : profile.tipo_usuario === 'administrador_secundario' ? 'secondary' : 'user',
-          permissions:profile.permisos || {}, active:profile.activo
-        };
+        const account = profileToAccount(profile);
         users = [account];
         sessionUserId = account.id;
         sessionUser = account.name;
@@ -1757,7 +1775,7 @@
         if (isPrimaryAdmin()) {
           root.querySelector('#admin-phone').value = account.phone || '';
           root.querySelector('#admin-email').value = account.email || '';
-          renderAdminUsers();
+          await reloadAdminUsersFromSupabase();
           await renderAdminDevices();
         }
         setView('mine');
@@ -1863,44 +1881,45 @@
           message.textContent = 'Son obligatorios nombre, teléfono válido, correo válido y PIN de 4 a 6 cifras.';
           return;
         }
+        if (users.some(user => user.email?.toLowerCase() === email || String(user.phone || '').replace(/\D/g, '') === phoneDigits)) {
+          message.textContent = 'Ese teléfono o correo ya está vinculado a otra cuenta.';
+          return;
+        }
         button.disabled = true;
         button.textContent = 'Creando cuenta segura…';
         message.textContent = 'Comprobando autorización y creando la cuenta en Supabase…';
         try {
+          const { data:sessionData } = await supabaseClient.auth.getSession();
+          const accessToken = sessionData?.session?.access_token;
+          if (!accessToken) throw new Error('La sesión de administrador ha caducado. Cierra sesión y vuelve a entrar.');
           const { data, error } = await supabaseClient.functions.invoke('crear-usuario-seguro', {
-            body: { nombreCompleto:name, telefono:phone, correo:email, pin, rol:role }
+            body: { nombreCompleto:name, telefono:phone, correo:email, pin, rol:role },
+            headers: { Authorization:'Bearer ' + accessToken }
           });
           if (error) {
             let detail = '';
             try {
               const responseBody = await error.context?.json();
-              detail = responseBody?.error || '';
+              detail = responseBody?.error || responseBody?.message || '';
             } catch {}
             throw new Error(detail || error.message || 'No se pudo crear la cuenta.');
           }
-          if (!data?.ok || !data?.usuario) throw new Error(data?.error || 'Respuesta incompleta del servidor.');
-          const profile = data.usuario;
-          const account = {
-            id: profile.id,
-            name: [profile.nombre, profile.apellidos].filter(Boolean).join(' '),
-            phone: profile.telefono || '',
-            email: profile.correo,
-            role: profile.tipo_usuario === 'administrador_secundario' ? 'secondary' : 'user',
-            permissions: profile.permisos || {},
-            active: profile.activo === true
-          };
-          if (!users.some(user => user.id === account.id)) users.push(account);
-          renderAdminUsers();
+          if (data?.ok === false) throw new Error(data.error || 'El servidor rechazó la creación de la cuenta.');
+          await reloadAdminUsersFromSupabase();
+          const created = users.find(user => user.email?.toLowerCase() === email);
+          if (!created) {
+            throw new Error('Supabase no devolvió el nuevo perfil. No se considera guardado; revisa la función crear-usuario-seguro.');
+          }
           ['#new-user-name','#new-user-phone','#new-user-email','#new-user-pin'].forEach(selector => root.querySelector(selector).value = '');
-          message.textContent = 'Cuenta segura creada en Supabase. Ya puede iniciar sesión con su correo y PIN.';
+          message.textContent = 'Cuenta de ' + created.name + ' guardada y verificada en Supabase.';
         } catch (error) {
-          message.textContent = 'No se creó ninguna cuenta: ' + (error?.message || 'error de conexión segura.');
+          message.textContent = 'No se guardó la cuenta: ' + (error?.message || 'error de conexión segura.');
         } finally {
           button.disabled = false;
           button.textContent = '+ Crear cuenta';
         }
       });
-      root.querySelector('#save-admin-settings').addEventListener('click', () => {
+      root.querySelector('#save-admin-settings').addEventListener('click', async () => {
         if (!isPrimaryAdmin()) return;
         const account = currentAccount();
         const phone = root.querySelector('#admin-phone').value.trim();
@@ -1908,6 +1927,7 @@
         const pin = root.querySelector('#admin-new-pin').value.trim();
         const confirmPin = root.querySelector('#admin-confirm-pin').value.trim();
         const message = root.querySelector('#admin-settings-message');
+        const button = root.querySelector('#save-admin-settings');
         if (phone.replace(/\D/g, '').length < 9 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           message.textContent = 'El teléfono y el correo del administrador son obligatorios y deben ser válidos.';
           return;
@@ -1920,15 +1940,35 @@
           message.textContent = 'Ese teléfono o correo ya está vinculado a otra cuenta.';
           return;
         }
-        account.phone = phone;
-        account.email = email;
-        if (pin) account.pin = pin;
-        saveUsers();
-        renderAdminUsers();
-        renderLoginUsers();
-        root.querySelector('#admin-new-pin').value = '';
-        root.querySelector('#admin-confirm-pin').value = '';
-        message.textContent = 'Datos del administrador principal guardados.';
+        button.disabled = true;
+        message.textContent = 'Guardando los datos en Supabase…';
+        try {
+          const nameParts = String(account.name || 'Metrogestión').trim().split(/\s+/);
+          const nombre = nameParts.shift() || 'Metrogestión';
+          const apellidos = nameParts.join(' ');
+          const { data:profile, error } = await supabaseClient
+            .from('usuarios')
+            .update({ nombre, apellidos, telefono:phone, correo:email, actualizado_en:new Date().toISOString() })
+            .eq('id', account.id)
+            .select('*')
+            .single();
+          if (error) throw error;
+          if (pin) {
+            const { error:pinError } = await supabaseClient.auth.updateUser({ password:pin });
+            if (pinError) throw new Error('El teléfono se guardó, pero no se pudo cambiar el PIN: ' + pinError.message);
+          }
+          Object.assign(account, profileToAccount(profile));
+          await reloadAdminUsersFromSupabase();
+          root.querySelector('#admin-phone').value = profile.telefono || '';
+          root.querySelector('#admin-email').value = profile.correo || '';
+          root.querySelector('#admin-new-pin').value = '';
+          root.querySelector('#admin-confirm-pin').value = '';
+          message.textContent = 'Teléfono y datos del administrador guardados y verificados en Supabase.';
+        } catch (error) {
+          message.textContent = 'No se pudieron guardar los datos: ' + (error?.message || 'error de conexión.');
+        } finally {
+          button.disabled = false;
+        }
       });
       root.querySelector('#send-suggestion').addEventListener('click', async () => {
         const type = root.querySelector('#suggestion-type').value;
