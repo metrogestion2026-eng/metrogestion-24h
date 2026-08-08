@@ -1946,13 +1946,23 @@
           const nameParts = String(account.name || 'Metrogestión').trim().split(/\s+/);
           const nombre = nameParts.shift() || 'Metrogestión';
           const apellidos = nameParts.join(' ');
-          const { data:profile, error } = await supabaseClient
-            .from('usuarios')
-            .update({ nombre, apellidos, telefono:phone, correo:email, actualizado_en:new Date().toISOString() })
-            .eq('id', account.id)
-            .select('*')
-            .single();
-          if (error) throw error;
+          const { data:sessionData } = await supabaseClient.auth.getSession();
+          const accessToken = sessionData?.session?.access_token;
+          if (!accessToken) throw new Error('La sesión de administrador ha caducado. Cierra sesión y vuelve a entrar.');
+          const { data, error } = await supabaseClient.functions.invoke('crear-usuario-seguro', {
+            body: { accion:'actualizar_administrador', nombreCompleto:account.name || 'Metrogestión', telefono:phone, correo:email },
+            headers: { Authorization:'Bearer ' + accessToken }
+          });
+          if (error) {
+            let detail = '';
+            try {
+              const responseBody = await error.context?.json();
+              detail = responseBody?.error || responseBody?.message || '';
+            } catch {}
+            throw new Error(detail || error.message || 'No se pudieron guardar los datos.');
+          }
+          if (!data?.ok || !data?.usuario) throw new Error(data?.error || 'El servidor no confirmó el guardado.');
+          const profile = data.usuario;
           if (pin) {
             const { error:pinError } = await supabaseClient.auth.updateUser({ password:pin });
             if (pinError) throw new Error('El teléfono se guardó, pero no se pudo cambiar el PIN: ' + pinError.message);
