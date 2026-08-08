@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.14</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.15</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -639,7 +639,10 @@
       const callReturnKey = 'metrogestion24h_call_return_until';
       const activationDraftKey = 'metrogestion24h_activation_call_draft';
       const callSessionKey = 'metrogestion24h_call_session_v1';
+      const activationProgressKey = 'metrogestion24h_activation_progress_v1';
       let activeAuthSession = null;
+      let activationWakeLock = null;
+      let activationAutosaveTimer = null;
       const saveActivationCallDraft = () => {
         const fields = {};
         root.querySelectorAll('#view-activation input[id], #view-activation select[id], #view-activation textarea[id]').forEach(field => {
@@ -683,6 +686,52 @@
                 hour:'2-digit', minute:'2-digit', second:'2-digit'
               });
         }
+      };
+      const activeActivationStep = () => {
+        const entry = Object.entries(activationPanels).find(([,selector]) =>
+          !root.querySelector(selector).classList.contains('hidden'));
+        return entry ? Number(entry[0]) : 1;
+      };
+      const requestActivationWakeLock = async () => {
+        if (!('wakeLock' in navigator) || activationWakeLock) return;
+        try {
+          activationWakeLock = await navigator.wakeLock.request('screen');
+          activationWakeLock.addEventListener('release', () => { activationWakeLock = null; });
+        } catch {}
+      };
+      const saveActivationProgress = () => {
+        if (!sessionUserId || root.querySelector('#view-activation').classList.contains('hidden')) return;
+        saveActivationCallDraft();
+        localStorage.setItem(activationProgressKey, JSON.stringify({
+          step: activeActivationStep(),
+          expiresAt: Date.now() + 12 * 60 * 60 * 1000
+        }));
+        requestActivationWakeLock().catch(() => {});
+      };
+      const clearActivationProgress = () => {
+        localStorage.removeItem(activationProgressKey);
+        localStorage.removeItem(activationDraftKey);
+        localStorage.removeItem(callReturnKey);
+        localStorage.removeItem(callSessionKey);
+        if (activationWakeLock) activationWakeLock.release().catch(() => {});
+        activationWakeLock = null;
+      };
+      const restoreActivationProgress = () => {
+        let progress = null;
+        try { progress = JSON.parse(localStorage.getItem(activationProgressKey) || 'null'); } catch {}
+        if (!progress || progress.expiresAt <= Date.now()) {
+          localStorage.removeItem(activationProgressKey);
+          return false;
+        }
+        restoreActivationCallDraft();
+        setView('activation');
+        const step = Number(progress.step) || 1;
+        if (step >= 5) renderActivationCommunicationSummary();
+        showActivationStep(activationPanels[step] ? step : 1);
+        root.querySelector('#activation-message').textContent =
+          'Activación pendiente recuperada automáticamente. Continúa desde el punto donde la dejaste.';
+        requestActivationWakeLock().catch(() => {});
+        return true;
       };
       const faultHistoryKey = 'metrogestion_fault_history_v1';
       const defaultFaultHistory = [
@@ -1553,6 +1602,7 @@
         });
         await loadVehicleIndex();
         await loadHotelFromSupabase(true);
+        restoreActivationProgress();
       };
       root.querySelector('#refresh-devices').addEventListener('click', renderAdminDevices);
       root.querySelector('#login-form').addEventListener('submit', async event => {
@@ -2194,6 +2244,7 @@
               ? attachmentCount + ' archivo(s) seleccionado(s)'
               : 'Fotografías o documentos pendientes'
         });
+        clearActivationProgress();
         setView('mine');
       });
       const fixedLocations = {
@@ -2263,10 +2314,35 @@
         }
         suggestions.classList.toggle('hidden', !suggestions.children.length);
       });
+      root.querySelector('#view-activation').addEventListener('input', () => {
+        clearTimeout(activationAutosaveTimer);
+        activationAutosaveTimer = setTimeout(saveActivationProgress, 350);
+      });
+      root.querySelector('#view-activation').addEventListener('change', () => {
+        clearTimeout(activationAutosaveTimer);
+        saveActivationProgress();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          saveActivationProgress();
+        } else {
+          let progress = null;
+          try { progress = JSON.parse(localStorage.getItem(activationProgressKey) || 'null'); } catch {}
+          if (progress?.expiresAt > Date.now()) requestActivationWakeLock().catch(() => {});
+        }
+      });
+      window.addEventListener('beforeunload', event => {
+        let progress = null;
+        try { progress = JSON.parse(localStorage.getItem(activationProgressKey) || 'null'); } catch {}
+        if (!progress || progress.expiresAt <= Date.now()) return;
+        saveActivationProgress();
+        event.preventDefault();
+        event.returnValue = '';
+      });
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=39');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=40');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
