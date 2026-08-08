@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.4</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.5</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -391,9 +391,9 @@
             <select id="activation-location-type" class="form-select"><option>Bloque logístico Abrera</option><option>Bloque logístico Sansa</option><option>Nave Disfrimur</option><option>Polígono</option><option>Tienda</option><option>Carretera / autopista / autovía</option><option>Otro</option></select>
           </label>
           <label>Formato de ubicación
-            <select id="activation-location-format" class="form-select"><option value="plus">Plus Code</option><option value="coordinates">Coordenadas</option></select>
+            <select id="activation-location-format" class="form-select"><option value="coordinates" selected>Coordenadas</option><option value="plus">Plus Code</option></select>
           </label>
-          <label><span id="activation-location-reference-label">Plus Code</span><input id="activation-location-text" class="form-control" value="GV6V+62 Abrera" placeholder="Ej. GV6V+62 Abrera"></label>
+          <label><span id="activation-location-reference-label">Coordenadas</span><input id="activation-location-text" class="form-control" value="41.510562, 1.892562" placeholder="Ej. 41.4932, 1.8736"></label>
           <label>Código de alarma<input id="activation-alarm-code" class="form-control" placeholder="Código, si aparece"></label>
           <label>Color del aviso
             <select id="activation-alarm-color" class="form-select"><option>Sin testigo</option><option>Amarillo</option><option>Rojo</option><option>Otro</option></select>
@@ -1951,12 +1951,7 @@
       root.querySelector('#activation-location-type').addEventListener('change', () => {
         const type = root.querySelector('#activation-location-type').value;
         const fixedCode = fixedLocations[type];
-        if (fixedCode) {
-          root.querySelector('#activation-location-format').value = 'plus';
-          root.querySelector('#activation-location-text').value = fixedCode;
-        } else {
-          root.querySelector('#activation-location-text').value = '';
-        }
+        if (!fixedCode) root.querySelector('#activation-location-text').value = '';
         refreshLocationFormat();
       });
       root.querySelector('#activation-dfm').addEventListener('input', event => {
