@@ -1824,7 +1824,9 @@
           detalles_recibidos:{version:'Beta 2.0'}
         });
         await loadVehicleIndex();
-        await loadHotelFromSupabase(true);
+        // El Hotel es un módulo exclusivo de administración: los usuarios
+        // normales no cargan sus datos ni abren su canal en tiempo real.
+        if (isAdmin()) await loadHotelFromSupabase(true);
         restoreActivationProgress();
       };
       root.querySelector('#refresh-devices').addEventListener('click', renderAdminDevices);
