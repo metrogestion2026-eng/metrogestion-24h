@@ -1481,8 +1481,85 @@
           });
         });
       };
+      const saveHotelEditPanel = async button => {
+        if (!isAdmin()) return;
+        const panel = button.closest('.hotel-edit-panel');
+        if (!panel || panel.dataset.id !== button.dataset.id) {
+          window.alert('No se encontró la ficha que se debe guardar. Vuelve a abrirla e inténtalo de nuevo.');
+          return;
+        }
+        const value = name => String(panel.querySelector(`[data-field="${name}"]`)?.value || '').trim();
+        const reserve = value('reserve').toUpperCase();
+        const fleet = value('fleet').toUpperCase();
+        const priority = Number(value('priority'));
+        const temporary = Boolean(panel.querySelector('[data-field="temporary"]')?.checked);
+        const message = panel.querySelector('.hotel-edit-message');
+        if (!fleet && !reserve) {
+          message.textContent = 'Indica al menos el vehículo de flota o la reserva.';
+          message.scrollIntoView({behavior:'smooth',block:'center'});
+          return;
+        }
+        if (![1,2,3,4,5].includes(priority)) {
+          message.textContent = 'Selecciona una prioridad válida.';
+          message.scrollIntoView({behavior:'smooth',block:'center'});
+          return;
+        }
+        if (temporary && (!value('temporaryReason') || !value('temporaryLimit'))) {
+          message.textContent = 'La sustitución temporal necesita motivo y fecha límite.';
+          message.scrollIntoView({behavior:'smooth',block:'center'});
+          return;
+        }
+        button.disabled = true;
+        message.textContent = 'Guardando todos los cambios…';
+        const payload = {
+          vehiculo_sustituido:fleet, matricula_sustituido:value('fleetPlate').toUpperCase(),
+          vehiculo_reserva:reserve, matricula_reserva:value('reservePlate').toUpperCase(),
+          tipo_unidad:value('reserveLabel'), etiqueta_reserva:value('reserveLabel'),
+          fecha_parada:value('stopDate') || null,
+          fecha_entrada:value('entryDate') ? value('entryDate') + 'T00:00:00+02:00' : null,
+          tipo_movimiento:value('movementType'), marca:value('brand'), tipo_motor:value('engine'),
+          lugar:value('location'), upc:value('upc'), incidencia:value('inc'), proximo:value('next'),
+          modelo:value('model'), prioridad:priority, causa:value('cause'), trabajos_reserva:value('reserveTasks'),
+          observaciones:value('observations'), sustitucion_temporal:temporary,
+          motivo_sustitucion_temporal:temporary ? value('temporaryReason') : '',
+          fecha_limite_sustitucion:temporary ? new Date(value('temporaryLimit')).toISOString() : null,
+          es_flota:Boolean(fleet), modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+        };
+        try {
+          const { data:updatedRow, error } = await supabaseClient.from('registros_hotel')
+            .update(payload).eq('id',button.dataset.id).select('*').single();
+          if (error) throw error;
+          if (!updatedRow?.id) throw new Error('La base de datos no confirmó la fila actualizada.');
+          const unitIndex = hotelUnits.findIndex(item => item.id === button.dataset.id);
+          if (unitIndex >= 0) {
+            updatedRow.etapas_hotel = hotelUnits[unitIndex].stages.map((stage,index) => ({
+              id:stage.id, nombre:stage.name, estado:stage.status, lugar:stage.location,
+              motivo_anulacion:stage.reason, fecha_real:stage.completedAt, posicion:index + 1
+            }));
+            hotelUnits[unitIndex] = mapDbHotelUnit(updatedRow);
+          }
+          message.textContent = 'Datos guardados correctamente';
+          window.alert('Datos guardados correctamente');
+          await loadHotelFromSupabase(false);
+        } catch (error) {
+          message.textContent = 'No se pudo guardar: ' + (error?.message || 'error desconocido');
+          message.scrollIntoView({behavior:'smooth',block:'center'});
+          button.disabled = false;
+        }
+      };
+      const bindHotelEditSave = () => {
+        if (root.dataset.hotelEditSaveBound === 'true') return;
+        root.dataset.hotelEditSaveBound = 'true';
+        root.addEventListener('click', event => {
+          const button = event.target.closest('.hotel-edit-save');
+          if (!button || !root.contains(button)) return;
+          event.preventDefault();
+          saveHotelEditPanel(button);
+        });
+      };
       const bindHotelStageButtons = () => {
         bindHotelStageDrag();
+        bindHotelEditSave();
         root.querySelectorAll('.hotel-stage-action').forEach(select => select.addEventListener('change', event => {
           const action = event.currentTarget.value;
           if (!action || !isAdmin()) return;
@@ -1562,58 +1639,6 @@
         }));
         root.querySelectorAll('.hotel-edit-cancel').forEach(button => button.addEventListener('click', () => {
           root.querySelector(`.hotel-edit-panel[data-id="${CSS.escape(button.dataset.id)}"]`)?.classList.add('hidden');
-        }));
-        root.querySelectorAll('.hotel-edit-save').forEach(button => button.addEventListener('click', async () => {
-          if (!isAdmin()) return;
-          const panel = root.querySelector(`.hotel-edit-panel[data-id="${CSS.escape(button.dataset.id)}"]`);
-          if (!panel) return;
-          const value = name => panel.querySelector(`[data-field="${name}"]`)?.value.trim() || '';
-          const reserve = value('reserve').toUpperCase();
-          const priority = Number(value('priority'));
-          const temporary = panel.querySelector('[data-field="temporary"]').checked;
-          const message = panel.querySelector('.hotel-edit-message');
-          if (!reserve || ![1,2,3,4,5].includes(priority)) {
-            message.textContent = 'La reserva y una prioridad válida son obligatorias.';
-            return;
-          }
-          if (temporary && (!value('temporaryReason') || !value('temporaryLimit'))) {
-            message.textContent = 'La sustitución temporal necesita motivo y fecha límite.';
-            return;
-          }
-          button.disabled = true;
-          message.textContent = 'Guardando todos los cambios…';
-          const payload = {
-            vehiculo_sustituido:value('fleet').toUpperCase(), matricula_sustituido:value('fleetPlate').toUpperCase(),
-            vehiculo_reserva:reserve, matricula_reserva:value('reservePlate').toUpperCase(),
-            tipo_unidad:value('reserveLabel'), etiqueta_reserva:value('reserveLabel'),
-            fecha_parada:value('stopDate') || null,
-            fecha_entrada:value('entryDate') ? value('entryDate') + 'T00:00:00+02:00' : null,
-            tipo_movimiento:value('movementType'),
-            marca:value('brand'), tipo_motor:value('engine'),
-            lugar:value('location'), upc:value('upc'), incidencia:value('inc'), proximo:value('next'),
-            modelo:value('model'), prioridad, causa:value('cause'), trabajos_reserva:value('reserveTasks'),
-            observaciones:value('observations'), sustitucion_temporal:temporary,
-            motivo_sustitucion_temporal:temporary ? value('temporaryReason') : '',
-            fecha_limite_sustitucion:temporary ? new Date(value('temporaryLimit')).toISOString() : null,
-            es_flota:Boolean(value('fleet')), modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
-          };
-          const { data:updatedRow, error } = await supabaseClient.from('registros_hotel')
-            .update(payload).eq('id',button.dataset.id).select('*').single();
-          if (error) {
-            message.textContent = 'No se pudo guardar: ' + error.message;
-            button.disabled = false;
-            return;
-          }
-          message.textContent = 'Datos guardados correctamente';
-          const unitIndex = hotelUnits.findIndex(item => item.id === button.dataset.id);
-          if (unitIndex >= 0 && updatedRow) {
-            updatedRow.etapas_hotel = hotelUnits[unitIndex].stages.map((stage,index) => ({
-              id:stage.id, nombre:stage.name, estado:stage.status, lugar:stage.location,
-              motivo_anulacion:stage.reason, fecha_real:stage.completedAt, posicion:index + 1
-            }));
-            hotelUnits[unitIndex] = mapDbHotelUnit(updatedRow);
-          }
-          await loadHotelFromSupabase(false);
         }));
         root.querySelectorAll('.hotel-stage-done').forEach(button => button.addEventListener('click', async () => {
           const unit = hotelUnits.find(item => item.id === button.dataset.id);
