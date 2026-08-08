@@ -118,7 +118,7 @@ Deno.serve(async request => {
     modulo: 'usuarios',
     resultado: 'correcto',
     detalles: { usuario_creado: created.user.id, correo, rol },
-  }).catch(() => undefined);
+  });
 
   return json(201, {
     ok: true,
