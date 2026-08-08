@@ -60,12 +60,43 @@ Deno.serve(async request => {
   const telefono = String(payload.telefono || '').trim();
   const correo = String(payload.correo || '').trim().toLowerCase();
   const pin = String(payload.pin || '').trim();
+  const accion = String(payload.accion || 'crear_usuario');
   const rol = payload.rol === 'secondary' ? 'administrador_secundario' : 'usuario';
 
   const partes = nombreCompleto.split(' ');
   const nombre = partes.shift() || '';
   const apellidos = partes.join(' ');
   const phoneDigits = telefono.replace(/\D/g, '');
+
+  if (accion === 'actualizar_administrador') {
+    if (!nombre || phoneDigits.length < 9 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+      return json(400, { error: 'Nombre, teléfono y correo no tienen un formato válido.' });
+    }
+
+    const { data: duplicate } = await admin
+      .from('usuarios')
+      .select('id')
+      .neq('id', authData.user.id)
+      .or(`correo.eq.${correo},telefono.eq.${telefono}`)
+      .limit(1);
+    if (duplicate?.length) return json(409, { error: 'Ese correo o teléfono ya pertenece a otra cuenta.' });
+
+    const { data: profile, error: updateError } = await admin
+      .from('usuarios')
+      .update({ nombre, apellidos, telefono, correo, actualizado_en: new Date().toISOString() })
+      .eq('id', authData.user.id)
+      .select('*')
+      .single();
+    if (updateError || !profile) return json(400, { error: 'No se pudieron guardar los datos del administrador.' });
+
+    const { error: authUpdateError } = await admin.auth.admin.updateUserById(authData.user.id, {
+      email: correo,
+      user_metadata: { nombre, apellidos, telefono },
+    });
+    if (authUpdateError) return json(400, { error: 'El perfil se guardó, pero no se pudo actualizar la cuenta de acceso.' });
+
+    return json(200, { ok: true, usuario: profile });
+  }
 
   if (!nombre || phoneDigits.length < 9 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo) || !/^\d{4,6}$/.test(pin)) {
     return json(400, { error: 'Nombre, teléfono, correo y PIN no tienen un formato válido.' });
@@ -96,7 +127,9 @@ Deno.serve(async request => {
     });
   }
 
-  const { error: profileError } = await admin.from('usuarios').insert({
+  // Puede existir ya una fila creada por el trigger de Auth. Upsert evita que
+  // esa fila provoque un falso fallo y la eliminación de la cuenta recién creada.
+  const { error: profileError } = await admin.from('usuarios').upsert({
     id: created.user.id,
     nombre,
     apellidos,
@@ -105,7 +138,7 @@ Deno.serve(async request => {
     tipo_usuario: rol,
     permisos,
     activo: true,
-  });
+  }, { onConflict: 'id' });
 
   if (profileError) {
     await admin.auth.admin.deleteUser(created.user.id);
