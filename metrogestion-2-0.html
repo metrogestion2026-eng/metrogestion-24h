@@ -202,7 +202,7 @@
           <button id="hotel-new-urgent" class="btn btn-primary" type="button">⚠ Avería urgente</button>
         </div>
       </div>
-      <div class="card sync-note text-small"><strong>Beta 1.8 conectada.</strong> Hotel utiliza una base de datos privada y sincronización en tiempo real. La conexión automática con MANTENIMENT se incorporará en una fase posterior.</div>
+      <div class="card sync-note text-small"><strong>Pizarra principal del Hotel.</strong> Todo lo introducido desde la app se guarda en la base privada, se sincroniza en tiempo real y pasa automáticamente al histórico diario. No es necesario volver a rellenarlo en Drive.</div>
       <div class="module-tabs" aria-label="Vistas de Hotel">
         <button class="btn btn-primary hotel-subtab" data-hotel-view="board" type="button">Pizarra actual</button>
         <button class="btn btn-secondary hotel-subtab" data-hotel-view="next" type="button">Próximos</button>
@@ -222,7 +222,7 @@
       <div id="hotel-history" class="stack hidden">
         <div class="detail-grid">
           <label>Buscar en el histórico<input id="hotel-history-search" class="form-control" placeholder="Fecha, DFM, matrícula, UPC, taller, estado o causa"></label>
-          <label>Mes<input id="hotel-history-month" class="form-control" type="month" value="2026-07"></label>
+          <label>Mes<input id="hotel-history-month" class="form-control" type="month"></label>
         </div>
         <div class="card text-small">Las jornadas se archivan automáticamente a las 00:00. No se eliminan: solo los administradores autorizados pueden anularlas o corregirlas indicando un motivo.</div>
         <div id="hotel-history-list" class="hotel-list"></div>
@@ -1051,6 +1051,8 @@
       const hotelStorageKey = 'metrogestion_hotel_beta18_03ago_v1';
       const defaultHotelUnits = [];
       let hotelUnits = [];
+      let hotelHistoryRows = [];
+      let hotelHistoryLoadedMonth = '';
       let activePizarraId = null;
       let activePizarraDate = '';
       let hotelRealtimeChannel = null;
@@ -1224,6 +1226,47 @@
         renderHotel();
         if (subscribe) subscribeHotelRealtime();
       };
+      const loadHotelHistoryFromSupabase = async () => {
+        if (!isAdmin()) return;
+        const monthField = root.querySelector('#hotel-history-month');
+        const currentMonth = new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Madrid',year:'numeric',month:'2-digit'}).format(new Date());
+        const month = monthField.value || currentMonth;
+        monthField.value = month;
+        const [year,monthNumber] = month.split('-').map(Number);
+        const nextMonth = new Date(Date.UTC(year, monthNumber, 1)).toISOString().slice(0,7) + '-01';
+        const { data, error } = await supabaseClient.from('pizarras')
+          .select('id,fecha,estado,motivo_anulacion,registros_hotel(*)')
+          .gte('fecha',month + '-01').lt('fecha',nextMonth)
+          .in('estado',['archivada','anulada']).order('fecha',{ascending:false});
+        if (error) {
+          root.querySelector('#hotel-history-list').innerHTML = `<div class="card">No se pudo cargar el histórico: ${escapeHtml(error.message)}</div>`;
+          return;
+        }
+        hotelHistoryLoadedMonth = month;
+        hotelHistoryRows = (data || []).flatMap(pizarra => (pizarra.registros_hotel || []).map(row => ({
+          ...mapDbHotelUnit(row), historyDate:pizarra.fecha, boardState:pizarra.estado,
+          boardCancellationReason:pizarra.motivo_anulacion || '', hidden:Boolean(row.oculto)
+        })));
+        renderHotelHistory();
+      };
+      const renderHotelHistory = () => {
+        const list = root.querySelector('#hotel-history-list');
+        const query = root.querySelector('#hotel-history-search').value.toLowerCase().trim();
+        const rows = hotelHistoryRows.filter(unit => !query || [
+          unit.historyDate,unit.fleet,unit.fleetPlate,unit.reserve,unit.reservePlate,unit.upc,
+          unit.location,unit.stateLabel,unit.cause,unit.inc,unit.brand,unit.engine
+        ].join(' ').toLowerCase().includes(query));
+        list.innerHTML = rows.map(unit => {
+          const date = new Date(unit.historyDate + 'T12:00:00').toLocaleDateString('es-ES');
+          const cancelled = unit.boardState === 'anulada' || unit.dbState === 'anulado' || unit.hidden;
+          return `<article class="card stack ${cancelled?'text-muted':''}">
+            <div class="hotel-title"><strong>${escapeHtml(date)} · ${unit.fleet?`DFM ${unit.fleet} · ${unit.fleetPlate}`:`Reserva ${unit.reserve} · ${unit.reservePlate}`}</strong><span class="badge">${escapeHtml(cancelled?'Anulado':unit.stateLabel)}</span></div>
+            <div>Reserva <strong>${escapeHtml(unit.reserve||'—')}</strong> · ${escapeHtml(unit.reservePlate||'—')} · ${escapeHtml(unit.location||'Sin indicar')}</div>
+            <div class="text-small">UPC: ${escapeHtml(unit.upc||'—')} · Prioridad ${escapeHtml(unit.priority||'—')} · INC: ${escapeHtml(unit.inc||'Sin incidencia')}</div>
+            <div class="text-small text-muted">${escapeHtml(unit.cause||'Sin causa indicada')}${cancelled && unit.boardCancellationReason?` · Motivo: ${escapeHtml(unit.boardCancellationReason)}`:''}</div>
+          </article>`;
+        }).join('') || `<div class="card">No hay registros guardados en ${escapeHtml(hotelHistoryLoadedMonth || 'el mes seleccionado')}.</div>`;
+      };
       const stateOrder = [
         ['plan','Parar'], ['workshop','Pendiente de llevar al taller'], ['workshop','En taller'],
         ['ready','Terminado, pendiente de recoger'], ['route','Recogido, pendiente de recuperar ruta'], ['free','Reserva libre']
@@ -1244,11 +1287,20 @@
         return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
       };
       const renderHotelSummary = () => {
-        const occupied = hotelUnits.filter(unit => unit.fleet).length;
-        const free = hotelUnits.filter(unit => unit.state === 'free').length;
-        const workshop = hotelUnits.filter(unit => unit.state === 'workshop').length;
-        const ready = hotelUnits.filter(unit => ['ready','route'].includes(unit.state)).length;
-        const markup = renderMetric('Reservas ocupadas',occupied,'occupied')+renderMetric('Reservas libres',free,'free')+renderMetric('En taller',workshop,'workshop')+renderMetric('Pendientes de recuperar',ready,'recover');
+        const active = hotelUnits.filter(unit => !['reserva_liberada','anulado'].includes(unit.dbState)).length;
+        const free = hotelUnits.filter(unit => unit.dbState === 'reserva_liberada').length;
+        const planned = hotelUnits.filter(unit => unit.dbState === 'planificado').length;
+        const pendingWorkshop = hotelUnits.filter(unit => unit.dbState === 'pendiente_taller').length;
+        const workshop = hotelUnits.filter(unit => hotelWorkshopStates.includes(unit.dbState)).length;
+        const ready = hotelUnits.filter(unit => unit.dbState === 'terminado_pendiente_recogida').length;
+        const route = hotelUnits.filter(unit => unit.dbState === 'recogido_pendiente_ruta').length;
+        const markup = renderMetric('Movimientos activos',active,'occupied')
+          +renderMetric('Reservas libres',free,'free')
+          +renderMetric('Pendientes de parar',planned,'planned')
+          +renderMetric('Pendientes de taller',pendingWorkshop,'pending-workshop')
+          +renderMetric('En taller',workshop,'workshop')
+          +renderMetric('Terminados para recoger',ready,'ready')
+          +renderMetric('Recogidos, recuperar ruta',route,'route');
         root.querySelector('#hotel-summary-cards').innerHTML = markup;
         root.querySelector('#hotel-dashboard-cards').innerHTML = markup;
         const workshopUnits = hotelUnits.filter(unit => unit.state === 'workshop');
@@ -1257,7 +1309,10 @@
           const vehicle = unit.fleet ? `${unit.fleet} · ${unit.fleetPlate}` : `${unit.reserve} · ${unit.reservePlate}`;
           return `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><div><strong>${escapeHtml(vehicle)}</strong><div class="text-small">${escapeHtml(unit.location||'Taller sin indicar')} · Entrada: ${escapeHtml(entryDate)}</div><div class="text-small text-muted">Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</div></div></div>`;
         }).join('') || '<div class="text-small text-muted">No hay vehículos en taller.</div>';
-        root.querySelector('#hotel-priority-list').innerHTML = hotelUnits.filter(unit => unit.state !== 'free').sort((a,b)=>a.priority-b.priority).map(unit => `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><strong>DFM ${escapeHtml(unit.fleet)}</strong><span>${escapeHtml(unit.cause)}</span></div>`).join('');
+        root.querySelector('#hotel-priority-list').innerHTML = hotelUnits.filter(unit => !['reserva_liberada','anulado'].includes(unit.dbState)).sort((a,b)=>a.priority-b.priority).map(unit => {
+          const vehicle = unit.fleet ? `${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${unit.fleet}` : `Reserva ${unit.reserve}`;
+          return `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><strong>${escapeHtml(vehicle)}</strong><span>${escapeHtml(unit.cause||'Sin causa indicada')}</span></div>`;
+        }).join('') || '<div class="text-small text-muted">No hay movimientos activos.</div>';
         root.querySelectorAll('.hotel-metric-filter').forEach(button => button.addEventListener('click', () => {
           hotelMetricFilter = button.dataset.filter;
           renderHotel();
@@ -1518,28 +1573,29 @@
         root.querySelector('#hotel-date').textContent = 'Pizarra en curso del ' + shownDate + ' · sincronización en tiempo real';
         const query = root.querySelector('#hotel-search').value.toLowerCase().trim();
         const matchesMetric = unit => hotelMetricFilter === 'all'
-          || (hotelMetricFilter === 'occupied' && Boolean(unit.fleet))
-          || (hotelMetricFilter === 'free' && unit.state === 'free')
-          || (hotelMetricFilter === 'workshop' && unit.state === 'workshop')
-          || (hotelMetricFilter === 'recover' && ['ready','route'].includes(unit.state));
+          || (hotelMetricFilter === 'occupied' && !['reserva_liberada','anulado'].includes(unit.dbState))
+          || (hotelMetricFilter === 'free' && unit.dbState === 'reserva_liberada')
+          || (hotelMetricFilter === 'planned' && unit.dbState === 'planificado')
+          || (hotelMetricFilter === 'pending-workshop' && unit.dbState === 'pendiente_taller')
+          || (hotelMetricFilter === 'workshop' && hotelWorkshopStates.includes(unit.dbState))
+          || (hotelMetricFilter === 'ready' && unit.dbState === 'terminado_pendiente_recogida')
+          || (hotelMetricFilter === 'route' && unit.dbState === 'recogido_pendiente_ruta');
         const visible = hotelUnits.filter(unit => matchesMetric(unit) && (!query || Object.values(unit).flat(3).join(' ').toLowerCase().includes(query)));
-        const filterLabels = {occupied:'Reservas ocupadas',free:'Reservas libres',workshop:'Vehículos en taller',recover:'Pendientes de recuperar'};
+        const filterLabels = {occupied:'Movimientos activos',free:'Reservas libres',planned:'Pendientes de parar','pending-workshop':'Pendientes de taller',workshop:'Vehículos en taller',ready:'Terminados para recoger',route:'Recogidos, recuperar ruta'};
         const activeFilter = root.querySelector('#hotel-active-filter');
         activeFilter.classList.toggle('hidden', hotelMetricFilter === 'all');
         activeFilter.innerHTML = hotelMetricFilter === 'all' ? '' : `<div class="viz-row"><strong>Mostrando: ${filterLabels[hotelMetricFilter]}</strong><button id="hotel-clear-filter" class="btn btn-secondary" type="button">Mostrar todo</button></div>`;
         root.querySelector('#hotel-clear-filter')?.addEventListener('click', () => { hotelMetricFilter='all'; renderHotel(); });
         root.querySelector('#hotel-list').innerHTML = visible.map(renderHotelUnit).join('') || '<div class="card">No hay resultados en la pizarra actual.</div>';
         root.querySelector('#hotel-next-list').innerHTML = hotelUnits.filter(unit=>unit.next).map(unit=>`<div class="card"><strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</strong><div>Próximo previsto: <strong>${escapeHtml(unit.next)}</strong></div><div class="text-small text-muted">Previsión no confirmada. La decisión final es manual.</div></div>`).join('') || '<div class="card">No hay próximas sustituciones planificadas.</div>';
-        root.querySelector('#hotel-history-list').innerHTML = [
-          {date:'29/07/2026',dfm:'2709',plate:'7039NGM',reserve:'2499',state:'En taller',place:'AUTODIS',cause:'Consumo o pérdida de aceite'},
-          {date:'29/07/2026',dfm:'2518',plate:'1859MLJ',reserve:'2686',state:'En taller',place:'STERN',cause:'Frenos eje 2 + nivel de agua'}
-        ].filter(item=>{const q=root.querySelector('#hotel-history-search').value.toLowerCase().trim();return !q||Object.values(item).join(' ').toLowerCase().includes(q)}).map(item=>`<div class="card"><strong>${item.date} · DFM ${item.dfm} · ${item.plate}</strong><div>Reserva ${item.reserve} · ${item.state} · ${item.place}</div><div class="text-small text-muted">${item.cause}</div></div>`).join('');
+        renderHotelHistory();
         renderHotelSummary(); bindHotelStageButtons();
       };
       const setHotelSubView = next => {
         ['board','next','history','dashboard'].forEach(name => root.querySelector('#hotel-'+name).classList.toggle('hidden', name !== (next==='summary'?'dashboard':next)));
         root.querySelectorAll('.hotel-subtab').forEach(button => { const active=button.dataset.hotelView===next; button.classList.toggle('btn-primary',active); button.classList.toggle('btn-secondary',!active); });
         renderHotel();
+        if (next === 'history') loadHotelHistoryFromSupabase();
       };
       const renderLoginUsers = () => {
         const select = root.querySelector('#mock-user');
@@ -2283,7 +2339,8 @@
       root.querySelector('#incidences-all').addEventListener('click', () => setView('all'));
       root.querySelectorAll('.hotel-subtab').forEach(button => button.addEventListener('click', () => setHotelSubView(button.dataset.hotelView)));
       root.querySelector('#hotel-search').addEventListener('input', renderHotel);
-      root.querySelector('#hotel-history-search').addEventListener('input', renderHotel);
+      root.querySelector('#hotel-history-search').addEventListener('input', renderHotelHistory);
+      root.querySelector('#hotel-history-month').addEventListener('change', loadHotelHistoryFromSupabase);
       root.querySelector('#hotel-form-exceptional').addEventListener('change', event => root.querySelector('#hotel-exception-fields').classList.toggle('hidden', !event.target.checked));
       root.querySelector('#hotel-form-close').addEventListener('click', () => root.querySelector('#hotel-form').classList.add('hidden'));
       const openHotelForm = urgent => {
