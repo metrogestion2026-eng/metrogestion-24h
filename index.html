@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.22</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.23</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -2272,67 +2272,63 @@
           button.disabled = false;
         }
       });
-      root.querySelector('#save-incidence').addEventListener('click', () => {
-        const arrived = root.querySelector('#activation-technician-arrived').checked;
-        const diagnosed = root.querySelector('#activation-diagnosis-confirmed').checked;
-        const resultValue = root.querySelector('#activation-result').value;
-        const workshop = root.querySelector('#activation-workshop').value.trim();
+      root.querySelector('#save-incidence').addEventListener('click', event => {
+        const button = event.currentTarget;
         const followMessage = root.querySelector('#follow-message');
-        if (arrived && !root.querySelector('#activation-real-arrival').value) {
-          followMessage.textContent = 'Indica la fecha y hora real de llegada del técnico.';
-          return;
-        }
-        if (diagnosed && !root.querySelector('#activation-diagnosis-text').value.trim()) {
-          followMessage.textContent = 'Describe el diagnóstico confirmado.';
-          return;
-        }
-        if (resultValue === 'workshop' && !workshop) {
-          followMessage.textContent = 'Indica el taller al que se ha trasladado el vehículo.';
-          return;
-        }
-        followMessage.textContent = '';
-        rememberFaultDescription(root.querySelector('#activation-fault-text').value);
-        const code = root.querySelector('#activation-dfm').dataset.dfm;
-        const vehicle = vehicleIndex.find(item => item.dfm === code);
-        const attachmentFiles = selectedFollowFiles();
-        const attachmentCount = attachmentFiles.length;
-        const attachmentType = root.querySelector('#activation-attachment-type').value;
-        // Las fotografías y los documentos son opcionales. Si aún no se ha
-        // generado el PDF, la incidencia se guarda igualmente como pendiente.
-        incidences.unshift({
-          id: 'INC-MAQUETA-' + String(incidences.length + 1).padStart(3, '0'),
-          creator: sessionUser,
-          dfm: code,
-          plate: vehicle ? vehicle.plate : root.querySelector('#manual-plate').value,
-          opened: 'Ahora',
-          status: resultValue ? 'Pendiente de cierre' : 'Seguimiento abierto',
-          caseNumber: root.querySelector('#activation-case-number').value,
-          fault: root.querySelector('#activation-fault-text').value,
-          location: root.querySelector('#activation-location-text').value,
-          eta: root.querySelector('#activation-eta').value,
-          activatedAt: root.querySelector('#activation-time').value,
-          realArrival: arrived ? root.querySelector('#activation-real-arrival').value : 'Pendiente',
-          diagnosis: diagnosed ? root.querySelector('#activation-diagnosis-text').value.trim() : 'Pendiente de confirmación',
-          result: resultValue === 'road' ? 'Reparado en carretera' : resultValue === 'workshop' ? 'Trasladado a taller' : 'Seguimiento abierto',
-          workshop: resultValue === 'workshop' ? workshop : '—',
-          attachments: generatedFollowPdf
-            ? 'PDF generado desde ' + attachmentCount + ' fotografía(s)'
-            : attachmentCount
-              ? attachmentCount + ' archivo(s) seleccionado(s)'
-              : 'Fotografías o documentos pendientes'
-        });
+        button.disabled = true;
+        button.textContent = 'Guardando…';
         try {
-          localStorage.setItem(incidenceStorageKey, JSON.stringify(incidences));
+          const value = selector => root.querySelector(selector)?.value || '';
+          const checked = selector => Boolean(root.querySelector(selector)?.checked);
+          const code = root.querySelector('#activation-dfm')?.dataset.dfm || value('#activation-dfm').trim();
+          const vehicle = vehicleIndex.find(item => item.dfm === code);
+          let attachmentCount = 0;
+          try { attachmentCount = selectedFollowFiles().length; } catch {}
+          const resultValue = value('#activation-result');
+          const workshop = value('#activation-workshop').trim();
+          const incidence = {
+            id: 'INC-MAQUETA-' + String(incidences.length + 1).padStart(3, '0'),
+            creator: sessionUser,
+            dfm: code || 'Pendiente',
+            plate: vehicle ? vehicle.plate : value('#manual-plate') || 'Pendiente',
+            opened: new Date().toLocaleString('es-ES'),
+            status: resultValue ? 'Pendiente de cierre' : 'Seguimiento abierto',
+            caseNumber: value('#activation-case-number') || 'Pendiente',
+            fault: value('#activation-fault-text') || 'Pendiente de completar',
+            location: value('#activation-location-text') || 'Pendiente',
+            eta: value('#activation-eta') || 'Pendiente',
+            activatedAt: value('#activation-time') || new Date().toISOString(),
+            realArrival: checked('#activation-technician-arrived') && value('#activation-real-arrival')
+              ? value('#activation-real-arrival') : 'Pendiente',
+            diagnosis: checked('#activation-diagnosis-confirmed') && value('#activation-diagnosis-text').trim()
+              ? value('#activation-diagnosis-text').trim() : 'Pendiente de confirmación',
+            result: resultValue === 'road' ? 'Reparado en carretera'
+              : resultValue === 'workshop' ? 'Trasladado a taller' : 'Seguimiento abierto',
+            workshop: resultValue === 'workshop' ? (workshop || 'Pendiente de indicar') : '—',
+            attachments: generatedFollowPdf
+              ? 'PDF generado desde ' + attachmentCount + ' fotografía(s)'
+              : attachmentCount
+                ? attachmentCount + ' archivo(s) pendiente(s) de completar'
+                : 'Fotografías o documentos pendientes'
+          };
+          try { rememberFaultDescription(value('#activation-fault-text')); } catch {}
+          incidences.unshift(incidence);
+          try { localStorage.setItem(incidenceStorageKey, JSON.stringify(incidences)); } catch {}
+          try { clearActivationProgress(); } catch {}
+          const search = root.querySelector('#incidence-search');
+          if (search) search.value = '';
+          setView('mine');
+          root.querySelector('#view-heading .text-small').textContent =
+            incidence.id + ' guardada correctamente. Pulsa sobre ella para consultar todos los datos.';
+          window.scrollTo({top:0, behavior:'smooth'});
         } catch (error) {
-          console.warn('No se pudo conservar la copia local de incidencias', error);
+          console.error(error);
+          followMessage.textContent = 'No se pudo guardar la incidencia: ' + (error?.message || 'error desconocido');
+          followMessage.scrollIntoView({behavior:'smooth', block:'center'});
+        } finally {
+          button.disabled = false;
+          button.textContent = 'Guardar incidencia';
         }
-        const savedIncidence = incidences[0];
-        clearActivationProgress();
-        root.querySelector('#incidence-search').value = '';
-        setView('mine');
-        root.querySelector('#view-heading .text-small').textContent =
-          savedIncidence.id + ' guardada correctamente. Pulsa sobre ella para consultar todos los datos.';
-        window.scrollTo({top:0, behavior:'smooth'});
       });
       const fixedLocations = {
         'Bloque logístico Abrera': 'GV6V+62 Abrera',
@@ -2426,7 +2422,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=47');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=48');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
