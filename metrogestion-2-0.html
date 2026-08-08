@@ -7,10 +7,10 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="GestiÃ³n 24H">
+  <meta name="apple-mobile-web-app-title" content="Gestión 24H">
   <link rel="manifest" href="manifest-metrogestion-2-0.json">
   <link rel="icon" href="icono-gestion-24h.svg" type="image/svg+xml">
-  <title>GestiÃ³n de mantenimientos Â· Activar 24H</title>
+  <title>Gestión de mantenimientos · Activar 24H</title>
   <style>
     :root {
       --background:#fff; --foreground:#172033; --primary:#075985;
@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>GestiÃ³n de mantenimientos</strong><div class="viz-row"><small>Activar 24H Â· Beta 2.0</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 2.0</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -71,7 +71,7 @@
     #incidence-access-mockup .detail-grid span { color: var(--muted-foreground); }
     #incidence-access-mockup .user-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; }
     #incidence-access-mockup .locked-tab { opacity:.62; border-style:dashed; }
-    #incidence-access-mockup .locked-tab::before { content:'ð'; margin-right:6px; }
+    #incidence-access-mockup .locked-tab::before { content:'🔒'; margin-right:6px; }
     #incidence-access-mockup .module-tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; }
     #incidence-access-mockup .module-tabs .btn { white-space:nowrap; }
     #incidence-access-mockup .hotel-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
@@ -118,22 +118,22 @@
   <section id="mock-login" class="login-wrap">
     <form id="login-form" class="card stack" autocomplete="on">
       <div>
-        <strong>Programa de gestiÃ³n Â· Acceso seguro</strong>
-        <div class="text-small text-muted">Acceso conectado a la base de datos de MetrogestiÃ³n.</div>
+        <strong>Programa de gestión · Acceso seguro</strong>
+        <div class="text-small text-muted">Acceso conectado a la base de datos de Metrogestión.</div>
       </div>
       <label>Correo vinculado
         <input id="mock-user" class="form-control" type="email" autocomplete="username" value="" placeholder="correo@empresa.com">
       </label>
-      <label>ContraseÃ±a o PIN de acceso
+      <label>Contraseña o PIN de acceso
         <div class="viz-row">
           <input id="mock-pin" class="form-control" type="password" autocomplete="current-password" placeholder="Introduce tu clave privada">
-          <button id="toggle-login-password" class="btn btn-secondary" type="button" aria-pressed="false">Ver contraseÃ±a</button>
+          <button id="toggle-login-password" class="btn btn-secondary" type="button" aria-pressed="false">Ver contraseña</button>
         </div>
       </label>
-      <div id="login-message" class="text-small text-muted">Utiliza la contraseÃ±a creada en Supabase.</div>
+      <div id="login-message" class="text-small text-muted">Utiliza la contraseña creada en Supabase.</div>
       <div class="card text-small" style="background:#fffbeb;border-color:#f5d88b">
-        <strong>Â¿Guardar usuario y contraseÃ±a?</strong><br>
-        Chrome podrÃ¡ preguntÃ¡rtelo al entrar. Acepta solamente si este es tu telÃ©fono de empresa autorizado.
+        <strong>¿Guardar usuario y contraseña?</strong><br>
+        Chrome podrá preguntártelo al entrar. Acepta solamente si este es tu teléfono de empresa autorizado.
       </div>
       <button id="mock-enter" class="btn btn-primary" type="submit">Entrar</button>
     </form>
@@ -143,23 +143,23 @@
   <section id="mock-app" class="shell hidden">
     <div class="topbar">
       <div class="brand">
-        <strong>Programa de gestiÃ³n</strong>
+        <strong>Programa de gestión</strong>
         <span id="session-label" class="text-small text-muted"></span>
       </div>
-      <button id="mock-logout" class="btn btn-secondary" type="button">Cerrar sesiÃ³n</button>
+      <button id="mock-logout" class="btn btn-secondary" type="button">Cerrar sesión</button>
     </div>
 
     <nav class="tabs" aria-label="Secciones">
       <button id="activate-tab" class="btn btn-primary app-tab" data-view="activation" type="button">Activar 24H</button>
-      <button id="hotel-tab" class="btn btn-secondary app-tab locked-tab" data-view="hotel" aria-disabled="true" title="Hotel Â· Pizarra diaria Â· En construcciÃ³n" type="button">Hotel Â· Pizarra diaria</button>
-      <button class="btn btn-secondary app-tab locked-tab" data-view="reservas" aria-disabled="true" title="Reservas Â· En construcciÃ³n" type="button">Reservas</button>
-      <button class="btn btn-secondary app-tab locked-tab" data-view="predictivo" aria-disabled="true" title="Mantenimiento predictivo Â· En construcciÃ³n" type="button">Mantenimiento predictivo</button>
-      <button class="btn btn-secondary app-tab locked-tab" data-view="itv-tramites" aria-disabled="true" title="PlanificaciÃ³n ITV y trÃ¡mites Â· En construcciÃ³n" type="button">ITV y trÃ¡mites</button>
-      <button class="btn btn-secondary app-tab locked-tab" data-view="documentacion" aria-disabled="true" title="DocumentaciÃ³n Â· En construcciÃ³n" type="button">DocumentaciÃ³n</button>
-      <button class="btn btn-secondary app-tab locked-tab" data-view="informes" aria-disabled="true" title="Panel e informes Â· En construcciÃ³n" type="button">Panel e informes</button>
+      <button id="hotel-tab" class="btn btn-secondary app-tab locked-tab" data-view="hotel" aria-disabled="true" title="Hotel · Pizarra diaria · En construcción" type="button">Hotel · Pizarra diaria</button>
+      <button class="btn btn-secondary app-tab locked-tab" data-view="reservas" aria-disabled="true" title="Reservas · En construcción" type="button">Reservas</button>
+      <button class="btn btn-secondary app-tab locked-tab" data-view="predictivo" aria-disabled="true" title="Mantenimiento predictivo · En construcción" type="button">Mantenimiento predictivo</button>
+      <button class="btn btn-secondary app-tab locked-tab" data-view="itv-tramites" aria-disabled="true" title="Planificación ITV y trámites · En construcción" type="button">ITV y trámites</button>
+      <button class="btn btn-secondary app-tab locked-tab" data-view="documentacion" aria-disabled="true" title="Documentación · En construcción" type="button">Documentación</button>
+      <button class="btn btn-secondary app-tab locked-tab" data-view="informes" aria-disabled="true" title="Panel e informes · En construcción" type="button">Panel e informes</button>
       <button id="my-account-tab" class="btn btn-secondary app-tab" data-view="my-account" type="button">Mi cuenta</button>
       <button id="users-tab" class="btn btn-secondary app-tab" data-view="users" type="button">Usuarios</button>
-      <button id="settings-tab" class="btn btn-secondary app-tab" data-view="settings" type="button">ConfiguraciÃ³n</button>
+      <button id="settings-tab" class="btn btn-secondary app-tab" data-view="settings" type="button">Configuración</button>
       <button id="versions-tab" class="btn btn-secondary app-tab" data-view="versions" type="button">Versiones</button>
       <button id="suggestions-tab" class="btn btn-secondary app-tab" data-view="suggestions" type="button">Sugerencias</button>
     </nav>
@@ -170,13 +170,13 @@
         <div class="text-small text-muted">Nueva asistencia, seguimiento y consulta de incidencias relacionadas.</div>
       </div>
       <div class="module-tabs" aria-label="Activar 24H e incidencias">
-        <button id="new-activation" class="btn btn-primary" type="button">+ Nueva activaciÃ³n</button>
+        <button id="new-activation" class="btn btn-primary" type="button">+ Nueva activación</button>
         <button id="incidences-mine" class="btn btn-secondary" type="button">Mis incidencias</button>
         <button id="incidences-all" class="btn btn-secondary" type="button">Todas las incidencias</button>
       </div>
       <div class="toolbar">
         <label>Buscar incidencia
-          <input id="incidence-search" class="form-control" placeholder="DFM, matrÃ­cula, caso o descripciÃ³n">
+          <input id="incidence-search" class="form-control" placeholder="DFM, matrícula, caso o descripción">
         </label>
       </div>
       <div id="view-heading"><strong>Mis incidencias</strong><div class="text-small text-muted">Solo aparecen las creadas por el usuario conectado.</div></div>
@@ -186,61 +186,61 @@
 
     <section id="view-hotel" class="stack hidden">
       <div class="topbar">
-        <div><strong>Hotel Â· Pizarra del dÃ­a</strong><div id="hotel-date" class="text-small text-muted"></div></div>
+        <div><strong>Hotel · Pizarra del día</strong><div id="hotel-date" class="text-small text-muted"></div></div>
         <div class="hotel-actions">
-          <button id="hotel-new-planned" class="btn btn-secondary" type="button">+ SustituciÃ³n planificada</button>
-          <button id="hotel-new-urgent" class="btn btn-primary" type="button">â  AverÃ­a urgente</button>
+          <button id="hotel-new-planned" class="btn btn-secondary" type="button">+ Sustitución planificada</button>
+          <button id="hotel-new-urgent" class="btn btn-primary" type="button">⚠ Avería urgente</button>
         </div>
       </div>
-      <div class="card sync-note text-small"><strong>Beta 1.8 conectada.</strong> Hotel utiliza una base de datos privada y sincronizaciÃ³n en tiempo real. La conexiÃ³n automÃ¡tica con MANTENIMENT se incorporarÃ¡ en una fase posterior.</div>
+      <div class="card sync-note text-small"><strong>Beta 1.8 conectada.</strong> Hotel utiliza una base de datos privada y sincronización en tiempo real. La conexión automática con MANTENIMENT se incorporará en una fase posterior.</div>
       <div class="module-tabs" aria-label="Vistas de Hotel">
         <button class="btn btn-primary hotel-subtab" data-hotel-view="board" type="button">Pizarra actual</button>
-        <button class="btn btn-secondary hotel-subtab" data-hotel-view="next" type="button">PrÃ³ximos</button>
-        <button class="btn btn-secondary hotel-subtab" data-hotel-view="history" type="button">HistÃ³rico</button>
+        <button class="btn btn-secondary hotel-subtab" data-hotel-view="next" type="button">Próximos</button>
+        <button class="btn btn-secondary hotel-subtab" data-hotel-view="history" type="button">Histórico</button>
         <button class="btn btn-secondary hotel-subtab" data-hotel-view="summary" type="button">Panel resumen</button>
       </div>
       <div id="hotel-board" class="stack">
-        <label>Buscar en la pizarra<input id="hotel-search" class="form-control" placeholder="DFM, matrÃ­cula, reserva, UPC, taller, causa o INC"></label>
+        <label>Buscar en la pizarra<input id="hotel-search" class="form-control" placeholder="DFM, matrícula, reserva, UPC, taller, causa o INC"></label>
         <div id="hotel-summary-cards" class="hotel-summary"></div>
         <div id="hotel-active-filter" class="card text-small hidden"></div>
         <div id="hotel-list" class="hotel-list"></div>
       </div>
       <div id="hotel-next" class="stack hidden">
-        <div><strong>PrÃ³ximas sustituciones</strong><div class="text-small text-muted">Son previsiones. La decisiÃ³n final siempre serÃ¡ manual.</div></div>
+        <div><strong>Próximas sustituciones</strong><div class="text-small text-muted">Son previsiones. La decisión final siempre será manual.</div></div>
         <div id="hotel-next-list" class="hotel-list"></div>
       </div>
       <div id="hotel-history" class="stack hidden">
         <div class="detail-grid">
-          <label>Buscar en el histÃ³rico<input id="hotel-history-search" class="form-control" placeholder="Fecha, DFM, matrÃ­cula, UPC, taller, estado o causa"></label>
+          <label>Buscar en el histórico<input id="hotel-history-search" class="form-control" placeholder="Fecha, DFM, matrícula, UPC, taller, estado o causa"></label>
           <label>Mes<input id="hotel-history-month" class="form-control" type="month" value="2026-07"></label>
         </div>
-        <div class="card text-small">Las jornadas se archivan automÃ¡ticamente a las 00:00. No se eliminan: solo los administradores autorizados pueden anularlas o corregirlas indicando un motivo.</div>
+        <div class="card text-small">Las jornadas se archivan automáticamente a las 00:00. No se eliminan: solo los administradores autorizados pueden anularlas o corregirlas indicando un motivo.</div>
         <div id="hotel-history-list" class="hotel-list"></div>
       </div>
       <div id="hotel-dashboard" class="stack hidden">
         <div id="hotel-dashboard-cards" class="hotel-summary"></div>
-        <div class="card stack"><strong>VehÃ­culos en taller</strong><div id="hotel-workshop-list" class="stack"></div></div>
+        <div class="card stack"><strong>Vehículos en taller</strong><div id="hotel-workshop-list" class="stack"></div></div>
         <div class="card stack"><strong>Prioridades activas</strong><div id="hotel-priority-list"></div></div>
       </div>
       <div id="hotel-form" class="card stack hidden">
-        <div class="hotel-title"><strong id="hotel-form-title">Nueva sustituciÃ³n</strong><button id="hotel-form-close" class="btn btn-secondary" type="button">Cerrar</button></div>
+        <div class="hotel-title"><strong id="hotel-form-title">Nueva sustitución</strong><button id="hotel-form-close" class="btn btn-secondary" type="button">Cerrar</button></div>
         <div class="detail-grid">
-          <label>DFM o matrÃ­cula de flota<input id="hotel-form-vehicle" class="form-control" placeholder="Ej. 2709 o 7039NGM"></label>
+          <label>DFM o matrícula de flota<input id="hotel-form-vehicle" class="form-control" placeholder="Ej. 2709 o 7039NGM"></label>
           <label>Reserva<select id="hotel-form-reserve" class="form-select"><option value="">Selecciona una reserva</option></select></label>
-          <label>Causa o averÃ­a<input id="hotel-form-cause" class="form-control" placeholder="MCD, ITV, 44TN o descripciÃ³n libre"></label>
-          <label>INC existente<input id="hotel-form-inc" class="form-control" placeholder="Se buscarÃ¡ antes de crear una nueva"></label>
-          <label>PrÃ³ximo lugar<select id="hotel-form-location" class="form-select"><option>Pendiente de llevar al taller</option><option>SANSA</option><option>ABRERA</option><option>AUTODIS</option><option>FRIGICOLL</option><option>FRIDIEL</option><option>DIRECAUTO</option><option>ODEXAN</option></select></label>
-          <label>Prioridad<select id="hotel-form-priority" class="form-select"><option value="1">1 Â· No operativo</option><option value="2">2 Â· Legal/caducidad</option><option value="3">3 Â· Seguridad</option><option value="4">4 Â· Confort</option><option value="5">5 Â· Mantenimiento</option></select></label>
+          <label>Causa o avería<input id="hotel-form-cause" class="form-control" placeholder="MCD, ITV, 44TN o descripción libre"></label>
+          <label>INC existente<input id="hotel-form-inc" class="form-control" placeholder="Se buscará antes de crear una nueva"></label>
+          <label>Próximo lugar<select id="hotel-form-location" class="form-select"><option>Pendiente de llevar al taller</option><option>SANSA</option><option>ABRERA</option><option>AUTODIS</option><option>FRIGICOLL</option><option>FRIDIEL</option><option>DIRECAUTO</option><option>ODEXAN</option></select></label>
+          <label>Prioridad<select id="hotel-form-priority" class="form-select"><option value="1">1 · No operativo</option><option value="2">2 · Legal/caducidad</option><option value="3">3 · Seguridad</option><option value="4">4 · Confort</option><option value="5">5 · Mantenimiento</option></select></label>
         </div>
-        <label><input id="hotel-form-exceptional" type="checkbox"> SustituciÃ³n excepcional por tiempo limitado</label>
-        <div id="hotel-exception-fields" class="detail-grid hidden"><label>Motivo obligatorio<input id="hotel-form-reason" class="form-control"></label><label>Fecha y hora lÃ­mite<input id="hotel-form-limit" class="form-control" type="datetime-local"></label></div>
+        <label><input id="hotel-form-exceptional" type="checkbox"> Sustitución excepcional por tiempo limitado</label>
+        <div id="hotel-exception-fields" class="detail-grid hidden"><label>Motivo obligatorio<input id="hotel-form-reason" class="form-control"></label><label>Fecha y hora límite<input id="hotel-form-limit" class="form-control" type="datetime-local"></label></div>
         <div id="hotel-form-message" class="text-small text-muted"></div>
         <button id="hotel-form-save" class="btn btn-primary" type="button">Guardar en la pizarra</button>
       </div>
     </section>
 
     <section id="view-my-account" class="stack hidden">
-      <div><strong>Mi cuenta</strong><div class="text-small text-muted">Cada persona puede cambiar Ãºnicamente su propio PIN.</div></div>
+      <div><strong>Mi cuenta</strong><div class="text-small text-muted">Cada persona puede cambiar únicamente su propio PIN.</div></div>
       <div class="card stack">
         <label>Usuario<input id="own-account-name" class="form-control" disabled></label>
         <label>PIN actual<input id="own-current-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
@@ -254,9 +254,9 @@
     </section>
 
     <section id="view-users" class="stack hidden">
-      <div><strong>AdministraciÃ³n de usuarios</strong><div class="text-small text-muted">Solo MetrogestiÃ³n puede realizar cambios.</div></div>
+      <div><strong>Administración de usuarios</strong><div class="text-small text-muted">Solo Metrogestión puede realizar cambios.</div></div>
       <div class="card stack">
-        <div class="topbar"><div><strong>Dispositivos solicitados</strong><div class="text-small text-muted">Aprueba Ãºnicamente el dispositivo que reconozcas.</div></div><button id="refresh-devices" class="btn btn-secondary" type="button">Actualizar</button></div>
+        <div class="topbar"><div><strong>Dispositivos solicitados</strong><div class="text-small text-muted">Aprueba únicamente el dispositivo que reconozcas.</div></div><button id="refresh-devices" class="btn btn-secondary" type="button">Actualizar</button></div>
         <div id="admin-device-message" class="text-small text-muted"></div>
         <div id="admin-device-list" class="stack"></div>
       </div>
@@ -265,7 +265,7 @@
         <strong>Crear usuario o administrador secundario</strong>
         <div class="detail-grid">
           <label>Nombre y apellidos<input id="new-user-name" class="form-control"></label>
-          <label>TelÃ©fono vinculado<input id="new-user-phone" class="form-control" type="tel" inputmode="tel"></label>
+          <label>Teléfono vinculado<input id="new-user-phone" class="form-control" type="tel" inputmode="tel"></label>
           <label>Correo vinculado<input id="new-user-email" class="form-control" type="email" autocomplete="email"></label>
           <label>PIN inicial<input id="new-user-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
           <label>Permiso<select id="new-user-role" class="form-select"><option value="user">Usuario</option><option value="secondary">Administrador secundario</option></select></label>
@@ -276,10 +276,10 @@
     </section>
 
     <section id="view-settings" class="stack hidden">
-      <div><strong>ConfiguraciÃ³n administrativa</strong><div class="text-small text-muted">Los cambios no eliminan usuarios ni incidencias.</div></div>
+      <div><strong>Configuración administrativa</strong><div class="text-small text-muted">Los cambios no eliminan usuarios ni incidencias.</div></div>
       <div class="card stack">
-        <label>Cuenta administradora<input id="admin-account-name" class="form-control" value="MetrogestiÃ³n" disabled></label>
-        <label>TelÃ©fono del administrador principal<input id="admin-phone" class="form-control" type="tel" inputmode="tel"></label>
+        <label>Cuenta administradora<input id="admin-account-name" class="form-control" value="Metrogestión" disabled></label>
+        <label>Teléfono del administrador principal<input id="admin-phone" class="form-control" type="tel" inputmode="tel"></label>
         <label>Correo administrativo vinculado<input id="admin-email" class="form-control" type="email" value=""></label>
         <div class="detail-grid">
           <label>Nuevo PIN<input id="admin-new-pin" class="form-control" type="password" inputmode="numeric" maxlength="6"></label>
@@ -291,47 +291,47 @@
     </section>
 
     <section id="view-versions" class="stack hidden">
-      <div><strong>Memorando de versiones</strong><div class="text-small text-muted">Historial breve para consultar quÃ© se ha modificado en cada publicaciÃ³n.</div></div>
+      <div><strong>Memorando de versiones</strong><div class="text-small text-muted">Historial breve para consultar qué se ha modificado en cada publicación.</div></div>
       <div class="card stack">
-        <strong>Beta 2.0 Â· 08/08/2026 Â· ActualizaciÃ³n</strong>
-        <div>Se muestran los futuros mÃ³dulos Hotel Â· Pizarra diaria, Reservas, Mantenimiento predictivo, ITV y trÃ¡mites, DocumentaciÃ³n y Panel e informes. Activar 24H continÃºa siendo el mÃ³dulo operativo. No se crea una aplicaciÃ³n nueva ni cambia el enlace.</div>
+        <strong>Beta 2.0 · 08/08/2026 · Actualización</strong>
+        <div>Se muestran los futuros módulos Hotel · Pizarra diaria, Reservas, Mantenimiento predictivo, ITV y trámites, Documentación y Panel e informes. Activar 24H continúa siendo el módulo operativo. No se crea una aplicación nueva ni cambia el enlace.</div>
       </div>
       <div class="card stack">
-        <strong>Beta 1.9 Â· 03/08/2026 Â· RevisiÃ³n</strong>
-        <div>Activar 24H preparado como mÃ³dulo principal instalable. Hotel permanece visible y bloqueado como Â«En construcciÃ³nÂ» hasta su revisiÃ³n y autorizaciÃ³n.</div>
+        <strong>Beta 1.9 · 03/08/2026 · Revisión</strong>
+        <div>Activar 24H preparado como módulo principal instalable. Hotel permanece visible y bloqueado como «En construcción» hasta su revisión y autorización.</div>
       </div>
       <div class="card stack">
-        <strong>Beta 1.7 Â· 29/07/2026</strong>
-        <div>Se recupera la identificaciÃ³n permanente del vehÃ­culo: el DFM y la matrÃ­cula permanecen visibles durante todos los pasos de la activaciÃ³n.</div>
+        <strong>Beta 1.7 · 29/07/2026</strong>
+        <div>Se recupera la identificación permanente del vehículo: el DFM y la matrícula permanecen visibles durante todos los pasos de la activación.</div>
       </div>
       <div class="card stack">
-        <strong>Beta 1.6 Â· 29/07/2026</strong>
-        <div>El botÃ³n Activar 24H abre el asistente completo. Se bloquea el avance cuando los kilÃ³metros o la fecha superan el contrato y se muestran los telÃ©fonos de escalado.</div>
+        <strong>Beta 1.6 · 29/07/2026</strong>
+        <div>El botón Activar 24H abre el asistente completo. Se bloquea el avance cuando los kilómetros o la fecha superan el contrato y se muestran los teléfonos de escalado.</div>
       </div>
       <div class="card stack">
-        <strong>Beta 1.5 Â· 27/07/2026</strong>
+        <strong>Beta 1.5 · 27/07/2026</strong>
         <div>Cada usuario puede cambiar su propio PIN confirmando el PIN actual y escribiendo dos veces el nuevo.</div>
       </div>
       <div class="card stack">
-        <strong>Beta 1.4 Â· 27/07/2026</strong>
-        <div>EdiciÃ³n de nombre, telÃ©fono y correo de las cuentas ya creadas, con validaciÃ³n de datos obligatorios y duplicados.</div>
+        <strong>Beta 1.4 · 27/07/2026</strong>
+        <div>Edición de nombre, teléfono y correo de las cuentas ya creadas, con validación de datos obligatorios y duplicados.</div>
       </div>
       <div class="card stack">
-        <strong>Beta 1.3 Â· 27/07/2026</strong>
-        <div>Se incorpora este memorando de versiones dentro del panel de administraciÃ³n.</div>
+        <strong>Beta 1.3 · 27/07/2026</strong>
+        <div>Se incorpora este memorando de versiones dentro del panel de administración.</div>
       </div>
       <div class="card stack">
-        <strong>Beta 1.2 Â· 27/07/2026</strong>
-        <div>GestiÃ³n funcional de usuarios, cambio de PIN, telÃ©fono y correo obligatorios, administradores secundarios y bloqueo de accesos.</div>
+        <strong>Beta 1.2 · 27/07/2026</strong>
+        <div>Gestión funcional de usuarios, cambio de PIN, teléfono y correo obligatorios, administradores secundarios y bloqueo de accesos.</div>
       </div>
       <div class="card stack">
-        <strong>Beta 1.1 Â· 27/07/2026</strong>
-        <div>PublicaciÃ³n inicial en GitHub Pages, acceso principal, mÃ³dulo de activaciÃ³n 24H, buscador por DFM o matrÃ­cula y alta manual.</div>
+        <strong>Beta 1.1 · 27/07/2026</strong>
+        <div>Publicación inicial en GitHub Pages, acceso principal, módulo de activación 24H, buscador por DFM o matrícula y alta manual.</div>
       </div>
     </section>
 
     <section id="view-suggestions" class="stack hidden">
-      <div><strong>Sugerencias</strong><div class="text-small text-muted">EnvÃ­a una mejora, incidencia de uso o idea al administrador principal.</div></div>
+      <div><strong>Sugerencias</strong><div class="text-small text-muted">Envía una mejora, incidencia de uso o idea al administrador principal.</div></div>
       <div class="card stack">
         <label>Tipo
           <select id="suggestion-type" class="form-select">
@@ -342,102 +342,102 @@
           </select>
         </label>
         <label>Asunto<input id="suggestion-subject" class="form-control" maxlength="120" placeholder="Resumen breve"></label>
-        <label>Sugerencia<textarea id="suggestion-message" class="form-control" maxlength="2000" placeholder="Explica quÃ© propones o quÃ© ha ocurrido"></textarea></label>
-        <div id="suggestion-status" class="text-small text-muted">La sugerencia quedarÃ¡ registrada antes de abrir el correo.</div>
+        <label>Sugerencia<textarea id="suggestion-message" class="form-control" maxlength="2000" placeholder="Explica qué propones o qué ha ocurrido"></textarea></label>
+        <div id="suggestion-status" class="text-small text-muted">La sugerencia quedará registrada antes de abrir el correo.</div>
         <button id="send-suggestion" class="btn btn-primary" type="button">Guardar y enviar al administrador</button>
       </div>
     </section>
 
     <section id="view-activation" class="stack hidden">
       <div class="topbar">
-        <div><strong>Nueva activaciÃ³n 24H</strong><div id="activation-step-label" class="text-small text-muted">Paso 0 Â· Inicio</div><div id="activation-dfm-context"><strong>DFM â</strong></div></div>
-        <button id="back-incidences" class="btn btn-secondary" type="button">â Volver a incidencias</button>
+        <div><strong>Nueva activación 24H</strong><div id="activation-step-label" class="text-small text-muted">Paso 0 · Inicio</div><div id="activation-dfm-context"><strong>DFM —</strong></div></div>
+        <button id="back-incidences" class="btn btn-secondary" type="button">← Volver a incidencias</button>
       </div>
       <div id="activation-start" class="card stack">
-        <strong>Â¿CÃ³mo quieres realizar la activaciÃ³n?</strong>
+        <strong>¿Cómo quieres realizar la activación?</strong>
         <button id="activation-manual" class="btn btn-secondary" type="button">Consultar el manual</button>
         <button id="activation-guided" class="btn btn-primary" type="button">Ser guiado por la app</button>
       </div>
       <div id="activation-identification" class="card stack hidden">
-        <strong>Identificar vehÃ­culo</strong>
-        <label>DFM o matrÃ­cula
-          <input id="activation-dfm" class="form-control" autocapitalize="characters" autocomplete="off" placeholder="Escribe el DFM o la matrÃ­cula">
+        <strong>Identificar vehículo</strong>
+        <label>DFM o matrícula
+          <input id="activation-dfm" class="form-control" autocapitalize="characters" autocomplete="off" placeholder="Escribe el DFM o la matrícula">
         </label>
-        <div id="vehicle-suggestions" class="stack hidden" aria-label="VehÃ­culos encontrados"></div>
+        <div id="vehicle-suggestions" class="stack hidden" aria-label="Vehículos encontrados"></div>
         <div id="manual-vehicle-data" class="stack hidden">
           <div class="text-small text-muted">DFM no encontrado. Completa los datos imprescindibles para continuar.</div>
           <div class="detail-grid">
-            <label>MatrÃ­cula<input id="manual-plate" class="form-control" autocapitalize="characters" placeholder="Ej. 1234ABC"></label>
-            <label>Tipo de vehÃ­culo
-              <select id="manual-type" class="form-select"><option value="">Seleccionarâ¦</option><option value="tractora">Tractora</option><option value="rigido">RÃ­gido</option></select>
+            <label>Matrícula<input id="manual-plate" class="form-control" autocapitalize="characters" placeholder="Ej. 1234ABC"></label>
+            <label>Tipo de vehículo
+              <select id="manual-type" class="form-select"><option value="">Seleccionar…</option><option value="tractora">Tractora</option><option value="rigido">Rígido</option></select>
             </label>
-            <label>Marca<input id="manual-brand" class="form-control" placeholder="IVECO, Mercedes, MANâ¦"></label>
-            <label>Fecha de matriculaciÃ³n<input id="manual-registration" class="form-control" type="date"></label>
-            <label>Fin de contrato<input id="manual-contract-km" class="form-control" inputmode="numeric" placeholder="KilÃ³metros de contrato"></label>
-            <label>Bastidor / VIN<input id="manual-vin" class="form-control" autocapitalize="characters" placeholder="NÃºmero de bastidor"></label>
+            <label>Marca<input id="manual-brand" class="form-control" placeholder="IVECO, Mercedes, MAN…"></label>
+            <label>Fecha de matriculación<input id="manual-registration" class="form-control" type="date"></label>
+            <label>Fin de contrato<input id="manual-contract-km" class="form-control" inputmode="numeric" placeholder="Kilómetros de contrato"></label>
+            <label>Bastidor / VIN<input id="manual-vin" class="form-control" autocapitalize="characters" placeholder="Número de bastidor"></label>
             <label>UPC<input id="manual-upc" class="form-control" placeholder="Conductor o grupo responsable"></label>
             <label>Flota o reserva
-              <select id="manual-category" class="form-select"><option value="">Seleccionarâ¦</option><option>FLOTA</option><option>RESERVA</option><option>OTRO</option></select>
+              <select id="manual-category" class="form-select"><option value="">Seleccionar…</option><option>FLOTA</option><option>RESERVA</option><option>OTRO</option></select>
             </label>
           </div>
         </div>
-        <label>KilÃ³metros actuales<input id="activation-km" class="form-control" inputmode="numeric" placeholder="Ej. 425.300"></label>
+        <label>Kilómetros actuales<input id="activation-km" class="form-control" inputmode="numeric" placeholder="Ej. 425.300"></label>
         <div id="activation-message" class="text-small text-muted"></div>
-        <div class="text-small text-muted">La versiÃ³n completa continuarÃ¡ con seguridad, averÃ­a, ubicaciÃ³n, datos preparados, llamada y seguimiento.</div>
+        <div class="text-small text-muted">La versión completa continuará con seguridad, avería, ubicación, datos preparados, llamada y seguimiento.</div>
         <div class="viz-row">
-          <button id="activation-previous" class="btn btn-secondary" type="button">â Paso anterior</button>
-          <button id="activation-next" class="btn btn-primary" type="button">Siguiente â</button>
+          <button id="activation-previous" class="btn btn-secondary" type="button">← Paso anterior</button>
+          <button id="activation-next" class="btn btn-primary" type="button">Siguiente →</button>
         </div>
       </div>
       <div id="activation-safety" class="card stack hidden">
-        <strong>Seguridad Â· Procedimiento 0</strong>
-        <label class="safety-check"><span>VehÃ­culo detenido en lugar seguro o correctamente seÃ±alizado</span><input id="activation-safe" type="checkbox" aria-label="Confirmar vehÃ­culo seguro o seÃ±alizado"></label>
+        <strong>Seguridad · Procedimiento 0</strong>
+        <label class="safety-check"><span>Vehículo detenido en lugar seguro o correctamente señalizado</span><input id="activation-safe" type="checkbox" aria-label="Confirmar vehículo seguro o señalizado"></label>
         <label class="safety-check"><span>Conductor y ocupantes fuera de peligro</span><input id="activation-driver-safe" type="checkbox" aria-label="Confirmar conductor y ocupantes fuera de peligro"></label>
         <div class="emergency-note">
-          <strong>â  Si la situaciÃ³n genera peligro, avisa al conductor para que llame inmediatamente al 112.</strong>
-          <a class="btn" href="tel:112">ð Llamar al 112</a>
+          <strong>⚠ Si la situación genera peligro, avisa al conductor para que llame inmediatamente al 112.</strong>
+          <a class="btn" href="tel:112">📞 Llamar al 112</a>
         </div>
         <label>Conductor<input id="activation-driver-name" class="form-control" placeholder="Nombre"></label>
-        <label>TelÃ©fono del camiÃ³n
-          <input id="activation-driver-phone" class="form-control" type="tel" inputmode="tel" placeholder="Se carga automÃ¡ticamente desde ALTA">
+        <label>Teléfono del camión
+          <input id="activation-driver-phone" class="form-control" type="tel" inputmode="tel" placeholder="Se carga automáticamente desde ALTA">
         </label>
         <div class="card stack" style="background:#eff6ff">
-          <strong>TelÃ©fono para contactar con quien activa el 24H</strong>
-          <div class="text-small text-muted">Utiliza tu telÃ©fono para que el servicio 24H pueda llamarte si no hay nadie en el camiÃ³n o su telÃ©fono no estÃ¡ operativo.</div>
+          <strong>Teléfono para contactar con quien activa el 24H</strong>
+          <div class="text-small text-muted">Utiliza tu teléfono para que el servicio 24H pueda llamarte si no hay nadie en el camión o su teléfono no está operativo.</div>
           <input id="activation-contact-phone" class="form-control" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej. 612 345 678">
-          <label class="safety-check"><span>Usar otro telÃ©fono de contacto</span><input id="activation-other-contact" type="checkbox" aria-label="Usar otro telÃ©fono de contacto"></label>
+          <label class="safety-check"><span>Usar otro teléfono de contacto</span><input id="activation-other-contact" type="checkbox" aria-label="Usar otro teléfono de contacto"></label>
           <div id="activation-contact-help" class="text-small text-muted"></div>
         </div>
         <div id="safety-message" class="text-small text-muted"></div>
         <div class="viz-row">
-          <button id="safety-previous" class="btn btn-secondary" type="button">â Paso anterior</button>
-          <button id="safety-next" class="btn btn-primary" type="button">Siguiente â</button>
+          <button id="safety-previous" class="btn btn-secondary" type="button">← Paso anterior</button>
+          <button id="safety-next" class="btn btn-primary" type="button">Siguiente →</button>
         </div>
       </div>
       <div id="activation-fault" class="card stack hidden">
-        <strong>UbicaciÃ³n y averÃ­a</strong>
+        <strong>Ubicación y avería</strong>
         <div class="detail-grid">
-          <label>Tipo de ubicaciÃ³n
-            <select id="activation-location-type" class="form-select"><option>Bloque logÃ­stico Abrera</option><option>Bloque logÃ­stico Sansa</option><option>Nave Disfrimur</option><option>PolÃ­gono</option><option>Tienda</option><option>Carretera / autopista / autovÃ­a</option><option>Otro</option></select>
+          <label>Tipo de ubicación
+            <select id="activation-location-type" class="form-select"><option>Bloque logístico Abrera</option><option>Bloque logístico Sansa</option><option>Nave Disfrimur</option><option>Polígono</option><option>Tienda</option><option>Carretera / autopista / autovía</option><option>Otro</option></select>
           </label>
-          <label>Formato de ubicaciÃ³n
+          <label>Formato de ubicación
             <select id="activation-location-format" class="form-select"><option value="coordinates" selected>Coordenadas</option><option value="plus">Plus Code</option></select>
           </label>
           <label><span id="activation-location-reference-label">Coordenadas</span><input id="activation-location-text" class="form-control" value="41.510562, 1.892562" placeholder="Ej. 41.4932, 1.8736"></label>
-          <label>CÃ³digo de alarma<input id="activation-alarm-code" class="form-control" placeholder="CÃ³digo, si aparece"></label>
+          <label>Código de alarma<input id="activation-alarm-code" class="form-control" placeholder="Código, si aparece"></label>
           <label>Color del aviso
             <select id="activation-alarm-color" class="form-select"><option>Sin testigo</option><option>Amarillo</option><option>Rojo</option><option>Otro</option></select>
           </label>
-          <label>Semirremolque<input id="activation-trailer" class="form-control" placeholder="MatrÃ­cula, si afecta"></label>
+          <label>Semirremolque<input id="activation-trailer" class="form-control" placeholder="Matrícula, si afecta"></label>
         </div>
-        <label>DescripciÃ³n literal del aviso<textarea id="activation-fault-text" class="form-control" rows="3" placeholder="Empieza a escribir, por ejemplo: fallo motor" autocomplete="off" aria-controls="activation-fault-suggestions" aria-autocomplete="list"></textarea></label>
-        <div class="text-small text-muted">Escribe al menos 3 letras y selecciona una descripciÃ³n coincidente.</div>
+        <label>Descripción literal del aviso<textarea id="activation-fault-text" class="form-control" rows="3" placeholder="Empieza a escribir, por ejemplo: fallo motor" autocomplete="off" aria-controls="activation-fault-suggestions" aria-autocomplete="list"></textarea></label>
+        <div class="text-small text-muted">Escribe al menos 3 letras y selecciona una descripción coincidente.</div>
         <div id="activation-fault-suggestions" class="stack hidden" role="listbox" aria-label="Descripciones anteriores parecidas"></div>
         <label>Carga
           <select id="activation-load" class="form-select"><option>Sin carga</option><option>Con carga</option><option>Tractora suelta</option></select>
         </label>
         <div id="fault-message" class="text-small text-muted"></div>
-        <div class="viz-row"><button id="fault-previous" class="btn btn-secondary" type="button">â Paso anterior</button><button id="fault-next" class="btn btn-primary" type="button">Siguiente â</button></div>
+        <div class="viz-row"><button id="fault-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="fault-next" class="btn btn-primary" type="button">Siguiente →</button></div>
       </div>
       <div id="activation-communication" class="card stack hidden">
         <strong>Datos preparados para comunicar</strong>
@@ -445,54 +445,54 @@
         <div id="activation-communication-script" class="card text-small"></div>
         <label><input id="activation-summary-confirmed" type="checkbox"> He revisado los datos antes de llamar</label>
         <div id="communication-message" class="text-small text-muted"></div>
-        <div class="viz-row"><button id="communication-previous" class="btn btn-secondary" type="button">â Paso anterior</button><button id="communication-next" class="btn btn-primary" type="button">Siguiente â</button></div>
+        <div class="viz-row"><button id="communication-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="communication-next" class="btn btn-primary" type="button">Siguiente →</button></div>
       </div>
       <div id="activation-call" class="card stack hidden">
-        <strong>Llamada y activaciÃ³n</strong>
-        <div id="activation-call-detail" class="text-small text-muted">Se utilizarÃ¡ el telÃ©fono 24H registrado para el vehÃ­culo.</div>
+        <strong>Llamada y activación</strong>
+        <div id="activation-call-detail" class="text-small text-muted">Se utilizará el teléfono 24H registrado para el vehículo.</div>
         <button id="activation-call-button" class="btn btn-primary hidden" type="button">Abrir My TruckPoint</button>
-        <a id="activation-phone-link" class="btn btn-primary hidden" href="#">ð TelÃ©fono 24H</a>
-        <a id="activation-call-fallback" class="btn btn-secondary hidden" href="#">No tengo acceso Â· Service24h</a>
+        <a id="activation-phone-link" class="btn btn-primary hidden" href="#">📞 Teléfono 24H</a>
+        <a id="activation-call-fallback" class="btn btn-secondary hidden" href="#">No tengo acceso · Service24h</a>
         <div class="card stack" style="background:#f8fafc">
           <strong>Datos para comunicar durante la llamada</strong>
           <div id="activation-call-summary" class="stack"></div>
         </div>
-        <label>NÃºmero facilitado por el operador<input id="activation-case-number" class="form-control" placeholder="Admite letras, nÃºmeros y sÃ­mbolos"></label>
+        <label>Número facilitado por el operador<input id="activation-case-number" class="form-control" placeholder="Admite letras, números y símbolos"></label>
         <label>ETA aproximada<input id="activation-eta" class="form-control" type="time"></label>
         <div id="call-message" class="text-small text-muted"></div>
-        <div class="viz-row"><button id="call-previous" class="btn btn-secondary" type="button">â Paso anterior</button><button id="call-next" class="btn btn-primary" type="button">Siguiente â</button></div>
+        <div class="viz-row"><button id="call-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="call-next" class="btn btn-primary" type="button">Siguiente →</button></div>
       </div>
       <div id="activation-register" class="card stack hidden">
-        <strong>Registrar activaciÃ³n</strong>
+        <strong>Registrar activación</strong>
         <input id="activation-time" type="hidden">
         <div class="card text-small" style="background:#eff6ff">
-          <strong>ActivaciÃ³n registrada automÃ¡ticamente</strong>
-          <div id="activation-time-display" class="text-muted">Se registrarÃ¡ al pulsar el botÃ³n de activaciÃ³n o llamada 24H.</div>
+          <strong>Activación registrada automáticamente</strong>
+          <div id="activation-time-display" class="text-muted">Se registrará al pulsar el botón de activación o llamada 24H.</div>
         </div>
-        <label>TÃ©cnico, grÃºa o proveedor asignado<input id="activation-provider" class="form-control" placeholder="Nombre facilitado"></label>
+        <label>Técnico, grúa o proveedor asignado<input id="activation-provider" class="form-control" placeholder="Nombre facilitado"></label>
         <div id="register-message" class="text-small text-muted"></div>
-        <div class="viz-row"><button id="register-previous" class="btn btn-secondary" type="button">â Paso anterior</button><button id="register-next" class="btn btn-primary" type="button">Siguiente â</button></div>
+        <div class="viz-row"><button id="register-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="register-next" class="btn btn-primary" type="button">Siguiente →</button></div>
       </div>
       <div id="activation-follow" class="card stack hidden">
         <strong>Seguimiento de la asistencia</strong>
-        <div class="text-small text-muted">Puedes guardar la incidencia aunque todavÃ­a haya datos pendientes y completarlos posteriormente.</div>
+        <div class="text-small text-muted">Puedes guardar la incidencia aunque todavía haya datos pendientes y completarlos posteriormente.</div>
         <label class="safety-check"><span>Asistencia activada y caso registrado</span><input id="activation-assistance-confirmed" type="checkbox"></label>
-        <label class="safety-check"><span>TÃ©cnico llegado</span><input id="activation-technician-arrived" type="checkbox"></label>
+        <label class="safety-check"><span>Técnico llegado</span><input id="activation-technician-arrived" type="checkbox"></label>
         <div id="activation-real-arrival-panel" class="card stack hidden" style="background:#eff6ff">
           <label>Fecha y hora real de llegada
             <input id="activation-real-arrival" class="form-control" type="datetime-local">
           </label>
-          <div class="text-small text-muted">Esta hora es la llegada real. La ETA del paso anterior continÃºa siendo la hora aproximada facilitada.</div>
+          <div class="text-small text-muted">Esta hora es la llegada real. La ETA del paso anterior continúa siendo la hora aproximada facilitada.</div>
         </div>
-        <label class="safety-check"><span>DiagnÃ³stico confirmado</span><input id="activation-diagnosis-confirmed" type="checkbox"></label>
+        <label class="safety-check"><span>Diagnóstico confirmado</span><input id="activation-diagnosis-confirmed" type="checkbox"></label>
         <div id="activation-diagnosis-panel" class="card stack hidden" style="background:#eff6ff">
-          <label>DescripciÃ³n del diagnÃ³stico
-            <textarea id="activation-diagnosis-text" class="form-control" rows="3" placeholder="Describe la averÃ­a confirmada por el tÃ©cnico"></textarea>
+          <label>Descripción del diagnóstico
+            <textarea id="activation-diagnosis-text" class="form-control" rows="3" placeholder="Describe la avería confirmada por el técnico"></textarea>
           </label>
         </div>
         <label>Resultado de la asistencia
           <select id="activation-result" class="form-select">
-            <option value="">Pendiente de resoluciÃ³n</option>
+            <option value="">Pendiente de resolución</option>
             <option value="road">Reparado en carretera</option>
             <option value="workshop">Trasladado a taller</option>
           </select>
@@ -503,39 +503,39 @@
           </label>
         </div>
         <div class="card stack" style="background:#f8fafc">
-          <strong>Adjuntar fotografÃ­as o documentos</strong>
+          <strong>Adjuntar fotografías o documentos</strong>
           <label>Tipo de archivo
             <select id="activation-attachment-type" class="form-select">
-              <option value="photo">FotografÃ­a</option>
+              <option value="photo">Fotografía</option>
               <option value="document">Documento existente</option>
-              <option value="document-photo">Foto de documento Â· convertir a PDF</option>
+              <option value="document-photo">Foto de documento · convertir a PDF</option>
             </select>
           </label>
           <div id="activation-camera-controls" class="stack">
-            <label class="btn btn-primary" for="activation-camera-photo">ð· Tomar foto con la cÃ¡mara</label>
+            <label class="btn btn-primary" for="activation-camera-photo">📷 Tomar foto con la cámara</label>
             <input id="activation-camera-photo" class="hidden" type="file" accept="image/*" capture="environment">
-            <div id="activation-camera-count" class="text-small text-muted">TodavÃ­a no se han tomado fotografÃ­as.</div>
+            <div id="activation-camera-count" class="text-small text-muted">Todavía no se han tomado fotografías.</div>
             <div id="activation-camera-photo-list" class="camera-photo-list"></div>
             <div id="activation-camera-pdf-question" class="card stack hidden" style="background:#eff6ff;border-color:#7dd3fc">
-              <strong>Â¿Quieres convertir las fotos tomadas en PDF?</strong>
-              <div class="text-small text-muted">Si has fotografiado varias pÃ¡ginas, se unirÃ¡n en un Ãºnico documento PDF.</div>
-              <div class="viz-row"><button id="activation-camera-keep-photo" class="btn btn-secondary" type="button">Mantener como fotografÃ­a</button><button id="activation-camera-make-pdf" class="btn btn-primary" type="button">Convertir a PDF</button></div>
+              <strong>¿Quieres convertir las fotos tomadas en PDF?</strong>
+              <div class="text-small text-muted">Si has fotografiado varias páginas, se unirán en un único documento PDF.</div>
+              <div class="viz-row"><button id="activation-camera-keep-photo" class="btn btn-secondary" type="button">Mantener como fotografía</button><button id="activation-camera-make-pdf" class="btn btn-primary" type="button">Convertir a PDF</button></div>
             </div>
           </div>
-          <label id="activation-attachment-label">Seleccionar fotografÃ­a o imagen guardada
+          <label id="activation-attachment-label">Seleccionar fotografía o imagen guardada
             <input id="activation-follow-files" class="form-control" type="file" accept="image/*" multiple>
           </label>
           <button id="activation-convert-pdf" class="btn btn-secondary hidden" type="button">Convertir las fotos en PDF</button>
-          <div id="activation-attachment-message" class="text-small text-muted">Puedes adjuntar varias fotografÃ­as.</div>
-          <a id="activation-generated-pdf" class="btn btn-secondary hidden" href="#" download="documento_incidencia.pdf">ð Comprobar PDF generado</a>
+          <div id="activation-attachment-message" class="text-small text-muted">Puedes adjuntar varias fotografías.</div>
+          <a id="activation-generated-pdf" class="btn btn-secondary hidden" href="#" download="documento_incidencia.pdf">📄 Comprobar PDF generado</a>
         </div>
-        <div class="text-small text-muted"><strong>Fotos y documentos opcionales.</strong> Puedes guardar ahora sin adjuntar archivos y aÃ±adirlos posteriormente; la incidencia mostrarÃ¡ lo que sigue pendiente.</div>
+        <div class="text-small text-muted"><strong>Fotos y documentos opcionales.</strong> Puedes guardar ahora sin adjuntar archivos y añadirlos posteriormente; la incidencia mostrará lo que sigue pendiente.</div>
         <label class="safety-check"><span>Dar la incidencia por cerrada al guardar</span><input id="activation-close-incidence" type="checkbox"></label>
-        <div class="text-small text-muted">Si no marcas esta opciÃ³n, seguirÃ¡ apareciendo como pendiente para completarla mÃ¡s adelante.</div>
+        <div class="text-small text-muted">Si no marcas esta opción, seguirá apareciendo como pendiente para completarla más adelante.</div>
         <div id="follow-message" class="text-small text-muted"></div>
-        <div class="viz-row"><button id="follow-previous" class="btn btn-secondary" type="button">â Paso anterior</button><button id="save-incidence" class="btn btn-primary" type="button">Guardar incidencia</button></div>
+        <div class="viz-row"><button id="follow-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="save-incidence" class="btn btn-primary" type="button">Guardar incidencia</button></div>
       </div>
-      <div id="activation-manual-note" class="card hidden">El manual operativo se abrirÃ¡ aquÃ­ sin abandonar la app.</div>
+      <div id="activation-manual-note" class="card hidden">El manual operativo se abrirá aquí sin abandonar la app.</div>
     </section>
   </section>
 
@@ -554,7 +554,7 @@
         deviceToken = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
         localStorage.setItem(deviceStorageKey, deviceToken);
       }
-      const deviceName = [navigator.userAgentData?.platform || navigator.platform || 'Dispositivo', /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mÃ³vil' : 'ordenador'].join(' Â· ');
+      const deviceName = [navigator.userAgentData?.platform || navigator.platform || 'Dispositivo', /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'móvil' : 'ordenador'].join(' · ');
       const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
         global: { headers: { 'x-device-token': deviceToken } }
@@ -575,7 +575,7 @@
       let knownDfms = [];
       let vehicleIndex = [];
       const brandAssistance24h = [
-        {brand:'MERCEDES', name:'My TruckPoint', phone:'00 800 57 777 777', note:'Canal principal: My TruckPoint. TelÃ©fono Service24h solo si no hay acceso.', primaryUrl:'https://www.mercedes-benz-trucks.com/es/es/business-and-services/digital-services/my-truckpoint.html'},
+        {brand:'MERCEDES', name:'My TruckPoint', phone:'00 800 57 777 777', note:'Canal principal: My TruckPoint. Teléfono Service24h solo si no hay acceso.', primaryUrl:'https://www.mercedes-benz-trucks.com/es/es/business-and-services/digital-services/my-truckpoint.html'},
         {brand:'IVECO', name:'IVECO Assistance Non Stop (ANS)', phone:'+800 8274 7368', note:''},
         {brand:'MAN', name:'MAN Mobile24', phone:'00800 66 24 53 24', note:'Clave 20244'},
         {brand:'VOLVO', name:'Volvo Action Service (VAS)', phone:'+34 900 98 32 51', note:''}
@@ -590,7 +590,7 @@
       };
       const currentActivationVehicle = () => {
         const dfmInput = root.querySelector('#activation-dfm');
-        const dfm = dfmInput.dataset.dfm || dfmInput.value.trim().split('Â·')[0].replace(/\D/g, '');
+        const dfm = dfmInput.dataset.dfm || dfmInput.value.trim().split('·')[0].replace(/\D/g, '');
         return vehicleIndex.find(item => item.dfm === dfm) || {
           dfm,
           brand: root.querySelector('#manual-brand').value.trim().toUpperCase()
@@ -619,8 +619,8 @@
         link.classList.toggle('hidden', !dialNumber);
         link.href = dialNumber ? 'tel:' + dialNumber : '#';
         link.textContent = dialNumber
-          ? 'ð ' + (prefix || 'Llamar a ') + (assistance24h.name || 'Asistencia 24H') + ' Â· ' + phone
-          : 'TelÃ©fono 24H no disponible';
+          ? '📞 ' + (prefix || 'Llamar a ') + (assistance24h.name || 'Asistencia 24H') + ' · ' + phone
+          : 'Teléfono 24H no disponible';
         link.onclick = dialNumber ? () => {
           registerActivationMoment();
           saveActivationCallDraft();
@@ -640,7 +640,7 @@
         phoneLink.classList.add('hidden');
         fallback.classList.add('hidden');
         if (isMercedes) {
-          configureAssistancePhoneLink(fallback, assistance24h, 'No tengo acceso Â· Llamar a ');
+          configureAssistancePhoneLink(fallback, assistance24h, 'No tengo acceso · Llamar a ');
           fallback.classList.remove('hidden');
         } else {
           configureAssistancePhoneLink(phoneLink, assistance24h, 'Llamar a ');
@@ -648,8 +648,8 @@
         detail.style.color = '';
         detail.style.fontWeight = '';
         detail.textContent = isMercedes
-          ? 'Mercedes-Benz: crea primero la asistencia en My TruckPoint. Si no tienes acceso, pulsa el enlace telefÃ³nico alternativo.'
-          : ([assistance24h.name, assistance24h.phone, assistance24h.note].filter(Boolean).join(' Â· ') || 'No hay telÃ©fono 24H disponible para esta marca. Contacta con TM, GestiÃ³n de Mantenimiento BCN o Ãrea de Mantenimiento.');
+          ? 'Mercedes-Benz: crea primero la asistencia en My TruckPoint. Si no tienes acceso, pulsa el enlace telefónico alternativo.'
+          : ([assistance24h.name, assistance24h.phone, assistance24h.note].filter(Boolean).join(' · ') || 'No hay teléfono 24H disponible para esta marca. Contacta con TM, Gestión de Mantenimiento BCN o Área de Mantenimiento.');
         const callSummary = root.querySelector('#activation-call-summary');
         const preparedSummary = root.querySelector('#activation-summary');
         callSummary.replaceChildren(...Array.from(preparedSummary.children, item => item.cloneNode(true)));
@@ -677,7 +677,7 @@
         const fields = {};
         root.querySelectorAll('#view-activation input[id], #view-activation select[id], #view-activation textarea[id]').forEach(field => {
           // Los navegadores no permiten restaurar el valor de un input file.
-          // Guardarlo provocaba que Android interrumpiera toda la recuperaciÃ³n.
+          // Guardarlo provocaba que Android interrumpiera toda la recuperación.
           if (field.type === 'file') return;
           fields[field.id] = field.type === 'checkbox'
             ? {checked:field.checked}
@@ -714,7 +714,7 @@
         const dfmInput = root.querySelector('#activation-dfm');
         dfmInput.dataset.dfm = fields.__dfm || '';
         root.querySelector('#activation-dfm-context strong').textContent =
-          fields.__dfm ? 'DFM ' + fields.__dfm : 'DFM â';
+          fields.__dfm ? 'DFM ' + fields.__dfm : 'DFM —';
         const activationMoment = root.querySelector('#activation-time').value;
         const activationDisplay = root.querySelector('#activation-time-display');
         if (activationMoment && activationDisplay) {
@@ -769,7 +769,7 @@
         });
         const dfmInput = root.querySelector('#activation-dfm');
         if (dfmInput) dfmInput.dataset.dfm = '';
-        root.querySelector('#activation-dfm-context strong').textContent = 'DFM â';
+        root.querySelector('#activation-dfm-context strong').textContent = 'DFM —';
         root.querySelector('#manual-vehicle-data').classList.add('hidden');
         const suggestions = root.querySelector('#vehicle-suggestions');
         suggestions.replaceChildren();
@@ -779,7 +779,7 @@
         activationMessage.style.color = '';
         activationMessage.style.fontWeight = '';
         const activationDisplay = root.querySelector('#activation-time-display');
-        if (activationDisplay) activationDisplay.textContent = 'Se registrarÃ¡ al pulsar el botÃ³n de activaciÃ³n o llamada 24H.';
+        if (activationDisplay) activationDisplay.textContent = 'Se registrará al pulsar el botón de activación o llamada 24H.';
         root.querySelector('#activation-close-incidence').checked = false;
         setView('activation');
         showActivationStep(1);
@@ -799,7 +799,7 @@
         if (step >= 5) renderActivationCommunicationSummary();
         showActivationStep(activationPanels[step] ? step : 1);
         root.querySelector('#activation-message').textContent =
-          'ActivaciÃ³n pendiente recuperada automÃ¡ticamente: ' + restoredFields + ' datos. ContinÃºa desde el punto donde la dejaste.';
+          'Activación pendiente recuperada automáticamente: ' + restoredFields + ' datos. Continúa desde el punto donde la dejaste.';
         requestActivationWakeLock().catch(() => {});
         return true;
       };
@@ -807,16 +807,16 @@
       const defaultFaultHistory = [
         'Fallo motor',
         'Testigo rojo de motor',
-        'PÃ©rdida de potencia del motor',
-        'El vehÃ­culo no arranca',
+        'Pérdida de potencia del motor',
+        'El vehículo no arranca',
         'Fuga de refrigerante',
-        'PresiÃ³n de aceite baja',
+        'Presión de aceite baja',
         'Fallo del sistema AdBlue',
-        'AverÃ­a en la caja de cambios',
-        'Pinchazo o reventÃ³n de neumÃ¡tico',
-        'Se para el equipo de frÃ­o',
-        'El equipo de frÃ­o no alcanza la temperatura',
-        'Fallo de climatizaciÃ³n',
+        'Avería en la caja de cambios',
+        'Pinchazo o reventón de neumático',
+        'Se para el equipo de frío',
+        'El equipo de frío no alcanza la temperatura',
+        'Fallo de climatización',
         'Fallo en pantalla',
         'Silbido en el turbo'
       ];
@@ -856,7 +856,7 @@
       };
       const renderActivationCommunicationSummary = () => {
         const dfm = root.querySelector('#activation-dfm').dataset.dfm ||
-          root.querySelector('#activation-dfm').value.trim().split('Â·')[0].replace(/\D/g, '');
+          root.querySelector('#activation-dfm').value.trim().split('·')[0].replace(/\D/g, '');
         const vehicle = vehicleIndex.find(item => item.dfm === dfm);
         const manual = !vehicle;
         const assistance24h = resolveVehicleAssistance(vehicle || {
@@ -884,23 +884,23 @@
         const registrationText = registration
           ? new Date(registration + 'T00:00:00').toLocaleDateString('es-ES') : '';
         const items = [
-          ['DFM y matrÃ­cula', 'DFM ' + dfm + (plate ? ' Â· ' + plate : ''), true],
-          ['Marca y bastidor', [brand, vin].filter(Boolean).join(' Â· '), true],
+          ['DFM y matrícula', 'DFM ' + dfm + (plate ? ' · ' + plate : ''), true],
+          ['Marca y bastidor', [brand, vin].filter(Boolean).join(' · '), true],
           ['UPC', upc, false],
-          ['Tipo y matriculaciÃ³n', [vehicleClass, registrationText].filter(Boolean).join(' Â· '), true],
-          ['KilÃ³metros y contrato', currentKm.toLocaleString('es-ES') + ' km actuales' +
-            (contractKm ? ' Â· lÃ­mite ' + Number(contractKm).toLocaleString('es-ES') + ' km' : ''), true],
-          ['ComprobaciÃ³n de seguridad', root.querySelector('#activation-safe').checked ? 'VehÃ­culo seguro o seÃ±alizado' : '', true],
+          ['Tipo y matriculación', [vehicleClass, registrationText].filter(Boolean).join(' · '), true],
+          ['Kilómetros y contrato', currentKm.toLocaleString('es-ES') + ' km actuales' +
+            (contractKm ? ' · límite ' + Number(contractKm).toLocaleString('es-ES') + ' km' : ''), true],
+          ['Comprobación de seguridad', root.querySelector('#activation-safe').checked ? 'Vehículo seguro o señalizado' : '', true],
           ['Conductor fuera de peligro', root.querySelector('#activation-driver-safe').checked ? 'Confirmado' : '', true],
-          ['Conductor y telÃ©fono del camiÃ³n', [driverName, driverPhone || 'TelÃ©fono del camiÃ³n no disponible'].filter(Boolean).join(' Â· '), true],
-          ['TelÃ©fono de contacto con 24H', contactPhone, true],
-          ['Tipo de ubicaciÃ³n', locationType, true],
+          ['Conductor y teléfono del camión', [driverName, driverPhone || 'Teléfono del camión no disponible'].filter(Boolean).join(' · '), true],
+          ['Teléfono de contacto con 24H', contactPhone, true],
+          ['Tipo de ubicación', locationType, true],
           [locationFormat, location, true],
-          ['AverÃ­a literal', fault, true],
-          ['CÃ³digo y color del aviso', (alarmCode || 'Sin cÃ³digo') + ' Â· ' + alarmColor, false],
+          ['Avería literal', fault, true],
+          ['Código y color del aviso', (alarmCode || 'Sin código') + ' · ' + alarmColor, false],
           ['Semirremolque', trailer, false],
           ['Carga', load, true],
-          ['Canal 24H', [assistance24h.name, assistance24h.phone, assistance24h.note].filter(Boolean).join(' Â· '), false]
+          ['Canal 24H', [assistance24h.name, assistance24h.phone, assistance24h.note].filter(Boolean).join(' · '), false]
         ];
         const summary = root.querySelector('#activation-summary');
         summary.replaceChildren();
@@ -927,10 +927,10 @@
           summary.append(row);
         });
         root.querySelector('#activation-communication-script').textContent =
-          'DFM ' + dfm + ', matrÃ­cula ' + (plate || 'pendiente') + ', marca ' + (brand || 'pendiente') +
-          ', ubicado en ' + (location || 'ubicaciÃ³n pendiente') + '. AverÃ­a comunicada: ' +
+          'DFM ' + dfm + ', matrícula ' + (plate || 'pendiente') + ', marca ' + (brand || 'pendiente') +
+          ', ubicado en ' + (location || 'ubicación pendiente') + '. Avería comunicada: ' +
           (fault || 'pendiente') + '. Conductor: ' + (driverName || 'pendiente') +
-          (driverPhone ? ', telÃ©fono ' + driverPhone : '') + '.';
+          (driverPhone ? ', teléfono ' + driverPhone : '') + '.';
         root.querySelector('#activation-summary-confirmed').checked = false;
         root.querySelector('#communication-message').textContent = missingRequired
           ? 'Revisa los datos marcados como FALTA antes de realizar la llamada.' : '';
@@ -945,13 +945,13 @@
         8: '#activation-follow'
       };
       const activationLabels = {
-        1: 'Paso 1 Â· Identificar vehÃ­culo',
-        2: 'Paso 2 Â· Seguridad',
-        3: 'Paso 3 Â· UbicaciÃ³n y averÃ­a',
-        5: 'Paso 4 Â· Datos preparados',
-        6: 'Paso 5 Â· Contrato y llamada',
-        7: 'Paso 6 Â· Registrar activaciÃ³n',
-        8: 'Paso 7 Â· Seguimiento'
+        1: 'Paso 1 · Identificar vehículo',
+        2: 'Paso 2 · Seguridad',
+        3: 'Paso 3 · Ubicación y avería',
+        5: 'Paso 4 · Datos preparados',
+        6: 'Paso 5 · Contrato y llamada',
+        7: 'Paso 6 · Registrar activación',
+        8: 'Paso 7 · Seguimiento'
       };
       const showActivationStep = step => {
         Object.values(activationPanels).forEach(selector => root.querySelector(selector).classList.add('hidden'));
@@ -973,18 +973,18 @@
         if (!input || !other || !help) return;
         if (other.checked) {
           input.readOnly = false;
-          help.textContent = 'Escribe el telÃ©fono de la persona que realiza la llamada.';
+          help.textContent = 'Escribe el teléfono de la persona que realiza la llamada.';
           return;
         }
         const userPhone = String(currentAccount()?.phone || '').trim();
         input.value = userPhone;
         input.readOnly = Boolean(userPhone);
         if (userPhone) {
-          help.textContent = 'Rellenado automÃ¡ticamente con el telÃ©fono vinculado a tu usuario.';
+          help.textContent = 'Rellenado automáticamente con el teléfono vinculado a tu usuario.';
         } else {
           other.checked = true;
           input.readOnly = false;
-          help.textContent = 'Tu usuario no tiene telÃ©fono vinculado. Introduce un telÃ©fono de contacto.';
+          help.textContent = 'Tu usuario no tiene teléfono vinculado. Introduce un teléfono de contacto.';
         }
       };
       const isAdmin = () => ['primary', 'secondary'].includes(currentAccount()?.role);
@@ -1026,7 +1026,7 @@
         const reserveSelect = root.querySelector('#hotel-form-reserve');
         const reserves = vehicleIndex.filter(vehicle => vehicle.category.includes('RESERVA'));
         reserveSelect.innerHTML = '<option value="">Selecciona una reserva</option>' + reserves.map(vehicle =>
-          `<option value="${escapeHtml(vehicle.dfm)}|${escapeHtml(vehicle.plate)}|${escapeHtml(vehicle.label || 'RESERVA')}">${escapeHtml(vehicle.dfm)} Â· ${escapeHtml(vehicle.plate)} Â· ${escapeHtml(vehicle.label || 'RESERVA')}</option>`
+          `<option value="${escapeHtml(vehicle.dfm)}|${escapeHtml(vehicle.plate)}|${escapeHtml(vehicle.label || 'RESERVA')}">${escapeHtml(vehicle.dfm)} · ${escapeHtml(vehicle.plate)} · ${escapeHtml(vehicle.label || 'RESERVA')}</option>`
         ).join('');
       };
       const applyVehiclePhone = vehicle => {
@@ -1070,7 +1070,7 @@
         fleet:row.vehiculo_sustituido || '', fleetPlate:row.matricula_sustituido || '',
         upc:row.upc || '', location:row.lugar || '', state:uiStateFromDb(row.estado),
         stateLabel:stateLabelFromDb(row), cause:row.causa || '',
-        reserveTasks:row.trabajos_reserva || 'â', priority:row.prioridad,
+        reserveTasks:row.trabajos_reserva || '—', priority:row.prioridad,
         inc:row.incidencia || 'Sin incidencia', next:row.proximo || '', model:row.modelo || '',
         stages:(row.etapas_hotel || []).sort((a,b)=>a.posicion-b.posicion).map(stage => ({
           id:stage.id, name:stage.nombre, done:stage.estado === 'realizada',
@@ -1124,7 +1124,7 @@
         for (const pizarra of pizarras) await seedHotelPizarra(pizarra.id, defaultHotelUnits);
       };
       const syncCurrentPizarra03AugIfNeeded = async () => {
-        const marker = 'Pizarra 03/08/2026 sincronizada Â· v1';
+        const marker = 'Pizarra 03/08/2026 sincronizada · v1';
         if (!isPrimaryAdmin() || activePizarraDate !== '2026-08-03') return;
         const { data:existingRows, error:readError } = await supabaseClient.from('registros_hotel')
           .select('id, vehiculo_reserva, observaciones').eq('pizarra_id',activePizarraId);
@@ -1220,9 +1220,9 @@
         const workshopUnits = hotelUnits.filter(unit => unit.state === 'workshop');
         root.querySelector('#hotel-workshop-list').innerHTML = workshopUnits.map(unit => {
           const entryDate = (unit.stateLabel.match(/desde\s+(.+)$/i)||[])[1] || 'Fecha pendiente';
-          const vehicle = unit.fleet ? `${unit.fleet} Â· ${unit.fleetPlate}` : `${unit.reserve} Â· ${unit.reservePlate}`;
-          return `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><div><strong>${escapeHtml(vehicle)}</strong><div class="text-small">${escapeHtml(unit.location||'Taller sin indicar')} Â· Entrada: ${escapeHtml(entryDate)}</div><div class="text-small text-muted">Reserva ${escapeHtml(unit.reserve)} Â· ${escapeHtml(unit.reserveLabel)}</div></div></div>`;
-        }).join('') || '<div class="text-small text-muted">No hay vehÃ­culos en taller.</div>';
+          const vehicle = unit.fleet ? `${unit.fleet} · ${unit.fleetPlate}` : `${unit.reserve} · ${unit.reservePlate}`;
+          return `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><div><strong>${escapeHtml(vehicle)}</strong><div class="text-small">${escapeHtml(unit.location||'Taller sin indicar')} · Entrada: ${escapeHtml(entryDate)}</div><div class="text-small text-muted">Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</div></div></div>`;
+        }).join('') || '<div class="text-small text-muted">No hay vehículos en taller.</div>';
         root.querySelector('#hotel-priority-list').innerHTML = hotelUnits.filter(unit => unit.state !== 'free').sort((a,b)=>a.priority-b.priority).map(unit => `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><strong>DFM ${escapeHtml(unit.fleet)}</strong><span>${escapeHtml(unit.cause)}</span></div>`).join('');
         root.querySelectorAll('.hotel-metric-filter').forEach(button => button.addEventListener('click', () => {
           hotelMetricFilter = button.dataset.filter;
@@ -1232,12 +1232,12 @@
       };
       const renderHotelUnit = unit => {
         const currentStage = nextStageIndex(unit);
-        const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'â':stage.status==='anulada'?'Ã':index===currentStage?'â':'â'}</span><span><strong>${index+1}T</strong> Â· ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> Â· ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> Â· Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> Â· Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${!stage.done && stage.status!=='anulada' && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}${isAdmin()?`<button class="btn btn-secondary hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="btn btn-secondary hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
+        const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${!stage.done && stage.status!=='anulada' && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}${isAdmin()?`<button class="btn btn-secondary hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="btn btn-secondary hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
         return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
-          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} Â· ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} Â· ${escapeHtml(unit.reservePlate)} Â· ${escapeHtml(unit.reserveLabel)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} Â· ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} Â· Disponible para asignar</span>`}</div><div><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span> <span class="badge">${escapeHtml(unit.stateLabel)}</span></div></div>
-          <div class="detail-grid"><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'â')}</strong></div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'â')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'â')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">PrÃ³ximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehÃ­culo sustituido</span><strong>${escapeHtml(unit.model||'â')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'â'}</strong></div></div>
+          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span> <span class="badge">${escapeHtml(unit.stateLabel)}</span></div></div>
+          <div class="detail-grid"><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehículo sustituido</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
           ${stages}
-          ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar ficha</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ AÃ±adir T</button></div>`:''}
+          ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar ficha</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ Añadir T</button></div>`:''}
         </article>`;
       };
       const bindHotelStageButtons = () => {
@@ -1254,7 +1254,7 @@
           if (![1,2,3,4,5].includes(priority)) { window.alert('La prioridad debe estar entre 1 y 5.'); return; }
           const states = ['planificado','pendiente_taller','en_taller','terminado_pendiente_recogida','recogido_pendiente_ruta','reserva_liberada'];
           const currentDbState = dbStateFromUnit(unit);
-          const stateText = window.prompt('Estado: 1 Parar Â· 2 Pendiente de taller Â· 3 En taller Â· 4 Terminado pendiente de recoger Â· 5 Recogido pendiente de ruta Â· 6 Reserva liberada', String(Math.max(1,states.indexOf(currentDbState)+1)));
+          const stateText = window.prompt('Estado: 1 Parar · 2 Pendiente de taller · 3 En taller · 4 Terminado pendiente de recoger · 5 Recogido pendiente de ruta · 6 Reserva liberada', String(Math.max(1,states.indexOf(currentDbState)+1)));
           if (stateText === null) return;
           const state = states[Number(stateText)-1];
           if (!state) { window.alert('Selecciona un estado del 1 al 6.'); return; }
@@ -1299,7 +1299,7 @@
             estado:'pendiente', lugar:location.trim(), creado_por:sessionUserId,
             modificado_por:sessionUserId
           });
-          if (error) window.alert('No se pudo aÃ±adir la T: ' + error.message);
+          if (error) window.alert('No se pudo añadir la T: ' + error.message);
           await loadHotelFromSupabase(false);
         }));
         root.querySelectorAll('.hotel-stage-edit').forEach(button => button.addEventListener('click', async () => {
@@ -1324,7 +1324,7 @@
           const stage = unit.stages[Number(button.dataset.stage)];
           const reason = window.prompt('Motivo obligatorio para anular esta T:');
           if (reason === null) return;
-          if (!reason.trim()) { window.alert('Debes indicar el motivo de la anulaciÃ³n.'); return; }
+          if (!reason.trim()) { window.alert('Debes indicar el motivo de la anulación.'); return; }
           const { error } = await supabaseClient.from('etapas_hotel').update({
             estado:'anulada', motivo_anulacion:reason.trim(), modificado_por:sessionUserId,
             actualizado_en:new Date().toISOString()
@@ -1335,7 +1335,7 @@
       };
       const renderHotel = () => {
         const shownDate = activePizarraDate ? new Date(activePizarraDate + 'T12:00:00').toLocaleDateString('es-ES') : hotelSourceDate;
-        root.querySelector('#hotel-date').textContent = 'Pizarra en curso del ' + shownDate + ' Â· sincronizaciÃ³n en tiempo real';
+        root.querySelector('#hotel-date').textContent = 'Pizarra en curso del ' + shownDate + ' · sincronización en tiempo real';
         const query = root.querySelector('#hotel-search').value.toLowerCase().trim();
         const matchesMetric = unit => hotelMetricFilter === 'all'
           || (hotelMetricFilter === 'occupied' && Boolean(unit.fleet))
@@ -1343,17 +1343,17 @@
           || (hotelMetricFilter === 'workshop' && unit.state === 'workshop')
           || (hotelMetricFilter === 'recover' && ['ready','route'].includes(unit.state));
         const visible = hotelUnits.filter(unit => matchesMetric(unit) && (!query || Object.values(unit).flat(3).join(' ').toLowerCase().includes(query)));
-        const filterLabels = {occupied:'Reservas ocupadas',free:'Reservas libres',workshop:'VehÃ­culos en taller',recover:'Pendientes de recuperar'};
+        const filterLabels = {occupied:'Reservas ocupadas',free:'Reservas libres',workshop:'Vehículos en taller',recover:'Pendientes de recuperar'};
         const activeFilter = root.querySelector('#hotel-active-filter');
         activeFilter.classList.toggle('hidden', hotelMetricFilter === 'all');
         activeFilter.innerHTML = hotelMetricFilter === 'all' ? '' : `<div class="viz-row"><strong>Mostrando: ${filterLabels[hotelMetricFilter]}</strong><button id="hotel-clear-filter" class="btn btn-secondary" type="button">Mostrar todo</button></div>`;
         root.querySelector('#hotel-clear-filter')?.addEventListener('click', () => { hotelMetricFilter='all'; renderHotel(); });
         root.querySelector('#hotel-list').innerHTML = visible.map(renderHotelUnit).join('') || '<div class="card">No hay resultados en la pizarra actual.</div>';
-        root.querySelector('#hotel-next-list').innerHTML = hotelUnits.filter(unit=>unit.next).map(unit=>`<div class="card"><strong>Reserva ${escapeHtml(unit.reserve)} Â· ${escapeHtml(unit.reserveLabel)}</strong><div>PrÃ³ximo previsto: <strong>${escapeHtml(unit.next)}</strong></div><div class="text-small text-muted">PrevisiÃ³n no confirmada. La decisiÃ³n final es manual.</div></div>`).join('') || '<div class="card">No hay prÃ³ximas sustituciones planificadas.</div>';
+        root.querySelector('#hotel-next-list').innerHTML = hotelUnits.filter(unit=>unit.next).map(unit=>`<div class="card"><strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</strong><div>Próximo previsto: <strong>${escapeHtml(unit.next)}</strong></div><div class="text-small text-muted">Previsión no confirmada. La decisión final es manual.</div></div>`).join('') || '<div class="card">No hay próximas sustituciones planificadas.</div>';
         root.querySelector('#hotel-history-list').innerHTML = [
-          {date:'29/07/2026',dfm:'2709',plate:'7039NGM',reserve:'2499',state:'En taller',place:'AUTODIS',cause:'Consumo o pÃ©rdida de aceite'},
+          {date:'29/07/2026',dfm:'2709',plate:'7039NGM',reserve:'2499',state:'En taller',place:'AUTODIS',cause:'Consumo o pérdida de aceite'},
           {date:'29/07/2026',dfm:'2518',plate:'1859MLJ',reserve:'2686',state:'En taller',place:'STERN',cause:'Frenos eje 2 + nivel de agua'}
-        ].filter(item=>{const q=root.querySelector('#hotel-history-search').value.toLowerCase().trim();return !q||Object.values(item).join(' ').toLowerCase().includes(q)}).map(item=>`<div class="card"><strong>${item.date} Â· DFM ${item.dfm} Â· ${item.plate}</strong><div>Reserva ${item.reserve} Â· ${item.state} Â· ${item.place}</div><div class="text-small text-muted">${item.cause}</div></div>`).join('');
+        ].filter(item=>{const q=root.querySelector('#hotel-history-search').value.toLowerCase().trim();return !q||Object.values(item).join(' ').toLowerCase().includes(q)}).map(item=>`<div class="card"><strong>${item.date} · DFM ${item.dfm} · ${item.plate}</strong><div>Reserva ${item.reserve} · ${item.state} · ${item.place}</div><div class="text-small text-muted">${item.cause}</div></div>`).join('');
         renderHotelSummary(); bindHotelStageButtons();
       };
       const setHotelSubView = next => {
@@ -1368,7 +1368,7 @@
         users.filter(user => user.active).forEach(user => {
           const option = document.createElement('option');
           option.value = user.id;
-          option.textContent = user.name + (user.role === 'primary' ? ' Â· Administrador principal' : user.role === 'secondary' ? ' Â· Administrador' : ' Â· Usuario');
+          option.textContent = user.name + (user.role === 'primary' ? ' · Administrador principal' : user.role === 'secondary' ? ' · Administrador' : ' · Usuario');
           select.append(option);
         });
       };
@@ -1382,7 +1382,7 @@
           heading.textContent = user.name;
           const meta = document.createElement('div');
           meta.className = 'text-small text-muted';
-          meta.textContent = (user.role === 'primary' ? 'Administrador principal' : user.role === 'secondary' ? 'Administrador secundario' : 'Usuario') + ' Â· ' + (user.active ? 'Activo' : 'Bloqueado') + (user.phone ? ' Â· ' + user.phone : ' Â· telÃ©fono pendiente') + (user.email ? ' Â· ' + user.email : ' Â· correo pendiente');
+          meta.textContent = (user.role === 'primary' ? 'Administrador principal' : user.role === 'secondary' ? 'Administrador secundario' : 'Usuario') + ' · ' + (user.active ? 'Activo' : 'Bloqueado') + (user.phone ? ' · ' + user.phone : ' · teléfono pendiente') + (user.email ? ' · ' + user.email : ' · correo pendiente');
           const editGrid = document.createElement('div');
           editGrid.className = 'detail-grid';
           const nameLabel = document.createElement('label');
@@ -1393,7 +1393,7 @@
           nameInput.disabled = user.role === 'primary';
           nameLabel.append(nameInput);
           const phoneLabel = document.createElement('label');
-          phoneLabel.textContent = 'TelÃ©fono vinculado';
+          phoneLabel.textContent = 'Teléfono vinculado';
           const phoneInput = document.createElement('input');
           phoneInput.className = 'form-control';
           phoneInput.type = 'tel';
@@ -1422,20 +1422,20 @@
             const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
             const message = root.querySelector('#user-admin-message');
             if (!name || phoneDigits.length < 9 || !emailValid) {
-              message.textContent = 'Nombre, telÃ©fono vÃ¡lido y correo vÃ¡lido son obligatorios para ' + user.name + '.';
+              message.textContent = 'Nombre, teléfono válido y correo válido son obligatorios para ' + user.name + '.';
               return;
             }
             if (users.some(other => other.id !== user.id && (other.email?.toLowerCase() === email || String(other.phone || '').replace(/\D/g, '') === phoneDigits))) {
-              message.textContent = 'Ese telÃ©fono o correo ya estÃ¡ vinculado a otra cuenta.';
+              message.textContent = 'Ese teléfono o correo ya está vinculado a otra cuenta.';
               return;
             }
             if (user.role === 'primary') {
               saveButton.disabled = true;
-              message.textContent = 'Guardando los datos en Supabaseâ¦';
+              message.textContent = 'Guardando los datos en Supabase…';
               try {
                 const { data:sessionData } = await supabaseClient.auth.getSession();
                 const accessToken = sessionData?.session?.access_token;
-                if (!accessToken) throw new Error('La sesiÃ³n de administrador ha caducado. Cierra sesiÃ³n y vuelve a entrar.');
+                if (!accessToken) throw new Error('La sesión de administrador ha caducado. Cierra sesión y vuelve a entrar.');
                 const { data, error } = await supabaseClient.functions.invoke('crear-usuario-seguro', {
                   body: { accion:'actualizar_administrador', nombreCompleto:name, telefono:phone, correo:email },
                   headers: { Authorization:'Bearer ' + accessToken }
@@ -1448,14 +1448,14 @@
                   } catch {}
                   throw new Error(detail || error.message || 'No se pudieron guardar los datos.');
                 }
-                if (!data?.ok || !data?.usuario) throw new Error(data?.error || 'El servidor no confirmÃ³ el guardado.');
+                if (!data?.ok || !data?.usuario) throw new Error(data?.error || 'El servidor no confirmó el guardado.');
                 await reloadAdminUsersFromSupabase();
                 const savedAdmin = users.find(account => account.id === user.id);
                 root.querySelector('#admin-phone').value = savedAdmin?.phone || phone;
                 root.querySelector('#admin-email').value = savedAdmin?.email || email;
                 message.textContent = 'Datos guardados correctamente';
               } catch (error) {
-                message.textContent = 'No se pudieron guardar los datos: ' + (error?.message || 'error de conexiÃ³n.');
+                message.textContent = 'No se pudieron guardar los datos: ' + (error?.message || 'error de conexión.');
               } finally {
                 saveButton.disabled = false;
               }
@@ -1515,15 +1515,15 @@
 
       const setView = next => {
         const constructionModules = {
-          hotel: 'Hotel Â· Pizarra diaria',
+          hotel: 'Hotel · Pizarra diaria',
           reservas: 'Reservas',
           predictivo: 'Mantenimiento predictivo',
-          'itv-tramites': 'PlanificaciÃ³n ITV y trÃ¡mites',
-          documentacion: 'DocumentaciÃ³n',
+          'itv-tramites': 'Planificación ITV y trámites',
+          documentacion: 'Documentación',
           informes: 'Panel e informes'
         };
         if (constructionModules[next]) {
-          window.alert(constructionModules[next] + '\n\nMÃ³dulo en construcciÃ³n. PrÃ³ximamente disponible segÃºn los permisos asignados.');
+          window.alert(constructionModules[next] + '\n\nMódulo en construcción. Próximamente disponible según los permisos asignados.');
           return;
         }
         if (next === 'all' && !canViewAllIncidences()) {
@@ -1531,7 +1531,7 @@
           return;
         }
         if (['users','settings','versions'].includes(next) && !isPrimaryAdmin()) {
-          window.alert('Esta pestaÃ±a requiere permiso del administrador principal.');
+          window.alert('Esta pestaña requiere permiso del administrador principal.');
           return;
         }
         view = next;
@@ -1562,17 +1562,17 @@
         detail.classList.remove('hidden');
         detail.innerHTML = '';
         const heading = document.createElement('strong');
-        heading.textContent = incidence.id + ' Â· DFM ' + incidence.dfm;
+        heading.textContent = incidence.id + ' · DFM ' + incidence.dfm;
         const grid = document.createElement('div');
         grid.className = 'detail-grid';
         [
           ['Creada por', incidence.creator],
-          ['NÃºmero del operador', incidence.caseNumber],
-          ['SÃ­ntoma comunicado', incidence.fault],
-          ['UbicaciÃ³n', incidence.location],
+          ['Número del operador', incidence.caseNumber],
+          ['Síntoma comunicado', incidence.fault],
+          ['Ubicación', incidence.location],
           ['ETA aproximada', incidence.eta],
           ['Llegada real', incidence.realArrival],
-          ['DiagnÃ³stico confirmado', incidence.diagnosis],
+          ['Diagnóstico confirmado', incidence.diagnosis],
           ['Resultado', incidence.result],
           ['Taller de traslado', incidence.workshop]
         ].forEach(item => {
@@ -1599,13 +1599,13 @@
             editingIncidenceId = incidence.id;
             const setValue = (selector, value) => {
               const field = root.querySelector(selector);
-              if (field) field.value = value && value !== 'Pendiente' && value !== 'â' ? value : '';
+              if (field) field.value = value && value !== 'Pendiente' && value !== '—' ? value : '';
             };
             const dfm = root.querySelector('#activation-dfm');
             dfm.value = incidence.dfm && incidence.dfm !== 'Pendiente' ? incidence.dfm : '';
             dfm.dataset.dfm = incidence.dfm && incidence.dfm !== 'Pendiente' ? incidence.dfm : '';
             root.querySelector('#activation-dfm-context strong').textContent =
-              dfm.dataset.dfm ? 'DFM ' + dfm.dataset.dfm : 'DFM â';
+              dfm.dataset.dfm ? 'DFM ' + dfm.dataset.dfm : 'DFM —';
             setValue('#manual-plate', incidence.plate);
             setValue('#activation-case-number', incidence.caseNumber);
             setValue('#activation-fault-text', incidence.fault);
@@ -1618,7 +1618,7 @@
             root.querySelector('#activation-technician-arrived').checked =
               Boolean(incidence.realArrival && incidence.realArrival !== 'Pendiente');
             root.querySelector('#activation-diagnosis-confirmed').checked =
-              Boolean(incidence.diagnosis && incidence.diagnosis !== 'Pendiente de confirmaciÃ³n');
+              Boolean(incidence.diagnosis && incidence.diagnosis !== 'Pendiente de confirmación');
             root.querySelector('#activation-result').value =
               incidence.result === 'Reparado en carretera' ? 'road'
                 : incidence.result === 'Trasladado a taller' ? 'workshop' : '';
@@ -1626,7 +1626,7 @@
             setView('activation');
             showActivationStep(8);
             root.querySelector('#follow-message').textContent =
-              'Completando ' + incidence.id + '. AÃ±ade datos o documentos y marca Â«Dar la incidencia por cerradaÂ» cuando corresponda.';
+              'Completando ' + incidence.id + '. Añade datos o documentos y marca «Dar la incidencia por cerrada» cuando corresponda.';
             saveActivationProgress();
             window.scrollTo({top:0, behavior:'smooth'});
           });
@@ -1637,9 +1637,9 @@
             deleteButton.className = 'btn btn-secondary';
             deleteButton.textContent = 'Eliminar incidencia';
             deleteButton.addEventListener('click', () => {
-              const reason = window.prompt('Motivo obligatorio de la eliminaciÃ³n:');
+              const reason = window.prompt('Motivo obligatorio de la eliminación:');
               if (!reason || !reason.trim()) return;
-              if (!window.confirm('Â¿Eliminar ' + incidence.id + ' de la lista activa? El movimiento quedarÃ¡ registrado.')) return;
+              if (!window.confirm('¿Eliminar ' + incidence.id + ' de la lista activa? El movimiento quedará registrado.')) return;
               let audit = [];
               try { audit = JSON.parse(localStorage.getItem(incidenceAuditKey) || '[]'); } catch {}
               if (!Array.isArray(audit)) audit = [];
@@ -1683,10 +1683,10 @@
           const main = document.createElement('span');
           main.className = 'incidence-main';
           const title = document.createElement('strong');
-          title.textContent = item.id + ' Â· DFM ' + item.dfm + ' Â· ' + item.plate;
+          title.textContent = item.id + ' · DFM ' + item.dfm + ' · ' + item.plate;
           const meta = document.createElement('span');
           meta.className = 'meta text-small';
-          meta.textContent = item.opened + ' Â· Creada por ' + item.creator;
+          meta.textContent = item.opened + ' · Creada por ' + item.creator;
           main.append(title, meta);
           const status = document.createElement('span');
           status.className = 'status text-small open';
@@ -1707,20 +1707,20 @@
         const container = root.querySelector('#admin-device-list');
         const message = root.querySelector('#admin-device-message');
         if (!container || !isPrimaryAdmin()) return;
-        message.textContent = 'Consultando solicitudesâ¦';
+        message.textContent = 'Consultando solicitudes…';
         const {data,error} = await supabaseClient.rpc('listar_dispositivos_administracion');
         if (error) { message.textContent = 'No se pudieron cargar los dispositivos: ' + error.message; return; }
         container.replaceChildren();
         const devices = data || [];
-        message.textContent = devices.length ? devices.length + ' dispositivo(s) registrado(s).' : 'TodavÃ­a no hay solicitudes.';
+        message.textContent = devices.length ? devices.length + ' dispositivo(s) registrado(s).' : 'Todavía no hay solicitudes.';
         devices.forEach(device => {
           const row = document.createElement('div');
           row.className = 'card stack';
           const title = document.createElement('strong');
-          title.textContent = (device.nombre_usuario || 'Usuario sin nombre') + ' Â· ' + (device.estado || 'pendiente').toUpperCase();
+          title.textContent = (device.nombre_usuario || 'Usuario sin nombre') + ' · ' + (device.estado || 'pendiente').toUpperCase();
           const meta = document.createElement('div');
           meta.className = 'text-small text-muted';
-          meta.textContent = [device.correo, device.telefono, device.nombre_dispositivo].filter(Boolean).join(' Â· ');
+          meta.textContent = [device.correo, device.telefono, device.nombre_dispositivo].filter(Boolean).join(' · ');
           const controls = document.createElement('div');
           controls.className = 'viz-row';
           if (device.estado !== 'aprobado') {
@@ -1786,12 +1786,12 @@
             if (requestError) throw requestError;
             throw new Error('Solicitud enviada. El administrador principal debe aprobar este dispositivo antes de entrar.');
           }
-          if (deviceCheck.estado === 'pendiente') throw new Error('Este dispositivo estÃ¡ pendiente de aprobaciÃ³n.');
-          throw new Error('Este dispositivo no estÃ¡ autorizado. Contacta con el administrador principal.');
+          if (deviceCheck.estado === 'pendiente') throw new Error('Este dispositivo está pendiente de aprobación.');
+          throw new Error('Este dispositivo no está autorizado. Contacta con el administrador principal.');
         }
         const { data:profile, error:profileError } = await supabaseClient.from('usuarios').select('*').eq('id',authUser.id).single();
         if (profileError) throw profileError;
-        if (!profile.activo) throw new Error('Esta cuenta estÃ¡ bloqueada. Contacta con MetrogestiÃ³n.');
+        if (!profile.activo) throw new Error('Esta cuenta está bloqueada. Contacta con Metrogestión.');
         const account = profileToAccount(profile);
         // Para volver a autenticar operaciones sensibles usamos siempre el correo
         // real de Authentication, no una posible copia desactualizada del perfil.
@@ -1801,7 +1801,7 @@
         sessionUser = account.name;
         login.classList.add('hidden');
         app.classList.remove('hidden');
-        root.querySelector('#session-label').textContent = sessionUser + (account.role === 'primary' ? ' Â· Administrador principal' : account.role === 'secondary' ? ' Â· Administrador secundario' : ' Â· Usuario');
+        root.querySelector('#session-label').textContent = sessionUser + (account.role === 'primary' ? ' · Administrador principal' : account.role === 'secondary' ? ' · Administrador secundario' : ' · Usuario');
         root.querySelector('#own-account-name').value = account.name;
         root.querySelector('#hotel-tab').classList.add('locked-tab');
         root.querySelector('#users-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
@@ -1830,12 +1830,12 @@
         const password = root.querySelector('#mock-pin').value;
         const message = root.querySelector('#login-message');
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password) {
-          message.textContent = 'Introduce el correo vinculado y tu contraseÃ±a.';
+          message.textContent = 'Introduce el correo vinculado y tu contraseña.';
           return;
         }
         const button = root.querySelector('#mock-enter');
         button.disabled = true;
-        message.textContent = 'Comprobando acceso seguroâ¦';
+        message.textContent = 'Comprobando acceso seguro…';
         try {
           const { data, error } = await supabaseClient.auth.signInWithPassword({email,password});
           if (error) throw error;
@@ -1845,7 +1845,7 @@
         } catch (error) {
           await supabaseClient.auth.signOut();
           message.textContent = error.message === 'Invalid login credentials'
-            ? 'Correo o contraseÃ±a incorrectos.' : 'No se pudo acceder: ' + error.message;
+            ? 'Correo o contraseña incorrectos.' : 'No se pudo acceder: ' + error.message;
         } finally {
           button.disabled = false;
         }
@@ -1854,7 +1854,7 @@
         const password = root.querySelector('#mock-pin');
         const showing = password.type === 'text';
         password.type = showing ? 'password' : 'text';
-        event.currentTarget.textContent = showing ? 'Ver contraseÃ±a' : 'Ocultar contraseÃ±a';
+        event.currentTarget.textContent = showing ? 'Ver contraseña' : 'Ocultar contraseña';
         event.currentTarget.setAttribute('aria-pressed', String(!showing));
         password.focus();
       });
@@ -1896,7 +1896,7 @@
           return;
         }
         button.disabled = true;
-        message.textContent = 'Comprobando el PIN actualâ¦';
+        message.textContent = 'Comprobando el PIN actual…';
         try {
           const { data:signInData, error:signInError } = await supabaseClient.auth.signInWithPassword({
             email:account.email,
@@ -1915,7 +1915,7 @@
         } catch (error) {
           message.textContent = error?.message === 'Invalid login credentials'
             ? 'El PIN actual no es correcto.'
-            : 'No se pudo cambiar el PIN: ' + (error?.message || 'error de conexiÃ³n.');
+            : 'No se pudo cambiar el PIN: ' + (error?.message || 'error de conexión.');
         } finally {
           button.disabled = false;
         }
@@ -1932,20 +1932,20 @@
         const message = root.querySelector('#user-admin-message');
         const button = root.querySelector('#create-user');
         if (!name || phoneDigits.length < 9 || !emailValid || !/^\d{4,6}$/.test(pin)) {
-          message.textContent = 'Son obligatorios nombre, telÃ©fono vÃ¡lido, correo vÃ¡lido y PIN de 4 a 6 cifras.';
+          message.textContent = 'Son obligatorios nombre, teléfono válido, correo válido y PIN de 4 a 6 cifras.';
           return;
         }
         if (users.some(user => user.email?.toLowerCase() === email || String(user.phone || '').replace(/\D/g, '') === phoneDigits)) {
-          message.textContent = 'Ese telÃ©fono o correo ya estÃ¡ vinculado a otra cuenta.';
+          message.textContent = 'Ese teléfono o correo ya está vinculado a otra cuenta.';
           return;
         }
         button.disabled = true;
-        button.textContent = 'Creando cuenta seguraâ¦';
-        message.textContent = 'Comprobando autorizaciÃ³n y creando la cuenta en Supabaseâ¦';
+        button.textContent = 'Creando cuenta segura…';
+        message.textContent = 'Comprobando autorización y creando la cuenta en Supabase…';
         try {
           const { data:sessionData } = await supabaseClient.auth.getSession();
           const accessToken = sessionData?.session?.access_token;
-          if (!accessToken) throw new Error('La sesiÃ³n de administrador ha caducado. Cierra sesiÃ³n y vuelve a entrar.');
+          if (!accessToken) throw new Error('La sesión de administrador ha caducado. Cierra sesión y vuelve a entrar.');
           const { data, error } = await supabaseClient.functions.invoke('crear-usuario-seguro', {
             body: { nombreCompleto:name, telefono:phone, correo:email, pin, rol:role },
             headers: { Authorization:'Bearer ' + accessToken }
@@ -1958,16 +1958,16 @@
             } catch {}
             throw new Error(detail || error.message || 'No se pudo crear la cuenta.');
           }
-          if (data?.ok === false) throw new Error(data.error || 'El servidor rechazÃ³ la creaciÃ³n de la cuenta.');
+          if (data?.ok === false) throw new Error(data.error || 'El servidor rechazó la creación de la cuenta.');
           await reloadAdminUsersFromSupabase();
           const created = users.find(user => user.email?.toLowerCase() === email);
           if (!created) {
-            throw new Error('Supabase no devolviÃ³ el nuevo perfil. No se considera guardado; revisa la funciÃ³n crear-usuario-seguro.');
+            throw new Error('Supabase no devolvió el nuevo perfil. No se considera guardado; revisa la función crear-usuario-seguro.');
           }
           ['#new-user-name','#new-user-phone','#new-user-email','#new-user-pin'].forEach(selector => root.querySelector(selector).value = '');
           message.textContent = 'Cuenta de ' + created.name + ' guardada y verificada en Supabase.';
         } catch (error) {
-          message.textContent = 'No se guardÃ³ la cuenta: ' + (error?.message || 'error de conexiÃ³n segura.');
+          message.textContent = 'No se guardó la cuenta: ' + (error?.message || 'error de conexión segura.');
         } finally {
           button.disabled = false;
           button.textContent = '+ Crear cuenta';
@@ -1983,7 +1983,7 @@
         const message = root.querySelector('#admin-settings-message');
         const button = root.querySelector('#save-admin-settings');
         if (phone.replace(/\D/g, '').length < 9 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          message.textContent = 'El telÃ©fono y el correo del administrador son obligatorios y deben ser vÃ¡lidos.';
+          message.textContent = 'El teléfono y el correo del administrador son obligatorios y deben ser válidos.';
           return;
         }
         if ((pin || confirmPin) && (!/^\d{4,6}$/.test(pin) || pin !== confirmPin)) {
@@ -1991,20 +1991,20 @@
           return;
         }
         if (users.some(user => user.id !== account.id && (user.email?.toLowerCase() === email || String(user.phone || '').replace(/\D/g, '') === phone.replace(/\D/g, '')))) {
-          message.textContent = 'Ese telÃ©fono o correo ya estÃ¡ vinculado a otra cuenta.';
+          message.textContent = 'Ese teléfono o correo ya está vinculado a otra cuenta.';
           return;
         }
         button.disabled = true;
-        message.textContent = 'Guardando los datos en Supabaseâ¦';
+        message.textContent = 'Guardando los datos en Supabase…';
         try {
-          const nameParts = String(account.name || 'MetrogestiÃ³n').trim().split(/\s+/);
-          const nombre = nameParts.shift() || 'MetrogestiÃ³n';
+          const nameParts = String(account.name || 'Metrogestión').trim().split(/\s+/);
+          const nombre = nameParts.shift() || 'Metrogestión';
           const apellidos = nameParts.join(' ');
           const { data:sessionData } = await supabaseClient.auth.getSession();
           const accessToken = sessionData?.session?.access_token;
-          if (!accessToken) throw new Error('La sesiÃ³n de administrador ha caducado. Cierra sesiÃ³n y vuelve a entrar.');
+          if (!accessToken) throw new Error('La sesión de administrador ha caducado. Cierra sesión y vuelve a entrar.');
           const { data, error } = await supabaseClient.functions.invoke('crear-usuario-seguro', {
-            body: { accion:'actualizar_administrador', nombreCompleto:account.name || 'MetrogestiÃ³n', telefono:phone, correo:email },
+            body: { accion:'actualizar_administrador', nombreCompleto:account.name || 'Metrogestión', telefono:phone, correo:email },
             headers: { Authorization:'Bearer ' + accessToken }
           });
           if (error) {
@@ -2015,11 +2015,11 @@
             } catch {}
             throw new Error(detail || error.message || 'No se pudieron guardar los datos.');
           }
-          if (!data?.ok || !data?.usuario) throw new Error(data?.error || 'El servidor no confirmÃ³ el guardado.');
+          if (!data?.ok || !data?.usuario) throw new Error(data?.error || 'El servidor no confirmó el guardado.');
           const profile = data.usuario;
           if (pin) {
             const { error:pinError } = await supabaseClient.auth.updateUser({ password:pin });
-            if (pinError) throw new Error('El telÃ©fono se guardÃ³, pero no se pudo cambiar el PIN: ' + pinError.message);
+            if (pinError) throw new Error('El teléfono se guardó, pero no se pudo cambiar el PIN: ' + pinError.message);
           }
           Object.assign(account, profileToAccount(profile));
           await reloadAdminUsersFromSupabase();
@@ -2029,7 +2029,7 @@
           root.querySelector('#admin-confirm-pin').value = '';
           message.textContent = 'Datos guardados correctamente';
         } catch (error) {
-          message.textContent = 'No se pudieron guardar los datos: ' + (error?.message || 'error de conexiÃ³n.');
+          message.textContent = 'No se pudieron guardar los datos: ' + (error?.message || 'error de conexión.');
         } finally {
           button.disabled = false;
         }
@@ -2041,17 +2041,17 @@
         const status = root.querySelector('#suggestion-status');
         const button = root.querySelector('#send-suggestion');
         if (!subject || messageText.length < 10) {
-          status.textContent = 'Escribe un asunto y una explicaciÃ³n de al menos 10 caracteres.';
+          status.textContent = 'Escribe un asunto y una explicación de al menos 10 caracteres.';
           return;
         }
         button.disabled = true;
-        status.textContent = 'Guardando sugerenciaâ¦';
+        status.textContent = 'Guardando sugerencia…';
         try {
           let { data:sessionData, error:sessionError } = await supabaseClient.auth.getSession();
           let authSession = sessionData?.session;
           if (sessionError || !authSession) {
             const { data:refreshData, error:refreshError } = await supabaseClient.auth.refreshSession();
-            if (refreshError || !refreshData?.session) throw new Error('Tu sesiÃ³n ha caducado. Sal y vuelve a entrar.');
+            if (refreshError || !refreshData?.session) throw new Error('Tu sesión ha caducado. Sal y vuelve a entrar.');
             authSession = refreshData.session;
           }
           activeAuthSession = authSession;
@@ -2071,24 +2071,24 @@
           });
           if (!response.ok) {
             const detail = await response.json().catch(() => ({}));
-            if (response.status === 401) throw new Error('Tu sesiÃ³n ha caducado. Sal y vuelve a entrar.');
+            if (response.status === 401) throw new Error('Tu sesión ha caducado. Sal y vuelve a entrar.');
             throw new Error(detail.message || detail.error || 'No se pudo guardar la sugerencia.');
           }
         } catch (error) {
-          status.textContent = 'No se pudo guardar: ' + (error?.message || 'error de conexiÃ³n.');
+          status.textContent = 'No se pudo guardar: ' + (error?.message || 'error de conexión.');
           return;
         } finally {
           button.disabled = false;
         }
-        status.textContent = 'Sugerencia registrada. Se abrirÃ¡ tu correo para confirmar el envÃ­o.';
+        status.textContent = 'Sugerencia registrada. Se abrirá tu correo para confirmar el envío.';
         const body = [
           'Usuario: ' + sessionUser,
           'Correo vinculado: ' + (currentAccount()?.email || ''),
           'Tipo: ' + type,
-          'VersiÃ³n: Beta 2.0',
+          'Versión: Beta 2.0',
           '', messageText
         ].join('\n');
-        window.location.href = 'mailto:metrogestion2026@gmail.com?subject=' + encodeURIComponent('[Programa de gestiÃ³n] ' + subject) + '&body=' + encodeURIComponent(body);
+        window.location.href = 'mailto:metrogestion2026@gmail.com?subject=' + encodeURIComponent('[Programa de gestión] ' + subject) + '&body=' + encodeURIComponent(body);
         root.querySelector('#suggestion-subject').value = '';
         root.querySelector('#suggestion-message').value = '';
       });
@@ -2102,10 +2102,10 @@
       root.querySelector('#hotel-form-close').addEventListener('click', () => root.querySelector('#hotel-form').classList.add('hidden'));
       const openHotelForm = urgent => {
         root.querySelector('#hotel-form').classList.remove('hidden');
-        root.querySelector('#hotel-form-title').textContent = urgent ? 'AverÃ­a urgente Â· Prioridad 1' : 'SustituciÃ³n planificada';
+        root.querySelector('#hotel-form-title').textContent = urgent ? 'Avería urgente · Prioridad 1' : 'Sustitución planificada';
         root.querySelector('#hotel-form').dataset.urgent = urgent ? '1' : '0';
         root.querySelector('#hotel-form-priority').value = urgent ? '1' : '5';
-        root.querySelector('#hotel-form-message').textContent = urgent ? 'Si existe una INC o activaciÃ³n 24H abierta, se vincularÃ¡ siempre antes de crear una provisional.' : 'La planificaciÃ³n no ocuparÃ¡ definitivamente la reserva hasta su confirmaciÃ³n.';
+        root.querySelector('#hotel-form-message').textContent = urgent ? 'Si existe una INC o activación 24H abierta, se vinculará siempre antes de crear una provisional.' : 'La planificación no ocupará definitivamente la reserva hasta su confirmación.';
         root.querySelector('#hotel-form').scrollIntoView({behavior:'smooth',block:'start'});
       };
       root.querySelector('#hotel-new-planned').addEventListener('click', () => openHotelForm(false));
@@ -2113,16 +2113,16 @@
       root.querySelector('#hotel-form-save').addEventListener('click', async () => {
         if (!isAdmin()) return;
         const typed = root.querySelector('#hotel-form-vehicle').value.trim().toUpperCase();
-        const vehicle = vehicleIndex.find(item => item.dfm === typed || item.plate === typed || `${item.dfm} Â· ${item.plate}` === typed);
+        const vehicle = vehicleIndex.find(item => item.dfm === typed || item.plate === typed || `${item.dfm} · ${item.plate}` === typed);
         const cause = root.querySelector('#hotel-form-cause').value.trim();
         const exceptional = root.querySelector('#hotel-form-exceptional').checked;
         const reason = root.querySelector('#hotel-form-reason').value.trim();
         const limit = root.querySelector('#hotel-form-limit').value;
         const message = root.querySelector('#hotel-form-message');
-        if (!vehicle || !cause) { message.textContent = 'Introduce un DFM o matrÃ­cula existente y la causa de la sustituciÃ³n.'; return; }
-        if (exceptional && (!reason || !limit)) { message.textContent = 'Una sustituciÃ³n excepcional necesita motivo y fecha/hora lÃ­mite.'; return; }
+        if (!vehicle || !cause) { message.textContent = 'Introduce un DFM o matrícula existente y la causa de la sustitución.'; return; }
+        if (exceptional && (!reason || !limit)) { message.textContent = 'Una sustitución excepcional necesita motivo y fecha/hora límite.'; return; }
         const reserveValue = root.querySelector('#hotel-form-reserve').value;
-        if (!reserveValue) { message.textContent = 'Selecciona el vehÃ­culo de reserva.'; return; }
+        if (!reserveValue) { message.textContent = 'Selecciona el vehículo de reserva.'; return; }
         const [reserve,reservePlate,reserveLabel] = reserveValue.split('|');
         const existingInc = incidences.find(item => item.dfm === vehicle.dfm && !/cerrad/i.test(item.status));
         const suppliedInc = root.querySelector('#hotel-form-inc').value.trim();
@@ -2136,7 +2136,7 @@
           upc:'Pendiente desde MANTENIMENT', causa,
           prioridad:Number(root.querySelector('#hotel-form-priority').value),
           estado:'pendiente_taller', lugar:location,
-          incidencia:suppliedInc||(existingInc?existingInc.id:urgent?'INC provisional Â· pendiente de numerar':'Sin INC principal'),
+          incidencia:suppliedInc||(existingInc?existingInc.id:urgent?'INC provisional · pendiente de numerar':'Sin INC principal'),
           sustitucion_temporal:exceptional,
           motivo_sustitucion_temporal:exceptional?reason:'',
           fecha_limite_sustitucion:exceptional?new Date(limit).toISOString():null,
@@ -2144,12 +2144,12 @@
         };
         const saveButton = root.querySelector('#hotel-form-save');
         saveButton.disabled = true;
-        message.textContent = 'Guardando y sincronizandoâ¦';
+        message.textContent = 'Guardando y sincronizando…';
         const { data:created, error } = await supabaseClient.from('registros_hotel').insert(record).select('id').single();
         if (error) { message.textContent = 'No se pudo guardar: ' + error.message; saveButton.disabled = false; return; }
         const stages = [
-          {name:'Confirmar sustituciÃ³n',done:urgent}, {name:location,done:false},
-          {name:'DiagnÃ³stico y trabajos',done:false}, {name:'Recoger',done:false},
+          {name:'Confirmar sustitución',done:urgent}, {name:location,done:false},
+          {name:'Diagnóstico y trabajos',done:false}, {name:'Recoger',done:false},
           {name:'Recuperar ruta y liberar reserva',done:false}
         ].map((stage,index)=>({
           registro_hotel_id:created.id, nombre:stage.name, posicion:index+1,
@@ -2187,7 +2187,7 @@
         root.querySelector('#activation-register').classList.add('hidden');
         root.querySelector('#activation-follow').classList.add('hidden');
         root.querySelector('#activation-identification').classList.remove('hidden');
-        root.querySelector('#activation-step-label').textContent = 'Paso 1 Â· Identificar vehÃ­culo';
+        root.querySelector('#activation-step-label').textContent = 'Paso 1 · Identificar vehículo';
       });
       root.querySelector('#activation-manual').addEventListener('click', () => {
         window.open('Manual_24H_DFM_v2_1.pdf', '_blank', 'noopener');
@@ -2195,12 +2195,12 @@
       root.querySelector('#activation-previous').addEventListener('click', () => {
         root.querySelector('#activation-identification').classList.add('hidden');
         root.querySelector('#activation-start').classList.remove('hidden');
-        root.querySelector('#activation-step-label').textContent = 'Paso 0 Â· Inicio';
+        root.querySelector('#activation-step-label').textContent = 'Paso 0 · Inicio';
       });
       root.querySelector('#activation-next').addEventListener('click', () => {
         const searchInput = root.querySelector('#activation-dfm');
         const typedValue = searchInput.value.trim().toUpperCase();
-        const exactVehicle = vehicleIndex.find(vehicle => vehicle.dfm === typedValue || vehicle.plate === typedValue || (vehicle.dfm + ' Â· ' + vehicle.plate) === typedValue);
+        const exactVehicle = vehicleIndex.find(vehicle => vehicle.dfm === typedValue || vehicle.plate === typedValue || (vehicle.dfm + ' · ' + vehicle.plate) === typedValue);
         const dfmValue = searchInput.dataset.dfm || (exactVehicle ? exactVehicle.dfm : typedValue);
         const kmValue = root.querySelector('#activation-km').value.replace(/\D/g, '');
         if (!dfmValue) {
@@ -2212,7 +2212,7 @@
           return;
         }
         if (!kmValue) {
-          root.querySelector('#activation-message').textContent = 'Falta introducir los kilÃ³metros actuales.';
+          root.querySelector('#activation-message').textContent = 'Falta introducir los kilómetros actuales.';
           return;
         }
         const selectedVehicle = exactVehicle || vehicleIndex.find(vehicle => vehicle.dfm === dfmValue);
@@ -2220,8 +2220,8 @@
         const truckPhone = String(selectedVehicle?.vehiclePhone || '').trim();
         root.querySelector('#activation-driver-phone').value = truckPhone;
         root.querySelector('#safety-message').textContent = truckPhone
-          ? 'TelÃ©fono del camiÃ³n cargado automÃ¡ticamente desde ALTA: ' + truckPhone
-          : 'Este vehÃ­culo no tiene telÃ©fono registrado en ALTA.';
+          ? 'Teléfono del camión cargado automáticamente desde ALTA: ' + truckPhone
+          : 'Este vehículo no tiene teléfono registrado en ALTA.';
         const currentKm = Number(kmValue);
         const contractKm = selectedVehicle
           ? Number(selectedVehicle.contractKm || 0)
@@ -2238,7 +2238,7 @@
         if (contractKm > 0 && currentKm > contractKm) {
           contractReasons.push('kilometraje contractual superado: ' +
             currentKm.toLocaleString('es-ES') + ' km actuales frente a ' +
-            contractKm.toLocaleString('es-ES') + ' km de lÃ­mite');
+            contractKm.toLocaleString('es-ES') + ' km de límite');
         }
         const contractYears = vehicleClass.includes('tractora') ? 3
           : vehicleClass.includes('rigid') ? 4 : 0;
@@ -2256,18 +2256,18 @@
           const contractMessage = root.querySelector('#activation-message');
           contractMessage.style.color = '#b91c1c';
           contractMessage.style.fontWeight = '700';
-          contractMessage.textContent = 'NO SE PUEDE CONTINUAR Â· ' + contractReasons.join(' y ') +
-            '. Contacta con TM, GestiÃ³n de Mantenimiento BCN o Ãrea de Mantenimiento.';
+          contractMessage.textContent = 'NO SE PUEDE CONTINUAR · ' + contractReasons.join(' y ') +
+            '. Contacta con TM, Gestión de Mantenimiento BCN o Área de Mantenimiento.';
           return;
         }
         root.querySelector('#activation-message').style.color = '';
         root.querySelector('#activation-message').style.fontWeight = '';
         if (!knownDfms.includes(dfmValue)) {
           const requiredManualFields = [
-            ['#manual-plate', 'matrÃ­cula'],
-            ['#manual-type', 'tipo de vehÃ­culo'],
+            ['#manual-plate', 'matrícula'],
+            ['#manual-type', 'tipo de vehículo'],
             ['#manual-brand', 'marca'],
-            ['#manual-registration', 'fecha de matriculaciÃ³n'],
+            ['#manual-registration', 'fecha de matriculación'],
             ['#manual-contract-km', 'fin de contrato'],
             ['#manual-vin', 'bastidor'],
             ['#manual-category', 'flota o reserva']
@@ -2281,13 +2281,13 @@
         root.querySelector('#activation-message').textContent = '';
         root.querySelector('#activation-identification').classList.add('hidden');
         root.querySelector('#activation-safety').classList.remove('hidden');
-        root.querySelector('#activation-step-label').textContent = 'Paso 2 Â· Seguridad';
+        root.querySelector('#activation-step-label').textContent = 'Paso 2 · Seguridad';
         prepare24hContactPhone();
       });
       root.querySelector('#safety-previous').addEventListener('click', () => {
         root.querySelector('#activation-safety').classList.add('hidden');
         root.querySelector('#activation-identification').classList.remove('hidden');
-        root.querySelector('#activation-step-label').textContent = 'Paso 1 Â· Identificar vehÃ­culo';
+        root.querySelector('#activation-step-label').textContent = 'Paso 1 · Identificar vehículo';
       });
       root.querySelector('#activation-other-contact').addEventListener('change', event => {
         const input = root.querySelector('#activation-contact-phone');
@@ -2295,7 +2295,7 @@
           input.value = '';
           input.readOnly = false;
           root.querySelector('#activation-contact-help').textContent =
-            'Escribe el telÃ©fono de la persona que realiza la llamada.';
+            'Escribe el teléfono de la persona que realiza la llamada.';
           input.focus();
         } else {
           prepare24hContactPhone();
@@ -2303,13 +2303,13 @@
       });
       root.querySelector('#safety-next').addEventListener('click', () => {
         if (!root.querySelector('#activation-safe').checked || !root.querySelector('#activation-driver-safe').checked) {
-          root.querySelector('#safety-message').textContent = 'Confirma la seÃ±alizaciÃ³n y que el conductor estÃ¡ fuera de peligro.';
+          root.querySelector('#safety-message').textContent = 'Confirma la señalización y que el conductor está fuera de peligro.';
           return;
         }
         const contactDigits = root.querySelector('#activation-contact-phone').value.replace(/\D/g, '');
         if (contactDigits.length < 9) {
           root.querySelector('#safety-message').textContent =
-            'Introduce un telÃ©fono de contacto vÃ¡lido para que el servicio 24H pueda devolverte la llamada.';
+            'Introduce un teléfono de contacto válido para que el servicio 24H pueda devolverte la llamada.';
           root.querySelector('#activation-contact-phone').focus();
           return;
         }
@@ -2323,7 +2323,7 @@
       });
       root.querySelector('#fault-next').addEventListener('click', () => {
         if (!root.querySelector('#activation-fault-text').value.trim() || !root.querySelector('#activation-location-text').value.trim()) {
-          root.querySelector('#fault-message').textContent = 'Indica la ubicaciÃ³n y describe la averÃ­a.';
+          root.querySelector('#fault-message').textContent = 'Indica la ubicación y describe la avería.';
           return;
         }
         root.querySelector('#fault-message').textContent = '';
@@ -2350,7 +2350,7 @@
       });
       root.querySelector('#call-next').addEventListener('click', () => {
         if (!root.querySelector('#activation-case-number').value.trim() || !root.querySelector('#activation-eta').value) {
-          root.querySelector('#call-message').textContent = 'Introduce el nÃºmero del operador y la ETA aproximada.';
+          root.querySelector('#call-message').textContent = 'Introduce el número del operador y la ETA aproximada.';
           return;
         }
         root.querySelector('#call-message').textContent = '';
@@ -2359,7 +2359,7 @@
       root.querySelector('#register-previous').addEventListener('click', () => showActivationStep(6));
       root.querySelector('#register-next').addEventListener('click', () => {
         if (!root.querySelector('#activation-provider').value.trim()) {
-          root.querySelector('#register-message').textContent = 'Indica el tÃ©cnico, la grÃºa o el proveedor asignado.';
+          root.querySelector('#register-message').textContent = 'Indica el técnico, la grúa o el proveedor asignado.';
           return;
         }
         registerActivationMoment();
@@ -2399,8 +2399,8 @@
       ];
       const renderCapturedPhotoCount = () => {
         root.querySelector('#activation-camera-count').textContent = capturedFollowPhotos.length
-          ? capturedFollowPhotos.length + ' fotografÃ­a(s) aÃ±adida(s) automÃ¡ticamente a la incidencia.'
-          : 'TodavÃ­a no se han tomado fotografÃ­as.';
+          ? capturedFollowPhotos.length + ' fotografía(s) añadida(s) automáticamente a la incidencia.'
+          : 'Todavía no se han tomado fotografías.';
         const list = root.querySelector('#activation-camera-photo-list');
         list.querySelectorAll('img[data-object-url]').forEach(image => URL.revokeObjectURL(image.dataset.objectUrl));
         list.replaceChildren();
@@ -2411,9 +2411,9 @@
           const objectUrl = URL.createObjectURL(photo);
           image.src = objectUrl;
           image.dataset.objectUrl = objectUrl;
-          image.alt = 'FotografÃ­a ' + (index + 1);
+          image.alt = 'Fotografía ' + (index + 1);
           const description = document.createElement('div');
-          description.innerHTML = '<strong>Foto ' + (index + 1) + '</strong><div class="text-small text-muted">Adjuntada automÃ¡ticamente</div>';
+          description.innerHTML = '<strong>Foto ' + (index + 1) + '</strong><div class="text-small text-muted">Adjuntada automáticamente</div>';
           const remove = document.createElement('button');
           remove.type = 'button';
           remove.className = 'btn btn-secondary';
@@ -2424,8 +2424,8 @@
             renderCapturedPhotoCount();
             root.querySelector('#activation-camera-pdf-question').classList.toggle('hidden', !capturedFollowPhotos.length);
             root.querySelector('#activation-attachment-message').textContent = capturedFollowPhotos.length
-              ? capturedFollowPhotos.length + ' fotografÃ­a(s) continÃºan adjuntadas.'
-              : 'La fotografÃ­a se ha eliminado. Puedes guardar sin archivos o tomar otra.';
+              ? capturedFollowPhotos.length + ' fotografía(s) continúan adjuntadas.'
+              : 'La fotografía se ha eliminado. Puedes guardar sin archivos o tomar otra.';
             saveActivationProgress();
           });
           item.append(image,description,remove);
@@ -2454,16 +2454,16 @@
           input.accept = 'image/*';
           input.removeAttribute('capture');
           cameraControls.classList.remove('hidden');
-          label.firstChild.textContent = 'Seleccionar pÃ¡ginas ya fotografiadas ';
+          label.firstChild.textContent = 'Seleccionar páginas ya fotografiadas ';
           convert.classList.remove('hidden');
-          message.textContent = 'FotografÃ­a una o varias pÃ¡ginas y pulsa Â«Convertir las fotos en PDFÂ».';
+          message.textContent = 'Fotografía una o varias páginas y pulsa «Convertir las fotos en PDF».';
         } else {
           input.accept = 'image/*';
           input.removeAttribute('capture');
           cameraControls.classList.remove('hidden');
-          label.firstChild.textContent = 'Seleccionar fotografÃ­a o imagen guardada ';
+          label.firstChild.textContent = 'Seleccionar fotografía o imagen guardada ';
           convert.classList.add('hidden');
-          message.textContent = 'Puedes adjuntar varias fotografÃ­as.';
+          message.textContent = 'Puedes adjuntar varias fotografías.';
         }
       });
       root.querySelector('#activation-camera-photo').addEventListener('change', event => {
@@ -2475,8 +2475,8 @@
         const total = selectedFollowFiles().length;
         root.querySelector('#activation-attachment-message').textContent =
           root.querySelector('#activation-attachment-type').value === 'document-photo'
-            ? total + ' pÃ¡gina(s) preparadas. Puedes tomar otra foto o convertirlas en PDF.'
-            : total + ' fotografÃ­a(s) preparadas para adjuntar.';
+            ? total + ' página(s) preparadas. Puedes tomar otra foto o convertirlas en PDF.'
+            : total + ' fotografía(s) preparadas para adjuntar.';
         root.querySelector('#activation-camera-pdf-question').classList.remove('hidden');
         event.target.value = '';
         localStorage.removeItem(callReturnKey);
@@ -2489,7 +2489,7 @@
         root.querySelector('#activation-camera-pdf-question').classList.add('hidden');
         root.querySelector('#activation-attachment-type').value = 'photo';
         root.querySelector('#activation-convert-pdf').classList.add('hidden');
-        root.querySelector('#activation-attachment-message').textContent = capturedFollowPhotos.length + ' fotografÃ­a(s) adjuntadas automÃ¡ticamente.';
+        root.querySelector('#activation-attachment-message').textContent = capturedFollowPhotos.length + ' fotografía(s) adjuntadas automáticamente.';
       });
       root.querySelector('#activation-camera-make-pdf').addEventListener('click', () => {
         root.querySelector('#activation-camera-pdf-question').classList.add('hidden');
@@ -2502,8 +2502,8 @@
         const count = root.querySelector('#activation-follow-files').files?.length || 0;
         if (root.querySelector('#activation-attachment-type').value === 'document-photo') {
           root.querySelector('#activation-attachment-message').textContent = count
-            ? count + ' pÃ¡gina(s) seleccionada(s). Pulsa Â«Convertir las fotos en PDFÂ».'
-            : 'FotografÃ­a una o varias pÃ¡ginas.';
+            ? count + ' página(s) seleccionada(s). Pulsa «Convertir las fotos en PDF».'
+            : 'Fotografía una o varias páginas.';
         }
       });
       const readFileAsDataUrl = file => new Promise((resolve,reject) => {
@@ -2515,23 +2515,23 @@
       const loadImage = source => new Promise((resolve,reject) => {
         const image = new Image();
         image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error('Una de las fotografÃ­as no se pudo procesar.'));
+        image.onerror = () => reject(new Error('Una de las fotografías no se pudo procesar.'));
         image.src = source;
       });
       root.querySelector('#activation-convert-pdf').addEventListener('click', async event => {
         const files = selectedFollowFiles();
         const message = root.querySelector('#activation-attachment-message');
         if (!files.length) {
-          message.textContent = 'Primero fotografÃ­a o selecciona al menos una pÃ¡gina.';
+          message.textContent = 'Primero fotografía o selecciona al menos una página.';
           return;
         }
         if (!window.jspdf?.jsPDF) {
-          message.textContent = 'No se pudo cargar el conversor PDF. Comprueba la conexiÃ³n e intÃ©ntalo de nuevo.';
+          message.textContent = 'No se pudo cargar el conversor PDF. Comprueba la conexión e inténtalo de nuevo.';
           return;
         }
         const button = event.currentTarget;
         button.disabled = true;
-        message.textContent = 'Convirtiendo ' + files.length + ' pÃ¡gina(s) a PDFâ¦';
+        message.textContent = 'Convirtiendo ' + files.length + ' página(s) a PDF…';
         try {
           const { jsPDF } = window.jspdf;
           const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
@@ -2555,7 +2555,7 @@
           const link = root.querySelector('#activation-generated-pdf');
           link.href = generatedFollowPdfUrl;
           link.classList.remove('hidden');
-          message.textContent = 'PDF generado correctamente con ' + files.length + ' pÃ¡gina(s).';
+          message.textContent = 'PDF generado correctamente con ' + files.length + ' página(s).';
         } catch (error) {
           message.textContent = 'No se pudo generar el PDF: ' + error.message;
         } finally {
@@ -2566,7 +2566,7 @@
         const button = event.currentTarget;
         const followMessage = root.querySelector('#follow-message');
         button.disabled = true;
-        button.textContent = 'Guardandoâ¦';
+        button.textContent = 'Guardando…';
         try {
           const value = selector => root.querySelector(selector)?.value || '';
           const checked = selector => Boolean(root.querySelector(selector)?.checked);
@@ -2593,15 +2593,15 @@
             realArrival: checked('#activation-technician-arrived') && value('#activation-real-arrival')
               ? value('#activation-real-arrival') : 'Pendiente',
             diagnosis: checked('#activation-diagnosis-confirmed') && value('#activation-diagnosis-text').trim()
-              ? value('#activation-diagnosis-text').trim() : 'Pendiente de confirmaciÃ³n',
+              ? value('#activation-diagnosis-text').trim() : 'Pendiente de confirmación',
             result: resultValue === 'road' ? 'Reparado en carretera'
               : resultValue === 'workshop' ? 'Trasladado a taller' : 'Seguimiento abierto',
-            workshop: resultValue === 'workshop' ? (workshop || 'Pendiente de indicar') : 'â',
+            workshop: resultValue === 'workshop' ? (workshop || 'Pendiente de indicar') : '—',
             attachments: generatedFollowPdf
-              ? 'PDF generado desde ' + attachmentCount + ' fotografÃ­a(s)'
+              ? 'PDF generado desde ' + attachmentCount + ' fotografía(s)'
               : attachmentCount
                 ? attachmentCount + ' archivo(s) pendiente(s) de completar'
-                : 'FotografÃ­as o documentos pendientes'
+                : 'Fotografías o documentos pendientes'
           };
           try { rememberFaultDescription(value('#activation-fault-text')); } catch {}
           const existingIndex = incidences.findIndex(item => item.id === editingIncidenceId);
@@ -2631,13 +2631,13 @@
         }
       });
       const fixedLocations = {
-        'Bloque logÃ­stico Abrera': 'GV6V+62 Abrera',
-        'Bloque logÃ­stico Sansa': "CRJ3+HG Sant SadurnÃ­ d'Anoia",
-        'Nave Disfrimur': "CRM4+G2 Sant SadurnÃ­ d'Anoia"
+        'Bloque logístico Abrera': 'GV6V+62 Abrera',
+        'Bloque logístico Sansa': "CRJ3+HG Sant Sadurní d'Anoia",
+        'Nave Disfrimur': "CRM4+G2 Sant Sadurní d'Anoia"
       };
       const fixedCoordinates = {
-        'Bloque logÃ­stico Abrera': '41.510562, 1.892562',
-        'Bloque logÃ­stico Sansa': '41.431438, 1.803813',
+        'Bloque logístico Abrera': '41.510562, 1.892562',
+        'Bloque logístico Sansa': '41.431438, 1.803813',
         'Nave Disfrimur': '41.433813, 1.805063'
       };
       const refreshLocationFormat = () => {
@@ -2667,14 +2667,14 @@
       root.querySelector('#activation-dfm').addEventListener('input', event => {
         const input = event.target;
         const value = input.value.trim().toUpperCase();
-        const exactVehicle = vehicleIndex.find(vehicle => vehicle.dfm === value || vehicle.plate === value || (vehicle.dfm + ' Â· ' + vehicle.plate) === value);
+        const exactVehicle = vehicleIndex.find(vehicle => vehicle.dfm === value || vehicle.plate === value || (vehicle.dfm + ' · ' + vehicle.plate) === value);
         input.dataset.dfm = exactVehicle ? exactVehicle.dfm : (/^\d{4}$/.test(value) ? value : '');
         if (exactVehicle) applyVehiclePhone(exactVehicle);
         const selectedDfm = input.dataset.dfm;
         const showManual = /^\d{4}$/.test(selectedDfm) && !knownDfms.includes(selectedDfm);
-        root.querySelector('#activation-dfm-context strong').textContent = selectedDfm ? 'DFM ' + selectedDfm : 'DFM â';
+        root.querySelector('#activation-dfm-context strong').textContent = selectedDfm ? 'DFM ' + selectedDfm : 'DFM —';
         root.querySelector('#manual-vehicle-data').classList.toggle('hidden', !showManual);
-        root.querySelector('#activation-message').textContent = showManual ? 'Este DFM no estÃ¡ en la base de datos. Introduce sus datos para esta asistencia.' : '';
+        root.querySelector('#activation-message').textContent = showManual ? 'Este DFM no está en la base de datos. Introduce sus datos para esta asistencia.' : '';
         const suggestions = root.querySelector('#vehicle-suggestions');
         suggestions.replaceChildren();
         if (value.length >= 2) {
@@ -2682,9 +2682,9 @@
             const option = document.createElement('button');
             option.type = 'button';
             option.className = 'btn btn-secondary';
-            option.textContent = 'DFM ' + vehicle.dfm + ' Â· ' + vehicle.plate;
+            option.textContent = 'DFM ' + vehicle.dfm + ' · ' + vehicle.plate;
             option.addEventListener('click', () => {
-              input.value = vehicle.dfm + ' Â· ' + vehicle.plate;
+              input.value = vehicle.dfm + ' · ' + vehicle.plate;
               input.dataset.dfm = vehicle.dfm;
               applyVehiclePhone(vehicle);
               suggestions.classList.add('hidden');
@@ -2715,8 +2715,8 @@
         }
       });
       window.addEventListener('beforeunload', () => {
-        // La llamada telefÃ³nica abre el marcador y Android dispara beforeunload.
-        // El borrador ya estÃ¡ guardado: no mostramos un aviso que bloquee la llamada.
+        // La llamada telefónica abre el marcador y Android dispara beforeunload.
+        // El borrador ya está guardado: no mostramos un aviso que bloquee la llamada.
         saveActivationProgress();
       });
       if ('serviceWorker' in navigator) {
@@ -2731,7 +2731,7 @@
               notice.classList.add('visible');
               updateButton.onclick = () => {
                 updateButton.disabled = true;
-                updateButton.textContent = 'Actualizandoâ¦';
+                updateButton.textContent = 'Actualizando…';
                 worker.postMessage({type:'SKIP_WAITING'});
               };
             };
@@ -2805,7 +2805,7 @@
           renderActivationCommunicationSummary();
           showActivationStep(5);
           root.querySelector('#communication-message').textContent =
-            'Has vuelto de la llamada. AquÃ­ tienes nuevamente el listado de datos que debes comunicar.';
+            'Has vuelto de la llamada. Aquí tienes nuevamente el listado de datos que debes comunicar.';
           localStorage.removeItem(callReturnKey);
           localStorage.removeItem(callSessionKey);
         } finally {
@@ -2820,17 +2820,17 @@
       window.addEventListener('popstate', () => returnFromPhoneDialer().catch(() => {}));
       resumeAfterAssistanceCall().catch(error => {
         root.querySelector('#login-message').textContent =
-          'No se pudo recuperar automÃ¡ticamente la sesiÃ³n de llamada: ' + error.message;
+          'No se pudo recuperar automáticamente la sesión de llamada: ' + error.message;
         root.querySelector('#mock-user').focus();
       });
     })();
   </script>
 </div>
 <div id="update-notice" class="update-notice" role="status" aria-live="polite">
-  <div><strong>Nueva actualizaciÃ³n disponible</strong><div class="text-small">Pulsa para instalarla sin perder tus datos.</div></div>
+  <div><strong>Nueva actualización disponible</strong><div class="text-small">Pulsa para instalarla sin perder tus datos.</div></div>
   <button id="update-now" class="btn btn-primary" type="button">Actualizar ahora</button>
 </div>
-<footer class="app-footer">Â© 2026 MetrogestiÃ³n. Todos los derechos reservados.</footer>
+<footer class="app-footer">© 2026 Metrogestión. Todos los derechos reservados.</footer>
 </div>
 </body>
 </html>
