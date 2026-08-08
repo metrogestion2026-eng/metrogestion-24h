@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.26</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.27</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -1804,7 +1804,7 @@
         root.querySelector('#own-confirm-pin').value = '';
         message.textContent = 'Tu PIN se ha cambiado correctamente.';
       });
-      root.querySelector('#create-user').addEventListener('click', () => {
+      root.querySelector('#create-user').addEventListener('click', async () => {
         if (!isPrimaryAdmin()) return;
         const name = root.querySelector('#new-user-name').value.trim();
         const phone = root.querySelector('#new-user-phone').value.trim();
@@ -1814,23 +1814,47 @@
         const phoneDigits = phone.replace(/\D/g, '');
         const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
         const message = root.querySelector('#user-admin-message');
+        const button = root.querySelector('#create-user');
         if (!name || phoneDigits.length < 9 || !emailValid || !/^\d{4,6}$/.test(pin)) {
           message.textContent = 'Son obligatorios nombre, teléfono válido, correo válido y PIN de 4 a 6 cifras.';
           return;
         }
-        if (users.some(user => user.email?.toLowerCase() === email || String(user.phone || '').replace(/\D/g, '') === phoneDigits)) {
-          message.textContent = 'Ese correo o teléfono ya está vinculado a otra cuenta.';
-          return;
+        button.disabled = true;
+        button.textContent = 'Creando cuenta segura…';
+        message.textContent = 'Comprobando autorización y creando la cuenta en Supabase…';
+        try {
+          const { data, error } = await supabaseClient.functions.invoke('crear-usuario-seguro', {
+            body: { nombreCompleto:name, telefono:phone, correo:email, pin, rol:role }
+          });
+          if (error) {
+            let detail = '';
+            try {
+              const responseBody = await error.context?.json();
+              detail = responseBody?.error || '';
+            } catch {}
+            throw new Error(detail || error.message || 'No se pudo crear la cuenta.');
+          }
+          if (!data?.ok || !data?.usuario) throw new Error(data?.error || 'Respuesta incompleta del servidor.');
+          const profile = data.usuario;
+          const account = {
+            id: profile.id,
+            name: [profile.nombre, profile.apellidos].filter(Boolean).join(' '),
+            phone: profile.telefono || '',
+            email: profile.correo,
+            role: profile.tipo_usuario === 'administrador_secundario' ? 'secondary' : 'user',
+            permissions: profile.permisos || {},
+            active: profile.activo === true
+          };
+          if (!users.some(user => user.id === account.id)) users.push(account);
+          renderAdminUsers();
+          ['#new-user-name','#new-user-phone','#new-user-email','#new-user-pin'].forEach(selector => root.querySelector(selector).value = '');
+          message.textContent = 'Cuenta segura creada en Supabase. Ya puede iniciar sesión con su correo y PIN.';
+        } catch (error) {
+          message.textContent = 'No se creó ninguna cuenta: ' + (error?.message || 'error de conexión segura.');
+        } finally {
+          button.disabled = false;
+          button.textContent = '+ Crear cuenta';
         }
-        users.push({
-          id: 'user-' + Date.now(),
-          name, phone, email, pin, role, active: true
-        });
-        saveUsers();
-        renderAdminUsers();
-        renderLoginUsers();
-        ['#new-user-name','#new-user-phone','#new-user-email','#new-user-pin'].forEach(selector => root.querySelector(selector).value = '');
-        message.textContent = 'Cuenta creada y vinculada correctamente.';
       });
       root.querySelector('#save-admin-settings').addEventListener('click', () => {
         if (!isPrimaryAdmin()) return;
@@ -2526,7 +2550,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=51');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=52');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
