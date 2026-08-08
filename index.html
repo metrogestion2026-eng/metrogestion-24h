@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.15</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.16</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -510,7 +510,7 @@
           <div id="activation-attachment-message" class="text-small text-muted">Puedes adjuntar varias fotografías.</div>
           <a id="activation-generated-pdf" class="btn btn-secondary hidden" href="#" download="documento_incidencia.pdf">📄 Comprobar PDF generado</a>
         </div>
-        <div class="text-small text-muted">Los archivos y la reparación realizada pueden añadirse posteriormente; la incidencia mostrará lo que sigue pendiente.</div>
+        <div class="text-small text-muted"><strong>Fotos y documentos opcionales.</strong> Puedes guardar ahora sin adjuntar archivos y añadirlos posteriormente; la incidencia mostrará lo que sigue pendiente.</div>
         <div id="follow-message" class="text-small text-muted"></div>
         <div class="viz-row"><button id="follow-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="save-incidence" class="btn btn-primary" type="button">Guardar incidencia</button></div>
       </div>
@@ -643,7 +643,7 @@
       let activeAuthSession = null;
       let activationWakeLock = null;
       let activationAutosaveTimer = null;
-      const saveActivationCallDraft = () => {
+      const saveActivationCallDraft = (markPhoneReturn = true) => {
         const fields = {};
         root.querySelectorAll('#view-activation input[id], #view-activation select[id], #view-activation textarea[id]').forEach(field => {
           fields[field.id] = field.type === 'checkbox'
@@ -652,8 +652,8 @@
         });
         fields.__dfm = root.querySelector('#activation-dfm').dataset.dfm || '';
         localStorage.setItem(activationDraftKey, JSON.stringify(fields));
-        localStorage.setItem(callReturnKey, String(Date.now() + 30 * 60 * 1000));
-        if (activeAuthSession?.access_token && activeAuthSession?.refresh_token) {
+        if (markPhoneReturn) localStorage.setItem(callReturnKey, String(Date.now() + 30 * 60 * 1000));
+        if (markPhoneReturn && activeAuthSession?.access_token && activeAuthSession?.refresh_token) {
           localStorage.setItem(callSessionKey, JSON.stringify({
             access_token: activeAuthSession.access_token,
             refresh_token: activeAuthSession.refresh_token,
@@ -701,7 +701,7 @@
       };
       const saveActivationProgress = () => {
         if (!sessionUserId || root.querySelector('#view-activation').classList.contains('hidden')) return;
-        saveActivationCallDraft();
+        saveActivationCallDraft(false);
         localStorage.setItem(activationProgressKey, JSON.stringify({
           step: activeActivationStep(),
           expiresAt: Date.now() + 12 * 60 * 60 * 1000
@@ -2127,6 +2127,11 @@
             ? total + ' página(s) preparadas. Puedes tomar otra foto o convertirlas en PDF.'
             : total + ' fotografía(s) preparadas para adjuntar.';
         event.target.value = '';
+        localStorage.removeItem(callReturnKey);
+        localStorage.removeItem(callSessionKey);
+        setView('activation');
+        showActivationStep(8);
+        saveActivationProgress();
       });
       root.querySelector('#activation-follow-files').addEventListener('change', () => {
         clearGeneratedFollowPdf();
@@ -2342,7 +2347,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=40');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=41');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
@@ -2426,6 +2431,8 @@
           showActivationStep(5);
           root.querySelector('#communication-message').textContent =
             'Has vuelto de la llamada. Aquí tienes nuevamente el listado de datos que debes comunicar.';
+          localStorage.removeItem(callReturnKey);
+          localStorage.removeItem(callSessionKey);
         } finally {
           restoringPhoneReturn = false;
         }
