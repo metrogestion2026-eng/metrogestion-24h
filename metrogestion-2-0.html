@@ -1435,36 +1435,49 @@
             if (!row || !list) return;
             const originalOrder = [...list.querySelectorAll(':scope > .stage')].map(item => item.dataset.stageId).join('|');
             row.classList.add('dragging');
-            handle.setPointerCapture?.(event.pointerId);
             event.preventDefault();
             const move = moveEvent => {
-              const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)?.closest('.stage');
-              if (!target || target === row || target.closest('.stage-list') !== list) return;
-              const box = target.getBoundingClientRect();
-              list.insertBefore(row, moveEvent.clientY < box.top + box.height / 2 ? target : target.nextSibling);
+              moveEvent.preventDefault();
+              const candidates = [...list.querySelectorAll(':scope > .stage')].filter(item => item !== row);
+              const target = candidates.find(item => {
+                const box = item.getBoundingClientRect();
+                return moveEvent.clientY < box.top + box.height / 2;
+              });
+              if (target) list.insertBefore(row, target);
+              else list.appendChild(row);
             };
             const finish = async finishEvent => {
-              handle.removeEventListener('pointermove', move);
-              handle.removeEventListener('pointerup', finish);
-              handle.removeEventListener('pointercancel', finish);
+              document.removeEventListener('pointermove', move);
+              document.removeEventListener('pointerup', finish);
+              document.removeEventListener('pointercancel', finish);
               row.classList.remove('dragging');
-              handle.releasePointerCapture?.(finishEvent.pointerId);
               const orderedRows = [...list.querySelectorAll(':scope > .stage')];
               const nextOrder = orderedRows.map(item => item.dataset.stageId).join('|');
               if (nextOrder === originalOrder) return;
               handle.disabled = true;
-              const results = await Promise.all(orderedRows.map((item,index) =>
-                supabaseClient.from('etapas_hotel').update({
-                  posicion:index + 1, modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
-                }).eq('id',item.dataset.stageId).select('id').single()
-              ));
-              const failed = results.find(result => result.error);
-              if (failed) window.alert('No se pudo guardar el nuevo orden: ' + failed.error.message);
+              let failed = null;
+              // Primera pasada: posiciones temporales negativas para no chocar con la restricción única.
+              for (let index = 0; index < orderedRows.length; index += 1) {
+                const result = await supabaseClient.from('etapas_hotel').update({
+                  posicion:-1000 - index, modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+                }).eq('id',orderedRows[index].dataset.stageId).select('id').single();
+                if (result.error) { failed = result.error; break; }
+              }
+              // Segunda pasada: se asigna el orden definitivo 1T, 2T, 3T…
+              if (!failed) {
+                for (let index = 0; index < orderedRows.length; index += 1) {
+                  const result = await supabaseClient.from('etapas_hotel').update({
+                    posicion:index + 1, modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+                  }).eq('id',orderedRows[index].dataset.stageId).select('id').single();
+                  if (result.error) { failed = result.error; break; }
+                }
+              }
+              if (failed) window.alert('No se pudo guardar el nuevo orden: ' + failed.message);
               await loadHotelFromSupabase(false);
             };
-            handle.addEventListener('pointermove', move);
-            handle.addEventListener('pointerup', finish);
-            handle.addEventListener('pointercancel', finish);
+            document.addEventListener('pointermove', move, {passive:false});
+            document.addEventListener('pointerup', finish);
+            document.addEventListener('pointercancel', finish);
           });
         });
       };
