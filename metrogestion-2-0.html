@@ -1476,8 +1476,8 @@
           pinButton.addEventListener('click', () => {
             const nextPin = window.prompt('Nuevo PIN de 4 a 6 cifras para ' + user.name + ':');
             if (nextPin === null) return;
-            if (!/^\d{4,6}$/.test(nextPin)) {
-              root.querySelector('#user-admin-message').textContent = 'El PIN debe tener entre 4 y 6 cifras.';
+            if (!/^\d{6}$/.test(nextPin)) {
+              root.querySelector('#user-admin-message').textContent = 'El PIN debe tener exactamente 6 cifras.';
               return;
             }
             user.pin = nextPin;
@@ -1883,8 +1883,8 @@
           message.textContent = 'Introduce tu PIN actual.';
           return;
         }
-        if (!/^\d{4,6}$/.test(nextPin)) {
-          message.textContent = 'El nuevo PIN debe tener entre 4 y 6 cifras.';
+        if (!/^\d{6}$/.test(nextPin)) {
+          message.textContent = 'El nuevo PIN debe tener exactamente 6 cifras.';
           return;
         }
         if (nextPin !== confirmPin) {
@@ -1931,8 +1931,8 @@
         const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
         const message = root.querySelector('#user-admin-message');
         const button = root.querySelector('#create-user');
-        if (!name || phoneDigits.length < 9 || !emailValid || !/^\d{4,6}$/.test(pin)) {
-          message.textContent = 'Son obligatorios nombre, teléfono válido, correo válido y PIN de 4 a 6 cifras.';
+        if (!name || phoneDigits.length < 9 || !emailValid || !/^\d{6}$/.test(pin)) {
+          message.textContent = 'Son obligatorios nombre, teléfono válido, correo válido y PIN de exactamente 6 cifras.';
           return;
         }
         if (users.some(user => user.email?.toLowerCase() === email || String(user.phone || '').replace(/\D/g, '') === phoneDigits)) {
@@ -1986,8 +1986,8 @@
           message.textContent = 'El teléfono y el correo del administrador son obligatorios y deben ser válidos.';
           return;
         }
-        if ((pin || confirmPin) && (!/^\d{4,6}$/.test(pin) || pin !== confirmPin)) {
-          message.textContent = 'El nuevo PIN debe tener entre 4 y 6 cifras y coincidir en las dos casillas.';
+        if ((pin || confirmPin) && (!/^\d{6}$/.test(pin) || pin !== confirmPin)) {
+          message.textContent = 'El nuevo PIN debe tener exactamente 6 cifras y coincidir en las dos casillas.';
           return;
         }
         if (users.some(user => user.id !== account.id && (user.email?.toLowerCase() === email || String(user.phone || '').replace(/\D/g, '') === phone.replace(/\D/g, '')))) {
