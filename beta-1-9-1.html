@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.10</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.11</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -385,7 +385,16 @@
           <a class="btn" href="tel:112">📞 Llamar al 112</a>
         </div>
         <label>Conductor<input id="activation-driver-name" class="form-control" placeholder="Nombre"></label>
-        <label>Teléfono<input id="activation-driver-phone" class="form-control" type="tel" inputmode="tel" placeholder="Ej. 612 345 678"></label>
+        <label>Teléfono del camión
+          <input id="activation-driver-phone" class="form-control" type="tel" inputmode="tel" placeholder="Se carga automáticamente desde ALTA">
+        </label>
+        <div class="card stack" style="background:#eff6ff">
+          <strong>Teléfono para contactar con quien activa el 24H</strong>
+          <div class="text-small text-muted">Utiliza tu teléfono para que el servicio 24H pueda llamarte si no hay nadie en el camión o su teléfono no está operativo.</div>
+          <input id="activation-contact-phone" class="form-control" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej. 612 345 678">
+          <label class="safety-check"><span>Usar otro teléfono de contacto</span><input id="activation-other-contact" type="checkbox" aria-label="Usar otro teléfono de contacto"></label>
+          <div id="activation-contact-help" class="text-small text-muted"></div>
+        </div>
         <div id="safety-message" class="text-small text-muted"></div>
         <div class="viz-row">
           <button id="safety-previous" class="btn btn-secondary" type="button">← Paso anterior</button>
@@ -695,6 +704,7 @@
         const currentKm = Number(root.querySelector('#activation-km').value.replace(/\D/g, ''));
         const driverName = root.querySelector('#activation-driver-name').value.trim();
         const driverPhone = root.querySelector('#activation-driver-phone').value.trim();
+        const contactPhone = root.querySelector('#activation-contact-phone').value.trim();
         const locationType = root.querySelector('#activation-location-type').value;
         const locationFormat = root.querySelector('#activation-location-format').value === 'coordinates' ? 'Coordenadas' : 'Plus Code';
         const location = root.querySelector('#activation-location-text').value.trim();
@@ -714,7 +724,8 @@
             (contractKm ? ' · límite ' + Number(contractKm).toLocaleString('es-ES') + ' km' : ''), true],
           ['Comprobación de seguridad', root.querySelector('#activation-safe').checked ? 'Vehículo seguro o señalizado' : '', true],
           ['Conductor fuera de peligro', root.querySelector('#activation-driver-safe').checked ? 'Confirmado' : '', true],
-          ['Conductor y teléfono', [driverName, driverPhone].filter(Boolean).join(' · '), true],
+          ['Conductor y teléfono del camión', [driverName, driverPhone || 'Teléfono del camión no disponible'].filter(Boolean).join(' · '), true],
+          ['Teléfono de contacto con 24H', contactPhone, true],
           ['Tipo de ubicación', locationType, true],
           [locationFormat, location, true],
           ['Avería literal', fault, true],
@@ -787,6 +798,27 @@
       const list = root.querySelector('#incidence-list');
       const detail = root.querySelector('#incidence-detail');
       const currentAccount = () => users.find(user => user.id === sessionUserId);
+      const prepare24hContactPhone = () => {
+        const input = root.querySelector('#activation-contact-phone');
+        const other = root.querySelector('#activation-other-contact');
+        const help = root.querySelector('#activation-contact-help');
+        if (!input || !other || !help) return;
+        if (other.checked) {
+          input.readOnly = false;
+          help.textContent = 'Escribe el teléfono de la persona que realiza la llamada.';
+          return;
+        }
+        const userPhone = String(currentAccount()?.phone || '').trim();
+        input.value = userPhone;
+        input.readOnly = Boolean(userPhone);
+        if (userPhone) {
+          help.textContent = 'Rellenado automáticamente con el teléfono vinculado a tu usuario.';
+        } else {
+          other.checked = true;
+          input.readOnly = false;
+          help.textContent = 'Tu usuario no tiene teléfono vinculado. Introduce un teléfono de contacto.';
+        }
+      };
       const isAdmin = () => ['primary', 'secondary'].includes(currentAccount()?.role);
       const isPrimaryAdmin = () => currentAccount()?.role === 'primary';
       const loadVehicleIndex = async () => {
@@ -1831,15 +1863,35 @@
         root.querySelector('#activation-identification').classList.add('hidden');
         root.querySelector('#activation-safety').classList.remove('hidden');
         root.querySelector('#activation-step-label').textContent = 'Paso 2 · Seguridad';
+        prepare24hContactPhone();
       });
       root.querySelector('#safety-previous').addEventListener('click', () => {
         root.querySelector('#activation-safety').classList.add('hidden');
         root.querySelector('#activation-identification').classList.remove('hidden');
         root.querySelector('#activation-step-label').textContent = 'Paso 1 · Identificar vehículo';
       });
+      root.querySelector('#activation-other-contact').addEventListener('change', event => {
+        const input = root.querySelector('#activation-contact-phone');
+        if (event.target.checked) {
+          input.value = '';
+          input.readOnly = false;
+          root.querySelector('#activation-contact-help').textContent =
+            'Escribe el teléfono de la persona que realiza la llamada.';
+          input.focus();
+        } else {
+          prepare24hContactPhone();
+        }
+      });
       root.querySelector('#safety-next').addEventListener('click', () => {
         if (!root.querySelector('#activation-safe').checked || !root.querySelector('#activation-driver-safe').checked) {
           root.querySelector('#safety-message').textContent = 'Confirma la señalización y que el conductor está fuera de peligro.';
+          return;
+        }
+        const contactDigits = root.querySelector('#activation-contact-phone').value.replace(/\D/g, '');
+        if (contactDigits.length < 9) {
+          root.querySelector('#safety-message').textContent =
+            'Introduce un teléfono de contacto válido para que el servicio 24H pueda devolverte la llamada.';
+          root.querySelector('#activation-contact-phone').focus();
           return;
         }
         root.querySelector('#safety-message').textContent = '';
@@ -1989,7 +2041,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=35');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=36');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
