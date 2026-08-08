@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.25</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.26</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -953,6 +953,17 @@
       };
       const isAdmin = () => ['primary', 'secondary'].includes(currentAccount()?.role);
       const isPrimaryAdmin = () => currentAccount()?.role === 'primary';
+      const hasIncidencePermission = permission => {
+        const account = currentAccount();
+        if (account?.role === 'primary') return true;
+        if (account?.role !== 'secondary') return false;
+        return account.permissions?.incidencias?.[permission] === true;
+      };
+      const canViewAllIncidences = () => hasIncidencePermission('ver_todas');
+      const canEditAllIncidences = () => hasIncidencePermission('editar_todas');
+      const canModifyIncidence = incidence =>
+        (incidence.creator === sessionUser && incidence.status !== 'Cerrada') ||
+        canEditAllIncidences();
       const loadVehicleIndex = async () => {
         const { data, error } = await supabaseClient
           .from('vehiculos')
@@ -1439,7 +1450,7 @@
           window.alert('Hotel está en construcción. Activar 24H es el módulo disponible en esta versión.');
           return;
         }
-        if (next === 'all' && !isAdmin()) {
+        if (next === 'all' && !canViewAllIncidences()) {
           window.alert('No tienes permiso para consultar todas las incidencias. Solicita acceso al administrador principal.');
           return;
         }
@@ -1499,7 +1510,7 @@
           grid.append(field);
         });
         detail.append(heading, grid);
-        if (incidence.status !== 'Cerrada' || isAdmin()) {
+        if (canModifyIncidence(incidence)) {
           const actions = document.createElement('div');
           actions.className = 'viz-row';
           const continueButton = document.createElement('button');
@@ -1581,12 +1592,12 @@
       const renderIncidences = () => {
         const query = root.querySelector('#incidence-search').value.toLowerCase().trim();
         const visible = incidences.filter(item => {
-          const allowed = view === 'all' && isAdmin() ? true : item.creator === sessionUser;
+          const allowed = view === 'all' && canViewAllIncidences() ? true : item.creator === sessionUser;
           const searchable = Object.values(item).join(' ').toLowerCase();
           return allowed && (!query || searchable.includes(query));
         });
         root.querySelector('#view-heading strong').textContent = view === 'all' ? 'Todas las incidencias' : 'Mis incidencias';
-        root.querySelector('#view-heading .text-small').textContent = view === 'all' ? 'Vista completa disponible únicamente para Metrogestión.' : 'Solo aparecen las creadas por el usuario conectado.';
+        root.querySelector('#view-heading .text-small').textContent = view === 'all' ? 'Vista completa disponible para el administrador principal y administradores secundarios autorizados expresamente.' : 'Solo aparecen las creadas por el usuario conectado.';
         list.replaceChildren();
         detail.classList.add('hidden');
         visible.forEach(item => {
@@ -2515,7 +2526,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=50');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=51');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
