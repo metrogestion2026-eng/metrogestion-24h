@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.23</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.24</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -521,6 +521,8 @@
           <a id="activation-generated-pdf" class="btn btn-secondary hidden" href="#" download="documento_incidencia.pdf">📄 Comprobar PDF generado</a>
         </div>
         <div class="text-small text-muted"><strong>Fotos y documentos opcionales.</strong> Puedes guardar ahora sin adjuntar archivos y añadirlos posteriormente; la incidencia mostrará lo que sigue pendiente.</div>
+        <label class="safety-check"><span>Dar la incidencia por cerrada al guardar</span><input id="activation-close-incidence" type="checkbox"></label>
+        <div class="text-small text-muted">Si no marcas esta opción, seguirá apareciendo como pendiente para completarla más adelante.</div>
         <div id="follow-message" class="text-small text-muted"></div>
         <div class="viz-row"><button id="follow-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="save-incidence" class="btn btn-primary" type="button">Guardar incidencia</button></div>
       </div>
@@ -556,6 +558,7 @@
       } catch {
         incidences = [];
       }
+      let editingIncidenceId = '';
       let generatedFollowPdf = null;
       let generatedFollowPdfUrl = '';
       let capturedFollowPhotos = [];
@@ -1495,6 +1498,51 @@
           grid.append(field);
         });
         detail.append(heading, grid);
+        if (incidence.status !== 'Cerrada') {
+          const actions = document.createElement('div');
+          actions.className = 'viz-row';
+          const continueButton = document.createElement('button');
+          continueButton.type = 'button';
+          continueButton.className = 'btn btn-primary';
+          continueButton.textContent = 'Continuar y completar';
+          continueButton.addEventListener('click', () => {
+            editingIncidenceId = incidence.id;
+            const setValue = (selector, value) => {
+              const field = root.querySelector(selector);
+              if (field) field.value = value && value !== 'Pendiente' && value !== '—' ? value : '';
+            };
+            const dfm = root.querySelector('#activation-dfm');
+            dfm.value = incidence.dfm && incidence.dfm !== 'Pendiente' ? incidence.dfm : '';
+            dfm.dataset.dfm = incidence.dfm && incidence.dfm !== 'Pendiente' ? incidence.dfm : '';
+            root.querySelector('#activation-dfm-context strong').textContent =
+              dfm.dataset.dfm ? 'DFM ' + dfm.dataset.dfm : 'DFM —';
+            setValue('#manual-plate', incidence.plate);
+            setValue('#activation-case-number', incidence.caseNumber);
+            setValue('#activation-fault-text', incidence.fault);
+            setValue('#activation-location-text', incidence.location);
+            setValue('#activation-eta', incidence.eta);
+            setValue('#activation-time', incidence.activatedAt);
+            setValue('#activation-real-arrival', incidence.realArrival);
+            setValue('#activation-diagnosis-text', incidence.diagnosis);
+            setValue('#activation-workshop', incidence.workshop);
+            root.querySelector('#activation-technician-arrived').checked =
+              Boolean(incidence.realArrival && incidence.realArrival !== 'Pendiente');
+            root.querySelector('#activation-diagnosis-confirmed').checked =
+              Boolean(incidence.diagnosis && incidence.diagnosis !== 'Pendiente de confirmación');
+            root.querySelector('#activation-result').value =
+              incidence.result === 'Reparado en carretera' ? 'road'
+                : incidence.result === 'Trasladado a taller' ? 'workshop' : '';
+            root.querySelector('#activation-close-incidence').checked = false;
+            setView('activation');
+            showActivationStep(8);
+            root.querySelector('#follow-message').textContent =
+              'Completando ' + incidence.id + '. Añade datos o documentos y marca «Dar la incidencia por cerrada» cuando corresponda.';
+            saveActivationProgress();
+            window.scrollTo({top:0, behavior:'smooth'});
+          });
+          actions.append(continueButton);
+          detail.append(actions);
+        }
       };
 
       const renderIncidences = () => {
@@ -1875,6 +1923,8 @@
       });
       root.querySelector('#incidence-search').addEventListener('input', renderIncidences);
       root.querySelector('#new-activation').addEventListener('click', async () => {
+        editingIncidenceId = '';
+        root.querySelector('#activation-close-incidence').checked = false;
         const button = root.querySelector('#new-activation');
         button.disabled = true;
         try {
@@ -2292,7 +2342,9 @@
             dfm: code || 'Pendiente',
             plate: vehicle ? vehicle.plate : value('#manual-plate') || 'Pendiente',
             opened: new Date().toLocaleString('es-ES'),
-            status: resultValue ? 'Pendiente de cierre' : 'Seguimiento abierto',
+            status: checked('#activation-close-incidence')
+              ? 'Cerrada'
+              : resultValue ? 'Pendiente de cierre' : 'Seguimiento abierto',
             caseNumber: value('#activation-case-number') || 'Pendiente',
             fault: value('#activation-fault-text') || 'Pendiente de completar',
             location: value('#activation-location-text') || 'Pendiente',
@@ -2312,7 +2364,15 @@
                 : 'Fotografías o documentos pendientes'
           };
           try { rememberFaultDescription(value('#activation-fault-text')); } catch {}
+          const existingIndex = incidences.findIndex(item => item.id === editingIncidenceId);
+          if (existingIndex >= 0) {
+            incidence.id = incidences[existingIndex].id;
+            incidence.creator = incidences[existingIndex].creator;
+            incidences.splice(existingIndex, 1);
+          }
           incidences.unshift(incidence);
+          editingIncidenceId = '';
+          root.querySelector('#activation-close-incidence').checked = false;
           try { localStorage.setItem(incidenceStorageKey, JSON.stringify(incidences)); } catch {}
           try { clearActivationProgress(); } catch {}
           const search = root.querySelector('#incidence-search');
@@ -2422,7 +2482,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=48');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=49');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
