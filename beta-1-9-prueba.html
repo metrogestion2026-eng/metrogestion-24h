@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.6</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.7</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -1969,7 +1969,7 @@
         root.querySelector('#activation-message').textContent = showManual ? 'Este DFM no está en la base de datos. Introduce sus datos para esta asistencia.' : '';
         const suggestions = root.querySelector('#vehicle-suggestions');
         suggestions.replaceChildren();
-        if (value.length >= 2 && !exactVehicle) {
+        if (value.length >= 2) {
           vehicleIndex.filter(vehicle => vehicle.dfm.includes(value) || vehicle.plate.includes(value)).slice(0, 8).forEach(vehicle => {
             const option = document.createElement('button');
             option.type = 'button';
@@ -1992,7 +1992,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=25');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=32');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
