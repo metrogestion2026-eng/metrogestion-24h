@@ -91,8 +91,8 @@
     #incidence-access-mockup .hotel-reserve { color:var(--muted-foreground); font-size:13px; font-weight:650; }
     #incidence-access-mockup .hotel-stop-date-control { display:flex; gap:7px; align-items:center; flex-wrap:wrap; color:var(--muted-foreground); font-size:13px; font-weight:700; }
     #incidence-access-mockup .hotel-stop-date-control input { width:auto; min-height:36px; padding:5px 8px; }
-    #incidence-access-mockup .hotel-entry-date-control { display:grid; gap:4px; width:max-content; max-width:100%; margin-top:7px; color:var(--muted-foreground); font-size:12px; font-weight:700; }
-    #incidence-access-mockup .hotel-entry-date-control input { width:160px; max-width:100%; min-height:36px; padding:5px 8px; }
+    #incidence-access-mockup .hotel-entry-date-control { display:grid; gap:5px; width:max-content; max-width:100%; margin-top:7px; color:var(--muted-foreground); font-size:12px; font-weight:700; }
+    #incidence-access-mockup .hotel-entry-date-control input, #incidence-access-mockup .hotel-entry-date-control select { width:180px; max-width:100%; min-height:36px; padding:5px 8px; }
     #incidence-access-mockup .badge { display:inline-flex; align-items:center; min-height:28px; padding:4px 9px; border-radius:999px; background:rgba(255,255,255,.72); border:1px solid rgba(82,98,115,.22); font-size:12px; font-weight:750; }
     #incidence-access-mockup .priority-1 { color:#991b1b; border-color:#fecaca; background:#fff1f2; }
     #incidence-access-mockup .stage-list { display:grid; gap:7px; margin:0; padding:0; list-style:none; }
@@ -243,6 +243,7 @@
           <label>Causa o avería<input id="hotel-form-cause" class="form-control" placeholder="MCD, ITV, 44TN o descripción libre"></label>
           <label>INC existente<input id="hotel-form-inc" class="form-control" placeholder="Se buscará antes de crear una nueva"></label>
           <label>Próximo lugar<select id="hotel-form-location" class="form-select"><option>Pendiente de llevar al taller</option><option>SANSA</option><option>ABRERA</option><option>AUTODIS</option><option>FRIGICOLL</option><option>FRIDIEL</option><option>DIRECAUTO</option><option>ODEXAN</option></select></label>
+          <label>Tipo de movimiento<select id="hotel-form-movement" class="form-select"><option value="cobertura_ruta">Cambio para cubrir ruta</option><option value="entrada_taller">Entrada en taller</option><option value="descarga_mercancia">Descarga de mercancía</option><option value="otro">Otro movimiento</option></select></label>
           <label>Prioridad<select id="hotel-form-priority" class="form-select"><option value="1">1 · No operativo</option><option value="2">2 · Legal/caducidad</option><option value="3">3 · Seguridad</option><option value="4">4 · Confort</option><option value="5">5 · Mantenimiento</option></select></label>
         </div>
         <label><input id="hotel-form-exceptional" type="checkbox"> Sustitución excepcional por tiempo limitado</label>
@@ -1085,6 +1086,12 @@
         ['reserva_liberada','Reserva libre']
       ];
       const hotelWorkshopStates = ['pendiente_diagnostico','pendiente_autorizacion','en_taller','pendiente_repuestos'];
+      const hotelMovementOptions = [
+        ['','Sin indicar'],['entrada_taller','Entrada en taller'],
+        ['descarga_mercancia','Descarga de mercancía'],['cobertura_ruta','Cambio para cubrir ruta'],
+        ['otro','Otro movimiento']
+      ];
+      const movementLabel = value => hotelMovementOptions.find(option => option[0] === value)?.[1] || 'Otro movimiento';
       const stateLabelFromDb = row => {
         const label = hotelStatusOptions.find(option => option[0] === row.estado)?.[1] || (row.estado === 'anulado' ? 'Anulado' : row.estado);
         return hotelWorkshopStates.includes(row.estado) && row.fecha_entrada
@@ -1096,7 +1103,7 @@
         reserveLabel:row.etiqueta_reserva || row.tipo_unidad || '',
         fleet:row.vehiculo_sustituido || '', fleetPlate:row.matricula_sustituido || '',
         upc:row.upc || '', location:row.lugar || '', state:uiStateFromDb(row.estado), dbState:row.estado,
-        entryDate:row.fecha_entrada || '', stopDate:row.fecha_parada || '',
+        entryDate:row.fecha_entrada || '', movementType:row.tipo_movimiento || '', stopDate:row.fecha_parada || '',
         brand:row.marca || '', engine:row.tipo_motor || '',
         stateLabel:stateLabelFromDb(row), cause:row.causa || '',
         reserveTasks:row.trabajos_reserva || '—', priority:row.prioridad,
@@ -1122,7 +1129,7 @@
           upc:unit.upc || '', modelo:unit.model || '', trabajos_reserva:unit.reserveTasks || '',
           es_flota:Boolean(unit.fleet), causa:unit.cause || '', prioridad:unit.priority || 5,
           estado:dbStateFromUnit(unit), lugar:unit.location || '',
-          fecha_entrada:isoDateFromText(unit.stateLabel), incidencia:unit.inc || '',
+          fecha_entrada:isoDateFromText(unit.stateLabel), tipo_movimiento:unit.movementType || '', incidencia:unit.inc || '',
           proximo:unit.next || '', observaciones:'Carga inicial de la pizarra del 03/08/2026',
           orden:index
         }));
@@ -1172,7 +1179,7 @@
             upc:unit.upc || '', modelo:unit.model || '', trabajos_reserva:unit.reserveTasks || '',
             es_flota:Boolean(unit.fleet), causa:unit.cause || '', prioridad:unit.priority || 5,
             estado:dbStateFromUnit(unit), lugar:unit.location || '',
-            fecha_entrada:isoDateFromText(unit.stateLabel), incidencia:unit.inc || '',
+            fecha_entrada:isoDateFromText(unit.stateLabel), tipo_movimiento:unit.movementType || '', incidencia:unit.inc || '',
             proximo:unit.next || '', observaciones:marker, orden:index, oculto:false,
             actualizado_en:new Date().toISOString(), modificado_por:sessionUserId
           };
@@ -1310,7 +1317,7 @@
         root.querySelector('#hotel-workshop-list').innerHTML = workshopUnits.map(unit => {
           const entryDate = (unit.stateLabel.match(/desde\s+(.+)$/i)||[])[1] || 'Fecha pendiente';
           const vehicle = unit.fleet ? `${unit.fleet} · ${unit.fleetPlate}` : `${unit.reserve} · ${unit.reservePlate}`;
-          return `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><div><strong>${escapeHtml(vehicle)}</strong><div class="text-small">${escapeHtml(unit.location||'Taller sin indicar')} · Entrada: ${escapeHtml(entryDate)}</div><div class="text-small text-muted">Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</div></div></div>`;
+          return `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><div><strong>${escapeHtml(vehicle)}</strong><div class="text-small">${escapeHtml(unit.location||'Lugar sin indicar')} · ${escapeHtml(movementLabel(unit.movementType))}: ${escapeHtml(entryDate)}</div><div class="text-small text-muted">Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</div></div></div>`;
         }).join('') || '<div class="text-small text-muted">No hay vehículos en taller.</div>';
         root.querySelector('#hotel-priority-list').innerHTML = hotelUnits.filter(unit => !['reserva_liberada','anulado'].includes(unit.dbState)).sort((a,b)=>a.priority-b.priority).map(unit => {
           const vehicle = unit.fleet ? `${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${unit.fleet}` : `Reserva ${unit.reserve}`;
@@ -1332,8 +1339,8 @@
           : `<span class="hotel-reserve">Parado: ${escapeHtml(shownStopDate)}</span>`) : '';
         const shownEntryDate = unit.entryDate ? new Date(unit.entryDate).toLocaleDateString('es-ES') : 'Fecha pendiente';
         const entryDateControl = isAdmin()
-          ? `<label class="hotel-entry-date-control">Entrada en taller<input class="form-control hotel-entry-date" data-id="${escapeHtml(unit.id)}" type="date" value="${escapeHtml(unit.entryDate ? unit.entryDate.slice(0,10) : '')}"></label>`
-          : `<span class="text-small text-muted">Entrada en taller: ${escapeHtml(shownEntryDate)}</span>`;
+          ? `<label class="hotel-entry-date-control">Tipo de movimiento<select class="form-select hotel-movement-type" data-id="${escapeHtml(unit.id)}">${hotelMovementOptions.map(option=>`<option value="${option[0]}" ${unit.movementType===option[0]?'selected':''}>${escapeHtml(option[1])}</option>`).join('')}</select>Fecha del movimiento<input class="form-control hotel-entry-date" data-id="${escapeHtml(unit.id)}" type="date" value="${escapeHtml(unit.entryDate ? unit.entryDate.slice(0,10) : '')}"></label>`
+          : `<span class="text-small text-muted">${escapeHtml(movementLabel(unit.movementType))}: ${escapeHtml(shownEntryDate)}</span>`;
         const statusControl = isAdmin() ? `<select class="hotel-status-select" data-id="${escapeHtml(unit.id)}" aria-label="Estado de ${escapeHtml(unit.fleet || unit.reserve)}">${hotelStatusOptions.map(option=>`<option value="${option[0]}" ${unit.dbState===option[0]?'selected':''}>${escapeHtml(option[1])}</option>`).join('')}</select>` : `<span class="badge">${escapeHtml(unit.stateLabel)}</span>`;
         const editPanel = isAdmin() ? `<div class="hotel-edit-panel stack hidden" data-id="${escapeHtml(unit.id)}">
           <strong>Modificar todos los datos de la ficha</strong>
@@ -1344,10 +1351,11 @@
             <label>Matrícula reserva<input class="form-control" data-field="reservePlate" value="${escapeHtml(unit.reservePlate)}"></label>
             <label>Tipo / etiqueta reserva<input class="form-control" data-field="reserveLabel" value="${escapeHtml(unit.reserveLabel)}"></label>
             <label>Fecha en que se para<input class="form-control" data-field="stopDate" type="date" value="${escapeHtml(unit.stopDate)}"></label>
-            <label>Fecha entrada en taller<input class="form-control" data-field="entryDate" type="date" value="${escapeHtml(unit.entryDate ? unit.entryDate.slice(0,10) : '')}"></label>
+            <label>Tipo de movimiento<select class="form-select" data-field="movementType">${hotelMovementOptions.map(option=>`<option value="${option[0]}" ${unit.movementType===option[0]?'selected':''}>${escapeHtml(option[1])}</option>`).join('')}</select></label>
+            <label>Fecha del movimiento<input class="form-control" data-field="entryDate" type="date" value="${escapeHtml(unit.entryDate ? unit.entryDate.slice(0,10) : '')}"></label>
             <label>Marca<input class="form-control" data-field="brand" value="${escapeHtml(unit.brand)}"></label>
             <label>Tipo de motor<input class="form-control" data-field="engine" value="${escapeHtml(unit.engine)}"></label>
-            <label>Lugar / taller<input class="form-control" data-field="location" value="${escapeHtml(unit.location)}"></label>
+            <label>Lugar / punto de operación<input class="form-control" data-field="location" value="${escapeHtml(unit.location)}"></label>
             <label>UPC<input class="form-control" data-field="upc" value="${escapeHtml(unit.upc)}"></label>
             <label>INC principal<input class="form-control" data-field="inc" value="${escapeHtml(unit.inc)}"></label>
             <label>Próximo previsto<input class="form-control" data-field="next" value="${escapeHtml(unit.next)}"></label>
@@ -1368,7 +1376,7 @@
           <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>${stopDateControl}`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
           <div class="detail-grid"><div><span class="text-small">Marca</span><strong>${escapeHtml(unit.brand||'—')}</strong></div><div><span class="text-small">Tipo de motor</span><strong>${escapeHtml(unit.engine||'—')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong>${entryDateControl}</div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehículo sustituido</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapas realizadas</span><strong>${activeStages.length?`${completedStages} de ${activeStages.length}`:'—'}</strong></div></div>
           ${stages}
-          ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar ficha</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ Añadir T</button></div>`:''}
+          ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar todos los datos</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ Añadir T</button></div>`:''}
           ${editPanel}
         </article>`;
       };
@@ -1407,7 +1415,23 @@
           }).eq('id',event.currentTarget.dataset.id);
           if (error) {
             event.currentTarget.value = previousValue;
-            window.alert('No se pudo cambiar la fecha de entrada en taller: ' + error.message);
+            window.alert('No se pudo cambiar la fecha del movimiento: ' + error.message);
+          }
+          await loadHotelFromSupabase(false);
+        }));
+        root.querySelectorAll('.hotel-movement-type').forEach(select => select.addEventListener('change', async event => {
+          if (!isAdmin()) return;
+          const unit = hotelUnits.find(item => item.id === event.currentTarget.dataset.id);
+          if (!unit) return;
+          const previousValue = unit.movementType || '';
+          event.currentTarget.disabled = true;
+          const { error } = await supabaseClient.from('registros_hotel').update({
+            tipo_movimiento:event.currentTarget.value,
+            modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+          }).eq('id',event.currentTarget.dataset.id);
+          if (error) {
+            event.currentTarget.value = previousValue;
+            window.alert('No se pudo cambiar el tipo de movimiento: ' + error.message);
           }
           await loadHotelFromSupabase(false);
         }));
@@ -1422,6 +1446,7 @@
             estado:nextState, modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
           };
           if (hotelWorkshopStates.includes(nextState) && !unit.entryDate) payload.fecha_entrada = new Date().toISOString();
+          if (hotelWorkshopStates.includes(nextState) && !unit.movementType) payload.tipo_movimiento = 'entrada_taller';
           const { error } = await supabaseClient.from('registros_hotel').update(payload).eq('id',unit.id);
           if (error) {
             event.currentTarget.value = previousState;
@@ -1461,6 +1486,7 @@
             tipo_unidad:value('reserveLabel'), etiqueta_reserva:value('reserveLabel'),
             fecha_parada:value('stopDate') || null,
             fecha_entrada:value('entryDate') ? value('entryDate') + 'T00:00:00+02:00' : null,
+            tipo_movimiento:value('movementType'),
             marca:value('brand'), tipo_motor:value('engine'),
             lugar:value('location'), upc:value('upc'), incidencia:value('inc'), proximo:value('next'),
             modelo:value('model'), prioridad, causa:value('cause'), trabajos_reserva:value('reserveTasks'),
@@ -2388,6 +2414,7 @@
           vehiculo_reserva:reserve, matricula_reserva:reservePlate,
           tipo_unidad:reserveLabel, etiqueta_reserva:reserveLabel,
           fecha_parada:new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),
+          tipo_movimiento:root.querySelector('#hotel-form-movement').value,
           upc:vehicle.upc || '', marca:vehicle.brand || '', tipo_motor:vehicle.engine || '', causa,
           prioridad:Number(root.querySelector('#hotel-form-priority').value),
           estado:'pendiente_taller', lugar:location,
