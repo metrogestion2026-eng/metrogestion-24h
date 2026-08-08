@@ -253,7 +253,7 @@
           <label>INC existente<input id="hotel-form-inc" class="form-control" placeholder="Se buscará antes de crear una nueva"></label>
           <label>Próximo lugar<select id="hotel-form-location" class="form-select"><option>Pendiente de llevar al taller</option><option>SANSA</option><option>ABRERA</option><option>AUTODIS</option><option>FRIGICOLL</option><option>FRIDIEL</option><option>DIRECAUTO</option><option>ODEXAN</option></select></label>
           <label>Tipo de movimiento<select id="hotel-form-movement" class="form-select"><option value="cobertura_ruta">Cambio para cubrir ruta</option><option value="entrada_taller">Entrada en taller</option><option value="descarga_mercancia">Descarga de mercancía</option><option value="otro">Otro movimiento</option></select></label>
-          <label>Prioridad<select id="hotel-form-priority" class="form-select"><option value="1">1 · No operativo</option><option value="2">2 · Legal/caducidad</option><option value="3">3 · Seguridad</option><option value="4">4 · Confort</option><option value="5">5 · Mantenimiento</option></select></label>
+          <label>Prioridad<select id="hotel-form-priority" class="form-select"><option value="0">0 · Máxima urgencia</option><option value="1">1 · No operativo</option><option value="2">2 · Legal/caducidad</option><option value="3">3 · Seguridad</option><option value="4">4 · Confort</option><option value="5">5 · Mantenimiento</option></select></label>
         </div>
         <label><input id="hotel-form-exceptional" type="checkbox"> Sustitución excepcional por tiempo limitado</label>
         <div id="hotel-exception-fields" class="detail-grid hidden"><label>Motivo obligatorio<input id="hotel-form-reason" class="form-control"></label><label>Fecha y hora límite<input id="hotel-form-limit" class="form-control" type="datetime-local"></label></div>
@@ -1169,7 +1169,7 @@
           vehiculo_reserva:unit.reserve, matricula_reserva:unit.reservePlate || '',
           tipo_unidad:unit.reserveLabel || '', etiqueta_reserva:unit.reserveLabel || '',
           upc:unit.upc || '', modelo:unit.model || '', trabajos_reserva:unit.reserveTasks || '',
-          es_flota:Boolean(unit.fleet), causa:unit.cause || '', prioridad:unit.priority || 5,
+          es_flota:Boolean(unit.fleet), causa:unit.cause || '', prioridad:unit.priority ?? 5,
           estado:dbStateFromUnit(unit), lugar:unit.location || '',
           fecha_entrada:isoDateFromText(unit.stateLabel), tipo_movimiento:unit.movementType || '', incidencia:unit.inc || '',
           proximo:unit.next || '', observaciones:'Carga inicial de la pizarra del 03/08/2026',
@@ -1219,7 +1219,7 @@
             vehiculo_reserva:unit.reserve, matricula_reserva:unit.reservePlate || '',
             tipo_unidad:unit.reserveLabel || '', etiqueta_reserva:unit.reserveLabel || '',
             upc:unit.upc || '', modelo:unit.model || '', trabajos_reserva:unit.reserveTasks || '',
-            es_flota:Boolean(unit.fleet), causa:unit.cause || '', prioridad:unit.priority || 5,
+            es_flota:Boolean(unit.fleet), causa:unit.cause || '', prioridad:unit.priority ?? 5,
             estado:dbStateFromUnit(unit), lugar:unit.location || '',
             fecha_entrada:isoDateFromText(unit.stateLabel), tipo_movimiento:unit.movementType || '', incidencia:unit.inc || '',
             proximo:unit.next || '', observaciones:marker, orden:index, oculto:false,
@@ -1314,7 +1314,7 @@
           return `<article class="card stack ${cancelled?'text-muted':''}">
             <div class="hotel-title"><strong>${escapeHtml(date)} · ${unit.fleet?`DFM ${unit.fleet} · ${unit.fleetPlate}`:`Reserva ${unit.reserve} · ${unit.reservePlate}`}</strong><span class="badge">${escapeHtml(cancelled?'Anulado':unit.stateLabel)}</span></div>
             <div>Reserva <strong>${escapeHtml(unit.reserve||'—')}</strong> · ${escapeHtml(unit.reservePlate||'—')} · ${escapeHtml(unit.location||'Sin indicar')}</div>
-            <div class="text-small">UPC: ${escapeHtml(unit.upc||'—')} · Prioridad ${escapeHtml(unit.priority||'—')} · INC: ${escapeHtml(unit.inc||'Sin incidencia')}</div>
+            <div class="text-small">UPC: ${escapeHtml(unit.upc||'—')} · Prioridad ${escapeHtml(unit.priority ?? '—')} · INC: ${escapeHtml(unit.inc||'Sin incidencia')}</div>
             <div class="text-small text-muted">${escapeHtml(unit.cause||'Sin causa indicada')}${cancelled && unit.boardCancellationReason?` · Motivo: ${escapeHtml(unit.boardCancellationReason)}`:''}</div>
           </article>`;
         }).join('') || `<div class="card">No hay registros guardados en ${escapeHtml(hotelHistoryLoadedMonth || 'el mes seleccionado')}.</div>`;
@@ -1361,11 +1361,11 @@
         root.querySelector('#hotel-workshop-list').innerHTML = workshopUnits.map(unit => {
           const entryDate = (unit.stateLabel.match(/desde\s+(.+)$/i)||[])[1] || 'Fecha pendiente';
           const vehicle = unit.fleet ? `${unit.fleet} · ${unit.fleetPlate}` : `${unit.reserve} · ${unit.reservePlate}`;
-          return `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><div><strong>${escapeHtml(vehicle)}</strong><div class="text-small">${escapeHtml(unit.location||'Lugar sin indicar')} · ${escapeHtml(movementLabel(unit.movementType))}: ${escapeHtml(entryDate)}</div><div class="text-small text-muted">Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</div></div></div>`;
+          return `<div class="stage"><span class="badge ${unit.priority<=1?'priority-1':''}">P${unit.priority}</span><div><strong>${escapeHtml(vehicle)}</strong><div class="text-small">${escapeHtml(unit.location||'Lugar sin indicar')} · ${escapeHtml(movementLabel(unit.movementType))}: ${escapeHtml(entryDate)}</div><div class="text-small text-muted">Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reserveLabel)}</div></div></div>`;
         }).join('') || '<div class="text-small text-muted">No hay vehículos en taller.</div>';
         root.querySelector('#hotel-priority-list').innerHTML = hotelUnits.filter(unit => !['reserva_liberada','anulado'].includes(unit.dbState)).sort((a,b)=>a.priority-b.priority).map(unit => {
           const vehicle = unit.fleet ? `${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${unit.fleet}` : `Reserva ${unit.reserve}`;
-          return `<div class="stage"><span class="badge ${unit.priority===1?'priority-1':''}">P${unit.priority}</span><strong>${escapeHtml(vehicle)}</strong><span>${escapeHtml(unit.cause||'Sin causa indicada')}</span></div>`;
+          return `<div class="stage"><span class="badge ${unit.priority<=1?'priority-1':''}">P${unit.priority}</span><strong>${escapeHtml(vehicle)}</strong><span>${escapeHtml(unit.cause||'Sin causa indicada')}</span></div>`;
         }).join('') || '<div class="text-small text-muted">No hay movimientos activos.</div>';
         root.querySelectorAll('.hotel-metric-filter').forEach(button => button.addEventListener('click', () => {
           hotelMetricFilter = button.dataset.filter;
@@ -1405,7 +1405,7 @@
             <label>INC principal<input class="form-control" data-field="inc" value="${escapeHtml(unit.inc)}"></label>
             <label>Próximo previsto<input class="form-control" data-field="next" value="${escapeHtml(unit.next)}"></label>
             <label>Modelo<input class="form-control" data-field="model" value="${escapeHtml(unit.model)}"></label>
-            <label>Prioridad<select class="form-select" data-field="priority">${[1,2,3,4,5].map(value=>`<option value="${value}" ${unit.priority===value?'selected':''}>${value}</option>`).join('')}</select></label>
+            <label>Prioridad<select class="form-select" data-field="priority">${[0,1,2,3,4,5].map(value=>`<option value="${value}" ${unit.priority===value?'selected':''}>${value}</option>`).join('')}</select></label>
             <label>Fecha límite temporal<input class="form-control" data-field="temporaryLimit" type="datetime-local" value="${escapeHtml(unit.temporaryLimit ? unit.temporaryLimit.slice(0,16) : '')}"></label>
           </div>
           <label>Causa / pendientes del sustituido<textarea class="form-control" data-field="cause">${escapeHtml(unit.cause)}</textarea></label>
@@ -1418,7 +1418,7 @@
         </div>` : '';
         const stages = unit.stages.length ? `<ul class="stage-list" data-unit-id="${escapeHtml(unit.id)}">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}" data-stage-id="${escapeHtml(stage.id)}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${isAdmin()?`<button class="stage-drag-handle" type="button" aria-label="Mantén pulsado y arrastra para cambiar el orden de ${index+1}T">☰ Mantén y arrastra</button><select class="form-select hotel-stage-action" data-id="${escapeHtml(unit.id)}" data-stage="${index}" aria-label="Acciones de ${index+1}T"><option value="">Acciones T</option>${!stage.done&&stage.status!=='anulada'?'<option value="done">Marcar realizada</option>':''}<option value="date">Editar fecha</option><option value="edit">Modificar T</option>${stage.status!=='anulada'?'<option value="annul">Anular T</option>':''}</select>${!stage.done&&stage.status!=='anulada'?`<button class="hotel-stage-hidden-action hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}<button class="hotel-stage-hidden-action hotel-stage-date" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar fecha T</button><button class="hotel-stage-hidden-action hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="hotel-stage-hidden-action hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}<div class="stage-date-editor hidden" data-id="${escapeHtml(unit.id)}" data-stage="${index}"><label>Fecha y hora real<input class="form-control hotel-stage-date-input" type="datetime-local" value="${escapeHtml(stageDateForEdit(stage.completedAt).replace(' ','T'))}"></label><button class="btn btn-primary hotel-stage-date-save" type="button">Guardar fecha</button><button class="btn btn-secondary hotel-stage-date-pending" type="button">Dejar pendiente</button></div>`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
         return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)} ${contractAlerts.length?'contract-expired':''}">
-          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>${stopDateControl}`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
+          <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>${stopDateControl}`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority<=1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
           ${renderContractAlerts(unit)}
           <div class="detail-grid"><div><span class="text-small">Marca</span><strong>${escapeHtml(unit.brand||'—')}</strong></div><div><span class="text-small">Tipo de motor</span><strong>${escapeHtml(unit.engine||'—')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong>${entryDateControl}</div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehículo sustituido</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapas realizadas</span><strong>${activeStages.length?`${completedStages} de ${activeStages.length}`:'—'}</strong></div></div>
           ${stages}
@@ -1500,7 +1500,7 @@
           message.scrollIntoView({behavior:'smooth',block:'center'});
           return;
         }
-        if (![1,2,3,4,5].includes(priority)) {
+        if (![0,1,2,3,4,5].includes(priority)) {
           message.textContent = 'Selecciona una prioridad válida.';
           message.scrollIntoView({behavior:'smooth',block:'center'});
           return;
