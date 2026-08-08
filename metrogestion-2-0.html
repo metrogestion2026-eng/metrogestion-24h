@@ -1015,6 +1015,7 @@
           plate: String(vehicle.matricula || '').toUpperCase(),
           category: String(vehicle.categoria || '').toUpperCase(),
           label: String(vehicle.tipo_motor || '').toUpperCase(),
+          engine: String(vehicle.tipo_motor || '').toUpperCase(),
           contractKm: Number(String(vehicle.fin_contrato_km || '').replace(/\D/g, '')) || 0,
           registrationDate: vehicle.fecha_matriculacion || '',
           vehicleClass: String(vehicle.clase_vehiculo || '').toLowerCase(),
@@ -1084,6 +1085,7 @@
         fleet:row.vehiculo_sustituido || '', fleetPlate:row.matricula_sustituido || '',
         upc:row.upc || '', location:row.lugar || '', state:uiStateFromDb(row.estado), dbState:row.estado,
         entryDate:row.fecha_entrada || '', stopDate:row.fecha_parada || '',
+        brand:row.marca || '', engine:row.tipo_motor || '',
         stateLabel:stateLabelFromDb(row), cause:row.causa || '',
         reserveTasks:row.trabajos_reserva || '—', priority:row.prioridad,
         inc:row.incidencia || 'Sin incidencia', next:row.proximo || '', model:row.modelo || '',
@@ -1261,6 +1263,8 @@
             <label>Tipo / etiqueta reserva<input class="form-control" data-field="reserveLabel" value="${escapeHtml(unit.reserveLabel)}"></label>
             <label>Fecha en que se para<input class="form-control" data-field="stopDate" type="date" value="${escapeHtml(unit.stopDate)}"></label>
             <label>Fecha entrada en taller<input class="form-control" data-field="entryDate" type="date" value="${escapeHtml(unit.entryDate ? unit.entryDate.slice(0,10) : '')}"></label>
+            <label>Marca<input class="form-control" data-field="brand" value="${escapeHtml(unit.brand)}"></label>
+            <label>Tipo de motor<input class="form-control" data-field="engine" value="${escapeHtml(unit.engine)}"></label>
             <label>Lugar / taller<input class="form-control" data-field="location" value="${escapeHtml(unit.location)}"></label>
             <label>UPC<input class="form-control" data-field="upc" value="${escapeHtml(unit.upc)}"></label>
             <label>INC principal<input class="form-control" data-field="inc" value="${escapeHtml(unit.inc)}"></label>
@@ -1280,7 +1284,7 @@
         const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${!stage.done && stage.status!=='anulada' && isAdmin()?`<button class="btn btn-secondary hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}${isAdmin()?`<button class="btn btn-secondary hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="btn btn-secondary hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
         return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)}">
           <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)} · Parado: ${escapeHtml(shownStopDate)}</span>`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
-          <div class="detail-grid"><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehículo sustituido</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
+          <div class="detail-grid"><div><span class="text-small">Marca</span><strong>${escapeHtml(unit.brand||'—')}</strong></div><div><span class="text-small">Tipo de motor</span><strong>${escapeHtml(unit.engine||'—')}</strong></div><div><span class="text-small">UPC</span><strong>${escapeHtml(unit.upc||'—')}</strong></div><div><span class="text-small">Lugar</span><strong>${escapeHtml(unit.location||'Sin indicar')}</strong></div><div><span class="text-small">Causa / pendientes del sustituido</span><strong>${escapeHtml(unit.cause||'—')}</strong></div><div><span class="text-small">Pendientes del propio reserva</span><strong>${escapeHtml(unit.reserveTasks||'—')}</strong></div><div><span class="text-small">INC principal</span><strong>${escapeHtml(unit.inc||'Sin incidencia')}</strong></div><div><span class="text-small">Próximo previsto</span><strong>${escapeHtml(unit.next||'Sin planificar')}</strong></div><div><span class="text-small">Modelo del vehículo sustituido</span><strong>${escapeHtml(unit.model||'—')}</strong></div><div><span class="text-small">Etapa actual</span><strong>${unit.stages.length?(currentStage<0?'Todas realizadas':`${currentStage+1} de ${unit.stages.length}`):'—'}</strong></div></div>
           ${stages}
           ${isAdmin()?`<div class="hotel-actions"><button class="btn btn-primary hotel-unit-edit" data-id="${escapeHtml(unit.id)}" type="button">Editar ficha</button><button class="btn btn-secondary hotel-stage-add" data-id="${escapeHtml(unit.id)}" type="button">+ Añadir T</button></div>`:''}
           ${editPanel}
@@ -1337,6 +1341,7 @@
             tipo_unidad:value('reserveLabel'), etiqueta_reserva:value('reserveLabel'),
             fecha_parada:value('stopDate') || null,
             fecha_entrada:value('entryDate') ? value('entryDate') + 'T00:00:00+02:00' : null,
+            marca:value('brand'), tipo_motor:value('engine'),
             lugar:value('location'), upc:value('upc'), incidencia:value('inc'), proximo:value('next'),
             modelo:value('model'), prioridad, causa:value('cause'), trabajos_reserva:value('reserveTasks'),
             observaciones:value('observations'), sustitucion_temporal:temporary,
@@ -2219,7 +2224,8 @@
           vehiculo_sustituido:vehicle.dfm, matricula_sustituido:vehicle.plate,
           vehiculo_reserva:reserve, matricula_reserva:reservePlate,
           tipo_unidad:reserveLabel, etiqueta_reserva:reserveLabel,
-          upc:'Pendiente desde MANTENIMENT', causa,
+          fecha_parada:new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),
+          upc:vehicle.upc || '', marca:vehicle.brand || '', tipo_motor:vehicle.engine || '', causa,
           prioridad:Number(root.querySelector('#hotel-form-priority').value),
           estado:'pendiente_taller', lugar:location,
           incidencia:suppliedInc||(existingInc?existingInc.id:urgent?'INC provisional · pendiente de numerar':'Sin INC principal'),
