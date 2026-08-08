@@ -102,6 +102,9 @@
     #incidence-access-mockup .priority-1 { color:#991b1b; border-color:#fecaca; background:#fff1f2; }
     #incidence-access-mockup .stage-list { display:grid; gap:7px; margin:0; padding:0; list-style:none; }
     #incidence-access-mockup .stage { display:flex; gap:9px; align-items:center; flex-wrap:wrap; padding:8px 10px; border-radius:9px; background:rgba(255,255,255,.7); }
+    #incidence-access-mockup .stage.dragging { opacity:.62; outline:2px dashed var(--primary); background:#e0f2fe; }
+    #incidence-access-mockup .stage-drag-handle { display:inline-flex; align-items:center; gap:6px; width:auto; min-height:34px; padding:5px 9px; border:1px solid #94a3b8; border-radius:8px; color:#334155; background:#fff; font-size:12px; font-weight:750; cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; }
+    #incidence-access-mockup .stage-drag-handle:active { cursor:grabbing; background:#e0f2fe; }
     #incidence-access-mockup .stage > span:nth-child(2) { flex:1; min-width:160px; }
     #incidence-access-mockup .hotel-stage-action { width:auto; min-width:150px; min-height:38px; margin-left:auto; padding:6px 34px 6px 10px; }
     #incidence-access-mockup .hotel-stage-hidden-action { display:none; }
@@ -1151,7 +1154,7 @@
         stages:(row.etapas_hotel || []).sort((a,b)=>a.posicion-b.posicion).map(stage => ({
           id:stage.id, name:stage.nombre, done:stage.estado === 'realizada',
           status:stage.estado, location:stage.lugar || '', reason:stage.motivo_anulacion || '',
-          completedAt:stage.fecha_real || ''
+          completedAt:stage.fecha_real || '', position:Number(stage.posicion || 0)
         }))
       });
       const dbStateFromUnit = unit => ({
@@ -1412,7 +1415,7 @@
           <div class="hotel-actions"><button class="btn btn-primary hotel-edit-save" data-id="${escapeHtml(unit.id)}" type="button">Guardar todos los cambios</button><button class="btn btn-secondary hotel-edit-cancel" data-id="${escapeHtml(unit.id)}" type="button">Cancelar</button></div>
           <div class="text-small hotel-edit-message"></div>
         </div>` : '';
-        const stages = unit.stages.length ? `<ul class="stage-list">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${isAdmin()?`<select class="form-select hotel-stage-action" data-id="${escapeHtml(unit.id)}" data-stage="${index}" aria-label="Acciones de ${index+1}T"><option value="">Acciones T</option>${!stage.done&&stage.status!=='anulada'?'<option value="done">Marcar realizada</option>':''}<option value="date">Editar fecha</option><option value="edit">Modificar T</option>${stage.status!=='anulada'?'<option value="annul">Anular T</option>':''}</select>${!stage.done&&stage.status!=='anulada'?`<button class="hotel-stage-hidden-action hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}<button class="hotel-stage-hidden-action hotel-stage-date" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar fecha T</button><button class="hotel-stage-hidden-action hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="hotel-stage-hidden-action hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}<div class="stage-date-editor hidden" data-id="${escapeHtml(unit.id)}" data-stage="${index}"><label>Fecha y hora real<input class="form-control hotel-stage-date-input" type="datetime-local" value="${escapeHtml(stageDateForEdit(stage.completedAt).replace(' ','T'))}"></label><button class="btn btn-primary hotel-stage-date-save" type="button">Guardar fecha</button><button class="btn btn-secondary hotel-stage-date-pending" type="button">Dejar pendiente</button></div>`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
+        const stages = unit.stages.length ? `<ul class="stage-list" data-unit-id="${escapeHtml(unit.id)}">${unit.stages.map((stage,index)=>`<li class="stage ${stage.done?'done':stage.status==='anulada'?'annulled':''}" data-stage-id="${escapeHtml(stage.id)}"><span>${stage.done?'✓':stage.status==='anulada'?'×':index===currentStage?'→':'○'}</span><span><strong>${index+1}T</strong> · ${escapeHtml(stage.name)}${stage.location?`<span class="text-small"> · ${escapeHtml(stage.location)}</span>`:''}${stage.done&&stage.completedAt?`<span class="text-small"> · Realizado: ${escapeHtml(formatStageDate(stage.completedAt))}</span>`:''}${stage.reason?`<span class="text-small"> · Motivo: ${escapeHtml(stage.reason)}</span>`:''}</span>${isAdmin()?`<button class="stage-drag-handle" type="button" aria-label="Mantén pulsado y arrastra para cambiar el orden de ${index+1}T">☰ Mantén y arrastra</button><select class="form-select hotel-stage-action" data-id="${escapeHtml(unit.id)}" data-stage="${index}" aria-label="Acciones de ${index+1}T"><option value="">Acciones T</option>${!stage.done&&stage.status!=='anulada'?'<option value="done">Marcar realizada</option>':''}<option value="date">Editar fecha</option><option value="edit">Modificar T</option>${stage.status!=='anulada'?'<option value="annul">Anular T</option>':''}</select>${!stage.done&&stage.status!=='anulada'?`<button class="hotel-stage-hidden-action hotel-stage-done" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Realizado</button>`:''}<button class="hotel-stage-hidden-action hotel-stage-date" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar fecha T</button><button class="hotel-stage-hidden-action hotel-stage-edit" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Editar</button>${stage.status!=='anulada'?`<button class="hotel-stage-hidden-action hotel-stage-annul" data-id="${escapeHtml(unit.id)}" data-stage="${index}" type="button">Anular</button>`:''}<div class="stage-date-editor hidden" data-id="${escapeHtml(unit.id)}" data-stage="${index}"><label>Fecha y hora real<input class="form-control hotel-stage-date-input" type="datetime-local" value="${escapeHtml(stageDateForEdit(stage.completedAt).replace(' ','T'))}"></label><button class="btn btn-primary hotel-stage-date-save" type="button">Guardar fecha</button><button class="btn btn-secondary hotel-stage-date-pending" type="button">Dejar pendiente</button></div>`:''}</li>`).join('')}</ul>` : '<div class="text-small text-muted">Sin etapas activas.</div>';
         return `<article class="card stack hotel-unit status-${escapeHtml(unit.state)} ${contractAlerts.length?'contract-expired':''}">
           <div class="hotel-title"><div class="hotel-primary">${unit.fleet?`<strong>${unit.fleet.startsWith('R')?'Semirremolque':'DFM'} ${escapeHtml(unit.fleet)} · ${escapeHtml(unit.fleetPlate)}</strong><span class="hotel-reserve">Sustituido por reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)} · ${escapeHtml(unit.reserveLabel)}</span>${stopDateControl}`:`<strong>Reserva ${escapeHtml(unit.reserve)} · ${escapeHtml(unit.reservePlate)}</strong><span class="hotel-reserve">${escapeHtml(unit.reserveLabel)} · Disponible para asignar</span>`}</div><div class="stack"><span class="badge ${unit.priority===1?'priority-1':''}">Prioridad ${unit.priority}</span>${statusControl}</div></div>
           ${renderContractAlerts(unit)}
@@ -1422,7 +1425,51 @@
           ${editPanel}
         </article>`;
       };
+      const bindHotelStageDrag = () => {
+        if (!isAdmin()) return;
+        root.querySelectorAll('.stage-drag-handle').forEach(handle => {
+          handle.addEventListener('pointerdown', event => {
+            if (event.button !== undefined && event.button !== 0) return;
+            const row = handle.closest('.stage');
+            const list = row?.closest('.stage-list');
+            if (!row || !list) return;
+            const originalOrder = [...list.querySelectorAll(':scope > .stage')].map(item => item.dataset.stageId).join('|');
+            row.classList.add('dragging');
+            handle.setPointerCapture?.(event.pointerId);
+            event.preventDefault();
+            const move = moveEvent => {
+              const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)?.closest('.stage');
+              if (!target || target === row || target.closest('.stage-list') !== list) return;
+              const box = target.getBoundingClientRect();
+              list.insertBefore(row, moveEvent.clientY < box.top + box.height / 2 ? target : target.nextSibling);
+            };
+            const finish = async finishEvent => {
+              handle.removeEventListener('pointermove', move);
+              handle.removeEventListener('pointerup', finish);
+              handle.removeEventListener('pointercancel', finish);
+              row.classList.remove('dragging');
+              handle.releasePointerCapture?.(finishEvent.pointerId);
+              const orderedRows = [...list.querySelectorAll(':scope > .stage')];
+              const nextOrder = orderedRows.map(item => item.dataset.stageId).join('|');
+              if (nextOrder === originalOrder) return;
+              handle.disabled = true;
+              const results = await Promise.all(orderedRows.map((item,index) =>
+                supabaseClient.from('etapas_hotel').update({
+                  posicion:index + 1, modificado_por:sessionUserId, actualizado_en:new Date().toISOString()
+                }).eq('id',item.dataset.stageId).select('id').single()
+              ));
+              const failed = results.find(result => result.error);
+              if (failed) window.alert('No se pudo guardar el nuevo orden: ' + failed.error.message);
+              await loadHotelFromSupabase(false);
+            };
+            handle.addEventListener('pointermove', move);
+            handle.addEventListener('pointerup', finish);
+            handle.addEventListener('pointercancel', finish);
+          });
+        });
+      };
       const bindHotelStageButtons = () => {
+        bindHotelStageDrag();
         root.querySelectorAll('.hotel-stage-action').forEach(select => select.addEventListener('change', event => {
           const action = event.currentTarget.value;
           if (!action || !isAdmin()) return;
