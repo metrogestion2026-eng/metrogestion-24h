@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.18</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.19</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -714,6 +714,7 @@
         saveActivationCallDraft(false);
         localStorage.setItem(activationProgressKey, JSON.stringify({
           step: activeActivationStep(),
+          userId: sessionUserId,
           expiresAt: Date.now() + 12 * 60 * 60 * 1000
         }));
         requestActivationWakeLock().catch(() => {});
@@ -733,6 +734,7 @@
           localStorage.removeItem(activationProgressKey);
           return false;
         }
+        if (progress.userId && progress.userId !== sessionUserId) return false;
         restoreActivationCallDraft();
         setView('activation');
         const step = Number(progress.step) || 1;
@@ -2401,7 +2403,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=43');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=44');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
@@ -2436,7 +2438,7 @@
         const returnUntil = Number(localStorage.getItem(callReturnKey) || 0);
         if (!returnUntil || returnUntil <= Date.now()) {
           localStorage.removeItem(callReturnKey);
-          localStorage.removeItem(activationDraftKey);
+          localStorage.removeItem(callSessionKey);
           root.querySelector('#mock-user').focus();
           return;
         }
