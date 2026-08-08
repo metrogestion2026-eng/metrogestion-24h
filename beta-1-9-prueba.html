@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.16</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.17</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -102,6 +102,10 @@
     #incidence-access-mockup .safety-check input[type="checkbox"] { width:28px; height:28px; margin:0; accent-color:var(--primary); }
     #incidence-access-mockup .emergency-note { display:grid; gap:10px; padding:14px; color:#991b1b; background:#fff1f2; border:2px solid #ef4444; border-radius:12px; }
     #incidence-access-mockup .emergency-note .btn { background:#dc2626; color:#fff; }
+    #incidence-access-mockup .camera-photo-list { display:grid; gap:10px; }
+    #incidence-access-mockup .camera-photo-item { display:grid; grid-template-columns:72px minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px; background:#fff; border:1px solid var(--border); border-radius:10px; }
+    #incidence-access-mockup .camera-photo-item img { width:72px; height:72px; object-fit:cover; border-radius:8px; }
+    #incidence-access-mockup .camera-photo-item .btn { min-height:38px; }
     #incidence-access-mockup .hidden { display: none !important; }
     @media (max-width: 560px) {
       #incidence-access-mockup .toolbar, #incidence-access-mockup .detail-grid { grid-template-columns: 1fr; }
@@ -502,6 +506,7 @@
             <label class="btn btn-primary" for="activation-camera-photo">📷 Tomar foto con la cámara</label>
             <input id="activation-camera-photo" class="hidden" type="file" accept="image/*" capture="environment">
             <div id="activation-camera-count" class="text-small text-muted">Todavía no se han tomado fotografías.</div>
+            <div id="activation-camera-photo-list" class="camera-photo-list"></div>
           </div>
           <label id="activation-attachment-label">Seleccionar fotografía o imagen guardada
             <input id="activation-follow-files" class="form-control" type="file" accept="image/*" multiple>
@@ -2079,8 +2084,37 @@
       ];
       const renderCapturedPhotoCount = () => {
         root.querySelector('#activation-camera-count').textContent = capturedFollowPhotos.length
-          ? capturedFollowPhotos.length + ' fotografía(s) tomada(s) con la cámara.'
+          ? capturedFollowPhotos.length + ' fotografía(s) añadida(s) automáticamente a la incidencia.'
           : 'Todavía no se han tomado fotografías.';
+        const list = root.querySelector('#activation-camera-photo-list');
+        list.querySelectorAll('img[data-object-url]').forEach(image => URL.revokeObjectURL(image.dataset.objectUrl));
+        list.replaceChildren();
+        capturedFollowPhotos.forEach((photo,index) => {
+          const item = document.createElement('div');
+          item.className = 'camera-photo-item';
+          const image = document.createElement('img');
+          const objectUrl = URL.createObjectURL(photo);
+          image.src = objectUrl;
+          image.dataset.objectUrl = objectUrl;
+          image.alt = 'Fotografía ' + (index + 1);
+          const description = document.createElement('div');
+          description.innerHTML = '<strong>Foto ' + (index + 1) + '</strong><div class="text-small text-muted">Adjuntada automáticamente</div>';
+          const remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className = 'btn btn-secondary';
+          remove.textContent = 'Eliminar';
+          remove.addEventListener('click', () => {
+            capturedFollowPhotos.splice(index,1);
+            clearGeneratedFollowPdf();
+            renderCapturedPhotoCount();
+            root.querySelector('#activation-attachment-message').textContent = capturedFollowPhotos.length
+              ? capturedFollowPhotos.length + ' fotografía(s) continúan adjuntadas.'
+              : 'La fotografía se ha eliminado. Puedes guardar sin archivos o tomar otra.';
+            saveActivationProgress();
+          });
+          item.append(image,description,remove);
+          list.append(item);
+        });
       };
       root.querySelector('#activation-attachment-type').addEventListener('change', event => {
         const input = root.querySelector('#activation-follow-files');
@@ -2347,7 +2381,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=41');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=42');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
