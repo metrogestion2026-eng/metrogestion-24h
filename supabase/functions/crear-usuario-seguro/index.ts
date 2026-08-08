@@ -1,18 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders as supabaseCorsHeaders } from 'jsr:@supabase/supabase-js@2/cors';
 
-const allowedOrigins = new Set([
-  'https://metrogestion2026-eng.github.io',
-  'https://metrogestion-24h.upcnocturno.chatgpt.site',
-  'http://localhost:3000',
-]);
-
 const corsHeadersFor = (request: Request) => {
-  const origin = request.headers.get('Origin') || '';
   return {
     ...supabaseCorsHeaders,
-    'Access-Control-Allow-Origin': allowedOrigins.has(origin) ? origin : 'null',
-    'Vary': 'Origin',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-retry-count, x-supabase-api-version, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 };
