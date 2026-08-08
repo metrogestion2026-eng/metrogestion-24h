@@ -48,7 +48,7 @@
 </head>
 <body>
 <div class="app-frame">
-  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.12</small></div></header>
+  <header class="app-head"><strong>Gestión de mantenimientos</strong><div class="viz-row"><small>Activar 24H · Beta 1.9.13</small></div></header>
 <div id="incidence-access-mockup">
   <style>
     #incidence-access-mockup { color: var(--foreground); }
@@ -489,10 +489,23 @@
             <input id="activation-workshop" class="form-control" placeholder="Nombre del taller al que se traslada">
           </label>
         </div>
-        <label>Fotografías de seguimiento
-          <input id="activation-follow-photos" class="form-control" type="file" accept="image/*" capture="environment" multiple>
-        </label>
-        <div class="text-small text-muted">Las fotografías y la reparación realizada pueden añadirse posteriormente; la incidencia mostrará que siguen pendientes.</div>
+        <div class="card stack" style="background:#f8fafc">
+          <strong>Adjuntar fotografías o documentos</strong>
+          <label>Tipo de archivo
+            <select id="activation-attachment-type" class="form-select">
+              <option value="photo">Fotografía</option>
+              <option value="document">Documento existente</option>
+              <option value="document-photo">Foto de documento · convertir a PDF</option>
+            </select>
+          </label>
+          <label id="activation-attachment-label">Seleccionar fotografía
+            <input id="activation-follow-files" class="form-control" type="file" accept="image/*" capture="environment" multiple>
+          </label>
+          <button id="activation-convert-pdf" class="btn btn-secondary hidden" type="button">Convertir las fotos en PDF</button>
+          <div id="activation-attachment-message" class="text-small text-muted">Puedes adjuntar varias fotografías.</div>
+          <a id="activation-generated-pdf" class="btn btn-secondary hidden" href="#" download="documento_incidencia.pdf">📄 Comprobar PDF generado</a>
+        </div>
+        <div class="text-small text-muted">Los archivos y la reparación realizada pueden añadirse posteriormente; la incidencia mostrará lo que sigue pendiente.</div>
         <div id="follow-message" class="text-small text-muted"></div>
         <div class="viz-row"><button id="follow-previous" class="btn btn-secondary" type="button">← Paso anterior</button><button id="save-incidence" class="btn btn-primary" type="button">Guardar incidencia</button></div>
       </div>
@@ -501,6 +514,7 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
   <script>
     (() => {
       const root = document.getElementById('incidence-access-mockup');
@@ -520,6 +534,8 @@
         global: { headers: { 'x-device-token': deviceToken } }
       });
       const incidences = [];
+      let generatedFollowPdf = null;
+      let generatedFollowPdfUrl = '';
       let knownDfms = [];
       let vehicleIndex = [];
       const brandAssistance24h = [
@@ -1993,6 +2009,106 @@
         root.querySelector('#activation-workshop-panel').classList.toggle('hidden', !transferred);
         if (transferred) root.querySelector('#activation-workshop').focus();
       });
+      const clearGeneratedFollowPdf = () => {
+        if (generatedFollowPdfUrl) URL.revokeObjectURL(generatedFollowPdfUrl);
+        generatedFollowPdf = null;
+        generatedFollowPdfUrl = '';
+        const link = root.querySelector('#activation-generated-pdf');
+        link.classList.add('hidden');
+        link.removeAttribute('href');
+      };
+      root.querySelector('#activation-attachment-type').addEventListener('change', event => {
+        const input = root.querySelector('#activation-follow-files');
+        const label = root.querySelector('#activation-attachment-label');
+        const convert = root.querySelector('#activation-convert-pdf');
+        const message = root.querySelector('#activation-attachment-message');
+        clearGeneratedFollowPdf();
+        input.value = '';
+        if (event.target.value === 'document') {
+          input.accept = 'application/pdf,.pdf,.doc,.docx,.xls,.xlsx,image/*';
+          input.removeAttribute('capture');
+          label.firstChild.textContent = 'Seleccionar documento ';
+          convert.classList.add('hidden');
+          message.textContent = 'Puedes seleccionar un PDF, Word, Excel o una imagen.';
+        } else if (event.target.value === 'document-photo') {
+          input.accept = 'image/*';
+          input.setAttribute('capture','environment');
+          label.firstChild.textContent = 'Fotografiar las páginas del documento ';
+          convert.classList.remove('hidden');
+          message.textContent = 'Fotografía una o varias páginas y pulsa «Convertir las fotos en PDF».';
+        } else {
+          input.accept = 'image/*';
+          input.setAttribute('capture','environment');
+          label.firstChild.textContent = 'Seleccionar fotografía ';
+          convert.classList.add('hidden');
+          message.textContent = 'Puedes adjuntar varias fotografías.';
+        }
+      });
+      root.querySelector('#activation-follow-files').addEventListener('change', () => {
+        clearGeneratedFollowPdf();
+        const count = root.querySelector('#activation-follow-files').files?.length || 0;
+        if (root.querySelector('#activation-attachment-type').value === 'document-photo') {
+          root.querySelector('#activation-attachment-message').textContent = count
+            ? count + ' página(s) seleccionada(s). Pulsa «Convertir las fotos en PDF».'
+            : 'Fotografía una o varias páginas.';
+        }
+      });
+      const readFileAsDataUrl = file => new Promise((resolve,reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error('No se pudo leer la imagen.'));
+        reader.readAsDataURL(file);
+      });
+      const loadImage = source => new Promise((resolve,reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Una de las fotografías no se pudo procesar.'));
+        image.src = source;
+      });
+      root.querySelector('#activation-convert-pdf').addEventListener('click', async event => {
+        const files = Array.from(root.querySelector('#activation-follow-files').files || []);
+        const message = root.querySelector('#activation-attachment-message');
+        if (!files.length) {
+          message.textContent = 'Primero fotografía o selecciona al menos una página.';
+          return;
+        }
+        if (!window.jspdf?.jsPDF) {
+          message.textContent = 'No se pudo cargar el conversor PDF. Comprueba la conexión e inténtalo de nuevo.';
+          return;
+        }
+        const button = event.currentTarget;
+        button.disabled = true;
+        message.textContent = 'Convirtiendo ' + files.length + ' página(s) a PDF…';
+        try {
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
+          for (let index = 0; index < files.length; index += 1) {
+            const dataUrl = await readFileAsDataUrl(files[index]);
+            const image = await loadImage(dataUrl);
+            if (index) pdf.addPage();
+            const pageWidth = 210;
+            const pageHeight = 297;
+            const margin = 8;
+            const scale = Math.min((pageWidth - margin * 2) / image.width, (pageHeight - margin * 2) / image.height);
+            const width = image.width * scale;
+            const height = image.height * scale;
+            const x = (pageWidth - width) / 2;
+            const y = (pageHeight - height) / 2;
+            pdf.addImage(dataUrl, files[index].type.includes('png') ? 'PNG' : 'JPEG', x, y, width, height, undefined, 'FAST');
+          }
+          clearGeneratedFollowPdf();
+          generatedFollowPdf = pdf.output('blob');
+          generatedFollowPdfUrl = URL.createObjectURL(generatedFollowPdf);
+          const link = root.querySelector('#activation-generated-pdf');
+          link.href = generatedFollowPdfUrl;
+          link.classList.remove('hidden');
+          message.textContent = 'PDF generado correctamente con ' + files.length + ' página(s).';
+        } catch (error) {
+          message.textContent = 'No se pudo generar el PDF: ' + error.message;
+        } finally {
+          button.disabled = false;
+        }
+      });
       root.querySelector('#save-incidence').addEventListener('click', () => {
         const arrived = root.querySelector('#activation-technician-arrived').checked;
         const diagnosed = root.querySelector('#activation-diagnosis-confirmed').checked;
@@ -2015,7 +2131,13 @@
         rememberFaultDescription(root.querySelector('#activation-fault-text').value);
         const code = root.querySelector('#activation-dfm').dataset.dfm;
         const vehicle = vehicleIndex.find(item => item.dfm === code);
-        const photoCount = root.querySelector('#activation-follow-photos').files?.length || 0;
+        const attachmentFiles = root.querySelector('#activation-follow-files').files;
+        const attachmentCount = attachmentFiles?.length || 0;
+        const attachmentType = root.querySelector('#activation-attachment-type').value;
+        if (attachmentType === 'document-photo' && attachmentCount && !generatedFollowPdf) {
+          followMessage.textContent = 'Convierte primero las fotografías del documento en PDF o cambia el tipo de archivo.';
+          return;
+        }
         incidences.unshift({
           id: 'INC-MAQUETA-' + String(incidences.length + 1).padStart(3, '0'),
           creator: sessionUser,
@@ -2032,7 +2154,11 @@
           diagnosis: diagnosed ? root.querySelector('#activation-diagnosis-text').value.trim() : 'Pendiente de confirmación',
           result: resultValue === 'road' ? 'Reparado en carretera' : resultValue === 'workshop' ? 'Trasladado a taller' : 'Seguimiento abierto',
           workshop: resultValue === 'workshop' ? workshop : '—',
-          photos: photoCount ? photoCount + ' fotografía(s) seleccionada(s)' : 'Fotografías pendientes'
+          attachments: generatedFollowPdf
+            ? 'PDF generado desde ' + attachmentCount + ' fotografía(s)'
+            : attachmentCount
+              ? attachmentCount + ' archivo(s) seleccionado(s)'
+              : 'Fotografías o documentos pendientes'
         });
         setView('mine');
       });
@@ -2106,7 +2232,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=37');
+            const registration = await navigator.serviceWorker.register('sw-24h-beta-1-9.js?v=38');
             const notice = document.querySelector('#update-notice');
             const updateButton = document.querySelector('#update-now');
             let refreshing = false;
