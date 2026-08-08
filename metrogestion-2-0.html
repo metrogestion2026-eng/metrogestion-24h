@@ -150,8 +150,13 @@
     </div>
 
     <nav class="tabs" aria-label="Secciones">
-      <button id="activate-tab" class="btn btn-primary app-tab" data-view="activation" type="button">Inicio</button>
-      <button id="hotel-tab" class="btn btn-secondary app-tab locked-tab" data-view="hotel" aria-disabled="true" title="Hotel · En construcción" type="button">Hotel · En construcción</button>
+      <button id="activate-tab" class="btn btn-primary app-tab" data-view="activation" type="button">Activar 24H</button>
+      <button id="hotel-tab" class="btn btn-secondary app-tab locked-tab" data-view="hotel" aria-disabled="true" title="Hotel · Pizarra diaria · En construcción" type="button">Hotel · Pizarra diaria</button>
+      <button class="btn btn-secondary app-tab locked-tab" data-view="reservas" aria-disabled="true" title="Reservas · En construcción" type="button">Reservas</button>
+      <button class="btn btn-secondary app-tab locked-tab" data-view="predictivo" aria-disabled="true" title="Mantenimiento predictivo · En construcción" type="button">Mantenimiento predictivo</button>
+      <button class="btn btn-secondary app-tab locked-tab" data-view="itv-tramites" aria-disabled="true" title="Planificación ITV y trámites · En construcción" type="button">ITV y trámites</button>
+      <button class="btn btn-secondary app-tab locked-tab" data-view="documentacion" aria-disabled="true" title="Documentación · En construcción" type="button">Documentación</button>
+      <button class="btn btn-secondary app-tab locked-tab" data-view="informes" aria-disabled="true" title="Panel e informes · En construcción" type="button">Panel e informes</button>
       <button id="my-account-tab" class="btn btn-secondary app-tab" data-view="my-account" type="button">Mi cuenta</button>
       <button id="users-tab" class="btn btn-secondary app-tab" data-view="users" type="button">Usuarios</button>
       <button id="settings-tab" class="btn btn-secondary app-tab" data-view="settings" type="button">Configuración</button>
@@ -287,6 +292,10 @@
 
     <section id="view-versions" class="stack hidden">
       <div><strong>Memorando de versiones</strong><div class="text-small text-muted">Historial breve para consultar qué se ha modificado en cada publicación.</div></div>
+      <div class="card stack">
+        <strong>Beta 2.0 · 08/08/2026 · Actualización</strong>
+        <div>Se muestran los futuros módulos Hotel · Pizarra diaria, Reservas, Mantenimiento predictivo, ITV y trámites, Documentación y Panel e informes. Activar 24H continúa siendo el módulo operativo. No se crea una aplicación nueva ni cambia el enlace.</div>
+      </div>
       <div class="card stack">
         <strong>Beta 1.9 · 03/08/2026 · Revisión</strong>
         <div>Activar 24H preparado como módulo principal instalable. Hotel permanece visible y bloqueado como «En construcción» hasta su revisión y autorización.</div>
@@ -1446,8 +1455,16 @@
       };
 
       const setView = next => {
-        if (next === 'hotel') {
-          window.alert('Hotel está en construcción. Activar 24H es el módulo disponible en esta versión.');
+        const constructionModules = {
+          hotel: 'Hotel · Pizarra diaria',
+          reservas: 'Reservas',
+          predictivo: 'Mantenimiento predictivo',
+          'itv-tramites': 'Planificación ITV y trámites',
+          documentacion: 'Documentación',
+          informes: 'Panel e informes'
+        };
+        if (constructionModules[next]) {
+          window.alert(constructionModules[next] + '\n\nMódulo en construcción. Próximamente disponible según los permisos asignados.');
           return;
         }
         if (next === 'all' && !canViewAllIncidences()) {
