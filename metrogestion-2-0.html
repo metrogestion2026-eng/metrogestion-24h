@@ -1936,11 +1936,25 @@
             roleButton.type = 'button';
             roleButton.className = 'btn btn-secondary';
             roleButton.textContent = user.role === 'secondary' ? 'Convertir en usuario' : 'Nombrar administrador';
-            roleButton.addEventListener('click', () => {
-              user.role = user.role === 'secondary' ? 'user' : 'secondary';
-              saveUsers();
-              renderAdminUsers();
-              renderLoginUsers();
+            roleButton.addEventListener('click', async () => {
+              const message = root.querySelector('#user-admin-message');
+              const nextRole = user.role === 'secondary' ? 'usuario' : 'administrador_secundario';
+              roleButton.disabled = true;
+              message.textContent = 'Guardando el nuevo rol de ' + user.name + '…';
+              const { data, error } = await supabaseClient.rpc('administrar_usuario_seguro', {
+                usuario_objetivo:user.id, accion_recibida:'rol', valor_recibido:nextRole
+              });
+              if (error || !data?.id) {
+                message.textContent = 'No se pudo cambiar el rol: ' + (error?.message || 'la base de datos no confirmó el cambio.');
+                roleButton.disabled = false;
+                return;
+              }
+              await reloadAdminUsersFromSupabase();
+              const successText = nextRole === 'administrador_secundario'
+                ? user.name + ' ha sido nombrado administrador secundario correctamente.'
+                : user.name + ' vuelve a tener rol de usuario correctamente.';
+              root.querySelector('#user-admin-message').textContent = successText;
+              window.alert(successText);
             });
             const activeButton = document.createElement('button');
             activeButton.type = 'button';
@@ -1973,22 +1987,13 @@
               permissionControls.querySelectorAll('button').forEach(button => { button.disabled = true; });
               message.textContent = 'Guardando permiso del Hotel para ' + user.name + '…';
               try {
-                const { data:sessionData } = await supabaseClient.auth.getSession();
-                const accessToken = sessionData?.session?.access_token;
-                if (!accessToken) throw new Error('La sesión ha caducado. Cierra sesión y vuelve a entrar.');
-                const { data, error } = await supabaseClient.functions.invoke('crear-usuario-seguro', {
-                  body: { accion:'actualizar_permiso_hotel', usuarioId:user.id, accesoHotel },
-                  headers: { Authorization:'Bearer ' + accessToken }
+                const { data, error } = await supabaseClient.rpc('administrar_usuario_seguro', {
+                  usuario_objetivo:user.id,
+                  accion_recibida:'permiso_hotel',
+                  valor_recibido:accesoHotel
                 });
-                if (error) {
-                  let detail = '';
-                  try {
-                    const responseBody = await error.context?.json();
-                    detail = responseBody?.error || responseBody?.message || '';
-                  } catch {}
-                  throw new Error(detail || error.message || 'No se pudo guardar el permiso.');
-                }
-                if (!data?.ok) throw new Error(data?.error || 'El servidor no confirmó el permiso.');
+                if (error) throw error;
+                if (!data?.id) throw new Error('La base de datos no confirmó el permiso.');
                 await reloadAdminUsersFromSupabase();
                 const successText = accesoHotel === 'ninguno'
                   ? 'Permiso del Hotel retirado correctamente a ' + user.name + '.'
