@@ -829,6 +829,26 @@
         requestActivationWakeLock().catch(() => {});
         return true;
       };
+      const offerActivationProgress = () => {
+        // Al volver del marcador telefónico se recupera automáticamente en el paso 5.
+        if (Number(localStorage.getItem(callReturnKey) || 0) > Date.now()) return false;
+        let progress = null;
+        try { progress = JSON.parse(localStorage.getItem(activationProgressKey) || 'null'); } catch {}
+        if (!progress || progress.expiresAt <= Date.now()) {
+          localStorage.removeItem(activationProgressKey);
+          return false;
+        }
+        if (progress.userId && progress.userId !== sessionUserId) return false;
+        const step = Number(progress.step) || 1;
+        const continueDraft = window.confirm(
+          'Hay una activación 24H sin terminar en el paso ' + step + '.\n\n' +
+          '¿Quieres continuarla ahora?\n\nPulsa Cancelar para entrar en Mis incidencias.'
+        );
+        if (continueDraft) return restoreActivationProgress();
+        const heading = root.querySelector('#view-heading .text-small');
+        if (heading) heading.textContent = 'Tienes una activación 24H pendiente. Puedes continuarla cuando pulses Nueva activación.';
+        return false;
+      };
       const faultHistoryKey = 'metrogestion_fault_history_v1';
       const defaultFaultHistory = [
         'Fallo motor',
@@ -2326,7 +2346,7 @@
         await loadVehicleIndex();
         // El Hotel solo carga datos y tiempo real cuando la cuenta tiene permiso explícito.
         if (canViewHotel()) await loadHotelFromSupabase(true);
-        restoreActivationProgress();
+        offerActivationProgress();
       };
       root.querySelector('#refresh-devices').addEventListener('click', renderAdminDevices);
       root.querySelector('#login-form').addEventListener('submit', async event => {
@@ -2676,7 +2696,20 @@
         button.disabled = true;
         try {
           await loadVehicleIndex();
-          resetNewActivation();
+          let progress = null;
+          try { progress = JSON.parse(localStorage.getItem(activationProgressKey) || 'null'); } catch {}
+          const pendingForCurrentUser = progress?.expiresAt > Date.now() &&
+            (!progress.userId || progress.userId === sessionUserId);
+          if (pendingForCurrentUser) {
+            const continueDraft = window.confirm(
+              'Tienes una activación 24H sin terminar.\n\n' +
+              'Pulsa Aceptar para continuarla o Cancelar para empezar una nueva.'
+            );
+            if (continueDraft) restoreActivationProgress();
+            else resetNewActivation();
+          } else {
+            resetNewActivation();
+          }
         } catch (error) {
           console.warn(error);
           resetNewActivation();
