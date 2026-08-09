@@ -173,7 +173,7 @@
 
     <nav class="tabs" aria-label="Secciones">
       <button id="activate-tab" class="btn btn-primary app-tab" data-view="activation" type="button">Activar 24H</button>
-      <button id="hotel-tab" class="btn btn-secondary app-tab locked-tab" data-view="hotel" aria-disabled="true" title="Hotel · Acceso según permiso del administrador principal" type="button">Hotel · Pizarra diaria</button>
+      <button id="hotel-tab" class="btn btn-secondary app-tab" data-view="hotel" aria-disabled="false" title="Hotel · Módulo operativo · Acceso según permiso del administrador principal" type="button">Hotel · Pizarra diaria</button>
       <button class="btn btn-secondary app-tab locked-tab" data-view="reservas" aria-disabled="true" title="Reservas · En construcción" type="button">Reservas</button>
       <button class="btn btn-secondary app-tab locked-tab" data-view="predictivo" aria-disabled="true" title="Mantenimiento predictivo · En construcción" type="button">Mantenimiento predictivo</button>
       <button class="btn btn-secondary app-tab locked-tab" data-view="itv-tramites" aria-disabled="true" title="Planificación ITV y trámites · En construcción" type="button">ITV y trámites</button>
@@ -2293,8 +2293,8 @@
         app.classList.remove('hidden');
         root.querySelector('#session-label').textContent = sessionUser + (account.role === 'primary' ? ' · Administrador principal' : account.role === 'secondary' ? ' · Administrador secundario' : ' · Usuario');
         root.querySelector('#own-account-name').value = account.name;
-        root.querySelector('#hotel-tab').classList.toggle('locked-tab', !canViewHotel());
-        root.querySelector('#hotel-tab').setAttribute('aria-disabled', String(!canViewHotel()));
+        root.querySelector('#hotel-tab').classList.remove('locked-tab');
+        root.querySelector('#hotel-tab').setAttribute('aria-disabled', 'false');
         root.querySelector('#hotel-new-urgent').classList.toggle('hidden', !canEditHotel());
         root.querySelector('#hotel-new-planned').classList.toggle('hidden', !canEditHotel());
         root.querySelector('#users-tab').classList.toggle('locked-tab', !isPrimaryAdmin());
