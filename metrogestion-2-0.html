@@ -70,6 +70,9 @@
     #incidence-access-mockup .detail-grid div { display: grid; gap: 3px; }
     #incidence-access-mockup .detail-grid span { color: var(--muted-foreground); }
     #incidence-access-mockup .user-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; }
+    #incidence-access-mockup .permission-status { display:inline-flex; width:max-content; max-width:100%; padding:7px 10px; border-radius:999px; font-size:12px; font-weight:850; letter-spacing:.02em; }
+    #incidence-access-mockup .permission-status.authorized { color:#166534; background:#dcfce7; border:1px solid #86efac; }
+    #incidence-access-mockup .permission-status.denied { color:#64748b; background:#f1f5f9; border:1px solid #cbd5e1; }
     #incidence-access-mockup .locked-tab { opacity:.62; border-style:dashed; }
     #incidence-access-mockup .locked-tab::before { content:'🔒'; margin-right:6px; }
     #incidence-access-mockup .module-tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; }
@@ -1939,10 +1942,10 @@
             const permissionTitle = document.createElement('strong');
             permissionTitle.textContent = 'Permiso del Hotel';
             const permissionStatus = document.createElement('div');
-            permissionStatus.className = 'text-small text-muted';
+            permissionStatus.className = 'permission-status ' + (hotelPermission === 'ninguno' ? 'denied' : 'authorized');
             permissionStatus.textContent = hotelPermission === 'editar'
-              ? 'Puede ver y modificar la pizarra.'
-              : hotelPermission === 'ver' ? 'Puede consultar la pizarra, sin modificarla.' : 'No tiene acceso al Hotel.';
+              ? '✓ AUTORIZADO: VER Y EDITAR'
+              : hotelPermission === 'ver' ? '✓ AUTORIZADO: SOLO VER' : 'SIN AUTORIZAR';
             const permissionControls = document.createElement('div');
             permissionControls.className = 'viz-row';
             const saveHotelPermission = async accesoHotel => {
@@ -1967,18 +1970,26 @@
                 }
                 if (!data?.ok) throw new Error(data?.error || 'El servidor no confirmó el permiso.');
                 await reloadAdminUsersFromSupabase();
-                root.querySelector('#user-admin-message').textContent = 'Permiso del Hotel guardado correctamente para ' + user.name + '.';
+                const successText = accesoHotel === 'ninguno'
+                  ? 'Permiso del Hotel retirado correctamente a ' + user.name + '.'
+                  : 'Permiso concedido correctamente a ' + user.name + ': ' + (accesoHotel === 'editar' ? 'ver y editar Hotel.' : 'solo ver Hotel.');
+                root.querySelector('#user-admin-message').textContent = successText;
+                window.alert(successText);
               } catch (error) {
                 message.textContent = 'No se pudo guardar el permiso: ' + (error?.message || 'error de conexión.');
                 permissionControls.querySelectorAll('button').forEach(button => { button.disabled = false; });
               }
             };
-            [['ver','Solo ver Hotel'],['editar','Ver y editar Hotel']].forEach(([access,label]) => {
+            const permissionChoices = hotelPermission === 'ninguno'
+              ? [['ver','Autorizar: solo ver Hotel'],['editar','Autorizar: ver y editar Hotel']]
+              : hotelPermission === 'ver'
+                ? [['editar','Cambiar a ver y editar Hotel']]
+                : [['ver','Cambiar a solo ver Hotel']];
+            permissionChoices.forEach(([access,label]) => {
               const button = document.createElement('button');
               button.type = 'button';
-              button.className = 'btn ' + (hotelPermission === access ? 'btn-primary' : 'btn-secondary');
+              button.className = 'btn btn-primary';
               button.textContent = label;
-              button.setAttribute('aria-pressed', String(hotelPermission === access));
               button.addEventListener('click', () => saveHotelPermission(access));
               permissionControls.append(button);
             });
@@ -1986,7 +1997,7 @@
               const revokeButton = document.createElement('button');
               revokeButton.type = 'button';
               revokeButton.className = 'btn btn-secondary';
-              revokeButton.textContent = 'Quitar acceso al Hotel';
+              revokeButton.textContent = 'Retirar permiso';
               revokeButton.addEventListener('click', () => saveHotelPermission('ninguno'));
               permissionControls.append(revokeButton);
             }
