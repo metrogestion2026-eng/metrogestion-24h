@@ -66,6 +66,7 @@ Deno.serve(async request => {
   const pin = String(payload.pin || '').trim();
   const accion = String(payload.accion || 'crear_usuario');
   const rol = payload.rol === 'secondary' ? 'administrador_secundario' : 'usuario';
+  const usuarioObjetivoId = String(payload.usuarioId || '').trim();
 
   const partes = nombreCompleto.split(' ');
   const nombre = partes.shift() || '';
@@ -102,6 +103,50 @@ Deno.serve(async request => {
     return json(request, 200, { ok: true, usuario: profile });
   }
 
+  if (accion === 'actualizar_permiso_hotel') {
+    const accesoHotel = String(payload.accesoHotel || 'ninguno');
+    if (!usuarioObjetivoId || !['ninguno', 'ver', 'editar'].includes(accesoHotel)) {
+      return json(request, 400, { error: 'Permiso de Hotel no válido.' });
+    }
+    if (usuarioObjetivoId === authData.user.id) {
+      return json(request, 400, { error: 'El administrador principal conserva siempre acceso total.' });
+    }
+    const { data: target, error: targetError } = await admin
+      .from('usuarios')
+      .select('id,tipo_usuario,permisos,activo')
+      .eq('id', usuarioObjetivoId)
+      .single();
+    if (targetError || !target) return json(request, 404, { error: 'No se encontró la cuenta indicada.' });
+    if (target.tipo_usuario === 'administrador_principal') {
+      return json(request, 400, { error: 'No se pueden limitar los permisos del administrador principal.' });
+    }
+    const permisosActuales = target.permisos && typeof target.permisos === 'object'
+      ? target.permisos as Record<string, unknown>
+      : {};
+    const permisos = {
+      ...permisosActuales,
+      hotel: {
+        ver: accesoHotel === 'ver' || accesoHotel === 'editar',
+        editar: accesoHotel === 'editar',
+      },
+    };
+    const { data: profile, error: permissionError } = await admin
+      .from('usuarios')
+      .update({ permisos, actualizado_en: new Date().toISOString() })
+      .eq('id', usuarioObjetivoId)
+      .select('*')
+      .single();
+    if (permissionError || !profile) return json(request, 400, { error: 'No se pudo guardar el permiso del Hotel.' });
+    await admin.from('registro_accesos').insert({
+      usuario_id: authData.user.id,
+      accion: 'actualizar_permiso_hotel',
+      modulo: 'usuarios',
+      resultado: 'correcto',
+      detalles: { usuario_objetivo: usuarioObjetivoId, acceso_hotel: accesoHotel },
+    });
+    return json(request, 200, { ok: true, usuario: profile });
+  }
+
   if (!nombre || phoneDigits.length < 9 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo) || !/^\d{4,6}$/.test(pin)) {
     return json(request, 400, { error: 'Nombre, teléfono, correo y PIN no tienen un formato válido.' });
   }
@@ -114,8 +159,8 @@ Deno.serve(async request => {
   if (duplicate?.length) return json(request, 409, { error: 'Ese correo o teléfono ya pertenece a otra cuenta.' });
 
   const permisos = rol === 'administrador_secundario'
-    ? { incidencias: { ver_todas: false, editar_todas: false } }
-    : {};
+    ? { incidencias: { ver_todas: false, editar_todas: false }, hotel: { ver: false, editar: false } }
+    : { hotel: { ver: false, editar: false } };
 
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email: correo,
