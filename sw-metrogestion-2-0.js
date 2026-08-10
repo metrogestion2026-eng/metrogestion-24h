@@ -1,10 +1,15 @@
-// Wrapper v36: Hotel activo + T programadas persistentes.
+// Wrapper v36: Hotel activo + guía + T programadas + significado de etapas.
 const metrogestionNativeFetch=self.fetch.bind(self);
 
+const patchHotelGuide=html=>{
+  html=html.replace('<div id="hotel-summary-cards" class="hotel-summary"></div>','<div id="hotel-reader-guide" class="card stack" style="border:3px solid #075985;background:#f0f9ff"><div class="hotel-title"><div><strong>📘 GUÍA HOTEL · Cómo consultar una parada</strong><div class="text-small text-muted">Guía viva · Metrogestión v36</div></div><button id="hotel-guide-toggle" type="button" class="btn btn-secondary">Abrir guía paso a paso</button></div><div id="hotel-guide-body" class="stack hidden"><div class="card"><strong>PASO 1 · Quiero saber qué pasa con un vehículo</strong><div class="text-small">Busca por DFM, matrícula, reserva o nº de parada. Lee primero el estado actual y después abre sus T.</div></div><div class="card"><strong>PARADA</strong><div class="text-small">Es toda la gestión logística y técnica necesaria para poner al día una unidad. Su número identifica el expediente operativo completo.</div></div><div class="card"><strong>T · Etapa</strong><div class="text-small">Cada T representa una etapa necesaria para completar la puesta al día del vehículo.</div></div><div class="card"><strong>📅 Fechas y avisos</strong><div class="text-small">Las T programadas y vencidas permanecen visibles hasta realizarlas o anularlas, aunque el vehículo ya esté recuperado.</div></div><div class="card" style="border:3px solid #0f172a;background:#f8fafc;text-align:center"><strong>😜 Antes de llamar a Gestión de Mantenimiento</strong><div style="margin-top:6px">Si después de consultar toda esta información todavía necesitas llamar a Gestión de Mantenimiento… <strong>piensa que él tampoco hace milagros.</strong> 🤣</div></div></div></div><div id="hotel-summary-cards" class="hotel-summary"></div>');
+  html=html.replace("const renderHotel = () => {","const bindHotelReaderGuide=()=>{const toggle=root.querySelector('#hotel-guide-toggle'),body=root.querySelector('#hotel-guide-body');if(!toggle||!body||toggle.dataset.bound==='1')return;toggle.dataset.bound='1';toggle.addEventListener('click',()=>{const opening=body.classList.contains('hidden');body.classList.toggle('hidden',!opening);toggle.textContent=opening?'Cerrar guía':'Abrir guía paso a paso';});};\n      const renderHotel = () => {");
+  html=html.replace("renderHotelHistory();\n        renderHotelSummary(); bindHotelStageButtons();","renderHotelHistory();\n        renderHotelSummary(); bindHotelReaderGuide(); bindHotelStageButtons();");
+  return html;
+};
+
 const patchRecoveredVisibility=html=>{
-  // Traemos la marca de retirada desde Supabase al modelo de pantalla.
   html=html.replace("modifiedAt:row.actualizado_en || row.creado_en || '', modifiedBy:row.modificado_por || row.creado_por || '',","modifiedAt:row.actualizado_en || row.creado_en || '', modifiedBy:row.modificado_por || row.creado_por || '', retiredFromActive:row.retirado_hotel_activo === true,");
-  // En la pizarra activa no se renderizan recuperados. En histórico se conservan.
   html=html.replace("let filtered = hotelUnits.filter(unit => {","let filtered = hotelUnits.filter(unit => {\n          if (unit.retiredFromActive === true) return false;");
   return html;
 };
@@ -16,5 +21,11 @@ const patchHotelProgrammedTasks=html=>{
   return html;
 };
 
-self.fetch=async(input,init)=>{const response=await metrogestionNativeFetch(input,init);try{const request=input instanceof Request?input:new Request(input,init),url=new URL(request.url,self.location.href);if(response.ok&&url.origin===self.location.origin&&url.pathname.endsWith('/metrogestion-2-0.html')){let text=await response.text();text=patchRecoveredVisibility(text);text=patchHotelProgrammedTasks(text);const headers=new Headers(response.headers);headers.set('Content-Type','text/html; charset=utf-8');headers.set('Cache-Control','no-store');return new Response(text,{status:response.status,statusText:response.statusText,headers});}}catch(error){console.warn('No se pudo aplicar la regla de recuperados del Hotel',error);}return response;};
+const patchStageMeaning=html=>{
+  html=html.replace("const stages = unit.stages.length ?", "const stagesComplete=unit.stages.length>0&&unit.stages.every(stage=>stage.done||stage.status==='anulada');\n        const stagesHeading=unit.stages.length?`<div class=\"card\" style=\"padding:10px 12px;border:2px solid ${stagesComplete?'#16a34a':'#0284c7'};background:${stagesComplete?'#f0fdf4':'#f0f9ff'}\"><strong>${stagesComplete?'✓ PUESTA AL DÍA COMPLETADA':'ETAPAS PENDIENTES PARA LA PUESTA AL DÍA DEL VEHÍCULO'}</strong><div class=\"text-small text-muted\">${stagesComplete?'Todas las etapas están realizadas o anuladas.':'Trabajos, entradas y recogidas de taller necesarios hasta completar la puesta al día de la unidad.'}</div></div>`:'';\n        const stages = unit.stages.length ?");
+  html=html.replace("          ${stages}\n          ${canEditHotel()?", "          ${stagesHeading}\n          ${stages}\n          ${canEditHotel()?");
+  return html;
+};
+
+self.fetch=async(input,init)=>{const response=await metrogestionNativeFetch(input,init);try{const request=input instanceof Request?input:new Request(input,init),url=new URL(request.url,self.location.href);if(response.ok&&url.origin===self.location.origin&&url.pathname.endsWith('/metrogestion-2-0.html')){let text=await response.text();text=patchHotelGuide(text);text=patchRecoveredVisibility(text);text=patchHotelProgrammedTasks(text);text=patchStageMeaning(text);const headers=new Headers(response.headers);headers.set('Content-Type','text/html; charset=utf-8');headers.set('Cache-Control','no-store');return new Response(text,{status:response.status,statusText:response.statusText,headers});}}catch(error){console.warn('No se pudieron aplicar las mejoras del Hotel',error);}return response;};
 importScripts('./sw-metrogestion-core.js');
