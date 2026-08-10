@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gestion-metrogestion-2-0-v36-changes-yesterday-fix';
+const CACHE_NAME = 'gestion-metrogestion-2-0-v36-save-confirmation';
 const APP_FILES = ['./metrogestion-2-0.html','./manifest-metrogestion-2-0.json','./icono-gestion-24h.svg','./icono-gestion-24h-192.png','./icono-gestion-24h-512.png'];
 
 const patchActivationHtml = html => {
@@ -8,13 +8,23 @@ const patchActivationHtml = html => {
 
   html = html.replace(
     '<label>Buscar en la pizarra<input id="hotel-search" class="form-control" placeholder="DFM, matrícula, reserva, UPC, taller, causa o INC"></label>',
-    '<label>Buscar en la pizarra<input id="hotel-search" class="form-control" placeholder="DFM, matrícula, reserva, UPC, taller, causa o INC"></label><label>Buscar fecha<input id="hotel-board-date" class="form-control" type="date"></label><div id="hotel-previous-warning" class="card hidden" style="background:#fff1f2;border:3px solid #dc2626;color:#991b1b;font-weight:900;text-align:center;font-size:18px">⚠ PIZARRA ANTERIOR · <span id="hotel-previous-date"></span><div class="text-small" style="margin-top:5px">Comprueba la fecha antes de realizar cualquier corrección.</div></div><div class="card viz-row" style="align-items:center;background:#f8fafc"><label style="display:flex;align-items:center;gap:10px"><input id="hotel-read-mode" type="checkbox" checked style="width:24px;height:24px"> 🔒 Modo lectura</label><span id="hotel-read-mode-help" class="text-small text-muted">Protección activada: no se pueden modificar datos.</span><button id="hotel-back-today" class="btn btn-secondary hidden" type="button">Volver a hoy</button></div><button id="hotel-changes-yesterday" class="btn btn-secondary" type="button">↔ Cambios desde ayer</button><div id="hotel-changes-panel" class="card stack hidden" style="border:2px solid #7dd3fc;background:#f8fafc"><div class="hotel-title"><div><strong>Cambios respecto a la pizarra anterior</strong><div id="hotel-changes-period" class="text-small text-muted"></div></div><button id="hotel-changes-close" class="btn btn-secondary" type="button">Cerrar</button></div><div id="hotel-changes-list" class="stack"></div></div>'
+    '<div id="hotel-save-confirmation" class="card hidden" role="status" aria-live="polite" style="position:sticky;top:8px;z-index:50;background:#ecfdf3;border:3px solid #16a34a;color:#166534;font-weight:900;text-align:center;font-size:17px;box-shadow:0 6px 18px rgba(0,0,0,.15)">✓ Cambios guardados correctamente</div><label>Buscar en la pizarra<input id="hotel-search" class="form-control" placeholder="DFM, matrícula, reserva, UPC, taller, causa o INC"></label><label>Buscar fecha<input id="hotel-board-date" class="form-control" type="date"></label><div id="hotel-previous-warning" class="card hidden" style="background:#fff1f2;border:3px solid #dc2626;color:#991b1b;font-weight:900;text-align:center;font-size:18px">⚠ PIZARRA ANTERIOR · <span id="hotel-previous-date"></span><div class="text-small" style="margin-top:5px">Comprueba la fecha antes de realizar cualquier corrección.</div></div><div class="card viz-row" style="align-items:center;background:#f8fafc"><label style="display:flex;align-items:center;gap:10px"><input id="hotel-read-mode" type="checkbox" checked style="width:24px;height:24px"> 🔒 Modo lectura</label><span id="hotel-read-mode-help" class="text-small text-muted">Protección activada: no se pueden modificar datos.</span><button id="hotel-back-today" class="btn btn-secondary hidden" type="button">Volver a hoy</button></div><button id="hotel-changes-yesterday" class="btn btn-secondary" type="button">↔ Cambios desde ayer</button><div id="hotel-changes-panel" class="card stack hidden" style="border:2px solid #7dd3fc;background:#f8fafc"><div class="hotel-title"><div><strong>Cambios respecto a la pizarra anterior</strong><div id="hotel-changes-period" class="text-small text-muted"></div></div><button id="hotel-changes-close" class="btn btn-secondary" type="button">Cerrar</button></div><div id="hotel-changes-list" class="stack"></div></div>'
   );
 
   html = html.replace("const canEditHotel = () => {","let hotelReadMode = true;\n      const hasHotelEditPermission = () => {");
   html = html.replace("const canViewHotel = () => {","const canEditHotel = () => hasHotelEditPermission() && !hotelReadMode;\n      const canViewHotel = () => {");
 
   const hotelHandlers = `root.querySelector('#hotel-search').addEventListener('input', renderHotel);
+      let hotelSaveNoticeTimer=null;
+      const showHotelSaved = (message='✓ Cambios guardados correctamente') => {
+        const notice=root.querySelector('#hotel-save-confirmation');
+        if(!notice) return;
+        clearTimeout(hotelSaveNoticeTimer);
+        notice.textContent=message;
+        notice.classList.remove('hidden');
+        try { notice.scrollIntoView({behavior:'smooth',block:'nearest'}); } catch {}
+        hotelSaveNoticeTimer=setTimeout(()=>notice.classList.add('hidden'),3200);
+      };
       const refreshHotelReadMode = () => {
         const checkbox=root.querySelector('#hotel-read-mode'); const help=root.querySelector('#hotel-read-mode-help');
         if(!checkbox) return; const allowed=hasHotelEditPermission();
@@ -71,6 +81,17 @@ const patchActivationHtml = html => {
       root.querySelector('#hotel-changes-close')?.addEventListener('click',()=>root.querySelector('#hotel-changes-panel')?.classList.add('hidden'));`;
 
   html = html.replace("root.querySelector('#hotel-search').addEventListener('input', renderHotel);", hotelHandlers);
+
+  // Sustituimos el alert del guardado completo por confirmación visual no bloqueante.
+  html = html.replace("message.textContent = 'Datos guardados correctamente';\n          window.alert('Datos guardados correctamente');\n          await loadHotelFromSupabase(false);","message.textContent = 'Datos guardados correctamente';\n          showHotelSaved('✓ Cambios guardados correctamente');\n          await loadHotelFromSupabase(false);");
+
+  // Confirmaciones visuales para acciones rápidas de Hotel cuando no hay error.
+  html = html.replace("if (error) window.alert('No se pudo actualizar la etapa: ' + error.message);\n          await loadHotelFromSupabase(false);","if (error) window.alert('No se pudo actualizar la etapa: ' + error.message); else showHotelSaved('✓ T actualizada correctamente');\n          await loadHotelFromSupabase(false);");
+  html = html.replace("if (error) window.alert('No se pudo añadir la T: ' + error.message);\n          await loadHotelFromSupabase(false);","if (error) window.alert('No se pudo añadir la T: ' + error.message); else showHotelSaved('✓ T añadida correctamente');\n          await loadHotelFromSupabase(false);");
+  html = html.replace("if (error) window.alert('No se pudo guardar la fecha de la T: ' + error.message);\n          await loadHotelFromSupabase(false);","if (error) window.alert('No se pudo guardar la fecha de la T: ' + error.message); else showHotelSaved('✓ Fecha de T guardada');\n          await loadHotelFromSupabase(false);");
+  html = html.replace("if (error) window.alert('No se pudo dejar la T pendiente: ' + error.message);\n          await loadHotelFromSupabase(false);","if (error) window.alert('No se pudo dejar la T pendiente: ' + error.message); else showHotelSaved('✓ T dejada pendiente');\n          await loadHotelFromSupabase(false);");
+  html = html.replace("if (error) window.alert('No se pudo modificar la T: ' + error.message);\n          await loadHotelFromSupabase(false);","if (error) window.alert('No se pudo modificar la T: ' + error.message); else showHotelSaved('✓ T modificada correctamente');\n          await loadHotelFromSupabase(false);");
+  html = html.replace("if (error) window.alert('No se pudo anular la T: ' + error.message);\n          await loadHotelFromSupabase(false);","if (error) window.alert('No se pudo anular la T: ' + error.message); else showHotelSaved('✓ T anulada');\n          await loadHotelFromSupabase(false);");
 
   html = html.replace("${stage.status!=='anulada'?'<option value=\"annul\">Anular T</option>':''}","${stage.status!=='anulada'?'<option value=\"annul\">Anular T</option>':'<option value=\"restore\">Restaurar T</option>'}");
   html = html.replace("const actionClass = {done:'hotel-stage-done',date:'hotel-stage-date',edit:'hotel-stage-edit',annul:'hotel-stage-annul'}[action];","const actionClass = {done:'hotel-stage-done',date:'hotel-stage-date',edit:'hotel-stage-edit',annul:'hotel-stage-annul',restore:'hotel-stage-restore'}[action];");
