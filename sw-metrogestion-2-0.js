@@ -4,6 +4,7 @@ const metrogestionNativeFetch=self.fetch.bind(self);
 const patchHotelModel=html=>{
   html=html.replace("temporaryReason:row.motivo_sustitucion_temporal || '', temporaryLimit:row.fecha_limite_sustitucion || '',","temporaryReason:row.motivo_sustitucion_temporal || '', temporaryLimit:row.fecha_limite_sustitucion || '',\n        modifiedAt:row.actualizado_en || row.creado_en || '', modifiedBy:row.modificado_por || row.creado_por || '', retiredFromActive:row.retirado_hotel_activo === true, stopNumber:row.numero_parada || '',");
   html=html.replace("let hotelMetricFilter = 'all';","let hotelMetricFilter = 'all';\n      const hotelUserName=id=>users.find(account=>String(account.id)===String(id||''))?.name||(String(id||'')===String(sessionUserId||'')?sessionUser:'Usuario');\n      const formatHotelModifiedAt=value=>{if(!value)return '';const date=new Date(value);if(Number.isNaN(date.getTime()))return '';const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),day=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(date),time=date.toLocaleTimeString('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit'});return day===today?'hoy '+time:new Date(day+'T12:00:00').toLocaleDateString('es-ES')+' '+time;};");
+  html=html.replace("let filtered = hotelUnits.filter(unit => {","let filtered = hotelUnits.filter(unit => {\n          if(unit.retiredFromActive===true)return false;");
   return html;
 };
 
