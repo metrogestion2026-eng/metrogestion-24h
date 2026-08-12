@@ -75,5 +75,44 @@ export const hotelV39 = {
   stopHeading(unit) {
     const number = String(unit?.stopNumber || '').trim();
     return number ? `PARADA Nº ${number}` : '';
+  },
+
+  // Convierte los pendientes reales importados desde MANTENIMENT en T iniciales
+  // cuando se crea una sustitución. El resultado es una propuesta editable.
+  stagesFromMaintenancePendings(pendings = [], existingStages = []) {
+    const normalize = value => String(value || '').trim().toUpperCase();
+    const existingKeys = new Set((existingStages || []).map(stage => normalize(stage.sourceKey || stage.code || stage.name)));
+    const created = [];
+
+    for (const pending of pendings || []) {
+      if (!pending) continue;
+      if (pending.active === false || pending.completed === true || pending.status === 'realizada' || pending.status === 'anulada') continue;
+
+      const code = normalize(pending.code || pending.codigo || pending.type || pending.tipo || pending.name || pending.nombre);
+      if (!code) continue;
+      const sourceKey = normalize(pending.sourceKey || pending.id || code);
+      if (existingKeys.has(sourceKey) || existingKeys.has(code)) continue;
+
+      created.push({
+        name: String(pending.label || pending.nombre || pending.name || code).trim(),
+        code,
+        sourceKey,
+        status: 'pendiente',
+        position: (existingStages?.length || 0) + created.length + 1,
+        plannedAt: pending.plannedAt || pending.fecha || pending.dueDate || null,
+        workshop: pending.workshop || pending.taller || null,
+        notes: pending.notes || pending.observaciones || '',
+        source: 'MANTENIMENT',
+        autoCreated: true,
+        editable: true
+      });
+    }
+    return created;
+  },
+
+  // Al crear una sustitución, conserva las T manuales existentes y añade solo
+  // los pendientes de MANTENIMENT que todavía no estén representados.
+  mergeSubstitutionStages(existingStages = [], maintenancePendings = []) {
+    return [...(existingStages || []), ...this.stagesFromMaintenancePendings(maintenancePendings, existingStages)];
   }
 };
