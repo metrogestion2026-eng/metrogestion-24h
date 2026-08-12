@@ -20,4 +20,15 @@ assert(hotelV39.freeReserves(reserves,units).some(x=>x.code==='R1269'),'La reser
 assert(!hotelV39.freeReserves(reserves,units).some(x=>x.code==='2497'),'La reserva de una sustitución activa debe seguir ocupada');
 assert(hotelV39.stopHeading(units[0])==='PARADA Nº 2600100','El número de parada debe estar disponible para cabecera');
 
+const maintenancePendings=[
+  {id:'MCD-2709',code:'MCD',nombre:'MCD · Mantenimiento',fecha:'2026-08-20',observaciones:'Mantenimiento caducado'},
+  {id:'ITV-2709',code:'ITV',nombre:'ITV',fecha:'2026-08-25'},
+  {id:'RT-2709',code:'RT',nombre:'RT',completed:true}
+];
+const existingStages=[{name:'ITV',code:'ITV',sourceKey:'ITV-2709',status:'pendiente'}];
+const merged=hotelV39.mergeSubstitutionStages(existingStages,maintenancePendings);
+assert(merged.some(x=>x.code==='MCD'&&x.autoCreated===true&&x.editable===true),'Al crear sustitución debe crear T de pendientes de MANTENIMENT');
+assert(merged.filter(x=>x.code==='ITV').length===1,'No debe duplicar una T ya existente');
+assert(!merged.some(x=>x.code==='RT'),'No debe crear T de un pendiente ya realizado');
+
 console.log('Hotel v39 reglas: OK');
