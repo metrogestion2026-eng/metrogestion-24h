@@ -1,0 +1,1 @@
+Entorno independiente. No usar como producción hasta validación.
