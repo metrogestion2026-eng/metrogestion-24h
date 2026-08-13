@@ -104,12 +104,17 @@
         const {data,error}=await sb.rpc('guardar_ficha_taller_v39',{p_taller_id:id||null,p_nombre:name,p_ubicacion:modal.querySelector('#v39-wm-loc').value.trim(),p_contactos:contactsPayload});
         if(error){msg.textContent='Error: '+error.message;btn.disabled=false;return}
         msg.textContent=`✓ Ficha guardada · ${contactsPayload.length} contacto(s).`;
-        setTimeout(()=>location.reload(),650);
+        workshops=await loadWorkshops();
+        setTimeout(()=>{
+          modal.remove();
+          const tab=document.querySelector('[data-v39-view="talleres"]');
+          if(tab)tab.click();
+          window.dispatchEvent(new Event('focus'));
+        },450);
       };
     }catch(e){alert('No se pudo abrir la ficha del taller: '+(e?.message||'error'))}
   }
 
-  // Captura antes de los manejadores antiguos para sustituir el editor simple por la ficha múltiple.
   document.addEventListener('click',e=>{
     const edit=e.target.closest('.v39-w-edit');
     const add=e.target.closest('#v39-new-workshop');
