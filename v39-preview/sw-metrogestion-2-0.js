@@ -12,6 +12,7 @@ self.fetch = async (input, init) => {
       html = html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
       html = html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
       if (!html.includes('hotel-v39-integracion.js')) html = html.replace('</body>','<script src="./hotel-v39-integracion.js?v=39-20260813"></script></body>');
+      if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260813c"></script></body>');
       const headers = new Headers(response.headers);
       headers.set('Content-Type','text/html; charset=utf-8');
       headers.set('Cache-Control','no-store');
