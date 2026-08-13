@@ -1,0 +1,1 @@
+La preview usa el icono SVG. Este marcador evita depender de los PNG en pruebas.
