@@ -1,6 +1,16 @@
 // Metrogestión v39 preview · service worker aislado bajo /v39-preview/.
+// Fuerza que cada actualización de v39 tome el control antes de abrir la app.
+self.addEventListener('install', event => {
+  event.waitUntil(self.skipWaiting());
+});
+self.addEventListener('activate', event => {
+  event.waitUntil(self.clients.claim());
+});
+self.addEventListener('message', event => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
+});
+
 // Importa una copia exacta de la base v36 y después añade la interfaz v39.
-// 13/08/2026 23:34 · retirada de la capa de pizarra actual para recuperar el login estable.
 importScripts('./sw-metrogestion-v36-estable.js');
 const v39StableFetch = self.fetch.bind(self);
 self.fetch = async (input, init) => {
