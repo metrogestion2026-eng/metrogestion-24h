@@ -11,11 +11,19 @@
 
   let authenticated=false;
 
+  function removeInternalLoginHint(){
+    const target='Utiliza la contraseña creada en Supabase.';
+    document.querySelectorAll('p,small,div,span').forEach(el=>{
+      if((el.textContent||'').trim()===target) el.remove();
+    });
+  }
+
   function removeButton(){
     document.getElementById('v39-home-fixed')?.remove();
   }
 
   function ensureButton(){
+    removeInternalLoginHint();
     if(!authenticated){
       removeButton();
       return;
@@ -52,6 +60,7 @@
   }
 
   const observer=new MutationObserver(()=>{
+    removeInternalLoginHint();
     if(authenticated) ensureButton();
     else removeButton();
   });
@@ -62,5 +71,6 @@
     ensureButton();
   });
 
+  removeInternalLoginHint();
   syncAuth();
 })();
