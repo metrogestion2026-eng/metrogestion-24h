@@ -15,9 +15,9 @@ self.fetch = async (input, init) => {
       if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260813c"></script></body>');
       if (!html.includes('hotel-v39-editar-parada.js')) html = html.replace('</body>','<script src="./hotel-v39-editar-parada.js?v=39-20260813d"></script></body>');
       if (!html.includes('hotel-v39-t-programadas.js')) html = html.replace('</body>','<script src="./hotel-v39-t-programadas.js?v=39-20260813h"></script></body>');
-      if (!html.includes('hotel-v39-plegables.js')) html = html.replace('</body>','<script src="./hotel-v39-plegables.js?v=39-20260813f"></script></body>');
       if (!html.includes('hotel-v39-asignar-reserva.js')) html = html.replace('</body>','<script src="./hotel-v39-asignar-reserva.js?v=39-20260813g"></script></body>');
       if (!html.includes('hotel-v39-dfm-select.js')) html = html.replace('</body>','<script src="./hotel-v39-dfm-select.js?v=39-20260813i"></script></body>');
+      if (!html.includes('hotel-v39-ajustes-operativos.js')) html = html.replace('</body>','<script src="./hotel-v39-ajustes-operativos.js?v=39-20260813j"></script></body>');
       const headers = new Headers(response.headers);
       headers.set('Content-Type','text/html; charset=utf-8');
       headers.set('Cache-Control','no-store');
