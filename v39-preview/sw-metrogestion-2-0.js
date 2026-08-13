@@ -1,5 +1,6 @@
 // Metrogestión v39 preview · service worker aislado bajo /v39-preview/.
 // Importa una copia exacta de la base v36 y después añade la interfaz v39.
+// 13/08/2026 23:34 · retirada de la capa de pizarra actual para recuperar el login estable.
 importScripts('./sw-metrogestion-v36-estable.js');
 const v39StableFetch = self.fetch.bind(self);
 self.fetch = async (input, init) => {
@@ -27,7 +28,6 @@ self.fetch = async (input, init) => {
       if (!html.includes('hotel-v39-bloque-operativo-13ago.js')) html = html.replace('</body>','<script src="./hotel-v39-bloque-operativo-13ago.js?v=39-20260813s"></script></body>');
       if (!html.includes('hotel-v39-sin-ver-expediente.js')) html = html.replace('</body>','<script src="./hotel-v39-sin-ver-expediente.js?v=39-20260813t"></script></body>');
       if (!html.includes('hotel-v39-nota-admin.js')) html = html.replace('</body>','<script src="./hotel-v39-nota-admin.js?v=39-20260813u"></script></body>');
-      if (!html.includes('hotel-v39-pizarra-actual-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-pizarra-actual-fix.js?v=39-20260813z"></script></body>');
       const headers = new Headers(response.headers);
       headers.set('Content-Type','text/html; charset=utf-8');
       headers.set('Cache-Control','no-store');
