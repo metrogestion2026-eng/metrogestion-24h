@@ -11,6 +11,7 @@ self.fetch = async (input, init) => {
       let html = await response.text();
       html = html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
       html = html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
+      html = html.replace('Utiliza la contraseña creada en Supabase.','');
       if (!html.includes('hotel-v39-integracion.js')) html = html.replace('</body>','<script src="./hotel-v39-integracion.js?v=39-20260813"></script></body>');
       if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260813c"></script></body>');
       if (!html.includes('hotel-v39-editar-parada.js')) html = html.replace('</body>','<script src="./hotel-v39-editar-parada.js?v=39-20260813d"></script></body>');
@@ -21,7 +22,7 @@ self.fetch = async (input, init) => {
       if (!html.includes('hotel-v39-reordenar-t.js')) html = html.replace('</body>','<script src="./hotel-v39-reordenar-t.js?v=39-20260813k"></script></body>');
       if (!html.includes('hotel-v39-permisos-talleres.js')) html = html.replace('</body>','<script src="./hotel-v39-permisos-talleres.js?v=39-20260813m"></script></body>');
       if (!html.includes('hotel-v39-taller-contactos-multiples.js')) html = html.replace('</body>','<script src="./hotel-v39-taller-contactos-multiples.js?v=39-20260813r"></script></body>');
-      if (!html.includes('hotel-v39-inicio-fijo.js')) html = html.replace('</body>','<script src="./hotel-v39-inicio-fijo.js?v=39-20260813o"></script></body>');
+      if (!html.includes('hotel-v39-inicio-fijo.js')) html = html.replace('</body>','<script src="./hotel-v39-inicio-fijo.js?v=39-20260813w"></script></body>');
       if (!html.includes('hotel-v39-ruta-inicio-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-ruta-inicio-fix.js?v=39-20260813p"></script></body>');
       if (!html.includes('hotel-v39-bloque-operativo-13ago.js')) html = html.replace('</body>','<script src="./hotel-v39-bloque-operativo-13ago.js?v=39-20260813s"></script></body>');
       if (!html.includes('hotel-v39-sin-ver-expediente.js')) html = html.replace('</body>','<script src="./hotel-v39-sin-ver-expediente.js?v=39-20260813t"></script></body>');
