@@ -32,19 +32,28 @@
     return !error && data===true;
   }
 
+  function showContainer(nav){
+    if(!nav) return;
+    nav.classList.remove('hidden');
+    nav.removeAttribute('hidden');
+    nav.removeAttribute('aria-hidden');
+    if(nav.style.display==='none') nav.style.removeProperty('display');
+    if(nav.style.visibility==='hidden') nav.style.removeProperty('visibility');
+    if(nav.style.opacity==='0') nav.style.removeProperty('opacity');
+  }
+
   function showTab(tab,allowed){
     if(!tab) return;
     if(allowed){
-      if(tab.classList.contains('hidden')) tab.classList.remove('hidden');
+      tab.classList.remove('hidden','locked-tab');
       tab.removeAttribute('hidden');
       tab.removeAttribute('aria-hidden');
       tab.setAttribute('aria-disabled','false');
-      tab.classList.remove('locked-tab');
       if(tab.style.display==='none') tab.style.removeProperty('display');
       if(tab.style.visibility==='hidden') tab.style.removeProperty('visibility');
       if(tab.style.opacity==='0') tab.style.removeProperty('opacity');
     } else {
-      if(!tab.classList.contains('hidden')) tab.classList.add('hidden');
+      tab.classList.add('hidden');
       tab.setAttribute('aria-disabled','true');
     }
   }
@@ -55,14 +64,16 @@
     const activation=document.querySelector('#activate-tab');
     const hotel=document.querySelector('#hotel-tab');
 
-    // Si otra capa mueve los botones al cambiar de vista, se devuelven a su menú original.
+    // La base antigua puede ocultar el contenedor completo al cambiar de vista.
+    // En v39 el menú principal debe seguir visible durante toda la sesión.
+    showContainer(nav);
+
     if(nav && activation && activation.parentElement!==nav) nav.insertBefore(activation,nav.firstChild);
     if(nav && hotel && hotel.parentElement!==nav) nav.insertBefore(hotel,activation?.nextSibling || nav.firstChild);
 
     showTab(activation,perms.activar);
     showTab(hotel,perms.gestion);
 
-    // Si Hotel está abierto, el botón permanece visible y marcado como activo.
     const hotelView=document.querySelector('#view-hotel');
     if(hotel && perms.gestion && hotelView && !hotelView.classList.contains('hidden')){
       hotel.classList.add('btn-primary');
@@ -86,7 +97,7 @@
     const hotel=document.querySelector('#hotel-tab');
     if(!nav || !activation || !hotel) return;
     observer=new MutationObserver(queueRepair);
-    observer.observe(nav,{childList:true,subtree:false});
+    observer.observe(nav,{childList:true,subtree:false,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
     observer.observe(activation,{attributes:true,attributeFilter:['class','style','hidden','aria-hidden','aria-disabled']});
     observer.observe(hotel,{attributes:true,attributeFilter:['class','style','hidden','aria-hidden','aria-disabled']});
   }
@@ -107,6 +118,11 @@
       applying=false;
     }
   }
+
+  // Repara el menú después de cualquier cambio manual de vista, nunca antes del login.
+  document.addEventListener('click',e=>{
+    if(e.target.closest?.('#activate-tab,#hotel-tab,.hotel-subtab')) setTimeout(queueRepair,0);
+  },true);
 
   sb.auth.onAuthStateChange((_event,session)=>{
     if(!session){
