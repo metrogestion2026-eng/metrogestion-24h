@@ -32,14 +32,10 @@ self.fetch = async (input, init) => {
         "if (canViewHotel()) await loadHotelFromSupabase(true);\n        loadVehicleIndex().catch(error => console.warn('v39: índice de vehículos en segundo plano', error));\n        offerActivationProgress();"
       );
 
-      // Login: formulario sin autocompletado automático, botón submit normal.
+      // Login: formulario sin autocompletado automático; los campos se reconstruyen en la capa k19.
       html = html.replace(
         '<form id="login-form" class="card stack" autocomplete="on">',
         '<form id="login-form" class="card stack" autocomplete="off">'
-      );
-      html = html.replace(
-        '<button id="mock-enter" class="btn btn-primary" type="button">Entrar</button>',
-        '<button id="mock-enter" class="btn btn-primary" type="submit">Entrar</button>'
       );
 
       html = html.replace('</head>','<style>#v39-home-fixed,#update-notice{display:none!important}</style></head>');
@@ -48,7 +44,7 @@ self.fetch = async (input, init) => {
       html = html.replace('Utiliza la contraseña creada en Supabase.','');
 
       if (!html.includes('v39-sin-aviso-actualizacion.js')) html = html.replace('</body>','<script src="./v39-sin-aviso-actualizacion.js?v=39-20260814k14"></script></body>');
-      if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k18"></script></body>');
+      if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k19"></script></body>');
       if (!html.includes('hotel-v39-integracion.js')) html = html.replace('</body>','<script src="./hotel-v39-integracion.js?v=39-20260813"></script></body>');
       if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260814k16"></script></body>');
       if (!html.includes('hotel-v39-editar-parada.js')) html = html.replace('</body>','<script src="./hotel-v39-editar-parada.js?v=39-20260813d"></script></body>');
