@@ -27,6 +27,13 @@ self.fetch = async (input, init) => {
         "root.querySelector('#hotel-date').textContent = activePizarraDate ? 'Pizarra en curso del ' + shownDate + ' · sincronización en tiempo real' : 'Cargando pizarra actual…';"
       );
 
+      // En la Pizarra actual solo entran movimientos activos.
+      // Las reservas liberadas se muestran exclusivamente en el módulo Reservas.
+      html = html.replace(
+        "hotelUnits = (rows || []).map(mapDbHotelUnit);",
+        "hotelUnits = (rows || []).filter(row => row.estado !== 'reserva_liberada').map(mapDbHotelUnit);"
+      );
+
       // v39: la pizarra de Hotel tiene prioridad en el arranque.
       // El índice completo de vehículos se prepara después, en segundo plano.
       html = html.replace(
@@ -52,7 +59,7 @@ self.fetch = async (input, init) => {
       if (!html.includes('v39-sin-aviso-actualizacion.js')) html = html.replace('</body>','<script src="./v39-sin-aviso-actualizacion.js?v=39-20260814k14"></script></body>');
       if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k13"></script></body>');
       if (!html.includes('hotel-v39-integracion.js')) html = html.replace('</body>','<script src="./hotel-v39-integracion.js?v=39-20260813"></script></body>');
-      if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260813c"></script></body>');
+      if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260814k16"></script></body>');
       if (!html.includes('hotel-v39-editar-parada.js')) html = html.replace('</body>','<script src="./hotel-v39-editar-parada.js?v=39-20260813d"></script></body>');
       if (!html.includes('hotel-v39-t-programadas.js')) html = html.replace('</body>','<script src="./hotel-v39-t-programadas.js?v=39-20260813h"></script></body>');
       if (!html.includes('hotel-v39-asignar-reserva.js')) html = html.replace('</body>','<script src="./hotel-v39-asignar-reserva.js?v=39-20260813g"></script></body>');
