@@ -70,7 +70,7 @@ self.fetch = async (input, init) => {
       inject('hotel-v39-reservas-modulo.js','39-20260814k15');
       inject('hotel-v39-bloque-operativo-13ago.js','39-20260814k27');
       // Un único botón global Lectura/Edición gobierna toda la pizarra y todas las T.
-      inject('hotel-v39-modo-compartido.js','39-20260814k28');
+      inject('hotel-v39-modo-compartido.js','39-20260814k29');
       inject('hotel-v39-sin-ver-expediente.js','39-20260813t');
       inject('hotel-v39-nota-admin.js','39-20260813u');
       inject('hotel-v39-reservas-solo-lectura.js','39-20260814k');
