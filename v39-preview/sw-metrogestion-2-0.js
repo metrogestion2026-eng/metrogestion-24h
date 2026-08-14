@@ -20,6 +20,11 @@ self.fetch = async (input, init) => {
     const url = new URL(request.url, self.location.href);
     if (response.ok && url.origin===self.location.origin && url.pathname.endsWith('/v39-preview/metrogestion-2-0.html')) {
       let html = await response.text();
+      // La base v36 tenía 03/08 como fecha fija de arranque del Hotel.
+      // En v39 nunca se muestra como pizarra actual: primero se consulta la en_curso real.
+      html = html.replace("const hotelSourceDate = '03/08/2026';","let hotelSourceDate = 'Cargando pizarra actual…';");
+      html = html.replace("activePizarraDate = pizarra.fecha;","activePizarraDate = pizarra.fecha; hotelSourceDate = new Date(pizarra.fecha + 'T12:00:00').toLocaleDateString('es-ES');");
+
       // El botón flotante Gestión queda retirado incluso si una copia antigua intentara recrearlo.
       html = html.replace('</head>','<style>#v39-home-fixed{display:none!important}</style></head>');
       html = html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
@@ -41,7 +46,7 @@ self.fetch = async (input, init) => {
       if (!html.includes('hotel-v39-sin-ver-expediente.js')) html = html.replace('</body>','<script src="./hotel-v39-sin-ver-expediente.js?v=39-20260813t"></script></body>');
       if (!html.includes('hotel-v39-nota-admin.js')) html = html.replace('</body>','<script src="./hotel-v39-nota-admin.js?v=39-20260813u"></script></body>');
       if (!html.includes('hotel-v39-reservas-solo-lectura.js')) html = html.replace('</body>','<script src="./hotel-v39-reservas-solo-lectura.js?v=39-20260814k"></script></body>');
-      if (!html.includes('hotel-v39-pizarra-actual-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-pizarra-actual-fix.js?v=39-20260814k"></script></body>');
+      if (!html.includes('hotel-v39-pizarra-actual-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-pizarra-actual-fix.js?v=39-20260814k4"></script></body>');
       if (!html.includes('hotel-v39-historico-dia.js')) html = html.replace('</body>','<script src="./hotel-v39-historico-dia.js?v=39-20260814k3"></script></body>');
       const headers = new Headers(response.headers);
       headers.set('Content-Type','text/html; charset=utf-8');
