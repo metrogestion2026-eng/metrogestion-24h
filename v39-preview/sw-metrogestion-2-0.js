@@ -26,6 +26,14 @@ self.fetch = async (input, init) => {
         "root.querySelector('#hotel-date').textContent = 'Pizarra en curso del ' + shownDate + ' · sincronización en tiempo real';",
         "root.querySelector('#hotel-date').textContent = activePizarraDate ? 'Pizarra en curso del ' + shownDate + ' · sincronización en tiempo real' : 'Cargando pizarra actual…';"
       );
+
+      // v39: la pizarra de Hotel tiene prioridad en el arranque.
+      // El índice completo de vehículos se prepara después, en segundo plano.
+      html = html.replace(
+        "await loadVehicleIndex();\n        // El Hotel solo carga datos y tiempo real cuando la cuenta tiene permiso explícito.\n        if (canViewHotel()) await loadHotelFromSupabase(true);\n        offerActivationProgress();",
+        "if (canViewHotel()) await loadHotelFromSupabase(true);\n        loadVehicleIndex().catch(error => console.warn('v39: índice de vehículos en segundo plano', error));\n        offerActivationProgress();"
+      );
+
       html = html.replace('</head>','<style>#v39-home-fixed{display:none!important}</style></head>');
       html = html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
       html = html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
