@@ -44,10 +44,12 @@ self.fetch = async (input, init) => {
         '<button id="mock-enter" class="btn btn-primary" type="button">Entrar</button>'
       );
 
-      html = html.replace('</head>','<style>#v39-home-fixed{display:none!important}</style></head>');
+      // En v39 las actualizaciones se controlan desde index.html. El aviso interno de v36 no se usa.
+      html = html.replace('</head>','<style>#v39-home-fixed,#update-notice{display:none!important}</style></head>');
       html = html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
       html = html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
       html = html.replace('Utiliza la contraseña creada en Supabase.','');
+      if (!html.includes('v39-sin-aviso-actualizacion.js')) html = html.replace('</body>','<script src="./v39-sin-aviso-actualizacion.js?v=39-20260814k14"></script></body>');
       if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k13"></script></body>');
       if (!html.includes('hotel-v39-integracion.js')) html = html.replace('</body>','<script src="./hotel-v39-integracion.js?v=39-20260813"></script></body>');
       if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260813c"></script></body>');
