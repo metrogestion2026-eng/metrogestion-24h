@@ -1,4 +1,4 @@
-// Metrogestión v39 preview · service worker aislado bajo /v39-preview/.
+// Metrogestión v39 preview · build stablek23 · service worker aislado bajo /v39-preview/.
 self.addEventListener('install', event => { event.waitUntil(self.skipWaiting()); });
 self.addEventListener('activate', event => { event.waitUntil(self.clients.claim()); });
 self.addEventListener('message', event => { if (event.data === 'SKIP_WAITING') self.skipWaiting(); });
@@ -48,7 +48,7 @@ self.fetch = async (input, init) => {
       html = html.replace('Utiliza la contraseña creada en Supabase.','');
 
       if (!html.includes('v39-sin-aviso-actualizacion.js')) html = html.replace('</body>','<script src="./v39-sin-aviso-actualizacion.js?v=39-20260814k14"></script></body>');
-      if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k22"></script></body>');
+      if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k23"></script></body>');
       if (!html.includes('hotel-v39-integracion.js')) html = html.replace('</body>','<script src="./hotel-v39-integracion.js?v=39-20260813"></script></body>');
       if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260814k16"></script></body>');
       if (!html.includes('hotel-v39-editar-parada.js')) html = html.replace('</body>','<script src="./hotel-v39-editar-parada.js?v=39-20260813d"></script></body>');
