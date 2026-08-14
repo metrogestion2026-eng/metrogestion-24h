@@ -19,21 +19,19 @@
     try{
       const authClient=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
       const {data:{session}}=await authClient.auth.getSession();
-      if(!session?.user){location.replace('../v39-login/?build=cleanlogin2');return;}
+      if(!session?.user){location.replace('../v39-login/?build=cleanlogin3');return;}
 
       const base='../v39-preview/';
       const response=await fetch(base+'metrogestion-2-0.html?direct='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache'}});
       if(!response.ok)throw new Error('No se pudo cargar la aplicación ('+response.status+')');
       let html=await response.text();
 
-      // El acceso móvil no ejecuta el actualizador/service worker heredado.
       const swStart="      if ('serviceWorker' in navigator) {";
       const renderMarker='      renderLoginUsers();';
       const a=html.indexOf(swStart),b=a>=0?html.indexOf(renderMarker,a):-1;
       if(a>=0&&b>a)html=html.slice(0,a)+renderMarker+html.slice(b+renderMarker.length);
       html=html.replace(/<div id="update-notice" class="update-notice"[\s\S]*?<\/div>\s*<footer/, '<footer');
 
-      // Expone la entrada autenticada de la base para entrar sin usar el formulario bloqueado.
       html=html.replace('const enterAuthenticatedApp = async authUser => {','const enterAuthenticatedApp = window.__metroEnterAuthenticatedApp = async authUser => {');
       html=html.replace('<head>','<head><base href="'+base+'"><style>#update-notice{display:none!important}</style>');
       html=html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
@@ -41,7 +39,7 @@
       html=html.replace('Utiliza la contraseña creada en Supabase.','');
 
       const scripts=[
-        'hotel-v39-integracion.js?v=39-20260813','hotel-v39-fix-reservas.js?v=39-20260813c','hotel-v39-editar-parada.js?v=39-20260813d','hotel-v39-t-programadas.js?v=39-20260813h','hotel-v39-asignar-reserva.js?v=39-20260813g','hotel-v39-dfm-select.js?v=39-20260813i','hotel-v39-ajustes-operativos.js?v=39-20260813j','hotel-v39-reordenar-t.js?v=39-20260813k','hotel-v39-permisos-talleres.js?v=39-20260813m','hotel-v39-taller-contactos-multiples.js?v=39-20260813r','hotel-v39-ruta-inicio-fix.js?v=39-20260814a','hotel-v39-bloque-operativo-13ago.js?v=39-20260813s','hotel-v39-sin-ver-expediente.js?v=39-20260813t','hotel-v39-nota-admin.js?v=39-20260813u','hotel-v39-reservas-solo-lectura.js?v=39-20260814b','hotel-v39-tprog-texto-permiso.js?v=39-20260814c'
+        'hotel-v39-integracion.js?v=39-20260813','hotel-v39-fix-reservas.js?v=39-20260813c','hotel-v39-editar-parada.js?v=39-20260813d','hotel-v39-t-programadas.js?v=39-20260813h','hotel-v39-asignar-reserva.js?v=39-20260813g','hotel-v39-dfm-select.js?v=39-20260813i','hotel-v39-ajustes-operativos.js?v=39-20260813j','hotel-v39-reordenar-t.js?v=39-20260813k','hotel-v39-permisos-talleres.js?v=39-20260813m','hotel-v39-taller-contactos-multiples.js?v=39-20260813r','hotel-v39-ruta-inicio-fix.js?v=39-20260814d','hotel-v39-bloque-operativo-13ago.js?v=39-20260813s','hotel-v39-sin-ver-expediente.js?v=39-20260813t','hotel-v39-nota-admin.js?v=39-20260813u','hotel-v39-reservas-solo-lectura.js?v=39-20260814b','hotel-v39-tprog-texto-permiso.js?v=39-20260814c'
       ];
       const closeTag='<'+'/script>';
       let injection=scripts.map(src=>'<script src="'+src+'">'+closeTag).join('');
