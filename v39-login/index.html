@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#075985">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <title>Metrogestión v39 · acceso móvil</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#eef3f7;color:#172033;font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}.head{background:#075985;color:white;padding:20px}.head strong{font-size:22px}.wrap{max-width:560px;margin:24px auto;padding:14px}.card{background:white;border:1px solid #d8e1ea;border-radius:18px;padding:20px;box-shadow:0 8px 30px rgba(15,23,42,.10);display:grid;gap:16px}label{font-weight:800;display:grid;gap:7px}input{width:100%;min-height:56px;border:2px solid #94a3b8;border-radius:13px;padding:12px 14px;font:inherit;font-size:18px;background:#fff;color:#111827}input:focus{outline:3px solid #7dd3fc;border-color:#0284c7}button{min-height:56px;border:0;border-radius:13px;background:#075985;color:#fff;font:900 18px system-ui;padding:12px;cursor:pointer}.secondary{background:#fff;color:#172033;border:1px solid #cbd5e1}.muted{color:#64748b;font-size:14px}.msg{min-height:22px;font-weight:750}.row{display:grid;grid-template-columns:1fr;gap:10px}
+  </style>
+</head>
+<body>
+  <div class="head"><strong>Gestión de mantenimientos</strong><div>Metrogestión · v39 · PRUEBAS</div></div>
+  <main class="wrap">
+    <form id="login" class="card" autocomplete="on">
+      <div><strong style="font-size:22px">Acceso seguro</strong><div class="muted">Pantalla móvil simplificada. Inicia sesión y después se abrirá v39.</div></div>
+      <label>Correo vinculado<input id="email" type="email" autocomplete="username" inputmode="email" placeholder="correo@empresa.com" required></label>
+      <label>Contraseña o PIN<input id="password" type="password" autocomplete="current-password" placeholder="Introduce tu clave privada" required></label>
+      <div class="row"><button id="toggle" class="secondary" type="button">Ver contraseña</button><button id="enter" type="submit">Entrar en v39</button></div>
+      <div id="msg" class="msg" aria-live="polite"></div>
+      <div class="muted">La contraseña se envía directamente a Supabase para validar el acceso. Metrogestión no la almacena en esta página.</div>
+    </form>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    (()=>{
+      const URL='https://njtohfkqjjoavtumtmza.supabase.co';
+      const KEY='sb_publishable_w1a9DClOM0S4HVJdv_TbKg_W_UkN2W_';
+      const sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+      const form=document.getElementById('login'),email=document.getElementById('email'),password=document.getElementById('password'),msg=document.getElementById('msg'),enter=document.getElementById('enter');
+      document.getElementById('toggle').addEventListener('click',e=>{const show=password.type==='text';password.type=show?'password':'text';e.currentTarget.textContent=show?'Ver contraseña':'Ocultar contraseña';password.focus();});
+      form.addEventListener('submit',async e=>{
+        e.preventDefault();
+        const mail=email.value.trim().toLowerCase(),pass=password.value;
+        if(!mail||!pass){msg.textContent='Introduce correo y contraseña.';return;}
+        enter.disabled=true;msg.textContent='Comprobando acceso…';
+        try{
+          const {data,error}=await sb.auth.signInWithPassword({email:mail,password:pass});
+          if(error)throw error;
+          if(!data?.session?.user)throw new Error('No se pudo crear la sesión.');
+          password.value='';
+          msg.textContent='Acceso correcto. Abriendo v39…';
+          location.replace('../v39-mobile/?autologin=1&build=cleanlogin1');
+        }catch(error){msg.textContent=error?.message==='Invalid login credentials'?'Correo o contraseña incorrectos.':'No se pudo acceder: '+(error?.message||'error');enter.disabled=false;password.focus();}
+      });
+      setTimeout(()=>email.focus(),150);
+    })();
+  </script>
+</body>
+</html>
