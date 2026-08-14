@@ -51,8 +51,6 @@ self.fetch = async (input, init) => {
       html = html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
       html = html.replace('Utiliza la contraseña creada en Supabase.','');
 
-      // IMPORTANTE: no se inyecta v39-sin-aviso-actualizacion.js. Su MutationObserver
-      // podía provocar un bucle continuo de mutaciones y bloquear la interacción táctil.
       if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k24"></script></body>');
       if (!html.includes('hotel-v39-integracion.js')) html = html.replace('</body>','<script src="./hotel-v39-integracion.js?v=39-20260813"></script></body>');
       if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260814k16"></script></body>');
@@ -69,6 +67,7 @@ self.fetch = async (input, init) => {
       if (!html.includes('hotel-v39-menu-recuperacion.js')) html = html.replace('</body>','<script src="./hotel-v39-menu-recuperacion.js?v=39-20260814k10"></script></body>');
       if (!html.includes('hotel-v39-reservas-modulo.js')) html = html.replace('</body>','<script src="./hotel-v39-reservas-modulo.js?v=39-20260814k15"></script></body>');
       if (!html.includes('hotel-v39-bloque-operativo-13ago.js')) html = html.replace('</body>','<script src="./hotel-v39-bloque-operativo-13ago.js?v=39-20260813s"></script></body>');
+      if (!html.includes('hotel-v39-modo-compartido.js')) html = html.replace('</body>','<script src="./hotel-v39-modo-compartido.js?v=39-20260814k25"></script></body>');
       if (!html.includes('hotel-v39-sin-ver-expediente.js')) html = html.replace('</body>','<script src="./hotel-v39-sin-ver-expediente.js?v=39-20260813t"></script></body>');
       if (!html.includes('hotel-v39-nota-admin.js')) html = html.replace('</body>','<script src="./hotel-v39-nota-admin.js?v=39-20260813u"></script></body>');
       if (!html.includes('hotel-v39-reservas-solo-lectura.js')) html = html.replace('</body>','<script src="./hotel-v39-reservas-solo-lectura.js?v=39-20260814k"></script></body>');
