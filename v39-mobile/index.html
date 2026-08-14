@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#075985">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
   <title>Metrogestión v39 · móvil</title>
   <style>
     body{margin:0;background:#eef6fb;color:#172033;font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -12,19 +13,27 @@
   </style>
 </head>
 <body>
-  <div class="box"><strong>Metrogestión v39 · móvil</strong><div class="muted">Cargando acceso directo sin caché de la versión de pruebas…</div><div id="msg" style="margin-top:14px;font-weight:700">Preparando…</div></div>
+  <div class="box"><strong>Metrogestión v39 · móvil</strong><div class="muted">Cargando acceso directo sin actualizador ni caché de la versión de pruebas…</div><div id="msg" style="margin-top:14px;font-weight:700">Preparando…</div></div>
   <script>
   (async()=>{
     const msg=document.getElementById('msg');
     try{
       const base='../v39-preview/';
-      const response=await fetch(base+'metrogestion-2-0.html?direct='+Date.now(),{cache:'no-store'});
+      const response=await fetch(base+'metrogestion-2-0.html?direct='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache'}});
       if(!response.ok) throw new Error('No se pudo cargar la aplicación ('+response.status+')');
       let html=await response.text();
+
+      // Esta ruta móvil NO usa el actualizador/service worker heredado de la base.
+      // Se elimina antes de ejecutar el HTML para impedir avisos, recargas o bloqueo del formulario.
+      html=html.replace(/if \('serviceWorker' in navigator\) \{[\s\S]*?\n\s*\}\n\s*renderLoginUsers\(\);/, 'renderLoginUsers();');
+      html=html.replace(/<div id="update-notice" class="update-notice"[\s\S]*?<button id="update-now"[\s\S]*?<\/button>\s*<\/div>/, '');
+      html=html.replace(/\.update-notice\s*\{[\s\S]*?\.update-notice \.btn\s*\{[^}]*\}/, '');
+
       html=html.replace('<head>','<head><base href="'+base+'">');
       html=html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
       html=html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
       html=html.replace('Utiliza la contraseña creada en Supabase.','');
+
       const scripts=[
         'hotel-v39-integracion.js?v=39-20260813',
         'hotel-v39-fix-reservas.js?v=39-20260813c',
@@ -43,7 +52,7 @@
         'hotel-v39-reservas-solo-lectura.js?v=39-20260814b',
         'hotel-v39-tprog-texto-permiso.js?v=39-20260814c'
       ];
-      const injection=scripts.map(src=>'<script src="'+src+'"><\/script>').join('');
+      const injection=scripts.map(src=>'<script src="'+src+'"><\\/script>').join('');
       html=html.replace('</body>',injection+'</body>');
       document.open();
       document.write(html);
