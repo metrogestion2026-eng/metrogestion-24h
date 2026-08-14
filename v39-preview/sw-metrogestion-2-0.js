@@ -68,8 +68,9 @@ self.fetch = async (input, init) => {
       inject('hotel-v39-ruta-inicio-fix.js','39-20260814k6');
       inject('hotel-v39-menu-recuperacion.js','39-20260814k10');
       inject('hotel-v39-reservas-modulo.js','39-20260814k15');
-      inject('hotel-v39-bloque-operativo-13ago.js','39-20260813s');
-      inject('hotel-v39-modo-compartido.js','39-20260814k25');
+      // Este bloque es único para todos los perfiles y decide por permisos si la ficha
+      // muestra Lectura/Edición o queda fijada en Solo lectura.
+      inject('hotel-v39-bloque-operativo-13ago.js','39-20260814k27');
       inject('hotel-v39-sin-ver-expediente.js','39-20260813t');
       inject('hotel-v39-nota-admin.js','39-20260813u');
       inject('hotel-v39-reservas-solo-lectura.js','39-20260814k');
