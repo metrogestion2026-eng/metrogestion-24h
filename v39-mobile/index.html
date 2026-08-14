@@ -23,13 +23,12 @@
       if(!response.ok) throw new Error('No se pudo cargar la aplicación ('+response.status+')');
       let html=await response.text();
 
-      // Esta ruta móvil NO usa el actualizador/service worker heredado de la base.
-      // Se elimina antes de ejecutar el HTML para impedir avisos, recargas o bloqueo del formulario.
+      // El acceso móvil no ejecuta el sistema heredado de actualización/service worker.
       html=html.replace(/if \('serviceWorker' in navigator\) \{[\s\S]*?\n\s*\}\n\s*renderLoginUsers\(\);/, 'renderLoginUsers();');
       html=html.replace(/<div id="update-notice" class="update-notice"[\s\S]*?<button id="update-now"[\s\S]*?<\/button>\s*<\/div>/, '');
       html=html.replace(/\.update-notice\s*\{[\s\S]*?\.update-notice \.btn\s*\{[^}]*\}/, '');
 
-      html=html.replace('<head>','<head><base href="'+base+'">');
+      html=html.replace('<head>','<head><base href="'+base+'"><style>#update-notice{display:none!important}</style>');
       html=html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
       html=html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
       html=html.replace('Utiliza la contraseña creada en Supabase.','');
@@ -52,7 +51,8 @@
         'hotel-v39-reservas-solo-lectura.js?v=39-20260814b',
         'hotel-v39-tprog-texto-permiso.js?v=39-20260814c'
       ];
-      const injection=scripts.map(src=>'<script src="'+src+'"><\\/script>').join('');
+      const closeTag='<'+'/script>';
+      const injection=scripts.map(src=>'<script src="'+src+'">'+closeTag).join('');
       html=html.replace('</body>',injection+'</body>');
       document.open();
       document.write(html);
