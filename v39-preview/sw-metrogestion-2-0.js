@@ -64,6 +64,7 @@ self.fetch = async (input, init) => {
       if (!html.includes('hotel-v39-inicio-fijo.js')) html = html.replace('</body>','<script src="./hotel-v39-inicio-fijo.js?v=39-20260814k"></script></body>');
       if (!html.includes('hotel-v39-ruta-inicio-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-ruta-inicio-fix.js?v=39-20260814k6"></script></body>');
       if (!html.includes('hotel-v39-menu-recuperacion.js')) html = html.replace('</body>','<script src="./hotel-v39-menu-recuperacion.js?v=39-20260814k10"></script></body>');
+      if (!html.includes('hotel-v39-reservas-modulo.js')) html = html.replace('</body>','<script src="./hotel-v39-reservas-modulo.js?v=39-20260814k15"></script></body>');
       if (!html.includes('hotel-v39-bloque-operativo-13ago.js')) html = html.replace('</body>','<script src="./hotel-v39-bloque-operativo-13ago.js?v=39-20260813s"></script></body>');
       if (!html.includes('hotel-v39-sin-ver-expediente.js')) html = html.replace('</body>','<script src="./hotel-v39-sin-ver-expediente.js?v=39-20260813t"></script></body>');
       if (!html.includes('hotel-v39-nota-admin.js')) html = html.replace('</body>','<script src="./hotel-v39-nota-admin.js?v=39-20260813u"></script></body>');
