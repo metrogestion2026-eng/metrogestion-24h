@@ -37,9 +37,9 @@
     nav.classList.remove('hidden');
     nav.removeAttribute('hidden');
     nav.removeAttribute('aria-hidden');
-    if(nav.style.display==='none') nav.style.removeProperty('display');
-    if(nav.style.visibility==='hidden') nav.style.removeProperty('visibility');
-    if(nav.style.opacity==='0') nav.style.removeProperty('opacity');
+    nav.style.removeProperty('display');
+    nav.style.removeProperty('visibility');
+    nav.style.removeProperty('opacity');
   }
 
   function showTab(tab,allowed){
@@ -49,9 +49,9 @@
       tab.removeAttribute('hidden');
       tab.removeAttribute('aria-hidden');
       tab.setAttribute('aria-disabled','false');
-      if(tab.style.display==='none') tab.style.removeProperty('display');
-      if(tab.style.visibility==='hidden') tab.style.removeProperty('visibility');
-      if(tab.style.opacity==='0') tab.style.removeProperty('opacity');
+      tab.style.removeProperty('display');
+      tab.style.removeProperty('visibility');
+      tab.style.removeProperty('opacity');
     } else {
       tab.classList.add('hidden');
       tab.setAttribute('aria-disabled','true');
@@ -59,26 +59,25 @@
   }
 
   function enforceTabs(){
-    if(!perms || !appReady()) return;
+    if(!perms || !appReady()) return false;
     const nav=document.querySelector('#mock-app .tabs');
     const activation=document.querySelector('#activate-tab');
     const hotel=document.querySelector('#hotel-tab');
+    if(!nav || !activation || !hotel) return false;
 
-    // La base antigua puede ocultar el contenedor completo al cambiar de vista.
-    // En v39 el menú principal debe seguir visible durante toda la sesión.
     showContainer(nav);
-
-    if(nav && activation && activation.parentElement!==nav) nav.insertBefore(activation,nav.firstChild);
-    if(nav && hotel && hotel.parentElement!==nav) nav.insertBefore(hotel,activation?.nextSibling || nav.firstChild);
+    if(activation.parentElement!==nav) nav.insertBefore(activation,nav.firstChild);
+    if(hotel.parentElement!==nav) nav.insertBefore(hotel,activation.nextSibling);
 
     showTab(activation,perms.activar);
     showTab(hotel,perms.gestion);
 
     const hotelView=document.querySelector('#view-hotel');
-    if(hotel && perms.gestion && hotelView && !hotelView.classList.contains('hidden')){
+    if(perms.gestion && hotelView && !hotelView.classList.contains('hidden')){
       hotel.classList.add('btn-primary');
       hotel.classList.remove('btn-secondary','locked-tab','hidden');
     }
+    return true;
   }
 
   function queueRepair(){
@@ -95,31 +94,44 @@
     const nav=document.querySelector('#mock-app .tabs');
     const activation=document.querySelector('#activate-tab');
     const hotel=document.querySelector('#hotel-tab');
-    if(!nav || !activation || !hotel) return;
+    if(!nav || !activation || !hotel) return false;
     observer=new MutationObserver(queueRepair);
     observer.observe(nav,{childList:true,subtree:false,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
     observer.observe(activation,{attributes:true,attributeFilter:['class','style','hidden','aria-hidden','aria-disabled']});
     observer.observe(hotel,{attributes:true,attributeFilter:['class','style','hidden','aria-hidden','aria-disabled']});
+    return true;
   }
 
   async function apply(){
-    if(applying || !appReady()) return;
+    if(applying || !appReady()) return false;
     applying=true;
     try{
       const {data:{session}}=await sb.auth.getSession();
-      if(!session) return;
+      if(!session) return false;
       const [activar,hotel,tprog,talleres]=await Promise.all([
         can('activar24h'),can('hotel'),can('t_programadas'),can('talleres')
       ]);
       perms={activar,hotel,tprog,talleres,gestion:hotel||tprog||talleres};
       enforceTabs();
       installObserver();
+      return true;
     } finally {
       applying=false;
     }
   }
 
-  // Repara el menú después de cualquier cambio manual de vista, nunca antes del login.
+  // La restauración de sesión puede tardar varios segundos en Android.
+  // Durante el arranque se insiste hasta que el menú y sus botones existen de verdad.
+  const startupTimer=setInterval(()=>{
+    if(perms){
+      enforceTabs();
+      installObserver();
+    } else {
+      apply();
+    }
+  },400);
+  setTimeout(()=>clearInterval(startupTimer),15000);
+
   document.addEventListener('click',e=>{
     if(e.target.closest?.('#activate-tab,#hotel-tab,.hotel-subtab')) setTimeout(queueRepair,0);
   },true);
@@ -131,12 +143,12 @@
       observer=null;
       return;
     }
-    setTimeout(apply,500);
-    setTimeout(apply,1200);
+    setTimeout(apply,150);
+    setTimeout(apply,600);
+    setTimeout(apply,1400);
   });
 
-  window.addEventListener('focus',()=>setTimeout(apply,120));
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(apply,120)});
-  setTimeout(apply,800);
-  setTimeout(apply,1800);
+  window.addEventListener('focus',()=>setTimeout(apply,80));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(apply,80)});
+  setTimeout(apply,300);
 })();
