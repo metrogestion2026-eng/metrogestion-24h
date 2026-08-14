@@ -1,16 +1,8 @@
 // Metrogestión v39 preview · service worker aislado bajo /v39-preview/.
-// Fuerza que cada actualización de v39 tome el control antes de abrir la app.
-self.addEventListener('install', event => {
-  event.waitUntil(self.skipWaiting());
-});
-self.addEventListener('activate', event => {
-  event.waitUntil(self.clients.claim());
-});
-self.addEventListener('message', event => {
-  if (event.data === 'SKIP_WAITING') self.skipWaiting();
-});
+self.addEventListener('install', event => { event.waitUntil(self.skipWaiting()); });
+self.addEventListener('activate', event => { event.waitUntil(self.clients.claim()); });
+self.addEventListener('message', event => { if (event.data === 'SKIP_WAITING') self.skipWaiting(); });
 
-// Importa una copia exacta de la base v36 y después añade la interfaz v39.
 importScripts('./sw-metrogestion-v36-estable.js');
 const v39StableFetch = self.fetch.bind(self);
 self.fetch = async (input, init) => {
@@ -20,6 +12,7 @@ self.fetch = async (input, init) => {
     const url = new URL(request.url, self.location.href);
     if (response.ok && url.origin===self.location.origin && url.pathname.endsWith('/v39-preview/metrogestion-2-0.html')) {
       let html = await response.text();
+
       html = html.replace("const hotelSourceDate = '03/08/2026';","let hotelSourceDate = 'Cargando pizarra actual…';");
       html = html.replace("activePizarraDate = pizarra.fecha;","activePizarraDate = pizarra.fecha; hotelSourceDate = new Date(pizarra.fecha + 'T12:00:00').toLocaleDateString('es-ES');");
       html = html.replace(
@@ -27,37 +20,35 @@ self.fetch = async (input, init) => {
         "root.querySelector('#hotel-date').textContent = activePizarraDate ? 'Pizarra en curso del ' + shownDate + ' · sincronización en tiempo real' : 'Cargando pizarra actual…';"
       );
 
-      // En la Pizarra actual solo entran movimientos activos.
-      // Las reservas liberadas se muestran exclusivamente en el módulo Reservas.
+      // Pizarra actual: solo movimientos activos. Las reservas liberadas viven en Reservas.
       html = html.replace(
         "hotelUnits = (rows || []).map(mapDbHotelUnit);",
         "hotelUnits = (rows || []).filter(row => row.estado !== 'reserva_liberada').map(mapDbHotelUnit);"
       );
 
-      // v39: la pizarra de Hotel tiene prioridad en el arranque.
-      // El índice completo de vehículos se prepara después, en segundo plano.
+      // Hotel primero; índice de vehículos después, en segundo plano.
       html = html.replace(
         "await loadVehicleIndex();\n        // El Hotel solo carga datos y tiempo real cuando la cuenta tiene permiso explícito.\n        if (canViewHotel()) await loadHotelFromSupabase(true);\n        offerActivationProgress();",
         "if (canViewHotel()) await loadHotelFromSupabase(true);\n        loadVehicleIndex().catch(error => console.warn('v39: índice de vehículos en segundo plano', error));\n        offerActivationProgress();"
       );
 
-      // El login nunca se envía automáticamente: solo un toque/clic explícito en Entrar.
+      // Login: formulario sin autocompletado automático, botón submit normal.
       html = html.replace(
         '<form id="login-form" class="card stack" autocomplete="on">',
         '<form id="login-form" class="card stack" autocomplete="off">'
       );
       html = html.replace(
-        '<button id="mock-enter" class="btn btn-primary" type="submit">Entrar</button>',
-        '<button id="mock-enter" class="btn btn-primary" type="button">Entrar</button>'
+        '<button id="mock-enter" class="btn btn-primary" type="button">Entrar</button>',
+        '<button id="mock-enter" class="btn btn-primary" type="submit">Entrar</button>'
       );
 
-      // En v39 las actualizaciones se controlan desde index.html. El aviso interno de v36 no se usa.
       html = html.replace('</head>','<style>#v39-home-fixed,#update-notice{display:none!important}</style></head>');
       html = html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
       html = html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
       html = html.replace('Utiliza la contraseña creada en Supabase.','');
+
       if (!html.includes('v39-sin-aviso-actualizacion.js')) html = html.replace('</body>','<script src="./v39-sin-aviso-actualizacion.js?v=39-20260814k14"></script></body>');
-      if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k13"></script></body>');
+      if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k18"></script></body>');
       if (!html.includes('hotel-v39-integracion.js')) html = html.replace('</body>','<script src="./hotel-v39-integracion.js?v=39-20260813"></script></body>');
       if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260814k16"></script></body>');
       if (!html.includes('hotel-v39-editar-parada.js')) html = html.replace('</body>','<script src="./hotel-v39-editar-parada.js?v=39-20260813d"></script></body>');
@@ -80,6 +71,7 @@ self.fetch = async (input, init) => {
       if (!html.includes('hotel-v39-historico-dia.js')) html = html.replace('</body>','<script src="./hotel-v39-historico-dia.js?v=39-20260814k8"></script></body>');
       if (!html.includes('hotel-v39-historico-carga.js')) html = html.replace('</body>','<script src="./hotel-v39-historico-carga.js?v=39-20260814k8"></script></body>');
       if (!html.includes('hotel-v39-panel-fuente-unica.js')) html = html.replace('</body>','<script src="./hotel-v39-panel-fuente-unica.js?v=39-20260814k11"></script></body>');
+
       const headers = new Headers(response.headers);
       headers.set('Content-Type','text/html; charset=utf-8');
       headers.set('Cache-Control','no-store');
