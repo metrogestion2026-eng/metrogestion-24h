@@ -24,6 +24,10 @@ self.fetch = async (input, init) => {
       // En v39 nunca se muestra como pizarra actual: primero se consulta la en_curso real.
       html = html.replace("const hotelSourceDate = '03/08/2026';","let hotelSourceDate = 'Cargando pizarra actual…';");
       html = html.replace("activePizarraDate = pizarra.fecha;","activePizarraDate = pizarra.fecha; hotelSourceDate = new Date(pizarra.fecha + 'T12:00:00').toLocaleDateString('es-ES');");
+      html = html.replace(
+        "root.querySelector('#hotel-date').textContent = 'Pizarra en curso del ' + shownDate + ' · sincronización en tiempo real';",
+        "root.querySelector('#hotel-date').textContent = activePizarraDate ? 'Pizarra en curso del ' + shownDate + ' · sincronización en tiempo real' : 'Cargando pizarra actual…';"
+      );
 
       // El botón flotante Gestión queda retirado incluso si una copia antigua intentara recrearlo.
       html = html.replace('</head>','<style>#v39-home-fixed{display:none!important}</style></head>');
@@ -46,7 +50,7 @@ self.fetch = async (input, init) => {
       if (!html.includes('hotel-v39-sin-ver-expediente.js')) html = html.replace('</body>','<script src="./hotel-v39-sin-ver-expediente.js?v=39-20260813t"></script></body>');
       if (!html.includes('hotel-v39-nota-admin.js')) html = html.replace('</body>','<script src="./hotel-v39-nota-admin.js?v=39-20260813u"></script></body>');
       if (!html.includes('hotel-v39-reservas-solo-lectura.js')) html = html.replace('</body>','<script src="./hotel-v39-reservas-solo-lectura.js?v=39-20260814k"></script></body>');
-      if (!html.includes('hotel-v39-pizarra-actual-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-pizarra-actual-fix.js?v=39-20260814k4"></script></body>');
+      if (!html.includes('hotel-v39-pizarra-actual-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-pizarra-actual-fix.js?v=39-20260814k5"></script></body>');
       if (!html.includes('hotel-v39-historico-dia.js')) html = html.replace('</body>','<script src="./hotel-v39-historico-dia.js?v=39-20260814k3"></script></body>');
       const headers = new Headers(response.headers);
       headers.set('Content-Type','text/html; charset=utf-8');
