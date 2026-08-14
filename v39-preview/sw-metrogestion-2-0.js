@@ -1,4 +1,4 @@
-// Metrogestión v39 preview · build stablek23 · service worker aislado bajo /v39-preview/.
+// Metrogestión v39 preview · service worker aislado bajo /v39-preview/.
 self.addEventListener('install', event => { event.waitUntil(self.skipWaiting()); });
 self.addEventListener('activate', event => { event.waitUntil(self.clients.claim()); });
 self.addEventListener('message', event => { if (event.data === 'SKIP_WAITING') self.skipWaiting(); });
@@ -42,13 +42,18 @@ self.fetch = async (input, init) => {
         '<button id="mock-enter" class="btn btn-primary" type="button">Entrar</button>'
       );
 
+      // v39 controla las actualizaciones desde index.html. Se desactiva por completo
+      // el registro interno del service worker heredado de v36 para evitar dobles updates.
+      html = html.replace("if ('serviceWorker' in navigator) {", "if (false && 'serviceWorker' in navigator) {");
+
       html = html.replace('</head>','<style>#v39-home-fixed,#update-notice{display:none!important}</style></head>');
       html = html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
       html = html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
       html = html.replace('Utiliza la contraseña creada en Supabase.','');
 
-      if (!html.includes('v39-sin-aviso-actualizacion.js')) html = html.replace('</body>','<script src="./v39-sin-aviso-actualizacion.js?v=39-20260814k14"></script></body>');
-      if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k23"></script></body>');
+      // IMPORTANTE: no se inyecta v39-sin-aviso-actualizacion.js. Su MutationObserver
+      // podía provocar un bucle continuo de mutaciones y bloquear la interacción táctil.
+      if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k24"></script></body>');
       if (!html.includes('hotel-v39-integracion.js')) html = html.replace('</body>','<script src="./hotel-v39-integracion.js?v=39-20260813"></script></body>');
       if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260814k16"></script></body>');
       if (!html.includes('hotel-v39-editar-parada.js')) html = html.replace('</body>','<script src="./hotel-v39-editar-parada.js?v=39-20260813d"></script></body>');
