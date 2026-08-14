@@ -1,5 +1,5 @@
-// v39 preview · un único modo Lectura/Edición compartido por todos los perfiles de Hotel.
-// La pantalla es la misma para todos; únicamente cambia el permiso de edición.
+// v39 preview · un único botón global Lectura/Edición para todo Hotel.
+// La pantalla es única para todos; únicamente cambia el permiso efectivo del usuario.
 (() => {
   'use strict';
   if (window.__metrogestionV39SharedHotelModeLoaded) return;
@@ -12,15 +12,32 @@
 
   let canView=false;
   let canEdit=false;
-  let editing=false; // siempre arranca protegido en lectura
+  let editing=false; // siempre arranca protegido
   let applying=false;
   let timer=null;
 
-  const editSelectors=[
-    '.hotel-unit-edit','.hotel-stage-add','.hotel-status-select','.hotel-stage-action',
-    '.stage-drag-handle','.hotel-stop-date-control input','.hotel-entry-date-control input',
-    '.hotel-entry-date-control select','.v39-stop-edit','.hotel-edit-save',
-    '.hotel-stage-date-save','.hotel-stage-date-pending','.v39-relief-create'
+  const editableSelectors=[
+    '.hotel-unit-edit',
+    '.hotel-stage-add',
+    '.hotel-status-select',
+    '.hotel-stop-date',
+    '.hotel-entry-date',
+    '.hotel-movement-type',
+    '.stage-drag-handle',
+    '.hotel-stage-action',
+    '.hotel-stage-done',
+    '.hotel-stage-date',
+    '.hotel-stage-edit',
+    '.hotel-stage-annul',
+    '.hotel-stage-date-input',
+    '.hotel-stage-date-save',
+    '.hotel-stage-date-pending',
+    '.hotel-edit-panel input',
+    '.hotel-edit-panel select',
+    '.hotel-edit-panel textarea',
+    '.hotel-edit-panel button',
+    '.v39-stop-edit',
+    '.v39-relief-create'
   ].join(',');
 
   async function rpcBool(name,args={}){
@@ -30,70 +47,55 @@
     }catch{return false}
   }
 
+  function hotelView(){ return document.querySelector('#view-hotel'); }
   function hotelVisible(){
-    const view=document.querySelector('#view-hotel');
+    const view=hotelView();
     return !!(view && !view.classList.contains('hidden') && view.getClientRects().length);
   }
 
   function ensureControl(){
-    const view=document.querySelector('#view-hotel');
+    const view=hotelView();
     if(!view || !canView) return null;
-    let box=document.querySelector('#v39-hotel-mode-shared');
+
+    let box=document.querySelector('#v39-hotel-global-mode');
     if(!box){
       box=document.createElement('div');
-      box.id='v39-hotel-mode-shared';
+      box.id='v39-hotel-global-mode';
       box.className='card';
-      box.style.cssText='display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 14px';
-      const anchor=document.querySelector('#hotel-summary-cards') || document.querySelector('#hotel-list') || view.firstElementChild;
+      box.style.cssText='display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 14px;margin:10px 0';
+
+      const anchor=document.querySelector('#hotel-summary-cards') || document.querySelector('#hotel-list');
       if(anchor?.parentElement) anchor.parentElement.insertBefore(box,anchor);
       else view.prepend(box);
     }
-    box.innerHTML=`
-      <label style="display:flex;grid-template-columns:auto 1fr;gap:9px;align-items:center;font-weight:800;cursor:${canEdit?'pointer':'default'}">
-        <input id="v39-hotel-read-toggle" type="checkbox" ${editing?'':'checked'} ${canEdit?'':'disabled'} style="width:24px;height:24px;margin:0">
-        <span>🔒 Modo lectura</span>
-      </label>
-      <span id="v39-hotel-mode-status" class="text-small text-muted"></span>`;
-    const toggle=box.querySelector('#v39-hotel-read-toggle');
-    if(canEdit){
-      toggle.addEventListener('change',()=>{
-        editing=!toggle.checked;
+
+    if(!box.querySelector('#v39-hotel-global-mode-button')){
+      box.innerHTML='<button id="v39-hotel-global-mode-button" type="button" class="btn btn-primary"></button><span id="v39-hotel-global-mode-status" class="text-small text-muted"></span>';
+      box.querySelector('#v39-hotel-global-mode-button').addEventListener('click',()=>{
+        if(!canEdit) return;
+        editing=!editing;
         applyMode();
       });
     }
     return box;
   }
 
-  function moveSharedActions(card){
-    const relief=card.querySelector('.v39-relief-create');
-    if(!relief) return;
-    let host=card.querySelector('.v39-shared-hotel-actions');
-    if(!host){
-      host=document.createElement('div');
-      host.className='v39-shared-hotel-actions hotel-actions';
-      host.style.cssText='border-top:1px solid #dbe4ec;padding-top:9px;margin-top:6px';
-      card.appendChild(host);
-    }
-    if(relief.parentElement!==host) host.appendChild(relief);
-  }
-
-  function applyCard(card){
-    // Se retiran los antiguos selectores por ficha: el modo ahora es único para toda la pizarra.
+  function applyCard(card,allowEdit){
+    // Desaparecen los selectores antiguos por ficha: manda un solo botón para toda la pizarra.
     card.querySelectorAll('.v39-card-mode').forEach(bar=>bar.style.setProperty('display','none','important'));
-    moveSharedActions(card);
-
-    const allowEdit=canEdit && editing;
     card.dataset.v39CardEditing=allowEdit?'1':'0';
-    card.querySelectorAll(editSelectors).forEach(el=>{
-      if(!allowEdit){
-        if(el.dataset.v39SharedOriginalDisabled===undefined) el.dataset.v39SharedOriginalDisabled=el.disabled?'1':'0';
-        el.disabled=true;
-        el.style.opacity='.48';
-      }else{
-        el.disabled=el.dataset.v39SharedOriginalDisabled==='1';
-        el.style.opacity='';
-      }
+
+    card.querySelectorAll(editableSelectors).forEach(el=>{
+      // Las acciones ocultas de T siguen ocultas; solo se habilitan para que el selector pueda dispararlas.
+      el.disabled=!allowEdit;
+      if(el.classList.contains('hotel-stage-hidden-action')) return;
+      el.style.opacity=allowEdit?'':'.48';
     });
+
+    if(!allowEdit){
+      card.querySelectorAll('.hotel-edit-panel').forEach(panel=>panel.classList.add('hidden'));
+      card.querySelectorAll('.stage-date-editor').forEach(panel=>panel.classList.add('hidden'));
+    }
   }
 
   function applyMode(){
@@ -101,30 +103,48 @@
     applying=true;
     try{
       if(!canEdit) editing=false;
+      const allowEdit=canEdit && editing;
       const box=ensureControl();
-      const toggle=box?.querySelector('#v39-hotel-read-toggle');
-      const status=box?.querySelector('#v39-hotel-mode-status');
-      if(toggle) toggle.checked=!editing;
+      const button=box?.querySelector('#v39-hotel-global-mode-button');
+      const status=box?.querySelector('#v39-hotel-global-mode-status');
+
+      if(button){
+        button.disabled=!canEdit;
+        button.textContent=allowEdit?'✏️ Lectura y edición':'🔒 Modo lectura';
+        button.classList.toggle('btn-primary',!allowEdit);
+        button.classList.toggle('btn-secondary',allowEdit);
+        button.setAttribute('aria-pressed',allowEdit?'true':'false');
+      }
       if(status){
         status.textContent=!canEdit
           ? 'Solo lectura: este usuario no tiene permiso para modificar Hotel.'
-          : editing
-            ? 'Edición activada: los cambios se guardan en el mismo Hotel compartido.'
-            : 'Protección activada: no se pueden modificar datos.';
+          : allowEdit
+            ? 'Edición activada para toda la pizarra, incluidas las T.'
+            : 'Protección activada: toda la pizarra está en modo lectura.';
       }
-      document.querySelectorAll('article.hotel-unit').forEach(applyCard);
-    }finally{applying=false}
+
+      document.querySelectorAll('#view-hotel article.hotel-unit').forEach(card=>applyCard(card,allowEdit));
+    }finally{
+      applying=false;
+    }
   }
 
   function schedule(){
     clearTimeout(timer);
-    // El bloque operativo antiguo repinta a ~80 ms; aplicamos después para que mande el modo compartido.
-    timer=setTimeout(()=>{if(hotelVisible()||document.querySelector('#view-hotel'))applyMode()},140);
+    // El bloque operativo repinta las fichas; esta capa aplica después el único modo global.
+    timer=setTimeout(()=>{
+      if(hotelVisible() || hotelView()) applyMode();
+    },160);
   }
 
   async function loadPermissions(){
     const {data:{session}}=await sb.auth.getSession();
-    if(!session){canView=false;canEdit=false;editing=false;return}
+    if(!session){
+      canView=false;
+      canEdit=false;
+      editing=false;
+      return;
+    }
     [canView,canEdit]=await Promise.all([
       rpcBool('puede_ver_modulo_v39',{p_modulo:'hotel'}),
       rpcBool('puede_editar_modulo_v39',{p_modulo:'hotel'})
@@ -134,7 +154,7 @@
   }
 
   const style=document.createElement('style');
-  style.id='v39-hotel-mode-shared-css';
+  style.id='v39-hotel-global-mode-css';
   style.textContent='.v39-card-mode{display:none!important}';
   document.head.appendChild(style);
 
@@ -147,8 +167,13 @@
   window.addEventListener('focus',()=>{loadPermissions();schedule()});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden){loadPermissions();schedule()}});
   sb.auth.onAuthStateChange((_event,session)=>{
-    if(!session){canView=false;canEdit=false;editing=false;return}
-    setTimeout(loadPermissions,100);
+    if(!session){
+      canView=false;
+      canEdit=false;
+      editing=false;
+      return;
+    }
+    setTimeout(loadPermissions,120);
   });
 
   setTimeout(loadPermissions,350);
