@@ -1,4 +1,4 @@
-// v39 preview · muestra la fecha real de la pizarra en curso sin navegar ni tocar el login.
+// v39 preview · muestra la fecha real de la pizarra en curso desde el primer instante.
 (() => {
   'use strict';
   if (window.__metrogestionV39CurrentBoardDateFixLoaded) return;
@@ -14,7 +14,15 @@
     return y&&m&&d?`${d}/${m}/${y}`:'';
   };
 
+  function markLoading(){
+    const label=document.querySelector('#hotel-date');
+    if(label && label.textContent.includes('03/08/2026')){
+      label.textContent='Cargando pizarra actual…';
+    }
+  }
+
   async function syncDate(){
+    markLoading();
     try{
       const {data:{session}}=await sb.auth.getSession();
       if(!session) return;
@@ -32,10 +40,18 @@
     }
   }
 
+  markLoading();
+  syncDate();
+  setTimeout(syncDate,120);
+  setTimeout(syncDate,350);
+  setTimeout(syncDate,800);
+
   document.addEventListener('click',e=>{
-    if(e.target.closest?.('#hotel-tab,.hotel-subtab[data-hotel-view="board"]')) setTimeout(syncDate,180);
+    if(e.target.closest?.('#hotel-tab,.hotel-subtab[data-hotel-view="board"]')){
+      markLoading();
+      setTimeout(syncDate,0);
+    }
   },true);
-  sb.auth.onAuthStateChange((_event,session)=>{if(session)setTimeout(syncDate,700)});
-  window.addEventListener('focus',()=>setTimeout(syncDate,120));
-  setTimeout(syncDate,1600);
+  sb.auth.onAuthStateChange((_event,session)=>{if(session)setTimeout(syncDate,0)});
+  window.addEventListener('focus',()=>setTimeout(syncDate,0));
 })();
