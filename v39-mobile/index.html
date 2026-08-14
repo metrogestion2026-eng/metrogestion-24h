@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#075985">
+  <title>Metrogestión v39 · móvil</title>
+  <style>
+    body{margin:0;background:#eef6fb;color:#172033;font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+    .box{max-width:620px;margin:12vh auto;padding:24px;background:#fff;border:1px solid #d8e1ea;border-radius:16px;box-shadow:0 8px 30px rgba(15,23,42,.12)}
+    strong{font-size:22px}.muted{color:#64748b;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="box"><strong>Metrogestión v39 · móvil</strong><div class="muted">Cargando acceso directo sin caché de la versión de pruebas…</div><div id="msg" style="margin-top:14px;font-weight:700">Preparando…</div></div>
+  <script>
+  (async()=>{
+    const msg=document.getElementById('msg');
+    try{
+      const base='../v39-preview/';
+      const response=await fetch(base+'metrogestion-2-0.html?direct='+Date.now(),{cache:'no-store'});
+      if(!response.ok) throw new Error('No se pudo cargar la aplicación ('+response.status+')');
+      let html=await response.text();
+      html=html.replace('<head>','<head><base href="'+base+'">');
+      html=html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
+      html=html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
+      html=html.replace('Utiliza la contraseña creada en Supabase.','');
+      const scripts=[
+        'hotel-v39-integracion.js?v=39-20260813',
+        'hotel-v39-fix-reservas.js?v=39-20260813c',
+        'hotel-v39-editar-parada.js?v=39-20260813d',
+        'hotel-v39-t-programadas.js?v=39-20260813h',
+        'hotel-v39-asignar-reserva.js?v=39-20260813g',
+        'hotel-v39-dfm-select.js?v=39-20260813i',
+        'hotel-v39-ajustes-operativos.js?v=39-20260813j',
+        'hotel-v39-reordenar-t.js?v=39-20260813k',
+        'hotel-v39-permisos-talleres.js?v=39-20260813m',
+        'hotel-v39-taller-contactos-multiples.js?v=39-20260813r',
+        'hotel-v39-ruta-inicio-fix.js?v=39-20260814a',
+        'hotel-v39-bloque-operativo-13ago.js?v=39-20260813s',
+        'hotel-v39-sin-ver-expediente.js?v=39-20260813t',
+        'hotel-v39-nota-admin.js?v=39-20260813u',
+        'hotel-v39-reservas-solo-lectura.js?v=39-20260814b',
+        'hotel-v39-tprog-texto-permiso.js?v=39-20260814c'
+      ];
+      const injection=scripts.map(src=>'<script src="'+src+'"><\/script>').join('');
+      html=html.replace('</body>',injection+'</body>');
+      document.open();
+      document.write(html);
+      document.close();
+    }catch(error){msg.textContent='No se pudo abrir v39: '+(error?.message||error);}
+  })();
+  </script>
+</body>
+</html>
