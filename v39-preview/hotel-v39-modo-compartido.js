@@ -53,6 +53,26 @@
     return !!(view && !view.classList.contains('hidden') && view.getClientRects().length);
   }
 
+  function hideLegacyReadControl(){
+    const view=hotelView();
+    if(!view) return;
+    const global=document.querySelector('#v39-hotel-global-mode');
+
+    view.querySelectorAll('input[type="checkbox"]').forEach(input=>{
+      if(global?.contains(input)) return;
+      let node=input.parentElement;
+      let candidate=null;
+      for(let depth=0;node && node!==view && depth<6;depth+=1,node=node.parentElement){
+        const text=String(node.textContent||'').replace(/\s+/g,' ').trim();
+        if(/Modo lectura/i.test(text) && /Protecci[oó]n activada|no se pueden modificar datos/i.test(text)){
+          candidate=node;
+          break;
+        }
+      }
+      if(candidate) candidate.style.setProperty('display','none','important');
+    });
+  }
+
   function ensureControl(){
     const view=hotelView();
     if(!view || !canView) return null;
@@ -104,6 +124,7 @@
     try{
       if(!canEdit) editing=false;
       const allowEdit=canEdit && editing;
+      hideLegacyReadControl();
       const box=ensureControl();
       const button=box?.querySelector('#v39-hotel-global-mode-button');
       const status=box?.querySelector('#v39-hotel-global-mode-status');
