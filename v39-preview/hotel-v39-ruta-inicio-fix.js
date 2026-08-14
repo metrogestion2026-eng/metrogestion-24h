@@ -1,4 +1,4 @@
-// v39 preview · corrige ruta inicial y recuperación de pestañas tras cargar sesión/permisos.
+// v39 preview · corrige ruta inicial y mantiene visibles las pestañas principales según permisos.
 (() => {
   'use strict';
   if (window.__metrogestionV39RouteFixLoaded) return;
@@ -25,14 +25,42 @@
     return {activar,hotel,tprog,talleres,gestion:hotel||tprog||talleres};
   }
 
+  function showTab(tab,allowed){
+    if(!tab) return;
+    tab.classList.toggle('hidden',!allowed);
+    if(allowed){
+      tab.removeAttribute('hidden');
+      tab.style.removeProperty('display');
+      tab.style.removeProperty('visibility');
+      tab.style.removeProperty('opacity');
+      tab.removeAttribute('aria-hidden');
+      tab.setAttribute('aria-disabled','false');
+    }else{
+      tab.setAttribute('aria-disabled','true');
+    }
+  }
+
   function restoreTabs(p){
+    const nav=document.querySelector('#mock-app .tabs');
     const activation=document.querySelector('#activate-tab');
     const hotel=document.querySelector('#hotel-tab');
-    if(activation) activation.classList.toggle('hidden',!p.activar);
-    if(hotel) hotel.classList.toggle('hidden',!p.gestion);
 
-    // Las pestañas internas v39 se gestionan también por su capa original;
-    // aquí solo reparamos el estado oculto prematuro de las entradas principales.
+    // Si otra capa hubiera movido los botones, los devolvemos a su menú original.
+    if(nav && activation && activation.parentElement!==nav) nav.insertBefore(activation,nav.firstChild);
+    if(nav && hotel && hotel.parentElement!==nav){
+      const after=activation?.nextSibling || nav.firstChild;
+      nav.insertBefore(hotel,after);
+    }
+
+    showTab(activation,p.activar);
+    showTab(hotel,p.gestion);
+
+    // Cuando Hotel está abierto, su pestaña debe verse además como seleccionada.
+    const hotelView=document.querySelector('#view-hotel');
+    if(hotel && hotelView && !hotelView.classList.contains('hidden')){
+      hotel.classList.add('btn-primary');
+      hotel.classList.remove('btn-secondary','locked-tab');
+    }
   }
 
   function closeV39Modals(){
@@ -51,8 +79,8 @@
     closeV39Modals();
     const hotel=document.querySelector('#hotel-tab');
     if(hotel){
-      hotel.classList.remove('hidden');
-      hotel.removeAttribute('aria-disabled');
+      showTab(hotel,true);
+      hotel.classList.remove('locked-tab');
       hotel.click();
     }
 
@@ -63,6 +91,7 @@
       }
       document.querySelector('#v39-view-tprog')?.classList.add('hidden');
       document.querySelector('#v39-view-talleres')?.classList.add('hidden');
+      restoreTabs(p);
       try{window.scrollTo({top:0,behavior:'smooth'});}catch{window.scrollTo(0,0)}
     },120);
     return true;
@@ -84,7 +113,6 @@
     } finally { applying=false; }
   }
 
-  // El botón fijo Gestión debe funcionar aunque Hotel hubiera quedado oculto visualmente.
   document.addEventListener('click',e=>{
     const b=e.target.closest?.('#v39-home-fixed');
     if(!b) return;
@@ -93,8 +121,9 @@
     openHotel(true);
   },true);
 
-  sb.auth.onAuthStateChange((event,session)=>{
+  sb.auth.onAuthStateChange((_event,session)=>{
     if(session) setTimeout(()=>apply({openDefault:true}),120);
+    else defaultOpened=false;
   });
 
   window.addEventListener('focus',()=>setTimeout(()=>apply({openDefault:false}),80));
