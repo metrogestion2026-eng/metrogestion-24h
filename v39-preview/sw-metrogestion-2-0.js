@@ -51,8 +51,8 @@ self.fetch = async (input, init) => {
       if (!html.includes('hotel-v39-nota-admin.js')) html = html.replace('</body>','<script src="./hotel-v39-nota-admin.js?v=39-20260813u"></script></body>');
       if (!html.includes('hotel-v39-reservas-solo-lectura.js')) html = html.replace('</body>','<script src="./hotel-v39-reservas-solo-lectura.js?v=39-20260814k"></script></body>');
       if (!html.includes('hotel-v39-pizarra-actual-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-pizarra-actual-fix.js?v=39-20260814k5"></script></body>');
-      if (!html.includes('hotel-v39-historico-dia.js')) html = html.replace('</body>','<script src="./hotel-v39-historico-dia.js?v=39-20260814k3"></script></body>');
-      if (!html.includes('hotel-v39-historico-carga.js')) html = html.replace('</body>','<script src="./hotel-v39-historico-carga.js?v=39-20260814k7"></script></body>');
+      if (!html.includes('hotel-v39-historico-dia.js')) html = html.replace('</body>','<script src="./hotel-v39-historico-dia.js?v=39-20260814k8"></script></body>');
+      if (!html.includes('hotel-v39-historico-carga.js')) html = html.replace('</body>','<script src="./hotel-v39-historico-carga.js?v=39-20260814k8"></script></body>');
       const headers = new Headers(response.headers);
       headers.set('Content-Type','text/html; charset=utf-8');
       headers.set('Cache-Control','no-store');
