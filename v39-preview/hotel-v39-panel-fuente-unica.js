@@ -9,15 +9,26 @@
   const sb=window.supabase?.createClient?.(URL,KEY);
   if(!sb) return;
 
-  const workshopStates=['pendiente_diagnostico','pendiente_autorizacion','en_taller','pendiente_repuestos'];
   let channel=null;
   let reloadTimer=null;
 
-  const esc=value=>String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const esc=value=>String(value??'').replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
   const visible=el=>!!(el&&el.getClientRects().length&&!el.classList.contains('hidden'));
   const dashboardVisible=()=>visible(document.querySelector('#hotel-dashboard'));
   const fmtDate=value=>value ? new Date(value).toLocaleDateString('es-ES',{timeZone:'Europe/Madrid'}) : 'Fecha pendiente';
   const fmtTime=()=>new Date().toLocaleTimeString('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit'});
+  const stateLabel=state=>({
+    planificado:'Pendiente de parar',
+    pendiente_taller:'Pendiente de taller',
+    pendiente_diagnostico:'Pendiente de diagnóstico',
+    pendiente_autorizacion:'Pendiente de autorización',
+    en_taller:'En taller',
+    pendiente_repuestos:'Pendiente de repuestos',
+    terminado_pendiente_recogida:'Terminado, pendiente de recoger',
+    recogido_pendiente_ruta:'Recogido, recuperar ruta',
+    reserva_liberada:'Reserva libre',
+    anulado:'Anulado'
+  }[state]||state||'Sin estado');
 
   const metric=(label,value,filter)=>`<button class="metric v39-panel-metric" data-filter="${filter}" type="button"><strong>${value}</strong><span class="text-small text-muted">${esc(label)}</span></button>`;
 
@@ -66,7 +77,10 @@
     const free=data.filter(r=>r.estado==='reserva_liberada').length;
     const planned=data.filter(r=>r.estado==='planificado').length;
     const pendingWorkshop=data.filter(r=>r.estado==='pendiente_taller').length;
-    const workshop=data.filter(r=>workshopStates.includes(r.estado)).length;
+    const diagnosis=data.filter(r=>r.estado==='pendiente_diagnostico').length;
+    const authorization=data.filter(r=>r.estado==='pendiente_autorizacion').length;
+    const workshop=data.filter(r=>r.estado==='en_taller').length;
+    const parts=data.filter(r=>r.estado==='pendiente_repuestos').length;
     const ready=data.filter(r=>r.estado==='terminado_pendiente_recogida').length;
     const route=data.filter(r=>r.estado==='recogido_pendiente_ruta').length;
     const expiredCount=data.filter(r=>{
@@ -75,15 +89,19 @@
       return expired(a)||expired(b);
     }).length;
 
-    cards.innerHTML=
+    let markup=
       metric('Movimientos activos',active,'occupied')+
       metric('Reservas libres',free,'free')+
       metric('Pendientes de parar',planned,'planned')+
       metric('Pendientes de taller',pendingWorkshop,'pending-workshop')+
       metric('En taller',workshop,'workshop')+
+      metric('Pendientes de repuestos',parts,'pending-parts')+
       metric('Terminados para recoger',ready,'ready')+
       metric('Recogidos, recuperar ruta',route,'route')+
       metric('Fuera de contrato',expiredCount,'contract-expired');
+    if(diagnosis) markup+=metric('Pendientes de diagnóstico',diagnosis,'pending-diagnosis');
+    if(authorization) markup+=metric('Pendientes de autorización',authorization,'pending-authorization');
+    cards.innerHTML=markup;
 
     let source=document.querySelector('#v39-panel-source');
     if(!source){
@@ -94,18 +112,19 @@
     }
     source.innerHTML=`<strong>Fuente única: Hotel</strong> · Pizarra actual · ${data.length} registros · actualizado ${fmtTime()}`;
 
-    const workshopRows=data.filter(r=>workshopStates.includes(r.estado));
+    // "Vehículos en taller" significa exclusivamente estado en_taller.
+    const workshopRows=data.filter(r=>r.estado==='en_taller');
     workshopList.innerHTML=workshopRows.map(r=>{
       const vehicle=r.dfm?`DFM ${esc(r.dfm)} · ${esc(r.matricula||'—')}`:`Reserva ${esc(r.reserva||'—')} · ${esc(r.matricula_reserva||'—')}`;
       return `<div class="stage"><span class="badge ${Number(r.prioridad)<=1?'priority-1':''}">P${esc(r.prioridad??'—')}</span><div><strong>${vehicle}</strong><div class="text-small">${esc(r.lugar||'Lugar sin indicar')} · desde ${esc(fmtDate(r.fecha_entrada))}</div><div class="text-small text-muted">Reserva ${esc(r.reserva||'—')} · ${esc(r.etiqueta_reserva||'')}</div></div></div>`;
-    }).join('')||'<div class="text-small text-muted">No hay vehículos en taller.</div>';
+    }).join('')||'<div class="text-small text-muted">No hay vehículos con estado En taller.</div>';
 
     priorityList.innerHTML=data
       .filter(r=>!['reserva_liberada','anulado'].includes(r.estado))
       .sort((a,b)=>(Number(a.prioridad??99)-Number(b.prioridad??99))||(Number(a.orden??0)-Number(b.orden??0)))
       .map(r=>{
         const vehicle=r.dfm?`${String(r.dfm).startsWith('R')?'Semirremolque':'DFM'} ${esc(r.dfm)}`:`Reserva ${esc(r.reserva||'—')}`;
-        return `<div class="stage"><span class="badge ${Number(r.prioridad)<=1?'priority-1':''}">P${esc(r.prioridad??'—')}</span><strong>${vehicle}</strong><span>${esc(r.causa||'Sin causa indicada')}</span></div>`;
+        return `<div class="stage"><span class="badge ${Number(r.prioridad)<=1?'priority-1':''}">P${esc(r.prioridad??'—')}</span><div><strong>${vehicle}</strong><div>${esc(r.causa||'Sin causa indicada')}</div><div class="text-small text-muted">${esc(stateLabel(r.estado))}</div></div></div>`;
       }).join('')||'<div class="text-small text-muted">No hay movimientos activos.</div>';
   }
 
