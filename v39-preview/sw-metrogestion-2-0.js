@@ -20,29 +20,6 @@ self.fetch = async (input, init) => {
     const url = new URL(request.url, self.location.href);
     if (response.ok && url.origin===self.location.origin && url.pathname.endsWith('/v39-preview/metrogestion-2-0.html')) {
       let html = await response.text();
-
-      // v39 ya tiene su propio cargador. El actualizador heredado del HTML base
-      // provocaba un aviso modal y recargas durante el login, así que se retira
-      // antes de devolver la página al navegador.
-      const updaterStart = "      if ('serviceWorker' in navigator) {";
-      const renderMarker = '      renderLoginUsers();';
-      const updaterA = html.indexOf(updaterStart);
-      const updaterB = updaterA >= 0 ? html.indexOf(renderMarker, updaterA) : -1;
-      if (updaterA >= 0 && updaterB > updaterA) {
-        html = html.slice(0, updaterA) + renderMarker + html.slice(updaterB + renderMarker.length);
-      }
-
-      const noticeStart = '<div id="update-notice"';
-      const footerStart = '<footer class="app-footer">';
-      const noticeA = html.indexOf(noticeStart);
-      const noticeB = noticeA >= 0 ? html.indexOf(footerStart, noticeA) : -1;
-      if (noticeA >= 0 && noticeB > noticeA) {
-        html = html.slice(0, noticeA) + html.slice(noticeB);
-      }
-
-      // Seguridad visual adicional por si una versión antigua del HTML dejara el nodo.
-      html = html.replace('</head>','<style>#update-notice{display:none!important}</style></head>');
-
       html = html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
       html = html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
       html = html.replace('Utiliza la contraseña creada en Supabase.','');
@@ -56,13 +33,11 @@ self.fetch = async (input, init) => {
       if (!html.includes('hotel-v39-reordenar-t.js')) html = html.replace('</body>','<script src="./hotel-v39-reordenar-t.js?v=39-20260813k"></script></body>');
       if (!html.includes('hotel-v39-permisos-talleres.js')) html = html.replace('</body>','<script src="./hotel-v39-permisos-talleres.js?v=39-20260813m"></script></body>');
       if (!html.includes('hotel-v39-taller-contactos-multiples.js')) html = html.replace('</body>','<script src="./hotel-v39-taller-contactos-multiples.js?v=39-20260813r"></script></body>');
-      if (!html.includes('hotel-v39-inicio-fijo.js')) html = html.replace('</body>','<script src="./hotel-v39-inicio-fijo.js?v=39-20260814e"></script></body>');
-      if (!html.includes('hotel-v39-ruta-inicio-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-ruta-inicio-fix.js?v=39-20260814f"></script></body>');
+      if (!html.includes('hotel-v39-inicio-fijo.js')) html = html.replace('</body>','<script src="./hotel-v39-inicio-fijo.js?v=39-20260813w"></script></body>');
+      if (!html.includes('hotel-v39-ruta-inicio-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-ruta-inicio-fix.js?v=39-20260813p"></script></body>');
       if (!html.includes('hotel-v39-bloque-operativo-13ago.js')) html = html.replace('</body>','<script src="./hotel-v39-bloque-operativo-13ago.js?v=39-20260813s"></script></body>');
       if (!html.includes('hotel-v39-sin-ver-expediente.js')) html = html.replace('</body>','<script src="./hotel-v39-sin-ver-expediente.js?v=39-20260813t"></script></body>');
       if (!html.includes('hotel-v39-nota-admin.js')) html = html.replace('</body>','<script src="./hotel-v39-nota-admin.js?v=39-20260813u"></script></body>');
-      if (!html.includes('hotel-v39-reservas-solo-lectura.js')) html = html.replace('</body>','<script src="./hotel-v39-reservas-solo-lectura.js?v=39-20260814b"></script></body>');
-      if (!html.includes('hotel-v39-tprog-texto-permiso.js')) html = html.replace('</body>','<script src="./hotel-v39-tprog-texto-permiso.js?v=39-20260814c"></script></body>');
       const headers = new Headers(response.headers);
       headers.set('Content-Type','text/html; charset=utf-8');
       headers.set('Cache-Control','no-store');
