@@ -25,6 +25,17 @@
     return {activar,hotel,tprog,talleres,gestion:hotel||tprog||talleres};
   }
 
+  function baseReady(){
+    const login=document.querySelector('#mock-login');
+    const app=document.querySelector('#mock-app');
+    const label=document.querySelector('#session-label');
+    return Boolean(
+      app && !app.classList.contains('hidden') &&
+      login && login.classList.contains('hidden') &&
+      String(label?.textContent||'').trim()
+    );
+  }
+
   function showTab(tab,allowed){
     if(!tab) return;
     tab.classList.toggle('hidden',!allowed);
@@ -45,7 +56,6 @@
     const activation=document.querySelector('#activate-tab');
     const hotel=document.querySelector('#hotel-tab');
 
-    // Si otra capa hubiera movido los botones, los devolvemos a su menú original.
     if(nav && activation && activation.parentElement!==nav) nav.insertBefore(activation,nav.firstChild);
     if(nav && hotel && hotel.parentElement!==nav){
       const after=activation?.nextSibling || nav.firstChild;
@@ -55,7 +65,6 @@
     showTab(activation,p.activar);
     showTab(hotel,p.gestion);
 
-    // Cuando Hotel está abierto, su pestaña debe verse además como seleccionada.
     const hotelView=document.querySelector('#view-hotel');
     if(hotel && hotelView && !hotelView.classList.contains('hidden')){
       hotel.classList.add('btn-primary');
@@ -68,6 +77,10 @@
   }
 
   async function openHotel(forceBoard=true){
+    // Nunca pulsamos Hotel hasta que la base haya terminado de cargar el perfil.
+    // Evita el aviso falso «No tienes permiso para consultar el Hotel» durante el login.
+    if(!baseReady()) return false;
+
     const p=await readPerms();
     restoreTabs(p);
     if(!p.gestion){
@@ -103,12 +116,24 @@
     try{
       const {data:{session}}=await sb.auth.getSession();
       if(!session) return;
+
+      // La sesión de Supabase puede existir antes de que el HTML base haya cargado
+      // el perfil en currentAccount(). Esperamos ese segundo paso antes de abrir vistas.
+      if(!baseReady()){
+        if(openDefault && !defaultOpened) setTimeout(()=>apply({openDefault:true}),250);
+        return;
+      }
+
       const p=await readPerms();
       restoreTabs(p);
       if(openDefault && !defaultOpened){
-        defaultOpened=true;
-        if(p.gestion) await openHotel(true);
-        else if(p.activar) document.querySelector('#activate-tab')?.click();
+        if(p.gestion){
+          const opened=await openHotel(true);
+          if(opened) defaultOpened=true;
+        }else if(p.activar){
+          document.querySelector('#activate-tab')?.click();
+          defaultOpened=true;
+        }
       }
     } finally { applying=false; }
   }
@@ -118,16 +143,17 @@
     if(!b) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    openHotel(true);
+    if(baseReady()) openHotel(true);
   },true);
 
   sb.auth.onAuthStateChange((_event,session)=>{
-    if(session) setTimeout(()=>apply({openDefault:true}),120);
+    if(session) setTimeout(()=>apply({openDefault:true}),250);
     else defaultOpened=false;
   });
 
-  window.addEventListener('focus',()=>setTimeout(()=>apply({openDefault:false}),80));
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(()=>apply({openDefault:false}),80)});
-  setTimeout(()=>apply({openDefault:true}),500);
-  setTimeout(()=>apply({openDefault:false}),1400);
+  window.addEventListener('focus',()=>setTimeout(()=>apply({openDefault:false}),100));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(()=>apply({openDefault:false}),100)});
+  setTimeout(()=>apply({openDefault:true}),700);
+  setTimeout(()=>apply({openDefault:true}),1500);
+  setTimeout(()=>apply({openDefault:false}),2500);
 })();
