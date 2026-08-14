@@ -5,14 +5,16 @@ self.addEventListener('message', event => { if (event.data === 'SKIP_WAITING') s
 
 importScripts('./sw-metrogestion-v36-estable.js');
 const v39StableFetch = self.fetch.bind(self);
+
 self.fetch = async (input, init) => {
   const response = await v39StableFetch(input, init);
   try {
     const request = input instanceof Request ? input : new Request(input, init);
     const url = new URL(request.url, self.location.href);
-    if (response.ok && url.origin===self.location.origin && url.pathname.endsWith('/v39-preview/metrogestion-2-0.html')) {
+    if (response.ok && url.origin === self.location.origin && url.pathname.endsWith('/v39-preview/metrogestion-2-0.html')) {
       let html = await response.text();
 
+      // Fecha real de la pizarra.
       html = html.replace("const hotelSourceDate = '03/08/2026';","let hotelSourceDate = 'Cargando pizarra actual…';");
       html = html.replace("activePizarraDate = pizarra.fecha;","activePizarraDate = pizarra.fecha; hotelSourceDate = new Date(pizarra.fecha + 'T12:00:00').toLocaleDateString('es-ES');");
       html = html.replace(
@@ -26,13 +28,10 @@ self.fetch = async (input, init) => {
         "hotelUnits = (rows || []).filter(row => row.estado !== 'reserva_liberada').map(mapDbHotelUnit);"
       );
 
-      // Hotel primero; índice de vehículos después, en segundo plano.
-      html = html.replace(
-        "await loadVehicleIndex();\n        // El Hotel solo carga datos y tiempo real cuando la cuenta tiene permiso explícito.\n        if (canViewHotel()) await loadHotelFromSupabase(true);\n        offerActivationProgress();",
-        "if (canViewHotel()) await loadHotelFromSupabase(true);\n        loadVehicleIndex().catch(error => console.warn('v39: índice de vehículos en segundo plano', error));\n        offerActivationProgress();"
-      );
+      // IMPORTANTE: se conserva el orden estable original de v36:
+      // primero loadVehicleIndex(), después Hotel. No se invierte la carga.
 
-      // Login exactamente como en la versión validada: escribir nunca envía el formulario.
+      // Login validado: escribir nunca envía el formulario por sí solo.
       html = html.replace(
         '<form id="login-form" class="card stack" autocomplete="on">',
         '<form id="login-form" class="card stack" autocomplete="off">'
@@ -42,8 +41,7 @@ self.fetch = async (input, init) => {
         '<button id="mock-enter" class="btn btn-primary" type="button">Entrar</button>'
       );
 
-      // v39 controla las actualizaciones desde index.html. Se desactiva por completo
-      // el registro interno del service worker heredado de v36 para evitar dobles updates.
+      // v39 controla las actualizaciones desde index.html; se desactiva el registro interno heredado.
       html = html.replace("if ('serviceWorker' in navigator) {", "if (false && 'serviceWorker' in navigator) {");
 
       html = html.replace('</head>','<style>#v39-home-fixed,#update-notice{display:none!important}</style></head>');
@@ -51,30 +49,34 @@ self.fetch = async (input, init) => {
       html = html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
       html = html.replace('Utiliza la contraseña creada en Supabase.','');
 
-      if (!html.includes('login-v39-boton-explicito.js')) html = html.replace('</body>','<script src="./login-v39-boton-explicito.js?v=39-20260814k24"></script></body>');
-      if (!html.includes('hotel-v39-integracion.js')) html = html.replace('</body>','<script src="./hotel-v39-integracion.js?v=39-20260813"></script></body>');
-      if (!html.includes('hotel-v39-fix-reservas.js')) html = html.replace('</body>','<script src="./hotel-v39-fix-reservas.js?v=39-20260814k16"></script></body>');
-      if (!html.includes('hotel-v39-editar-parada.js')) html = html.replace('</body>','<script src="./hotel-v39-editar-parada.js?v=39-20260813d"></script></body>');
-      if (!html.includes('hotel-v39-t-programadas.js')) html = html.replace('</body>','<script src="./hotel-v39-t-programadas.js?v=39-20260813h"></script></body>');
-      if (!html.includes('hotel-v39-asignar-reserva.js')) html = html.replace('</body>','<script src="./hotel-v39-asignar-reserva.js?v=39-20260813g"></script></body>');
-      if (!html.includes('hotel-v39-dfm-select.js')) html = html.replace('</body>','<script src="./hotel-v39-dfm-select.js?v=39-20260813i"></script></body>');
-      if (!html.includes('hotel-v39-ajustes-operativos.js')) html = html.replace('</body>','<script src="./hotel-v39-ajustes-operativos.js?v=39-20260813j"></script></body>');
-      if (!html.includes('hotel-v39-reordenar-t.js')) html = html.replace('</body>','<script src="./hotel-v39-reordenar-t.js?v=39-20260813k"></script></body>');
-      if (!html.includes('hotel-v39-permisos-talleres.js')) html = html.replace('</body>','<script src="./hotel-v39-permisos-talleres.js?v=39-20260813m"></script></body>');
-      if (!html.includes('hotel-v39-taller-contactos-multiples.js')) html = html.replace('</body>','<script src="./hotel-v39-taller-contactos-multiples.js?v=39-20260813r"></script></body>');
-      if (!html.includes('hotel-v39-inicio-fijo.js')) html = html.replace('</body>','<script src="./hotel-v39-inicio-fijo.js?v=39-20260814k"></script></body>');
-      if (!html.includes('hotel-v39-ruta-inicio-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-ruta-inicio-fix.js?v=39-20260814k6"></script></body>');
-      if (!html.includes('hotel-v39-menu-recuperacion.js')) html = html.replace('</body>','<script src="./hotel-v39-menu-recuperacion.js?v=39-20260814k10"></script></body>');
-      if (!html.includes('hotel-v39-reservas-modulo.js')) html = html.replace('</body>','<script src="./hotel-v39-reservas-modulo.js?v=39-20260814k15"></script></body>');
-      if (!html.includes('hotel-v39-bloque-operativo-13ago.js')) html = html.replace('</body>','<script src="./hotel-v39-bloque-operativo-13ago.js?v=39-20260813s"></script></body>');
-      if (!html.includes('hotel-v39-modo-compartido.js')) html = html.replace('</body>','<script src="./hotel-v39-modo-compartido.js?v=39-20260814k25"></script></body>');
-      if (!html.includes('hotel-v39-sin-ver-expediente.js')) html = html.replace('</body>','<script src="./hotel-v39-sin-ver-expediente.js?v=39-20260813t"></script></body>');
-      if (!html.includes('hotel-v39-nota-admin.js')) html = html.replace('</body>','<script src="./hotel-v39-nota-admin.js?v=39-20260813u"></script></body>');
-      if (!html.includes('hotel-v39-reservas-solo-lectura.js')) html = html.replace('</body>','<script src="./hotel-v39-reservas-solo-lectura.js?v=39-20260814k"></script></body>');
-      if (!html.includes('hotel-v39-pizarra-actual-fix.js')) html = html.replace('</body>','<script src="./hotel-v39-pizarra-actual-fix.js?v=39-20260814k5"></script></body>');
-      if (!html.includes('hotel-v39-historico-dia.js')) html = html.replace('</body>','<script src="./hotel-v39-historico-dia.js?v=39-20260814k8"></script></body>');
-      if (!html.includes('hotel-v39-historico-carga.js')) html = html.replace('</body>','<script src="./hotel-v39-historico-carga.js?v=39-20260814k8"></script></body>');
-      if (!html.includes('hotel-v39-panel-fuente-unica.js')) html = html.replace('</body>','<script src="./hotel-v39-panel-fuente-unica.js?v=39-20260814k11"></script></body>');
+      const inject = (name, version) => {
+        if (!html.includes(name)) html = html.replace('</body>', `<script src="./${name}?v=${version}"></script></body>`);
+      };
+
+      inject('login-v39-boton-explicito.js','39-20260814k24');
+      inject('hotel-v39-integracion.js','39-20260813');
+      inject('hotel-v39-fix-reservas.js','39-20260814k16');
+      inject('hotel-v39-editar-parada.js','39-20260813d');
+      inject('hotel-v39-t-programadas.js','39-20260813h');
+      inject('hotel-v39-asignar-reserva.js','39-20260813g');
+      inject('hotel-v39-dfm-select.js','39-20260813i');
+      inject('hotel-v39-ajustes-operativos.js','39-20260813j');
+      inject('hotel-v39-reordenar-t.js','39-20260813k');
+      inject('hotel-v39-permisos-talleres.js','39-20260813m');
+      inject('hotel-v39-taller-contactos-multiples.js','39-20260813r');
+      inject('hotel-v39-inicio-fijo.js','39-20260814k');
+      inject('hotel-v39-ruta-inicio-fix.js','39-20260814k6');
+      inject('hotel-v39-menu-recuperacion.js','39-20260814k10');
+      inject('hotel-v39-reservas-modulo.js','39-20260814k15');
+      inject('hotel-v39-bloque-operativo-13ago.js','39-20260813s');
+      inject('hotel-v39-modo-compartido.js','39-20260814k25');
+      inject('hotel-v39-sin-ver-expediente.js','39-20260813t');
+      inject('hotel-v39-nota-admin.js','39-20260813u');
+      inject('hotel-v39-reservas-solo-lectura.js','39-20260814k');
+      inject('hotel-v39-pizarra-actual-fix.js','39-20260814k5');
+      inject('hotel-v39-historico-dia.js','39-20260814k8');
+      inject('hotel-v39-historico-carga.js','39-20260814k8');
+      inject('hotel-v39-panel-fuente-unica.js','39-20260814k11');
 
       const headers = new Headers(response.headers);
       headers.set('Content-Type','text/html; charset=utf-8');
@@ -82,7 +84,7 @@ self.fetch = async (input, init) => {
       return new Response(html,{status:response.status,statusText:response.statusText,headers});
     }
   } catch (error) {
-    console.warn('v39 preview: no se pudo aplicar la capa de integración',error);
+    console.warn('v39 preview: no se pudo aplicar la capa de integración', error);
   }
   return response;
 };
