@@ -1,7 +1,31 @@
 // Metrogestión v39 preview · service worker aislado bajo /v39-preview/.
-self.addEventListener('install', event => { event.waitUntil(self.skipWaiting()); });
-self.addEventListener('activate', event => { event.waitUntil(self.clients.claim()); });
-self.addEventListener('message', event => { if (event.data === 'SKIP_WAITING') self.skipWaiting(); });
+const V39_BUILD = 'stablek31';
+
+self.addEventListener('install', event => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('message', event => {
+  const data = event.data;
+
+  if (data === 'SKIP_WAITING' || data?.type === 'SKIP_WAITING') {
+    event.waitUntil(self.skipWaiting());
+    return;
+  }
+
+  if (data?.type === 'V39_GET_BUILD') {
+    const response = { type: 'V39_BUILD', build: V39_BUILD };
+    if (event.ports?.[0]) {
+      event.ports[0].postMessage(response);
+    } else {
+      event.source?.postMessage(response);
+    }
+  }
+});
 
 importScripts('./sw-metrogestion-v36-estable.js');
 const v39StableFetch = self.fetch.bind(self);
@@ -44,7 +68,13 @@ self.fetch = async (input, init) => {
       // v39 controla las actualizaciones desde index.html; se desactiva el registro interno heredado.
       html = html.replace("if ('serviceWorker' in navigator) {", "if (false && 'serviceWorker' in navigator) {");
 
-      html = html.replace('</head>','<style>#v39-home-fixed,#update-notice{display:none!important}</style></head>');
+      // Marca inequívoca de la build que ha servido la aplicación.
+      html = html.replace(
+        '</head>',
+        '<meta name="metrogestion-v39-build" content="' + V39_BUILD + '">' +
+        '<script>window.__METROGESTION_V39_BUILD__=' + JSON.stringify(V39_BUILD) + ';</script>' +
+        '<style>#v39-home-fixed,#update-notice{display:none!important}</style></head>'
+      );
       html = html.replace('Activar 24H · Beta 2.0 · v36','Metrogestión · v39 · PRUEBAS');
       html = html.replace('Gestión de mantenimientos · Activar 24H','Gestión de Mantenimiento · Metrogestión v39');
       html = html.replace('Utiliza la contraseña creada en Supabase.','');
@@ -69,7 +99,6 @@ self.fetch = async (input, init) => {
       inject('hotel-v39-menu-recuperacion.js','39-20260814k30');
       inject('hotel-v39-reservas-modulo.js','39-20260814k15');
       inject('hotel-v39-bloque-operativo-13ago.js','39-20260814k27');
-      // Un único botón global Lectura/Edición gobierna toda la pizarra y todas las T.
       inject('hotel-v39-modo-compartido.js','39-20260814k29');
       inject('hotel-v39-sin-ver-expediente.js','39-20260813t');
       inject('hotel-v39-nota-admin.js','39-20260813u');
@@ -81,7 +110,10 @@ self.fetch = async (input, init) => {
 
       const headers = new Headers(response.headers);
       headers.set('Content-Type','text/html; charset=utf-8');
-      headers.set('Cache-Control','no-store');
+      headers.set('Cache-Control','no-store, no-cache, must-revalidate');
+      headers.set('Pragma','no-cache');
+      headers.set('Expires','0');
+      headers.set('X-Metrogestion-Build',V39_BUILD);
       return new Response(html,{status:response.status,statusText:response.statusText,headers});
     }
   } catch (error) {
