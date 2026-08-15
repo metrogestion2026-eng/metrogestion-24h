@@ -2,24 +2,72 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="robots" content="noindex,nofollow">
-  <title>Enlace Beta retirado · Metrogestión</title>
-  <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f1f5f9;color:#0f172a;font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:24px}
-    main{width:min(100%,520px);background:white;border:1px solid #cbd5e1;border-radius:22px;padding:28px;box-shadow:0 18px 45px #0f172a1a}
-    .badge{display:inline-block;background:#fee2e2;color:#991b1b;border-radius:999px;padding:8px 12px;font-weight:800}
-    h1{font-size:1.65rem;margin:18px 0 10px}p{font-size:1.05rem;line-height:1.55;margin:0 0 12px}
-    .notice{margin-top:20px;padding:16px;border-radius:14px;background:#eff6ff;color:#1e3a8a;font-weight:650}
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; connect-src 'self' https://njtohfkqjjoavtumtmza.supabase.co wss://njtohfkqjjoavtumtmza.supabase.co; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'; upgrade-insecure-requests">
+  <title>Metrogestión · R1 segura</title>
+  <link rel="stylesheet" href="./app.css">
 </head>
 <body>
-  <main>
-    <span class="badge">Enlace desactivado</span>
-    <h1>Esta versión Beta ha sido retirada por seguridad</h1>
-    <p>Este enlace de prueba ya no permite acceder a Metrogestión.</p>
-    <p>Solicita al administrador el enlace oficial de <strong>Metrogestión Beta 2.0</strong>.</p>
-    <div class="notice">No reutilices ni reenvíes esta dirección antigua.</div>
+  <main class="page-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Gestión de mantenimiento</p>
+        <h1>Metrogestión</h1>
+      </div>
+      <div class="version-box">
+        <span>Versión</span>
+        <strong id="app-version">—</strong>
+      </div>
+    </header>
+
+    <section id="login-view" class="auth-card" aria-labelledby="login-title">
+      <div>
+        <p class="eyebrow">Acceso seguro</p>
+        <h2 id="login-title">Identificación</h2>
+        <p class="muted">El acceso se valida contra Supabase y el dispositivo autorizado.</p>
+      </div>
+
+      <label>
+        Correo
+        <input id="login-email" type="email" autocomplete="username" inputmode="email" spellcheck="false">
+      </label>
+
+      <label>
+        Contraseña o PIN
+        <input id="login-password" type="password" autocomplete="current-password" inputmode="numeric">
+      </label>
+
+      <button id="login-button" class="button primary" type="button">Entrar</button>
+      <p id="login-message" class="status-message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="pending-device-view" class="auth-card hidden" aria-labelledby="pending-device-title">
+      <div>
+        <p class="eyebrow">Dispositivo pendiente</p>
+        <h2 id="pending-device-title">Esperando autorización</h2>
+        <p id="pending-device-message" class="muted"></p>
+      </div>
+      <button id="pending-logout-button" class="button secondary" type="button">Cerrar sesión</button>
+    </section>
+
+    <section id="app-view" class="hidden">
+      <div class="session-bar">
+        <div>
+          <strong id="session-name">—</strong>
+          <span id="session-role" class="muted">—</span>
+        </div>
+        <div class="session-actions">
+          <span id="security-indicator" class="security-indicator">Verificando…</span>
+          <button id="logout-button" class="button secondary compact" type="button">Cerrar sesión</button>
+        </div>
+      </div>
+
+      <nav id="module-nav" class="module-nav" aria-label="Módulos autorizados"></nav>
+      <section id="module-content" class="module-content" aria-live="polite"></section>
+    </section>
   </main>
+
+  <script type="module" src="./src/app.js"></script>
 </body>
 </html>
