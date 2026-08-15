@@ -1,1 +1,164 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Metrogestión v39 · Preview</title><style>body{font-family:system-ui;margin:0;background:#eef6fb;color:#172033}.box{max-width:620px;margin:12vh auto;padding:24px;background:#fff;border:1px solid #d8e1ea;border-radius:16px;box-shadow:0 8px 30px rgba(15,23,42,.12)}strong{font-size:22px}.muted{color:#64748b;margin-top:8px}.retry{margin-top:14px;padding:11px 15px;border:0;border-radius:10px;background:#075985;color:#fff;font-weight:700;display:none}</style></head><body><div class="box"><strong>🏨 Metrogestión v39 · entorno de pruebas</strong><div class="muted">Preparando la versión aislada. La v36 de producción no se modifica.</div><div id="msg" style="margin-top:14px;font-weight:700">Comprobando versión…</div><button id="retry" class="retry" type="button">Reintentar actualización</button></div><script>(async()=>{const BUILD='stablek30';const msg=document.getElementById('msg');const retry=document.getElementById('retry');const sleep=ms=>new Promise(r=>setTimeout(r,ms));retry.onclick=()=>location.reload();const expected=w=>{try{return !!w?.scriptURL&&new URL(w.scriptURL).search.includes(BUILD)}catch{return false}};try{if(!('serviceWorker'in navigator))throw new Error('Este navegador no admite service worker');const sw='./sw-metrogestion-2-0.js?v=39-20260814-'+BUILD;msg.textContent='Instalando '+BUILD+'…';const reg=await navigator.serviceWorker.register(sw,{scope:'./',updateViaCache:'none'});await reg.update();let active=false;for(let i=0;i<120;i+=1){if(reg.waiting)reg.waiting.postMessage('SKIP_WAITING');if(expected(reg.active)){active=true;break}await sleep(100)}if(!active)throw new Error('La nueva versión no terminó de activarse. Pulsa Reintentar una vez.');msg.textContent='v39 actualizada correctamente. Abriendo…';location.replace('./metrogestion-2-0.html?v39=1&build='+BUILD);}catch(e){msg.textContent='No se pudo completar la actualización: '+e.message;retry.style.display='inline-block';}})();</script></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <link rel="manifest" href="./manifest-metrogestion-2-0.json">
+  <title>Metrogestión v39 · Comprobación de versión</title>
+  <style>
+    body{font-family:system-ui;margin:0;background:#eef6fb;color:#172033}
+    .box{max-width:620px;margin:12vh auto;padding:24px;background:#fff;border:1px solid #d8e1ea;border-radius:16px;box-shadow:0 8px 30px rgba(15,23,42,.12)}
+    strong{font-size:22px}
+    .muted{color:#64748b;margin-top:8px}
+    .retry{margin-top:14px;padding:11px 15px;border:0;border-radius:10px;background:#075985;color:#fff;font-weight:700;display:none}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <strong>🏨 Metrogestión v39 · entorno de pruebas</strong>
+    <div class="muted">La aplicación solo se abrirá cuando esta página confirme qué versión la controla realmente.</div>
+    <div id="msg" style="margin-top:14px;font-weight:700">Comprobando versión…</div>
+    <button id="retry" class="retry" type="button">Reintentar</button>
+  </div>
+  <script>
+  (() => {
+    'use strict';
+
+    const BUILD = "stablek31";
+    const WORKER_URL = './sw-metrogestion-2-0.js?build=' + encodeURIComponent(BUILD);
+    const APP_URL = './metrogestion-2-0.html?v39=1&build=' + encodeURIComponent(BUILD);
+    const RELOAD_KEY = 'metrogestion-v39-controller-reload:' + BUILD;
+    const msg = document.getElementById('msg');
+    const retry = document.getElementById('retry');
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    retry.addEventListener('click', () => {
+      sessionStorage.removeItem(RELOAD_KEY);
+      location.replace('./index.html?build=' + encodeURIComponent(BUILD) + '&retry=' + Date.now());
+    });
+
+    function readWorkerBuild(worker, timeoutMs = 1800) {
+      if (!worker) return Promise.resolve('');
+      return new Promise(resolve => {
+        const channel = new MessageChannel();
+        let finished = false;
+
+        const finish = value => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timer);
+          channel.port1.onmessage = null;
+          try { channel.port1.close(); } catch {}
+          resolve(String(value || ''));
+        };
+
+        const timer = setTimeout(() => finish(''), timeoutMs);
+        channel.port1.onmessage = event => finish(event.data?.build || '');
+
+        try {
+          worker.postMessage({ type: 'V39_GET_BUILD' }, [channel.port2]);
+        } catch {
+          finish('');
+        }
+      });
+    }
+
+    async function waitForExactActiveWorker(registration, timeoutMs = 20000) {
+      const deadline = Date.now() + timeoutMs;
+
+      while (Date.now() < deadline) {
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+
+        const activeBuild = await readWorkerBuild(registration.active);
+        if (activeBuild === BUILD) return registration.active;
+
+        await sleep(120);
+        await registration.update().catch(() => {});
+      }
+
+      throw new Error('La versión ' + BUILD + ' no llegó a quedar activa.');
+    }
+
+    async function waitForExactController(timeoutMs = 9000) {
+      const deadline = Date.now() + timeoutMs;
+
+      while (Date.now() < deadline) {
+        const controller = navigator.serviceWorker.controller;
+        const controllerBuild = await readWorkerBuild(controller);
+        if (controllerBuild === BUILD) return controller;
+        await sleep(120);
+      }
+
+      return null;
+    }
+
+    async function start() {
+      try {
+        if (!('serviceWorker' in navigator)) {
+          throw new Error('Este navegador no admite service worker.');
+        }
+
+        msg.textContent = 'Instalando y verificando ' + BUILD + '…';
+
+        const registration = await navigator.serviceWorker.register(WORKER_URL, {
+          scope: './',
+          updateViaCache: 'none'
+        });
+
+        await registration.update();
+
+        if (registration.installing) {
+          registration.installing.addEventListener('statechange', () => {
+            if (registration.installing?.state === 'installed' && registration.waiting) {
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        }
+
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+
+        await waitForExactActiveWorker(registration);
+
+        msg.textContent = BUILD + ' está activa. Verificando el controlador de esta pantalla…';
+        let controller = await waitForExactController();
+
+        if (!controller) {
+          if (sessionStorage.getItem(RELOAD_KEY) !== '1') {
+            sessionStorage.setItem(RELOAD_KEY, '1');
+            msg.textContent = 'Sincronizando el navegador con ' + BUILD + '…';
+            location.replace('./index.html?build=' + encodeURIComponent(BUILD) + '&control=1&t=' + Date.now());
+            return;
+          }
+
+          throw new Error(
+            BUILD + ' está instalada, pero esta pantalla continúa bajo una versión anterior. ' +
+            'Pulsa Reintentar.'
+          );
+        }
+
+        const confirmedBuild = await readWorkerBuild(controller);
+        if (confirmedBuild !== BUILD) {
+          throw new Error('El controlador respondió con una versión distinta: ' + (confirmedBuild || 'sin identificar') + '.');
+        }
+
+        sessionStorage.removeItem(RELOAD_KEY);
+        msg.textContent = BUILD + ' verificada. Abriendo Metrogestión…';
+        location.replace(APP_URL);
+      } catch (error) {
+        msg.textContent = 'No se abrió Metrogestión: ' + (error?.message || 'error desconocido');
+        retry.style.display = 'inline-block';
+      }
+    }
+
+    start();
+  })();
+  </script>
+</body>
+</html>
