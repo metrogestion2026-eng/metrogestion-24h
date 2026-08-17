@@ -1,0 +1,208 @@
+import { APP_VERSION, MODULES } from './config.js';
+import { clear, element, notice } from './dom.js';
+import { getModuleAccess, getSecurityContext } from './security.js';
+import { supabase } from './supabase.js';
+import { renderHistory } from './modules/history.js';
+import { renderHotel } from './modules/hotel.js';
+import { renderPlaceholder } from './modules/placeholders.js';
+
+const dom = {
+  version: document.querySelector('#app-version'),
+  loginView: document.querySelector('#login-view'),
+  loginEmail: document.querySelector('#login-email'),
+  loginPassword: document.querySelector('#login-password'),
+  loginButton: document.querySelector('#login-button'),
+  loginMessage: document.querySelector('#login-message'),
+  pendingView: document.querySelector('#pending-device-view'),
+  pendingMessage: document.querySelector('#pending-device-message'),
+  pendingLogout: document.querySelector('#pending-logout-button'),
+  appView: document.querySelector('#app-view'),
+  sessionName: document.querySelector('#session-name'),
+  sessionRole: document.querySelector('#session-role'),
+  securityIndicator: document.querySelector('#security-indicator'),
+  logoutButton: document.querySelector('#logout-button'),
+  moduleNav: document.querySelector('#module-nav'),
+  moduleContent: document.querySelector('#module-content')
+};
+
+let currentContext = null;
+let currentModule = '';
+
+dom.version.textContent = APP_VERSION;
+
+function showOnly(view) {
+  [dom.loginView, dom.pendingView, dom.appView].forEach(node => node.classList.toggle('hidden', node !== view));
+}
+
+function setLoginMessage(message = '') {
+  dom.loginMessage.textContent = message;
+}
+
+function profileName(profile) {
+  return [profile?.nombre, profile?.apellidos].filter(Boolean).join(' ') || profile?.correo || 'Usuario';
+}
+
+function roleLabel(profile) {
+  return ({
+    administrador_principal: 'Administrador principal',
+    administrador_secundario: 'Administrador secundario',
+    usuario: 'Usuario'
+  })[profile?.tipo_usuario] || profile?.tipo_usuario || 'Usuario';
+}
+
+async function logout() {
+  await supabase.auth.signOut();
+  currentContext = null;
+  currentModule = '';
+  clear(dom.moduleNav);
+  clear(dom.moduleContent);
+  dom.loginPassword.value = '';
+  document.querySelector('.hotel-editor-overlay')?.remove();
+  document.body.classList.remove('editor-open');
+  showOnly(dom.loginView);
+}
+
+async function renderModule(moduleId) {
+  currentModule = moduleId;
+  dom.moduleNav.querySelectorAll('button').forEach(button => {
+    button.classList.toggle('active', button.dataset.module === moduleId);
+  });
+
+  clear(dom.moduleContent);
+  dom.moduleContent.append(notice('Cargando módulo…', 'warning'));
+
+  try {
+    if (moduleId === 'hotel') {
+      const access = getModuleAccess(currentContext?.profile, 'hotel');
+      await renderHotel(dom.moduleContent, access);
+    } else if (moduleId === 'historico') {
+      await renderHistory(dom.moduleContent);
+    } else {
+      renderPlaceholder(dom.moduleContent, moduleId);
+    }
+  } catch (error) {
+    clear(dom.moduleContent);
+    dom.moduleContent.append(notice(`Error al cargar el módulo: ${error?.message || 'error desconocido'}`, 'danger'));
+  }
+}
+
+function renderNavigation(profile) {
+  clear(dom.moduleNav);
+  const visibleModules = MODULES.filter(module => getModuleAccess(profile, module.id).view);
+
+  visibleModules.forEach(module => {
+    const access = getModuleAccess(profile, module.id);
+    const button = element('button', {
+      className: 'button secondary',
+      type: 'button',
+      text: `${module.icon} ${module.label}`,
+      dataset: { module: module.id },
+      title: access.edit ? 'Permiso de edición' : 'Solo lectura'
+    });
+    button.addEventListener('click', () => renderModule(module.id));
+    dom.moduleNav.append(button);
+  });
+
+  if (!visibleModules.length) {
+    dom.moduleContent.append(notice('Este usuario no tiene módulos autorizados.', 'warning'));
+    return;
+  }
+
+  const preferred = visibleModules.find(module => module.id === 'hotel') || visibleModules[0];
+  renderModule(preferred.id);
+}
+
+async function openSession(session) {
+  const context = await getSecurityContext(session);
+  currentContext = context;
+
+  if (!context.allowed) {
+    if (context.reason === 'usuario_bloqueado') {
+      await logout();
+      setLoginMessage('La cuenta está bloqueada. Contacta con el administrador principal.');
+      return;
+    }
+
+    dom.pendingMessage.textContent = context.reason === 'pendiente'
+      ? 'La solicitud de este dispositivo está registrada. El administrador principal debe autorizarla antes de acceder a los datos.'
+      : `El dispositivo no está autorizado. Estado: ${context.reason || 'desconocido'}.`;
+    showOnly(dom.pendingView);
+    return;
+  }
+
+  dom.sessionName.textContent = profileName(context.profile);
+  dom.sessionRole.textContent = roleLabel(context.profile);
+  dom.securityIndicator.textContent = context.device?.es_administrador_principal
+    ? '✓ Administrador principal'
+    : '✓ Sesión y dispositivo autorizados';
+  showOnly(dom.appView);
+  renderNavigation(context.profile);
+}
+
+async function restoreOrShowLogin() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session) {
+    showOnly(dom.loginView);
+    return;
+  }
+
+  try {
+    await openSession(data.session);
+  } catch (error) {
+    await supabase.auth.signOut();
+    showOnly(dom.loginView);
+    setLoginMessage(error?.message || 'No se pudo restaurar la sesión segura.');
+  }
+}
+
+async function login() {
+  const email = dom.loginEmail.value.trim().toLowerCase();
+  const password = dom.loginPassword.value;
+
+  if (!email || !password) {
+    setLoginMessage('Introduce correo y contraseña o PIN.');
+    return;
+  }
+
+  dom.loginButton.disabled = true;
+  setLoginMessage('Comprobando credenciales…');
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error || !data.session) {
+    dom.loginButton.disabled = false;
+    setLoginMessage('Correo o contraseña incorrectos.');
+    return;
+  }
+
+  try {
+    setLoginMessage('Comprobando usuario y dispositivo…');
+    await openSession(data.session);
+    setLoginMessage('');
+  } catch (securityError) {
+    await supabase.auth.signOut();
+    showOnly(dom.loginView);
+    setLoginMessage(securityError?.message || 'No se pudo completar la comprobación de seguridad.');
+  } finally {
+    dom.loginButton.disabled = false;
+  }
+}
+
+[dom.loginEmail, dom.loginPassword].forEach(input => {
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') event.preventDefault();
+  });
+});
+
+dom.loginButton.addEventListener('click', login);
+dom.logoutButton.addEventListener('click', logout);
+dom.pendingLogout.addEventListener('click', logout);
+
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT' || !session) {
+    currentContext = null;
+    showOnly(dom.loginView);
+  }
+});
+
+restoreOrShowLogin();
