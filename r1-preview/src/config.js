@@ -1,4 +1,4 @@
-export const APP_VERSION = 'r1.0.0-alpha.3';
+export const APP_VERSION = 'r1.0.0-alpha.4';
 
 // Entorno aislado de pruebas. No usar referencias del proyecto de producción.
 export const SUPABASE_URL = 'https://aemoouldgguyjsxrfuwo.supabase.co';
