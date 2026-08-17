@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://aemoouldgguyjsxrfuwo.supabase.co wss://aemoouldgguyjsxrfuwo.supabase.co; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'; upgrade-insecure-requests">
+  <title>Metrogestión · R1 segura</title>
+  <link rel="stylesheet" href="./app.css">
+  <link rel="stylesheet" href="./bootstrap.css">
+  <link rel="stylesheet" href="./hotel-editor.css">
+  <link rel="stylesheet" href="./hotel-card-stages.css">
+  <link rel="stylesheet" href="./hotel-import-preview.css">
+</head>
+<body>
+  <main class="page-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Gestión de mantenimiento</p>
+        <h1>Metrogestión</h1>
+      </div>
+      <div class="version-box">
+        <span>Versión</span>
+        <strong id="app-version">—</strong>
+      </div>
+    </header>
+
+    <section id="bootstrap-view" class="auth-card bootstrap-card hidden" aria-labelledby="bootstrap-title">
+      <div>
+        <p class="eyebrow">Activación inicial · solo una vez</p>
+        <h2 id="bootstrap-title">Crear administrador de pruebas</h2>
+        <p class="muted">Esta cuenta pertenece únicamente a <strong>metrogestion-pruebas</strong>. No utilices la contraseña de producción.</p>
+        <p class="muted">Cuenta autorizada: <strong id="bootstrap-account">—</strong></p>
+      </div>
+
+      <label>
+        Código de activación
+        <input id="bootstrap-code" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false">
+      </label>
+
+      <label>
+        Nueva contraseña de pruebas
+        <input id="bootstrap-password" type="password" autocomplete="new-password">
+      </label>
+
+      <label>
+        Repite la contraseña
+        <input id="bootstrap-password-confirm" type="password" autocomplete="new-password">
+      </label>
+
+      <button id="bootstrap-button" class="button primary" type="button">Crear administrador de pruebas</button>
+      <p id="bootstrap-message" class="status-message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="login-view" class="auth-card" aria-labelledby="login-title">
+      <div>
+        <p class="eyebrow">Acceso seguro</p>
+        <h2 id="login-title">Identificación</h2>
+        <p class="muted">El acceso se valida contra Supabase y el dispositivo autorizado.</p>
+      </div>
+
+      <label>
+        Correo
+        <input id="login-email" type="email" autocomplete="username" inputmode="email" spellcheck="false">
+      </label>
+
+      <label>
+        Contraseña o PIN
+        <input id="login-password" type="password" autocomplete="current-password">
+      </label>
+
+      <button id="login-button" class="button primary" type="button">Entrar</button>
+      <p id="login-message" class="status-message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="pending-device-view" class="auth-card hidden" aria-labelledby="pending-device-title">
+      <div>
+        <p class="eyebrow">Dispositivo pendiente</p>
+        <h2 id="pending-device-title">Esperando autorización</h2>
+        <p id="pending-device-message" class="muted"></p>
+      </div>
+      <button id="pending-logout-button" class="button secondary" type="button">Cerrar sesión</button>
+    </section>
+
+    <section id="app-view" class="hidden">
+      <div class="session-bar">
+        <div>
+          <strong id="session-name">—</strong>
+          <span id="session-role" class="muted">—</span>
+        </div>
+        <div class="session-actions">
+          <span id="security-indicator" class="security-indicator">Verificando…</span>
+          <button id="logout-button" class="button secondary compact" type="button">Cerrar sesión</button>
+        </div>
+      </div>
+
+      <nav id="module-nav" class="module-nav" aria-label="Módulos autorizados"></nav>
+      <section id="module-content" class="module-content" aria-live="polite"></section>
+    </section>
+  </main>
+
+  <script type="module" src="./src/bootstrap.js"></script>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
