@@ -15,6 +15,14 @@ const STATE_LABELS = Object.freeze({
   anulado: 'Anulado'
 });
 
+const STAGE_STATE_LABELS = Object.freeze({
+  pendiente: 'Pendiente',
+  programada: 'Programada',
+  en_curso: 'En curso',
+  realizada: 'Realizada',
+  anulada: 'Anulada'
+});
+
 function vehicleLabel(row) {
   if (row.dfm) return `${String(row.dfm).startsWith('R') ? 'Semirremolque' : 'DFM'} ${row.dfm}${row.matricula ? ` · ${row.matricula}` : ''}`;
   return `Reserva ${row.reserva || '—'}${row.matricula_reserva ? ` · ${row.matricula_reserva}` : ''}`;
@@ -25,6 +33,124 @@ function metric(label, value) {
     element('strong', { text: value }),
     element('span', { className: 'muted', text: label })
   ]);
+}
+
+function formatDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('es-ES', {
+    dateStyle: 'short',
+    timeStyle: 'short'
+  }).format(date);
+}
+
+function normalizeStages(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function stageVisual(stage) {
+  if (stage.cancelado === true || stage.estado === 'anulada') {
+    return { marker: '×', className: 'stage-cancelled', label: 'Anulada' };
+  }
+  if (stage.estado === 'realizada') {
+    return { marker: '✓', className: 'stage-done', label: 'Realizada' };
+  }
+  if (stage.estado === 'en_curso') {
+    return { marker: '→', className: 'stage-active', label: 'En curso' };
+  }
+  if (stage.estado === 'programada') {
+    return { marker: '○', className: 'stage-scheduled', label: 'Programada' };
+  }
+  return { marker: '○', className: 'stage-pending', label: STAGE_STATE_LABELS[stage.estado] || stage.estado || 'Pendiente' };
+}
+
+function stageDate(stage) {
+  if (stage.cancelado === true || stage.estado === 'anulada') return null;
+  if (stage.estado === 'realizada') {
+    return { label: 'Realizada', value: stage.fecha_real || stage.fecha_fin_real || stage.fecha_inicio_real };
+  }
+  if (stage.estado === 'en_curso') {
+    return { label: 'Inicio', value: stage.fecha_inicio_real || stage.fecha_prevista };
+  }
+  return { label: 'Programada', value: stage.fecha_prevista };
+}
+
+function renderStage(stage) {
+  const visual = stageVisual(stage);
+  const dateInfo = stageDate(stage);
+  const metaParts = [];
+
+  if (stage.lugar) metaParts.push(stage.lugar);
+  if (dateInfo?.value) metaParts.push(`${dateInfo.label}: ${formatDateTime(dateInfo.value)}`);
+  if (!dateInfo?.value && stage.cancelado !== true && stage.estado !== 'anulada') metaParts.push('Sin fecha');
+
+  const main = element('div', { className: 'hotel-stage-main' }, [
+    element('strong', { text: `${stage.posicion ?? '—'}T · ${stage.nombre || 'T sin nombre'}` }),
+    element('span', { className: `hotel-stage-status ${visual.className}`, text: visual.label })
+  ]);
+
+  const content = element('div', { className: 'hotel-stage-content' }, [
+    main,
+    element('div', { className: 'hotel-stage-meta', text: metaParts.join(' · ') || 'Sin lugar ni fecha' })
+  ]);
+
+  if (stage.observaciones) {
+    content.append(element('div', { className: 'hotel-stage-note', text: stage.observaciones }));
+  }
+  if ((stage.cancelado === true || stage.estado === 'anulada') && stage.motivo_cancelacion) {
+    content.append(element('div', { className: 'hotel-stage-note cancelled-note', text: `Motivo: ${stage.motivo_cancelacion}` }));
+  }
+
+  return element('div', { className: `hotel-stage-row ${visual.className}` }, [
+    element('span', { className: 'hotel-stage-marker', text: visual.marker, 'aria-hidden': 'true' }),
+    content
+  ]);
+}
+
+function renderStages(row) {
+  const stages = normalizeStages(row.etapas_resumen)
+    .slice()
+    .sort((left, right) => {
+      const cancelledDifference = Number(Boolean(left.cancelado)) - Number(Boolean(right.cancelado));
+      if (cancelledDifference !== 0) return cancelledDifference;
+      return Number(left.posicion || 0) - Number(right.posicion || 0);
+    });
+
+  const activeStages = stages.filter(stage => stage.cancelado !== true && stage.estado !== 'anulada');
+  const cancelledStages = stages.filter(stage => stage.cancelado === true || stage.estado === 'anulada');
+
+  const section = element('section', { className: 'hotel-card-stages', 'aria-label': 'T de la parada' });
+  section.append(element('div', { className: 'hotel-stage-heading' }, [
+    element('h4', { text: 'T de la parada' }),
+    element('span', { className: 'badge', text: `${activeStages.length} activa${activeStages.length === 1 ? '' : 's'}` })
+  ]));
+
+  const list = element('div', { className: 'hotel-stage-list' });
+  if (!activeStages.length) {
+    list.append(element('div', { className: 'hotel-stage-empty', text: 'No hay T activas registradas.' }));
+  } else {
+    activeStages.forEach(stage => list.append(renderStage(stage)));
+  }
+  section.append(list);
+
+  if (cancelledStages.length) {
+    const historicalList = element('div', { className: 'hotel-stage-list cancelled-list' });
+    cancelledStages.forEach(stage => historicalList.append(renderStage(stage)));
+    section.append(element('details', { className: 'hotel-stage-history' }, [
+      element('summary', { text: `T anuladas / histórico · ${cancelledStages.length}` }),
+      historicalList
+    ]));
+  }
+
+  return section;
 }
 
 function renderCard(row, { editMode, pilotIds, onOpenEditor }) {
@@ -57,7 +183,11 @@ function renderCard(row, { editMode, pilotIds, onOpenEditor }) {
     detail('Última actualización', row.actualizado_en ? new Date(row.actualizado_en).toLocaleString('es-ES') : '—')
   ]);
 
-  const card = element('article', { className: 'card hotel-card', dataset: { state: row.estado || '' } }, [head, details]);
+  const card = element('article', { className: 'card hotel-card', dataset: { state: row.estado || '' } }, [
+    head,
+    details,
+    renderStages(row)
+  ]);
 
   if (pilot) {
     const pilotInfo = editMode
@@ -85,7 +215,7 @@ export async function renderHotel(container, access = { view: false, edit: false
   ]);
 
   const headingActions = element('div', { className: 'hotel-heading-actions' }, [
-    element('span', { className: 'badge', text: 'Fuente: hotel_actual' })
+    element('span', { className: 'badge', text: 'Fuente: hotel_actual_detalle' })
   ]);
 
   const modeButton = access.edit
@@ -94,11 +224,11 @@ export async function renderHotel(container, access = { view: false, edit: false
   if (modeButton) headingActions.prepend(modeButton);
 
   const heading = element('div', { className: 'module-heading' }, [titleBlock, headingActions]);
-  const status = notice('Cargando la pizarra actual…', 'warning');
+  const status = notice('Cargando la pizarra actual y sus T…', 'warning');
   container.append(heading, status);
 
   const [hotelResult, pilotResult] = await Promise.all([
-    supabase.from('hotel_actual').select('*').order('orden', { ascending: true }),
+    supabase.from('hotel_actual_detalle').select('*').order('orden', { ascending: true }),
     access.edit
       ? supabase.from('hotel_edicion_piloto').select('registro_hotel_id').eq('activo', true)
       : Promise.resolve({ data: [], error: null })
