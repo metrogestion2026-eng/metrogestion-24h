@@ -1,0 +1,165 @@
+.hotel-card-stages {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.hotel-stage-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hotel-stage-heading h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.hotel-stage-list {
+  display: grid;
+  gap: 7px;
+}
+
+.hotel-stage-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-left-width: 5px;
+  border-radius: 10px;
+  background: white;
+}
+
+.hotel-stage-marker {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.8);
+  border: 1px solid currentColor;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.hotel-stage-content {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.hotel-stage-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hotel-stage-main strong {
+  overflow-wrap: anywhere;
+}
+
+.hotel-stage-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 820;
+  white-space: nowrap;
+}
+
+.hotel-stage-meta,
+.hotel-stage-note {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.hotel-stage-note {
+  margin-top: 2px;
+  padding-top: 3px;
+  border-top: 1px dashed rgba(96,112,131,.28);
+}
+
+.stage-done {
+  color: #166534;
+  border-left-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.stage-active {
+  color: #075985;
+  border-left-color: #38bdf8;
+  background: #f0f9ff;
+}
+
+.stage-scheduled {
+  color: #854d0e;
+  border-left-color: #eab308;
+  background: #fefce8;
+}
+
+.stage-pending {
+  color: #475569;
+  border-left-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.stage-cancelled {
+  color: #64748b;
+  border-left-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.hotel-stage-row.stage-cancelled .hotel-stage-main strong {
+  text-decoration: line-through;
+}
+
+.cancelled-note {
+  color: #7f1d1d;
+}
+
+.hotel-stage-empty {
+  padding: 10px 12px;
+  color: var(--muted);
+  background: var(--surface-muted);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+
+.hotel-stage-history {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.hotel-stage-history summary {
+  cursor: pointer;
+  padding: 9px 11px;
+  font-weight: 780;
+}
+
+.hotel-stage-history .cancelled-list {
+  padding: 0 9px 9px;
+}
+
+@media (max-width: 620px) {
+  .hotel-stage-row {
+    grid-template-columns: 27px minmax(0, 1fr);
+    padding: 9px;
+  }
+
+  .hotel-stage-main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
