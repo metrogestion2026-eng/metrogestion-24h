@@ -4,9 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; connect-src 'self' https://aemoouldgguyjsxrfuwo.supabase.co wss://aemoouldgguyjsxrfuwo.supabase.co; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://aemoouldgguyjsxrfuwo.supabase.co wss://aemoouldgguyjsxrfuwo.supabase.co; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'; upgrade-insecure-requests">
   <title>Metrogestión · R1 segura</title>
   <link rel="stylesheet" href="./app.css">
+  <link rel="stylesheet" href="./bootstrap.css">
 </head>
 <body>
   <main class="page-shell">
@@ -20,6 +21,33 @@
         <strong id="app-version">—</strong>
       </div>
     </header>
+
+    <section id="bootstrap-view" class="auth-card bootstrap-card hidden" aria-labelledby="bootstrap-title">
+      <div>
+        <p class="eyebrow">Activación inicial · solo una vez</p>
+        <h2 id="bootstrap-title">Crear administrador de pruebas</h2>
+        <p class="muted">Esta cuenta pertenece únicamente a <strong>metrogestion-pruebas</strong>. No utilices la contraseña de producción.</p>
+        <p class="muted">Cuenta autorizada: <strong id="bootstrap-account">—</strong></p>
+      </div>
+
+      <label>
+        Código de activación
+        <input id="bootstrap-code" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false">
+      </label>
+
+      <label>
+        Nueva contraseña de pruebas
+        <input id="bootstrap-password" type="password" autocomplete="new-password">
+      </label>
+
+      <label>
+        Repite la contraseña
+        <input id="bootstrap-password-confirm" type="password" autocomplete="new-password">
+      </label>
+
+      <button id="bootstrap-button" class="button primary" type="button">Crear administrador de pruebas</button>
+      <p id="bootstrap-message" class="status-message" role="status" aria-live="polite"></p>
+    </section>
 
     <section id="login-view" class="auth-card" aria-labelledby="login-title">
       <div>
@@ -35,7 +63,7 @@
 
       <label>
         Contraseña o PIN
-        <input id="login-password" type="password" autocomplete="current-password" inputmode="numeric">
+        <input id="login-password" type="password" autocomplete="current-password">
       </label>
 
       <button id="login-button" class="button primary" type="button">Entrar</button>
@@ -68,6 +96,7 @@
     </section>
   </main>
 
+  <script type="module" src="./src/bootstrap.js"></script>
   <script type="module" src="./src/app.js"></script>
 </body>
 </html>
