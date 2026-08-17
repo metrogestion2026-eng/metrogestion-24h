@@ -61,14 +61,14 @@ export async function renderHotel(container) {
       element('h2', { text: 'Hotel · Pizarra actual' }),
       element('p', { className: 'muted', text: 'Una única interfaz para todos los perfiles. Esta primera base es de lectura y no modifica datos.' })
     ]),
-    element('span', { className: 'badge', text: 'Fuente: hotel_actual_v39' })
+    element('span', { className: 'badge', text: 'Fuente: hotel_actual' })
   ]);
 
   const status = notice('Cargando la pizarra actual…', 'warning');
   container.append(heading, status);
 
   const { data, error } = await supabase
-    .from('hotel_actual_v39')
+    .from('hotel_actual')
     .select('*')
     .order('orden', { ascending: true });
 
@@ -80,7 +80,7 @@ export async function renderHotel(container) {
   }
 
   const rows = data || [];
-  const active = rows.filter(row => !['reserva_liberada', 'anulado'].includes(row.estado)).length;
+  const active = rows.length;
   const workshop = rows.filter(row => ['pendiente_diagnostico', 'pendiente_autorizacion', 'en_taller', 'pendiente_repuestos'].includes(row.estado)).length;
   const ready = rows.filter(row => row.estado === 'terminado_pendiente_recogida').length;
   const planned = rows.filter(row => row.estado === 'planificado').length;
