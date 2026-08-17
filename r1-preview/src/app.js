@@ -57,6 +57,8 @@ async function logout() {
   clear(dom.moduleNav);
   clear(dom.moduleContent);
   dom.loginPassword.value = '';
+  document.querySelector('.hotel-editor-overlay')?.remove();
+  document.body.classList.remove('editor-open');
   showOnly(dom.loginView);
 }
 
@@ -70,9 +72,14 @@ async function renderModule(moduleId) {
   dom.moduleContent.append(notice('Cargando módulo…', 'warning'));
 
   try {
-    if (moduleId === 'hotel') await renderHotel(dom.moduleContent);
-    else if (moduleId === 'historico') await renderHistory(dom.moduleContent);
-    else renderPlaceholder(dom.moduleContent, moduleId);
+    if (moduleId === 'hotel') {
+      const access = getModuleAccess(currentContext?.profile, 'hotel');
+      await renderHotel(dom.moduleContent, access);
+    } else if (moduleId === 'historico') {
+      await renderHistory(dom.moduleContent);
+    } else {
+      renderPlaceholder(dom.moduleContent, moduleId);
+    }
   } catch (error) {
     clear(dom.moduleContent);
     dom.moduleContent.append(notice(`Error al cargar el módulo: ${error?.message || 'error desconocido'}`, 'danger'));
