@@ -1,7 +1,8 @@
-export const APP_VERSION = 'r1.0.0-alpha.1';
+export const APP_VERSION = 'r1.0.0-alpha.2';
 
-export const SUPABASE_URL = 'https://njtohfkqjjoavtumtmza.supabase.co';
-export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_w1a9DClOM0S4HVJdv_TbKg_W_UkN2W_';
+// Entorno aislado de pruebas. No usar referencias del proyecto de producción.
+export const SUPABASE_URL = 'https://aemoouldgguyjsxrfuwo.supabase.co';
+export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_EvSyRoy0Dwa3WlM3UG7zLg_QXxP-Zzy';
 
 export const MODULES = Object.freeze([
   { id: 'hotel', label: 'Hotel · Pizarra', icon: '🏨' },
