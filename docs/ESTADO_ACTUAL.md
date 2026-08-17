@@ -10,8 +10,8 @@ Fecha de validación: 17/08/2026
 - La configuración y la Content Security Policy solo permiten conectar con `metrogestion-pruebas`.
 - No existe service worker ni actualización automática.
 - Cada prueba publicada es inmutable y utiliza una carpeta distinta.
-- Alpha 4, Alpha 5 y Alpha 6 permanecen separadas.
-- Alpha 6: `https://metrogestion2026-eng.github.io/metrogestion-24h/r1-alpha6/`.
+- Alpha 4, Alpha 5, Alpha 6 y Alpha 7 permanecen separadas.
+- Alpha 7: `https://metrogestion2026-eng.github.io/metrogestion-24h/r1-alpha7/`.
 - Las publicaciones solo añaden carpetas `r1-*`; no sustituyen archivos de v36 o v39.
 
 ## Migraciones aplicadas en metrogestion-pruebas
@@ -31,6 +31,7 @@ Fecha de validación: 17/08/2026
 13. `013_bootstrap_config_explicit_deny`: denegación RLS explícita del bootstrap.
 14. `014_hotel_card_stage_summary`: T visibles dentro de cada ficha.
 15. `015_hotel_drive_staging`: zona aislada de captura y validación de la hoja Hotel real.
+16. `016_hotel_transformation_preview`: reglas declarativas y vista de transformación previa de estados, T y efectos finales.
 
 ## Seguridad validada
 
@@ -41,8 +42,8 @@ Fecha de validación: 17/08/2026
 - Las funciones de guardado son `security invoker` y comprueban permiso, dispositivo, versión y ficha.
 - Las modificaciones quedan auditadas.
 - La contraseña no se guarda en GitHub ni en la conversación.
-- Las vistas `hotel_actual_detalle` y `hotel_importacion_drive_previa` respetan RLS.
-- Las tablas de importación solo son visibles para el administrador principal.
+- Las vistas de importación y transformación respetan RLS.
+- Las tablas de importación y reglas de transformación solo son visibles para el administrador principal.
 
 Resultado de pruebas de perfiles y permisos: **10 de 10 correctas**.
 
@@ -66,38 +67,60 @@ Se confirmó en la cabecera del 17/08/2026:
 - el campo `INC` continúa separado;
 - las incidencias se rellenarán manualmente y quedarán vinculadas a la parada.
 
-Se creó una instantánea aislada de la pizarra del 17/08/2026:
+Instantánea aislada:
 
-- filas de origen: 232–250;
+- filas 232–250;
 - 19 filas capturadas;
-- 10 movimientos con reserva;
-- 1 movimiento sin reserva;
-- 2 reservas en taller sin flota asignada;
+- 13 movimientos o reservas en taller;
 - 6 reservas libres;
 - 13 números de parada;
-- 0 números de parada duplicados;
-- 0 avisos automáticos de formato.
+- 0 números duplicados;
+- 0 avisos de formato.
 
-La instantánea está en staging. No se ha aplicado a `registros_hotel`, `etapas_hotel`, Histórico ni producción.
+La instantánea sigue en staging y no se ha aplicado a Hotel, T, Histórico ni producción.
+
+## Reglas de transformación confirmadas
+
+- `LIBRE` y `LLIURE`, aplicados a una reserva, significan reserva disponible para asignar y poder parar otra unidad de flota.
+- `OPERATIVO` significa vehículo de flota que no necesitó sustitución y vuelve directamente a su ruta.
+- `RECUPERAR`, cuando existió sustitución, devuelve la flota a ruta y libera la reserva.
+- `24H` significa asistencia activa y propone prioridad 1.
+- `PENDENT TALLER` se transforma en pendiente de taller.
+- `AL TALLER dd/mm/aa` se transforma en realizando trabajos en taller y propone la fecha de entrada sin inventar la hora.
+- Talleres y trabajos reconocidos: AUTODIS, STERN, ODEXAN, DIRECAUTO, FRIGICOLL, VOLVO, HWASUNG, ITV, RODES y ALINEADO.
+
+Resultado automático:
+
+- 19 de 19 filas con regla de estado reconocida;
+- 31 de 31 T reconocidas;
+- 0 T sin regla;
+- 8 fechas de entrada extraídas;
+- 10 finales `RECUPERAR`;
+- 2 finales de liberación de reserva desde una T;
+- 1 final `OPERATIVO` sin reserva;
+- 11 prioridades todavía pendientes de asignación manual;
+- 13 INC pendientes de rellenar manualmente.
 
 ## Código de la aplicación
 
-Versión publicada: `r1.0.0-alpha.6`.
+Versión publicada: `r1.0.0-alpha.7`.
 
-- Conserva Hotel, editor, T visibles e Histórico de Alpha 5.
-- Añade el módulo exclusivo del administrador principal `Hotel real · Previa`.
-- La previa muestra los 19 registros, los números de parada de la columna L, los estados originales, las T anotadas y el INC pendiente de rellenar.
-- Separa visualmente movimientos y reservas libres.
-- No contiene ningún botón para aplicar o modificar la instantánea.
+- Conserva Hotel, editor, T visibles, Histórico y la previa original.
+- Añade `Transformación · Previa`, visible solo para el administrador principal.
+- Cada ficha compara el dato original con el resultado propuesto.
+- Muestra estado, fecha, prioridad, INC, T transformadas y efecto final.
+- Distingue expresamente LIBRE/LLIURE, OPERATIVO y RECUPERAR.
+- No contiene ningún botón para aplicar la transformación.
 - Panel permanece EN CONSTRUCCIÓN.
 
 ## Estado del bloque actual
 
-Pendiente de validación humana de Alpha 6:
+Pendiente de validación humana de Alpha 7:
 
-1. Abrir `Hotel real · Previa`.
-2. Confirmar que aparecen 19 filas.
-3. Confirmar que se muestran 13 paradas numeradas.
-4. Revisar la separación entre 13 movimientos/reservas en taller y 6 reservas libres.
-5. Confirmar que la columna L aparece como `Nº de parada` y que `INC manual` aparece separado.
-6. Después se definirá la transformación de estados y T, sin aplicar todavía los datos al Hotel activo.
+1. Abrir `Transformación · Previa`.
+2. Confirmar que aparecen 19 de 19 filas y 31 de 31 T reconocidas.
+3. Revisar `LIBRE/LLIURE` como reserva disponible.
+4. Revisar `OPERATIVO` como vuelta directa a ruta sin sustitución.
+5. Revisar `RECUPERAR` como flota operativa más reserva liberada.
+6. Revisar las fechas extraídas de los estados `AL TALLER`.
+7. Después se preparará la pantalla para rellenar prioridades, horas e INC, todavía sin aplicar datos al Hotel activo.
