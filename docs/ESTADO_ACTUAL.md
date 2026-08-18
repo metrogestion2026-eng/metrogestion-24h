@@ -10,8 +10,8 @@ Fecha de validación: 18/08/2026
 - La configuración y la Content Security Policy solo permiten conectar con `metrogestion-pruebas`.
 - No existe service worker ni actualización automática.
 - Cada prueba publicada es inmutable y utiliza una carpeta distinta.
-- Alpha 4 a Alpha 9 permanecen separadas.
-- Alpha 9: `https://metrogestion2026-eng.github.io/metrogestion-24h/r1-alpha9/`.
+- Alpha 4 a Alpha 10 permanecen separadas.
+- Alpha 10: `https://metrogestion2026-eng.github.io/metrogestion-24h/r1-alpha10/`.
 - Las publicaciones solo añaden carpetas `r1-*`; no sustituyen archivos de v36 o v39.
 
 ## Migraciones aplicadas en metrogestion-pruebas
@@ -34,15 +34,15 @@ Fecha de validación: 18/08/2026
 16. `016_hotel_transformation_preview`
 17. `017_hotel_manual_review`
 18. `018_harden_manual_review_writes`
-19. `019_hotel_color_model`: catálogo formal de colores, propuesta desde estado/anotaciones y revisión manual auditada para casos ambiguos.
+19. `019_hotel_color_model`
+20. `020_hotel_visual_state_model`: separa estado operativo, color de fondo y trazo; incorpora amarillo y resuelve sustituciones temporales desde las relaciones/anotaciones validadas.
 
 ## Seguridad
 
 - `anon` no puede consultar Hotel, usuarios, transformación ni revisiones.
-- La revisión manual y la revisión de colores son exclusivas del administrador principal.
 - La instantánea original de Drive permanece congelada.
-- Las revisiones se guardan en tablas separadas, con control de versión y auditoría.
-- Marrón y trazo marrón no se aceptan como decisión automática cuando dependen de una relación de sustitución entre vehículos de flota.
+- Las revisiones están separadas, versionadas y auditadas.
+- La capa de presentación de Alpha 10 es solo lectura y no aplica datos al Hotel activo.
 
 ## Hotel real
 
@@ -55,49 +55,69 @@ Fuente: `RESERVAS 2026`, hoja `8`, pizarra del 17/08/2026.
 - INC separado y vinculado manualmente a la parada.
 - 31 de 31 T reconocidas.
 
-## Código operativo de colores
+## Modelo visual definitivo
 
-- `blanco`: pendiente de taller.
-- `verde`: reserva libre y disponible para asignar.
-- `calabaza`: pendiente de recuperar.
-- `azul`: trabajo terminado, pendiente de recoger en taller.
-- `marron`: vehículo de flota que sustituye temporalmente a otro vehículo de flota por una urgencia.
-- `lila`: vehículo actualmente en taller.
-- `trazo_marron`: vehículo en reparación que no ha sido sustituido.
+El modelo separa tres conceptos que no deben mezclarse:
 
-El color no sustituye al dato. Se interpreta junto con estado, parada, relación flota/reserva y anotación validada.
+1. **Estado operativo**: qué situación tiene la unidad.
+2. **Fondo**: representación visual principal del estado o de la ocupación temporal de una unidad de flota.
+3. **Trazo marrón**: indicador adicional independiente del fondo.
 
-## Propuesta de colores sobre las fichas validadas
+Reglas:
 
-La vista `hotel_importacion_color_previa` propone automáticamente únicamente casos inequívocos. En la instantánea actual:
+- `blanco` ↔ **Pendiente de taller**.
+- `amarillo` ↔ **Pendiente de parar**.
+- `lila` ↔ **Vehículo en taller / realizando trabajos**.
+- `azul` ↔ **Pendiente de recoger en taller**.
+- `calabaza` ↔ **Pendiente de recuperar**.
+- `verde` ↔ **Reserva libre y disponible para asignar**.
+- `marrón` ↔ **Vehículo de flota que sustituye temporalmente a otro vehículo de flota por una urgencia**. Mientras está marrón no está disponible para otra asignación.
+- `trazo marrón` ↔ **Vehículo en reparación sin sustitución**. El trazo se conserva aunque después cambie el fondo por su nuevo estado; por ejemplo, pendiente de recuperar = fondo calabaza + trazo marrón.
 
-- blanco: 3 fichas;
-- verde: 6 reservas libres;
-- calabaza: 3 fichas;
-- azul: 4 fichas;
+El color nunca sustituye al dato. Se interpreta junto con estado, número de parada, relaciones de sustitución y anotación validada.
+
+## Resultado sobre las fichas validadas actuales
+
+La vista `hotel_importacion_presentacion_previa` usa las relaciones entre DFM y las anotaciones ya validadas.
+
+Resultado actual:
+
+- marrón: 2 fichas (`2498` sustituyendo a `2604`, y `2516` sustituyendo a `2544`);
+- amarillo: 1 ficha (`2604`, pendiente de parar / entrada programada);
 - lila: 3 fichas;
-- marrón: 0 automáticas;
-- trazo marrón: 0 automáticas.
+- azul: 4 fichas, todas con estado `Pendiente de recoger`;
+- calabaza: 3 fichas, todas con estado `Pendiente de recuperar`;
+- verde: 6 reservas libres;
+- blanco: 0 fichas en esta instantánea concreta;
+- trazo marrón: 1 ficha (`2612`), que además queda calabaza por estar pendiente de recuperar.
 
-Las propuestas usan primero las anotaciones validadas para detectar `pendiente de recoger` o `pendiente de recuperar`, y después el estado validado. Marrón y trazo marrón quedan disponibles para revisión explícita cuando corresponda.
+Casos clave resueltos:
 
-## Alpha 9
+- `2498`: fondo marrón porque está ocupado sustituyendo temporalmente al `2604`, aunque su propio estado base sea pendiente de taller.
+- `2604`: amarillo, estado `Pendiente de parar`.
+- `2516`: fondo marrón porque está ocupado sustituyendo temporalmente al `2544`.
+- `2544`: calabaza, estado `Pendiente de recuperar`; al recuperar su ruta libera al `2516`.
+- `2612`: calabaza + trazo marrón, porque fue reparado sin sustitución y está pendiente de recuperar su ruta.
 
-Versión: `r1.0.0-alpha.9`.
+## Alpha 10
 
-- Añade `Colores · Previa`, visible solo para el administrador principal.
-- Muestra la leyenda de los siete criterios visuales.
-- Presenta cada ficha con su color propuesto, motivo y anotación validada.
-- Permite corregir y validar manualmente el color mediante RPC auditada.
-- Marrón/trazo marrón exigen explicación cuando se validan.
-- No existe acción de importar o aplicar al Hotel activo.
+Versión: `r1.0.0-alpha.10`.
+
+- Parte de Alpha 8 completa y añade `Estados y colores`.
+- Muestra estado, fondo y trazo por separado.
+- Incluye la leyenda completa con el nuevo amarillo.
+- Muestra las relaciones de sustitución entre DFM y las anotaciones validadas.
+- Representa visualmente el trazo marrón de forma independiente del fondo.
+- No contiene acción de importar o aplicar al Hotel activo.
 
 ## Estado del bloque actual
 
-Pendiente de validación humana de Alpha 9:
+Pendiente de validación humana de Alpha 10:
 
-1. Abrir `Colores · Previa`.
-2. Confirmar visualmente blanco, verde, calabaza, azul y lila en las fichas inequívocas.
-3. Revisar las sustituciones temporales entre vehículos de flota para decidir dónde corresponde marrón.
-4. Revisar si algún vehículo reparado sin sustitución debe mostrarse con trazo marrón.
-5. No aplicar todavía ninguna importación al Hotel activo.
+1. Confirmar que `2498` y `2516` aparecen marrón.
+2. Confirmar que `2604` aparece amarillo con estado `Pendiente de parar`.
+3. Confirmar que las fichas azules muestran `Pendiente de recoger`.
+4. Confirmar que las fichas calabaza muestran `Pendiente de recuperar`.
+5. Confirmar que `2612` aparece calabaza + trazo marrón.
+6. Confirmar las 6 reservas libres en verde.
+7. No aplicar todavía ninguna importación al Hotel activo.
