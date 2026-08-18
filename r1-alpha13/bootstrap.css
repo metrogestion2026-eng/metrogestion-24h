@@ -1,0 +1,13 @@
+.bootstrap-card {
+  margin-top: 2vh;
+  border: 2px solid var(--primary);
+  background: #f8fcff;
+}
+
+.bootstrap-card + .auth-card {
+  margin-top: 16px;
+}
+
+.status-message.success {
+  color: var(--success);
+}
