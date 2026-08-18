@@ -1,0 +1,143 @@
+.import-source-card {
+  display: flex;
+  align-items: center;
+  gap: 8px 18px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+  padding: 13px 15px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.import-source-card strong {
+  color: var(--primary);
+}
+
+.import-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.import-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.import-section-heading h3 {
+  margin: 0;
+}
+
+.import-list {
+  gap: 10px;
+}
+
+.import-card {
+  display: grid;
+  gap: 12px;
+  border-left: 7px solid #64748b;
+}
+
+.import-card[data-classification="movimiento_con_reserva"] {
+  border-left-color: #7c3aed;
+}
+
+.import-card[data-classification="movimiento_sin_reserva"] {
+  border-left-color: #2563eb;
+}
+
+.import-card[data-classification="reserva_sin_sustitucion_activa"] {
+  border-left-color: #f59e0b;
+}
+
+.import-card[data-classification="reserva_libre"] {
+  border-left-color: #16a34a;
+  background: #f7fff9;
+}
+
+.import-card-badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.import-class.movimiento_con_reserva {
+  color: #5b21b6;
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+}
+
+.import-class.movimiento_sin_reserva {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.import-class.reserva_sin_sustitucion_activa {
+  color: #92400e;
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+
+.import-class.reserva_libre {
+  color: #166534;
+  background: #ecfdf3;
+  border-color: #86efac;
+}
+
+.import-detail-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.import-stage-block {
+  display: grid;
+  gap: 7px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.import-stage-list {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.import-stage-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 5px 9px;
+  color: #0f4c6e;
+  background: #f0f9ff;
+  border: 1px solid #7dd3fc;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.import-warning-list {
+  margin: 7px 0 0;
+  padding-left: 20px;
+}
+
+@media (max-width: 760px) {
+  .import-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .import-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .import-card-badges {
+    justify-content: flex-start;
+  }
+}
