@@ -1,0 +1,1 @@
+export { renderHotel } from '../../../r1-alpha21/src/modules/hotel.js';
