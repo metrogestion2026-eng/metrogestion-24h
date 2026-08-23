@@ -4,6 +4,9 @@ Fecha de publicación: 23/08/2026
 
 Estado: PENDIENTE DE VALIDACIÓN DEL USUARIO.
 
+Enlace de prueba:
+- https://metrogestion2026-eng.github.io/metrogestion-24h/r1-alpha51/
+
 Base conservada:
 - Parte íntegramente de Alpha50, que permanece cerrada e inmutable.
 - Conserva el bloque validado de Activar 24H, incidencias, modificación, anulación, restauración, histórico y listados.
