@@ -18,4 +18,10 @@ Cambio en prueba:
 - Las cuentas autorizadas no administradoras acceden en modo de solo lectura.
 - La lista completa queda protegida también en Supabase mediante RLS; ocultar el botón no es la única barrera.
 
+Corrección durante las pruebas · 25/08/2026:
+- La pestaña `Reservas` mostraba el valor almacenado en `reservas_hotel.estado`, que no se recalculaba al cambiar la pizarra.
+- El estado de cada reserva se calcula ahora desde el Hotel activo: `ocupada` cuando sustituye a otra unidad, `fuera_servicio` cuando la propia reserva está parada, `disponible_con_pendientes` cuando queda libre pero conserva trabajos propios y `libre` cuando no está ocupada ni tiene pendientes.
+- Se añadieron sincronizaciones automáticas al crear, modificar, recuperar, anular o retirar paradas, y al cambiar la pizarra en curso.
+- Se recalcularon los estados ya existentes para eliminar los valores antiguos.
+
 La versión no debe declararse validada ni cerrada hasta recibir confirmación expresa del usuario.
