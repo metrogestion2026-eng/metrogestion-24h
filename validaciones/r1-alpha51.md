@@ -24,4 +24,11 @@ Corrección durante las pruebas · 25/08/2026:
 - Se añadieron sincronizaciones automáticas al crear, modificar, recuperar, anular o retirar paradas, y al cambiar la pizarra en curso.
 - Se recalcularon los estados ya existentes para eliminar los valores antiguos.
 
+Ampliación del Hotel durante las pruebas · 25/08/2026:
+- Se incorpora el bloque `Pendientes de parar` dentro del resumen de fichas activas.
+- El contador se obtiene directamente de las fichas cuyo estado real es `planificado`.
+- El bloque es pulsable y muestra únicamente las fichas pendientes de parar.
+- Se conserva el resto de bloques y filtros: fichas activas, pendientes de taller, en taller, pendientes de recoger y pendientes de recuperar.
+- El bloque se genera en el mismo render del Hotel; no modifica Alpha50 ni añade datos duplicados.
+
 La versión no debe declararse validada ni cerrada hasta recibir confirmación expresa del usuario.
