@@ -1,0 +1,12 @@
+.a55-uploader{gap:11px}
+.a55-drop-zone{appearance:none;width:100%;min-height:118px;box-sizing:border-box;display:grid;place-items:center;align-content:center;gap:5px;padding:17px;border:2px dashed #7dd3fc;border-radius:12px;background:#fff;color:#075985;font:inherit;text-align:center;cursor:pointer;transition:border-color .15s ease,background-color .15s ease,box-shadow .15s ease,transform .15s ease}
+.a55-drop-zone:hover{border-color:#0284c7;background:#f0f9ff;box-shadow:0 7px 20px rgba(7,89,133,.08)}
+.a55-drop-zone:focus-visible{outline:3px solid rgba(7,89,133,.24);outline-offset:3px}
+.a55-drop-zone.is-dragging{border-style:solid;border-color:#075985;background:#e0f2fe;box-shadow:0 0 0 5px rgba(14,165,233,.14);transform:translateY(-1px)}
+.a55-drop-zone.is-uploading{cursor:progress;opacity:.68}
+.a55-drop-zone:disabled{cursor:progress}
+.a55-drop-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:999px;background:#e0f2fe;font-size:1.45rem;font-weight:900;line-height:1}
+.a55-drop-zone strong{font-size:1rem}
+.a55-drop-help{font-size:.84rem;color:#64748b;font-weight:600}
+@media(max-width:700px){.a55-drop-zone{min-height:104px;padding:14px}.a55-drop-icon{width:36px;height:36px}}
+@media print{.a55-drop-zone{display:none!important}}
