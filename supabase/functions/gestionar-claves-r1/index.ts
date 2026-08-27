@@ -44,6 +44,29 @@ function secondPrecisionNow() {
   return new Date(Math.floor(Date.now() / 1000) * 1000).toISOString();
 }
 
+function jwtIssuedAtMs(authorization: string) {
+  try {
+    const token = authorization.replace(/^Bearer\s+/i, "");
+    const encoded = token.split(".")[1];
+    if (!encoded) return null;
+    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(padded));
+    const issuedAt = Number(payload?.iat);
+    return Number.isFinite(issuedAt) ? issuedAt * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function credentialIsCurrent(authorization: string, changedAt: unknown) {
+  const issuedAt = jwtIssuedAtMs(authorization);
+  const changedAtMs = Date.parse(String(changedAt || "1970-01-01T00:00:00Z"));
+  return issuedAt !== null
+    && Number.isFinite(changedAtMs)
+    && issuedAt + 5000 >= changedAtMs;
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return respond(405, { error: "Método no permitido." });
@@ -89,6 +112,12 @@ Deno.serve(async (request: Request) => {
     return respond(403, { error: "La cuenta no está activa." });
   }
 
+  if (!credentialIsCurrent(authorization, profile.credenciales_actualizadas_en)) {
+    return respond(401, {
+      error: "Esta sesión pertenece a una contraseña anterior. Inicia sesión de nuevo con la contraseña vigente.",
+    });
+  }
+
   let payload: Record<string, unknown>;
   try {
     payload = await request.json();
@@ -97,6 +126,9 @@ Deno.serve(async (request: Request) => {
   }
 
   const action = String(payload.accion || "").trim();
+  if (profile.debe_cambiar_clave === true && action !== "cambiar_clave_propia") {
+    return respond(403, { error: "Debes sustituir la contraseña temporal antes de realizar otras operaciones." });
+  }
 
   if (action === "cambiar_clave_propia") {
     const currentPassword = String(payload.claveActual || "");
