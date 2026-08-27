@@ -32,7 +32,7 @@ async function getCurrentProfile() {
 }
 
 function patchCreateUserExplanation() {
-  const oldText = 'La cuenta se crea sin acceso a la pesta�a Usuarios. Esa autorización se concede después y de forma expresa.';
+  const oldText = 'La cuenta se crea sin acceso a la pestaña Usuarios. Esa autorización se concede después y de forma expresa.';
   const newText = 'La cuenta se crea con las áreas operativas en modo lectura, Usuarios bloqueado para edición y Activar 24H habilitado para consultar y editar.';
   content?.querySelectorAll('.a51-section .muted').forEach(node => {
     if (node.textContent?.trim() === oldText) node.textContent = newText;
@@ -50,7 +50,7 @@ async function patchPermissionInterface() {
 
     if (usersButton) {
       const usersReadOnly = !primary && permissionView(usersPermission) && usersPermission.editar !== true;
-      const nextLabel = usersReadOnly ? '🔑 usuarios' : '👥 Usuarios';
+      const nextLabel = usersReadOnly ? '🔒 Usuarios' : '👥 Usuarios';
       if (usersButton.textContent !== nextLabel) usersButton.textContent = nextLabel;
       usersButton.dataset.alpha60UsersLocked = usersReadOnly ? 'true' : 'false';
       usersButton.title = usersReadOnly
@@ -65,9 +65,9 @@ async function patchPermissionInterface() {
     nav?.querySelectorAll('button[data-module]').forEach(button => {
       const moduleId = button.dataset.module;
       if (!moduleId || moduleId === 'usuarios-alpha51' || primary) return;
-      const permission = profile.permisos[?moduleId] || {};
+      const permission = profile.permisos?.[moduleId] || {};
       if (!permissionView(permission)) return;
-    const readOnly = permission.editar !== true;
+      const readOnly = permission.editar !== true;
       button.dataset.alpha60ReadOnly = readOnly ? 'true' : 'false';
       if (readOnly && !button.title?.toLocaleLowerCase('es-ES').includes('solo lectura')) {
         button.title = 'Solo lectura';
