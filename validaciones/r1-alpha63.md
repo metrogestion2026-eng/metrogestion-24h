@@ -38,5 +38,6 @@ Flujo de alta:
 - El administrador autoriza ambas desde Usuarios.
 - El mismo correo y contraseña se utilizan en los dos dispositivos.
 - El token de cada equipo se conserva localmente; no debe utilizarse navegación privada para el uso habitual.
+- Si un dispositivo fue revocado o rechazado, al volver a iniciar sesión desde ese mismo equipo genera de nuevo una solicitud pendiente, sin crear duplicados.
 
 Alpha63 no se declarará validada ni cerrada hasta recibir confirmación expresa del usuario.
