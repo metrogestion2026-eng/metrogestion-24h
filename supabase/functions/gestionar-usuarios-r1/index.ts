@@ -23,6 +23,27 @@ function validEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function initialPermissions(role: string): Record<string, unknown> {
+  const permissions: Record<string, unknown> = {
+    activar24h: { ver: true, editar: true },
+    hotel: { ver: true, editar: false },
+    t_programadas: { ver: true, editar: false },
+    reservas: { ver: true, editar: false },
+    historico: { ver: true, editar: false },
+    talleres: { ver: true, editar: false },
+    resumen: { ver: true, editar: false },
+    documentacion: { ver: true, editar: false },
+    usuarios: { ver: true, editar: false },
+    listados: { ver: true, editar: false },
+  };
+
+  if (role === "administrador_secundario") {
+    permissions.incidencias = { ver_todas: false, editar_todas: false };
+  }
+
+  return permissions;
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return respond(405, { error: "Método no permitido." });
@@ -111,15 +132,6 @@ Deno.serve(async (request: Request) => {
     if (phoneCheckError) return respond(500, { error: "No se pudo comprobar el teléfono." });
     if (phoneMatch?.length) return respond(409, { error: "Ese teléfono ya pertenece a otra cuenta." });
 
-    const permissions: Record<string, unknown> = {
-      activar24h: { ver: true, editar: true },
-      hotel: { ver: false, editar: false },
-      usuarios: { ver: false, editar: false },
-    };
-    if (role === "administrador_secundario") {
-      permissions.incidencias = { ver_todas: false, editar_todas: false };
-    }
-
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
       password,
@@ -143,7 +155,7 @@ Deno.serve(async (request: Request) => {
         correo: email,
         telefono: phone,
         tipo_usuario: role,
-        permisos: permissions,
+        permisos: initialPermissions(role),
         activo: true,
       }, { onConflict: "id" })
       .select("id,nombre,apellidos,correo,telefono,tipo_usuario,permisos,activo,creado_en,actualizado_en")
