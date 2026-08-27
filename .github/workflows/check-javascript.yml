@@ -1,0 +1,25 @@
+name: Comprobar JavaScript Metrogestion
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'r1-alpha*/src/**/*.js'
+      - '.github/workflows/check-javascript.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+      - name: Comprobar sintaxis JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          find r1-alpha* -path '*/src/*.js' -type f -print0 \
+            | xargs -0 -n1 node --check
