@@ -23,6 +23,29 @@ function validEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function jwtIssuedAtMs(authorization: string) {
+  try {
+    const token = authorization.replace(/^Bearer\s+/i, "");
+    const encoded = token.split(".")[1];
+    if (!encoded) return null;
+    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(padded));
+    const issuedAt = Number(payload?.iat);
+    return Number.isFinite(issuedAt) ? issuedAt * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function credentialIsCurrent(authorization: string, changedAt: unknown) {
+  const issuedAt = jwtIssuedAtMs(authorization);
+  const changedAtMs = Date.parse(String(changedAt || "1970-01-01T00:00:00Z"));
+  return issuedAt !== null
+    && Number.isFinite(changedAtMs)
+    && issuedAt + 5000 >= changedAtMs;
+}
+
 function initialPermissions(role: string): Record<string, unknown> {
   const permissions: Record<string, unknown> = {
     activar24h: { ver: true, editar: true },
@@ -75,7 +98,7 @@ Deno.serve(async (request: Request) => {
 
   const { data: caller, error: callerError } = await admin
     .from("usuarios")
-    .select("id,tipo_usuario,activo")
+    .select("id,tipo_usuario,activo,debe_cambiar_clave,credenciales_actualizadas_en")
     .eq("id", authData.user.id)
     .single();
 
@@ -86,6 +109,16 @@ Deno.serve(async (request: Request) => {
     caller.tipo_usuario !== "administrador_principal"
   ) {
     return respond(403, { error: "Solo el administrador principal puede gestionar usuarios." });
+  }
+
+  if (caller.debe_cambiar_clave === true) {
+    return respond(403, { error: "Debes sustituir la contraseña temporal antes de gestionar usuarios." });
+  }
+
+  if (!credentialIsCurrent(authorization, caller.credenciales_actualizadas_en)) {
+    return respond(401, {
+      error: "Esta sesión pertenece a una contraseña anterior. Inicia sesión de nuevo con la contraseña vigente.",
+    });
   }
 
   let payload: Record<string, unknown>;
