@@ -33,7 +33,7 @@ function initialPermissions(role: string): Record<string, unknown> {
     talleres: { ver: true, editar: false },
     resumen: { ver: true, editar: false },
     documentacion: { ver: true, editar: false },
-    usuarios: { ver: true, editar: false },
+    usuarios: { ver: false, editar: false },
     listados: { ver: true, editar: false },
   };
 
@@ -170,37 +170,9 @@ Deno.serve(async (request: Request) => {
   }
 
   if (action === "establecer_acceso_usuarios") {
-    const targetId = String(payload.usuarioId || "").trim();
-    const authorized = payload.autorizado === true;
-    if (!targetId) return respond(400, { error: "Usuario no válido." });
-    if (targetId === authData.user.id) {
-      return respond(400, { error: "El administrador principal conserva siempre el acceso total." });
-    }
-
-    const { data: target, error: targetError } = await admin
-      .from("usuarios")
-      .select("id,tipo_usuario,permisos,activo")
-      .eq("id", targetId)
-      .single();
-    if (targetError || !target) return respond(404, { error: "No se encontró la cuenta indicada." });
-    if (target.tipo_usuario === "administrador_principal") {
-      return respond(400, { error: "No se pueden limitar los permisos del administrador principal." });
-    }
-
-    const currentPermissions = target.permisos && typeof target.permisos === "object"
-      ? { ...(target.permisos as Record<string, unknown>) }
-      : {};
-    currentPermissions.usuarios = { ver: authorized, editar: false };
-
-    const { data: updated, error: updateError } = await admin
-      .from("usuarios")
-      .update({ permisos: currentPermissions })
-      .eq("id", targetId)
-      .select("id,nombre,apellidos,correo,telefono,tipo_usuario,permisos,activo,creado_en,actualizado_en")
-      .single();
-    if (updateError || !updated) return respond(400, { error: "No se pudo cambiar el acceso a Usuarios." });
-
-    return respond(200, { ok: true, usuario: updated });
+    return respond(400, {
+      error: "La pestaña Usuarios es exclusiva del administrador principal y no puede concederse a otras cuentas.",
+    });
   }
 
   if (action === "establecer_activo") {
