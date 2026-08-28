@@ -291,12 +291,14 @@ function billingSnapshot(row, stop, periods) {
   const endDate = declaredEnd ? minDate(declaredEnd, referenceDate) : referenceDate;
   const totalDays = inclusiveDays(startDate, endDate);
   const period = findPeriod(periods, referenceDate);
-  const periodStart = period ? maxDate(startDate, period.fecha_inicio) : '';
-  const periodEnd = period ? minDate(endDate, period.fecha_cierre) : '';
-  const periodDays = period ? inclusiveDays(periodStart, periodEnd) : 0;
-  const media = Number(stop?.km_dia);
-  const periodKm = Number.isFinite(media) ? Math.round(periodDays * media) : null;
-  const totalKm = Number.isFinite(media) ? Math.round(totalDays * media) : null;
+  const periodStart = period && startDate ? maxDate(startDate, period.fecha_inicio) : '';
+  const periodEnd = period && startDate ? minDate(endDate, period.fecha_cierre) : '';
+  const periodDays = period && startDate ? inclusiveDays(periodStart, periodEnd) : 0;
+  const rawMedia = stop?.km_dia;
+  const parsedMedia = rawMedia == null || rawMedia === '' ? Number.NaN : Number(rawMedia);
+  const media = Number.isFinite(parsedMedia) ? parsedMedia : null;
+  const periodKm = media == null ? null : Math.round(periodDays * media);
+  const totalKm = media == null ? null : Math.round(totalDays * media);
   const historical = referenceDate !== madridToday();
 
   return {
@@ -308,7 +310,7 @@ function billingSnapshot(row, stop, periods) {
     periodStart,
     periodEnd,
     periodDays,
-    media: Number.isFinite(media) ? media : null,
+    media,
     periodKm,
     totalKm,
     historical,
@@ -457,8 +459,9 @@ async function renderBillingBody(body, row, allowManual) {
     );
 
     if (type === 'R') {
-      const rPrice = Number(data.rPrice);
-      const hasPrice = Number.isFinite(rPrice);
+      const parsedRPrice = data.rPrice == null || data.rPrice === '' ? Number.NaN : Number(data.rPrice);
+      const rPrice = Number.isFinite(parsedRPrice) ? parsedRPrice : null;
+      const hasPrice = rPrice != null;
       grid.append(
         metric('Tipo de facturación', stop.sustituto ? '1 unidad' : 'Sin sustitución', 'Los días se muestran como control operativo'),
         metric('Precio por unidad', hasPrice ? `${formatNumber(rPrice, 2)} €` : 'Pendiente', 'Configuración general de sustituciones R'),
