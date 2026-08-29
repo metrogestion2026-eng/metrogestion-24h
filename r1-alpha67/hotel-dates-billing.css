@@ -1,0 +1,183 @@
+.a66-operational-dates {
+  display: grid;
+  gap: 9px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid rgba(7, 89, 133, .25);
+  border-radius: 13px;
+  background: rgba(240, 249, 255, .9);
+}
+
+.a66-date-heading {
+  margin: 0;
+  font-size: 1rem;
+  color: #0c4a6e;
+}
+
+.a66-date-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.a66-date-cell {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #d7e6ef;
+  border-radius: 11px;
+  background: #fff;
+}
+
+.a66-date-cell.stop {
+  border-color: #7dd3fc;
+  background: #f0f9ff;
+}
+
+.a66-date-cell.running {
+  border-color: #fbbf24;
+  background: #fffbeb;
+}
+
+.a66-date-cell.stage,
+.a66-date-cell.stage-date {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.a66-date-cell.warning {
+  border-color: #fca5a5;
+  background: #fff1f2;
+}
+
+.a66-date-label {
+  color: #526273;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+}
+
+.a66-date-value {
+  min-width: 0;
+  color: #0f172a;
+  font-size: 1.02rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.a66-date-note {
+  color: #526273;
+  font-size: .8rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.a66-substitution-box {
+  display: grid;
+  gap: 9px;
+  margin: 12px 0;
+  border: 1px solid rgba(7, 89, 133, .28);
+  background: rgba(240, 249, 255, .82);
+  border-radius: 13px;
+  padding: 12px;
+}
+
+.a66-substitution-box > h4 {
+  margin: 0;
+  color: #0c4a6e;
+}
+
+.a66-substitution-body {
+  display: grid;
+  gap: 9px;
+}
+
+.a66-billing-loading {
+  padding: 11px;
+  border: 1px dashed #93c5d8;
+  border-radius: 10px;
+  background: #fff;
+  color: #475569;
+}
+
+.a66-billing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.a66-billing-cell {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #dbe8ef;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.a66-billing-cell strong {
+  display: block;
+  color: #0f172a;
+  font-size: 1.08rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.a66-billing-note {
+  display: block;
+  color: #64748b;
+  font-size: .76rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.a66-billing-period {
+  margin-top: 0;
+  padding: 8px 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .76);
+  color: #475569;
+}
+
+.a66-manual-editor {
+  margin-top: 1px;
+  padding-top: 10px;
+  border-top: 1px dashed #9fb8c6;
+}
+
+.a66-r-source {
+  margin: 0;
+  padding: 8px 9px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .76);
+}
+
+@media (max-width: 860px) {
+  .a66-date-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .a66-date-cell:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 580px) {
+  .a66-date-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .a66-date-cell:first-child {
+    grid-column: auto;
+  }
+
+  .a66-operational-dates,
+  .a66-substitution-box {
+    padding: 10px;
+  }
+}
