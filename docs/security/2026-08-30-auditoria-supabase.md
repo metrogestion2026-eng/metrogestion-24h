@@ -68,3 +68,11 @@ Activar **Leaked Password Protection** en la configuración de seguridad de cont
 https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 
 Este ajuste pertenece a la configuración del servicio Auth y no está disponible mediante el conector utilizado para la auditoría.
+
+## Edge Functions
+
+- `gestionar-usuarios-r1` y `gestionar-claves-r1`: JWT obligatorio y comprobación interna del administrador.
+- `bootstrap-admin-r1`: la configuración estaba usada y caducada. Se retiró el código con `service_role`, se sustituyó por una respuesta fija `410 Gone` y se activó `verify_jwt=true`.
+- `metrogestion-r1-preview` y `publish-preview-r1`: ya estaban cerradas con respuesta fija `410 Gone`; no acceden a datos ni contienen credenciales.
+- `manteniment-sync-r1`: permanece sin JWT por diseño para Google Apps Script, pero exige una clave aleatoria de al menos 40 caracteres que se valida por hash dentro de la base. El `service_role` solo se lee desde secretos del entorno y no está incluido en el repositorio.
+
