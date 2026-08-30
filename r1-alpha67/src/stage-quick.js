@@ -43,7 +43,7 @@ function ensureStyle() {
   const style = document.createElement('style');
   style.id = 'alpha67-stage-quick-style';
   style.textContent = `
-    .a67-quick-host{margin-top:10px}.a67-quick-panel,.a67-pending-panel,.a67-quick-success{display:grid;gap:8px;padding:10px 11px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc}.a67-quick-panel{border-color:#93c5fd;background:#eff6ff}.a67-pending-panel{grid-template-columns:minmax(0,1fr) auto;align-items:center;border-color:#fbbf24;background:#fffbeb}.a67-pending-copy{display:grid;gap:3px;color:#78350f}.a67-pending-copy span{font-size:.88rem}.a67-quick-success{border-color:#86efac;background:#f0fdf4;color:#166534}.a67-quick-success span{font-size:.9rem}.a67-quick-button{justify-self:start;min-width:190px}.a67-quick-button.a67-quick-armed{border-color:#f59e0b;background:#f59e0b;color:#111827;font-weight:800}.a67-quick-button.a67-quick-saving{border-color:#94a3b8;background:#e2e8f0;color:#334155}.a67-quick-help{font-size:.86rem;color:#475569}.a67-quick-status{padding:8px 9px;border-radius:8px;background:#f1f5f9;color:#334155;font-size:.88rem}.a67-quick-status.warning{background:#fff7ed;color:#9a3412}.a67-quick-status.danger{background:#fff1f2;color:#991b1b}.a67-quick-status.success{background:#f0fdf4;color:#166534}.a67-complete-button{white-space:nowrap}.a67-pending-badge{display:inline-flex;align-items:center;width:max-content;min-height:25px;padding:2px 8px;border:1px solid #fbbf24;border-radius:999px;background:#fef3c7;color:#92400e;font-size:.78rem;font-weight:800}
+    .a67-quick-host{margin-top:10px}.a67-quick-panel,.a67-pending-panel,.a67-quick-success{display:grid;gap:8px;padding:10px 11px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc}.a67-quick-panel{border-color:#93c5fd;background:#eff6ff}.a67-pending-panel{grid-template-columns:minmax(0,1fr) auto;align-items:center;border-color:#fbbf24;background:#fffbeb}.a67-pending-readonly{grid-template-columns:1fr}.a67-pending-copy{display:grid;gap:3px;color:#78350f}.a67-pending-copy span{font-size:.88rem}.a67-quick-success{border-color:#86efac;background:#f0fdf4;color:#166534}.a67-quick-success span{font-size:.9rem}.a67-quick-button{justify-self:start;min-width:190px}.a67-quick-button.a67-quick-armed{border-color:#f59e0b;background:#f59e0b;color:#111827;font-weight:800}.a67-quick-button.a67-quick-saving{border-color:#94a3b8;background:#e2e8f0;color:#334155}.a67-quick-help{font-size:.86rem;color:#475569}.a67-quick-status{padding:8px 9px;border-radius:8px;background:#f1f5f9;color:#334155;font-size:.88rem}.a67-quick-status.warning{background:#fff7ed;color:#9a3412}.a67-quick-status.danger{background:#fff1f2;color:#991b1b}.a67-quick-status.success{background:#f0fdf4;color:#166534}.a67-complete-button{white-space:nowrap}.a67-pending-badge{display:inline-flex;align-items:center;width:max-content;min-height:25px;padding:2px 8px;border:1px solid #fbbf24;border-radius:999px;background:#fef3c7;color:#92400e;font-size:.78rem;font-weight:800}
     @media(max-width:720px){.a67-pending-panel{grid-template-columns:1fr}.a67-quick-button,.a67-complete-button{width:100%;justify-self:stretch}}
   `;
   document.head.append(style);
@@ -127,27 +127,27 @@ function actionConfig(stage) {
   if (stage.accion_sistema === 'recuperar_y_liberar') {
     return {
       initial: '✓ Marcar recuperación realizada',
-      confirm: 'Confirmar: recuperar y liberar',
+      confirm: '¿Confirmar recuperación y liberación?',
       warning: 'Registrará la hora, pondrá la ficha como recuperada y liberará el sustituto.',
     };
   }
   if (stage.accion_sistema === 'liberar_reserva') {
     return {
       initial: '✓ Marcar liberación realizada',
-      confirm: 'Confirmar: liberar reserva',
+      confirm: '¿Confirmar liberación de reserva?',
       warning: 'Registrará la hora y dejará la reserva disponible según sus pendientes.',
     };
   }
   if (stage.tipo_etapa === 'recogida_taller') {
     return {
       initial: '✓ Registrar recogida realizada',
-      confirm: 'Confirmar recogida',
+      confirm: '¿Confirmar recogida?',
       warning: 'Registrará esta hora como fecha real de salida del taller.',
     };
   }
   return {
     initial: '✓ Marcar realizada',
-    confirm: 'Confirmar realizada',
+    confirm: '¿Confirmar realizada?',
     warning: 'Registrará la hora real y dejará un aviso para completar después los datos de la T.',
   };
 }
@@ -167,8 +167,7 @@ function successPanel(message) {
   return panel;
 }
 
-function completionPanel(stage, historical, root) {
-  const panel = el('section', null, 'a67-pending-panel');
+function pendingCopy(stage) {
   const copy = el('div', null, 'a67-pending-copy');
   copy.append(
     el('strong', '⚠ Datos pendientes de completar'),
@@ -177,13 +176,25 @@ function completionPanel(stage, historical, root) {
       `Marcada rápidamente el ${formatDateTime(stage.marcado_rapido_en || stage.fecha_real)}. La hora real ya está guardada.`
     )
   );
+  return copy;
+}
+
+function readOnlyCompletionPanel(stage) {
+  const panel = el('section', null, 'a67-pending-panel a67-pending-readonly');
+  panel.append(pendingCopy(stage));
+  return panel;
+}
+
+function completionPanel(stage, historical, root) {
+  const panel = el('section', null, 'a67-pending-panel');
+  const copy = pendingCopy(stage);
 
   const status = el('div', '', 'a67-quick-status');
   status.hidden = true;
   status.setAttribute('role', 'status');
   status.setAttribute('aria-live', 'polite');
 
-  const complete = el('button', 'Completar datos de esta T', 'button primary compact a67-complete-button');
+  const complete = el('button', 'Ver ficha y completar datos', 'button primary compact a67-complete-button');
   complete.type = 'button';
   complete.addEventListener('click', () => {
     complete.disabled = true;
@@ -387,12 +398,24 @@ export function createQuickStageControl(stage, { historical = false } = {}) {
 
   (async () => {
     try {
-      if (!await isPrimaryAdmin()) {
-        root.remove();
-        return;
-      }
+      const primaryAdmin = await isPrimaryAdmin();
       const fresh = await queueStage(stage.id, true);
       if (!root.isConnected || !fresh) return;
+
+      if (!primaryAdmin) {
+        if (
+          fresh.cancelado !== true
+          && fresh.estado !== 'anulada'
+          && fresh.datos_pendientes === true
+        ) {
+          root.hidden = false;
+          root.replaceChildren(readOnlyCompletionPanel(fresh));
+        } else {
+          root.remove();
+        }
+        return;
+      }
+
       renderControl(root, fresh, historical);
     } catch (error) {
       console.warn('No se pudo preparar el control rápido de la T.', error);
