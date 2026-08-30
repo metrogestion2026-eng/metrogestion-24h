@@ -2,9 +2,8 @@ const METROGESTION = Object.freeze({
   spreadsheetId: '1PQE5VsjTvDFvQZcqedyQKIs3RbSySHFK4JPQXBD0XyU',
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
-  supabaseUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co',
-  publishableKey: 'sb_publishable_EvSyRoy0Dwa3WlM3UG7zLg_QXxP-Zzy',
-  rpcName: 'recibir_snapshot_manteniment',
+  syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
+  scriptVersion: 'alpha68-2026.08.30.1',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -126,20 +125,18 @@ function metrogestionEjecutarSincronizacion_(modo) {
       spreadsheet_name: METROGESTION.spreadsheetName,
       hoja: METROGESTION.sheetName,
       modo,
+      version_script: METROGESTION.scriptVersion,
       generado_en: generatedAt.toISOString(),
       archivo_modificado_en: modifiedAt.toISOString(),
       filas: rows,
     };
     payload.checksum = metrogestionSha256_(JSON.stringify(rows));
-    const response = UrlFetchApp.fetch(`${METROGESTION.supabaseUrl}/rest/v1/rpc/${METROGESTION.rpcName}`, {
+    const response = UrlFetchApp.fetch(METROGESTION.syncUrl, {
       method: 'post',
       contentType: 'application/json',
-      headers: {
-        apikey: METROGESTION.publishableKey,
-        Authorization: `Bearer ${METROGESTION.publishableKey}`,
-      },
-      payload: JSON.stringify({ p_token: token, p_payload: payload }),
+      payload: JSON.stringify({ token, payload }),
       muteHttpExceptions: true,
+      followRedirects: false,
     });
     const code = response.getResponseCode();
     const body = response.getContentText();
@@ -153,10 +150,12 @@ function metrogestionEjecutarSincronizacion_(modo) {
       throw new Error(result.message || result.error || `Error HTTP ${code}.`);
     }
     if (result?.ok !== true) throw new Error(result?.error || 'La base de datos rechazó la sincronización.');
+    const syncResult = result.resultado || {};
+    const message = syncResult.mensaje || 'Sincronización correcta.';
     const props = PropertiesService.getScriptProperties();
     props.setProperty('METROGESTION_ULTIMA_EJECUCION', generatedAt.toISOString());
-    props.setProperty('METROGESTION_ULTIMO_RESULTADO', result.mensaje || 'correcta');
-    return result;
+    props.setProperty('METROGESTION_ULTIMO_RESULTADO', message);
+    return { ...syncResult, mensaje: message };
   } catch (error) {
     const props = PropertiesService.getScriptProperties();
     props.setProperty('METROGESTION_ULTIMA_EJECUCION', new Date().toISOString());
