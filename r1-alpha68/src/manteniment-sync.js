@@ -197,7 +197,7 @@ function renderDialogStatus(host, status) {
     const copyButton = el('button', 'Copiar clave', 'button primary');
     const scriptLink = el('a', 'Abrir script para Google', 'button secondary');
     copyButton.type = 'button';
-    scriptLink.href = './google-apps-script/sincronizar_manteniment.gs';
+    scriptLink.href = 'https://github.com/metrogestion2026-eng/metrogestion-24h/blob/main/r1-alpha68/google-apps-script/sincronizar_manteniment.gs';
     scriptLink.target = '_blank';
     scriptLink.rel = 'noopener';
     const copyStatus = el('span', '');
