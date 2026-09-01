@@ -171,7 +171,7 @@ function detailText(spec) {
     `Generado: ${new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}`,
     '',
   ];
-  (spec.items || []).slice(0, 40).forEach(item => {
+  (spec.items || []).forEach(item => {
     lines.push(item.title || '—');
     if (item.meta) lines.push(item.meta);
     if (item.lastStage) lines.push(item.lastStage);
@@ -545,7 +545,7 @@ async function renderPanel({ automatic = false } = {}) {
       const detailCopy = el('div');
       detailCopy.append(el('h3', spec.title), el('div', spec.subtitle || `${spec.items?.length || 0} resultado(s)`, 'muted'));
       const detailActions = el('div', null, 'a52-detail-actions');
-      if (spec.exportable) {
+      if (spec.exportable !== false) {
         const printButton = el('button', '🖨 Imprimir', 'button secondary compact');
         printButton.type = 'button';
         printButton.addEventListener('click', () => printDetail(spec));
@@ -572,7 +572,7 @@ async function renderPanel({ automatic = false } = {}) {
       const list = el('div', null, 'a52-detail-list');
       const items = spec.items || [];
       if (!items.length) list.append(el('div', spec.empty || 'No hay elementos en este bloque.', 'a52-empty'));
-      items.slice(0, 40).forEach(item => {
+      items.forEach(item => {
         const card = el('article', null, 'a52-detail-item');
         card.append(el('strong', item.title || '—'));
         if (item.meta) card.append(el('span', item.meta));
@@ -580,7 +580,6 @@ async function renderPanel({ automatic = false } = {}) {
         if (item.note) card.append(el('p', item.note));
         list.append(card);
       });
-      if (items.length > 40) list.append(el('div', `Se muestran 40 de ${items.length}. Abre el módulo para consultar el resto.`, 'a52-footnote'));
       detailHost.append(detailHead, list);
       detailHost.hidden = false;
       detailHost.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
