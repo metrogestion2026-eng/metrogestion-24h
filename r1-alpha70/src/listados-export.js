@@ -56,13 +56,60 @@ export function buildListadosSpec(headers, rows, { listLabel = 'Listado', filter
 }
 
 function currentSpec() {
-  const table = visibleTable();
-  if (!table) return buildListadosSpec([], [], { listLabel: activeListLabel(), filters: currentFilters() });
-  const headers = [...table.querySelectorAll('thead th')].map(cell => cell.textContent);
-  const rows = [...table.querySelectorAll('tbody tr')].map(row =>
-    [...row.querySelectorAll('th, td')].map(cell => cell.textContent)
-  );
+  const { headers, rows } = currentTableData();
   return buildListadosSpec(headers, rows, { listLabel: activeListLabel(), filters: currentFilters() });
+}
+
+function currentTableData() {
+  const table = visibleTable();
+  if (!table) return { headers: [], rows: [] };
+  return {
+    headers: [...table.querySelectorAll('thead th')].map(cell => clean(cell.textContent)),
+    rows: [...table.querySelectorAll('tbody tr')].map(row =>
+      [...row.querySelectorAll('th, td')].map(cell => clean(cell.textContent))
+    ),
+  };
+}
+
+function spreadsheetCell(value) {
+  const raw = clean(value);
+  const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
+export function buildSpreadsheetCsv(headers, rows) {
+  return [headers, ...rows]
+    .map(row => row.map(spreadsheetCell).join(';'))
+    .join('\r\n');
+}
+
+function safeFilename(value) {
+  return clean(value)
+    .toLocaleLowerCase('es-ES')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'listado';
+}
+
+function saveSpreadsheet(button) {
+  const original = button.textContent;
+  const { headers, rows } = currentTableData();
+  const csv = `\uFEFF${buildSpreadsheetCsv(headers, rows)}`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const date = new Date();
+  const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `metrogestion-${safeFilename(activeListLabel())}-${dateKey}.csv`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  button.textContent = '✓ Hoja guardada';
+  window.setTimeout(() => { button.textContent = original; }, 1800);
 }
 
 function printListados() {
@@ -148,7 +195,8 @@ function ensureActions() {
 
   actions.append(
     actionButton('⬇ Guardar PDF', 'Descarga el listado visible como archivo PDF', event => saveListados(event.currentTarget)),
-    actionButton('↗ Compartir PDF', 'Comparte el PDF como archivo adjunto, nunca como enlace', event => shareListados(event.currentTarget))
+    actionButton('↗ Compartir PDF', 'Comparte el PDF como archivo adjunto, nunca como enlace', event => shareListados(event.currentTarget)),
+    actionButton('⬇ Hoja de cálculo', 'Descarga el listado visible para Excel o Google Sheets', event => saveSpreadsheet(event.currentTarget))
   );
   view.dataset[ACTIONS_FLAG] = '1';
 }
