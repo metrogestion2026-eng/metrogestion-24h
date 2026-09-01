@@ -193,6 +193,9 @@ async function ensureCreateButton() {
   try {
     const profile = await currentProfile();
     if (!canCreateReserve(profile) || !heading.isConnected) return;
+    headingTitle.textContent = 'Reservas';
+    const subtitle = heading.querySelector('.muted');
+    if (subtitle) subtitle.textContent = 'Catálogo operativo de reservas del Hotel. Puedes crear nuevas reservas y gestionar sus altas y bajas.';
     const badge = heading.querySelector('.badge');
     const actions = document.createElement('div');
     actions.className = 'a70-reserve-heading-actions';
