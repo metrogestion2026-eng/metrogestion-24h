@@ -1,4 +1,5 @@
 import { supabase } from '../../r1-alpha17/src/supabase.js';
+import { createDetailPdf, downloadDetailPdf } from './panel-pdf.js';
 
 const nav = document.querySelector('#module-nav');
 const content = document.querySelector('#module-content');
@@ -165,22 +166,6 @@ function hotelItem(row, latestByHotel) {
   };
 }
 
-function detailText(spec) {
-  const lines = [
-    `Metrogestión · ${spec.title}`,
-    `Generado: ${new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}`,
-    '',
-  ];
-  (spec.items || []).forEach(item => {
-    lines.push(item.title || '—');
-    if (item.meta) lines.push(item.meta);
-    if (item.lastStage) lines.push(item.lastStage);
-    if (item.note) lines.push(item.note);
-    lines.push('');
-  });
-  return lines.join('\n').trim();
-}
-
 function printDetail(spec) {
   const previousTitle = document.title;
   document.title = `Metrogestión - ${spec.title} - ${localDateKey()}`;
@@ -193,44 +178,34 @@ function printDetail(spec) {
   }
 }
 
-async function copyText(value) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-  const area = document.createElement('textarea');
-  area.value = value;
-  area.setAttribute('readonly', '');
-  area.style.position = 'fixed';
-  area.style.opacity = '0';
-  document.body.append(area);
-  area.select();
-  document.execCommand('copy');
-  area.remove();
-}
-
 async function shareDetail(spec, button) {
   const original = button.textContent;
-  const payload = {
-    title: `Metrogestión · ${spec.title}`,
-    text: detailText(spec),
-    url: window.location.href,
-  };
+  const pdf = createDetailPdf(spec);
   try {
-    if (navigator.share) {
+    const payload = { title: `Metrogestión · ${spec.title}`, files: pdf.file ? [pdf.file] : [] };
+    const canShareFile = pdf.file && navigator.share
+      && (typeof navigator.canShare !== 'function' || navigator.canShare({ files: [pdf.file] }));
+    if (canShareFile) {
       await navigator.share(payload);
-      button.textContent = '✓ Compartido';
-    } else {
-      await copyText(`${payload.text}\n\n${payload.url}`);
-      button.textContent = '✓ Copiado';
+      button.textContent = '✓ PDF compartido';
+      return;
     }
+    downloadDetailPdf(pdf);
+    button.textContent = '✓ PDF descargado';
   } catch (error) {
     if (error?.name === 'AbortError') return;
-    await copyText(`${payload.text}\n\n${payload.url}`);
-    button.textContent = '✓ Copiado';
+    downloadDetailPdf(pdf);
+    button.textContent = '✓ PDF descargado';
   } finally {
     window.setTimeout(() => { button.textContent = original; }, 1800);
   }
+}
+
+function saveDetailPdf(spec, button) {
+  const original = button.textContent;
+  downloadDetailPdf(createDetailPdf(spec));
+  button.textContent = '✓ PDF guardado';
+  window.setTimeout(() => { button.textContent = original; }, 1800);
 }
 
 function reserveItem(row, coverageMap) {
@@ -551,9 +526,9 @@ async function renderPanel({ automatic = false } = {}) {
         printButton.addEventListener('click', () => printDetail(spec));
         const pdfButton = el('button', '⬇ Guardar PDF', 'button secondary compact');
         pdfButton.type = 'button';
-        pdfButton.title = 'Abre la impresión para elegir Guardar como PDF';
-        pdfButton.addEventListener('click', () => printDetail(spec));
-        const shareButton = el('button', '↗ Compartir', 'button secondary compact');
+        pdfButton.title = 'Descarga directamente el listado en formato PDF';
+        pdfButton.addEventListener('click', () => saveDetailPdf(spec, pdfButton));
+        const shareButton = el('button', '↗ Compartir PDF', 'button secondary compact');
         shareButton.type = 'button';
         shareButton.addEventListener('click', () => shareDetail(spec, shareButton));
         detailActions.append(printButton, pdfButton, shareButton);
