@@ -309,10 +309,29 @@ function stopAutoRefresh() {
   refreshTimer = null;
 }
 
+function panelOwnsContent() {
+  return content?.dataset?.[PANEL_FLAG] === '1'
+    && content.childElementCount === 1
+    && content.firstElementChild?.matches?.('.a52-panel');
+}
+
+function panelRenderIsCurrent(sequence, root) {
+  return sequence === renderSequence
+    && panelOwnsContent()
+    && content.firstElementChild === root;
+}
+
 function startAutoRefresh() {
   stopAutoRefresh();
   refreshTimer = setInterval(() => {
-    if (content?.dataset?.[PANEL_FLAG] === '1' && !document.hidden) renderPanel({ automatic: true });
+    if (!panelOwnsContent()) {
+      delete content?.dataset?.[PANEL_FLAG];
+      stopAutoRefresh();
+      return;
+    }
+    if (!document.hidden && !document.querySelector('.hotel-editor-overlay')) {
+      renderPanel({ automatic: true });
+    }
   }, REFRESH_MS);
 }
 
@@ -374,6 +393,14 @@ function buildAlerts({ priorityStops, overdueStages, openIncidents, contractProb
 
 async function renderPanel({ automatic = false } = {}) {
   if (!content) return;
+  // Un refresco programado nunca puede recuperar el Panel si el usuario ya
+  // está trabajando en otro módulo. El indicador por sí solo puede quedar
+  // obsoleto cuando otro controlador intercepta el clic de navegación.
+  if (automatic && !panelOwnsContent()) {
+    delete content.dataset[PANEL_FLAG];
+    stopAutoRefresh();
+    return;
+  }
   const sequence = ++renderSequence;
   stopAutoRefresh();
   content.dataset[PANEL_FLAG] = '1';
@@ -396,7 +423,7 @@ async function renderPanel({ automatic = false } = {}) {
 
   try {
     const profile = await currentProfile();
-    if (sequence !== renderSequence || content.dataset[PANEL_FLAG] !== '1') return;
+    if (!panelRenderIsCurrent(sequence, root)) return;
     if (!moduleAccess(profile, 'resumen').view) throw new Error('Tu usuario no tiene acceso al Panel.');
 
     const admin = isPrimaryAdmin(profile);
@@ -426,7 +453,7 @@ async function renderPanel({ automatic = false } = {}) {
       ? await readQuery('T programadas', supabase.from('etapas_hotel').select('id,registro_hotel_id,nombre,posicion,estado,tipo_etapa,lugar,fecha_prevista,fecha_inicio_real,fecha_fin_real,fecha_real,cancelado').in('registro_hotel_id', hotelIds).eq('cancelado', false).order('fecha_prevista', { ascending: true, nullsFirst: false }))
       : { label: 'T programadas', data: [], error: null, skipped: !canHotel };
 
-    if (sequence !== renderSequence || content.dataset[PANEL_FLAG] !== '1') return;
+    if (!panelRenderIsCurrent(sequence, root)) return;
 
     const results = [hotelResult, reservesResult, incidentsResult, vehiclesResult, periodsResult, dfmBillingResult, rBillingResult, substitutionsResult, usersResult, devicesResult, stagesResult];
     const errors = results.filter(result => result.error).map(result => `${result.label}: ${result.error.message || result.error}`);
@@ -678,7 +705,7 @@ async function renderPanel({ automatic = false } = {}) {
     root.append(el('div', `Panel consultado por ${profileName(profile)}. Los cambios se realizan en el módulo de origen y el Panel los vuelve a leer.`, 'a52-footnote'));
     startAutoRefresh();
   } catch (error) {
-    if (sequence !== renderSequence || content.dataset[PANEL_FLAG] !== '1') return;
+    if (!panelRenderIsCurrent(sequence, root)) return;
     loading.className = 'a52-error';
     loading.textContent = `No se pudo cargar el Panel: ${error?.message || 'error desconocido'}`;
     updated.textContent = 'Sin actualizar';
@@ -701,8 +728,20 @@ nav?.addEventListener('click', event => {
   }
 }, true);
 
+// La navegación de Hotel usa stopImmediatePropagation para sustituir la vista
+// heredada. Por ello no siempre llega al manejador anterior. Observar la raíz
+// hace que la propiedad del Panel se cancele también en ese caso.
+if (content) {
+  new MutationObserver(() => {
+    if (!refreshTimer || panelOwnsContent()) return;
+    delete content.dataset[PANEL_FLAG];
+    renderSequence += 1;
+    stopAutoRefresh();
+  }).observe(content, { childList: true });
+}
+
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && content?.dataset?.[PANEL_FLAG] === '1' && Date.now() - lastLoadedAt > REFRESH_MS) {
+  if (!document.hidden && panelOwnsContent() && Date.now() - lastLoadedAt > REFRESH_MS) {
     renderPanel({ automatic: true });
   }
 });

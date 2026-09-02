@@ -14,6 +14,32 @@ import { renderHotelCard } from './hotel-card.js';
 
 ensureNativeHotelStyle();
 
+const hotelViewState = {
+  filter: 'all',
+  search: '',
+  editMode: false,
+};
+
+function ensureAlpha71HotelStyle() {
+  if (document.querySelector('#alpha71-hotel-style')) return;
+  const style = document.createElement('style');
+  style.id = 'alpha71-hotel-style';
+  style.textContent = `
+    .a71-hotel-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 760px) {
+      .a71-hotel-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  `;
+  document.head.append(style);
+}
+
+ensureAlpha71HotelStyle();
+
 function normaliseSearch(value) {
   return String(value ?? '')
     .normalize('NFD')
@@ -140,8 +166,10 @@ async function loadHotelData(access) {
 async function renderHotelNative(container, access) {
   clear(container);
   container.dataset.alpha56HotelNative = 'loading';
-  let editMode = false;
-  let activeFilter = 'all';
+  let editMode = access.editFicha && hotelViewState.editMode;
+  let activeFilter = HOTEL_FILTERS.some(filter => filter.key === hotelViewState.filter)
+    ? hotelViewState.filter
+    : 'all';
 
   const headingActions = element('div', { className: 'hotel-heading-actions' }, [
     element('span', { className: 'badge', text: 'Hotel activo real · Alpha58' }),
@@ -219,6 +247,7 @@ async function renderHotelNative(container, access) {
       spellcheck: 'false',
       'aria-label': 'Buscar una ficha en la pizarra',
     });
+    searchInput.value = hotelViewState.search;
     const clearSearch = element('button', {
       className: 'button secondary compact a54-search-clear',
       type: 'button',
@@ -248,7 +277,9 @@ async function renderHotelNative(container, access) {
       ]),
     ]);
 
-    const summary = element('div', { className: 'summary-grid' }, HOTEL_FILTERS.map(filter =>
+    // Clase propia: evita que los controladores de filtros heredados de
+    // Alpha27/28/32/33 vuelvan a seleccionar "Fichas activas".
+    const summary = element('div', { className: 'a71-hotel-summary' }, HOTEL_FILTERS.map(filter =>
       metric(filter, filter.states ? rows.filter(row => filter.states.has(row.estado)).length : rows.length)
     ));
     const modeNotice = element('div');
@@ -301,6 +332,7 @@ async function renderHotelNative(container, access) {
       const key = target?.dataset?.hotelFilter;
       if (!HOTEL_FILTERS.some(filter => filter.key === key)) return;
       activeFilter = key;
+      hotelViewState.filter = key;
       applyFilter();
     };
 
@@ -318,15 +350,20 @@ async function renderHotelNative(container, access) {
       event.stopPropagation();
       activateMetric(target);
     });
-    searchInput.addEventListener('input', applyFilter);
+    searchInput.addEventListener('input', () => {
+      hotelViewState.search = searchInput.value;
+      applyFilter();
+    });
     searchInput.addEventListener('keydown', event => {
       if (event.key !== 'Escape' || !searchInput.value) return;
       event.preventDefault();
       searchInput.value = '';
+      hotelViewState.search = '';
       applyFilter();
     });
     clearSearch.addEventListener('click', () => {
       searchInput.value = '';
+      hotelViewState.search = '';
       applyFilter();
       searchInput.focus();
     });
@@ -384,6 +421,7 @@ async function renderHotelNative(container, access) {
     if (modeButton) {
       modeButton.addEventListener('click', () => {
         editMode = !editMode;
+        hotelViewState.editMode = editMode;
         modeButton.textContent = editMode ? '✏️ Lectura y edición' : '🔒 Modo lectura';
         modeButton.classList.toggle('primary', editMode);
         modeButton.classList.toggle('secondary', !editMode);
@@ -392,6 +430,11 @@ async function renderHotelNative(container, access) {
       });
     }
 
+    if (modeButton) {
+      modeButton.textContent = editMode ? '✏️ Lectura y edición' : '🔒 Modo lectura';
+      modeButton.classList.toggle('primary', editMode);
+      modeButton.classList.toggle('secondary', !editMode);
+    }
     syncCreateButton();
     renderRows();
     container.dataset.alpha56HotelNative = '1';
@@ -412,6 +455,11 @@ async function openNativeHotel(button) {
   if (!content || rendering) return;
   rendering = true;
   try {
+    // Cancela de inmediato cualquier propiedad residual del Panel. Su
+    // temporizador no debe poder sustituir Hotel mientras se edita una ficha.
+    delete content.dataset.alpha70Panel;
+    delete content.dataset.alpha52Panel;
+    delete content.dataset.alpha62PanelOwned;
     nav?.querySelectorAll('button').forEach(node => node.classList.toggle('active', node === button));
     const access = await getHotelAccess();
     await renderHotelNative(content, access);
@@ -441,6 +489,9 @@ nav?.addEventListener('click', event => {
   if (!button) return;
   if (button.dataset.module !== 'hotel') {
     if (content) delete content.dataset.alpha56HotelNative;
+    hotelViewState.filter = 'all';
+    hotelViewState.search = '';
+    hotelViewState.editMode = false;
     return;
   }
   if (content) delete content.dataset.alpha55HistoryNative;
