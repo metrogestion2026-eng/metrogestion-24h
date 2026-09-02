@@ -1,7 +1,7 @@
 import { detail, element } from '../../r1-alpha17/src/dom.js';
 import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
-import { createOperationalDates, createSubstitutionBilling } from '../../r1-alpha67/src/card-operational.js';
+import { createOperationalDates, createSubstitutionBilling } from './card-operational.js';
 import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
 import {
   STATE_LABELS,
