@@ -35,17 +35,25 @@ Deno.serve(async (request: Request) => {
   }
 
   const token = String(body.token || "").trim();
+  const action = String(body.action || "sync").trim().toLowerCase();
   const payload = body.payload as Record<string, unknown> | undefined;
   const rows = Array.isArray(payload?.filas) ? payload.filas : null;
 
   if (!/^mg_[0-9a-f]{64}$/i.test(token)) {
     return reply(401, { ok: false, error: "Clave de conexión no válida." });
   }
-  if (!payload || !rows) {
+  if (!["sync", "ack"].includes(action)) {
+    return reply(400, { ok: false, error: "Acción de sincronización no válida." });
+  }
+  if (action === "sync" && (!payload || !rows)) {
     return reply(400, { ok: false, error: "No se ha recibido una fotografía válida de MANTENIMENT." });
   }
-  if (rows.length > 2500) {
+  if (action === "sync" && rows && rows.length > 2500) {
     return reply(400, { ok: false, error: "La fotografía contiene demasiadas filas." });
+  }
+  const confirmations = Array.isArray(body.confirmaciones) ? body.confirmaciones : null;
+  if (action === "ack" && (!confirmations || confirmations.length > 500)) {
+    return reply(400, { ok: false, error: "Las confirmaciones no tienen un formato válido." });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -58,10 +66,15 @@ Deno.serve(async (request: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data, error } = await admin.rpc("recibir_snapshot_manteniment", {
-    p_token: token,
-    p_payload: payload,
-  });
+  const { data, error } = action === "ack"
+    ? await admin.rpc("confirmar_comandos_manteniment", {
+        p_token: token,
+        p_confirmaciones: confirmations,
+      })
+    : await admin.rpc("recibir_snapshot_manteniment", {
+        p_token: token,
+        p_payload: payload,
+      });
 
   if (error) {
     const unauthorized = /clave de conexión|no está activada/i.test(error.message || "");
@@ -71,9 +84,7 @@ Deno.serve(async (request: Request) => {
     });
   }
 
-  return reply(200, {
-    ok: true,
-    resultado: data,
-    recibido_en: new Date().toISOString(),
-  });
+  return reply(200, action === "ack"
+    ? { ok: true, confirmacion: data, recibido_en: new Date().toISOString() }
+    : { ok: true, resultado: data, recibido_en: new Date().toISOString() });
 });
