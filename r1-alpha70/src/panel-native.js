@@ -136,7 +136,7 @@ function vehicleTitle(row) {
 }
 
 function completedStageDate(stage) {
-  return stage?.fecha_fin_real || stage?.fecha_real || null;
+  return stage?.fecha_real || stage?.fecha_fin_real || null;
 }
 
 function latestCompletedStages(stages) {
