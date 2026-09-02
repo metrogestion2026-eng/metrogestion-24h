@@ -1,5 +1,23 @@
 # Metrogestión 24H — Memorando de versiones
 
+## r1.0.0-alpha.71 — 02/09/2026
+
+- Versión de pruebas creada desde Alpha70 validada y cerrada.
+- Sincronización bidireccional del maestro `ALTA`: I es matriculación y J es alta en delegación.
+- Fin de contrato calculado desde matriculación y próxima ITV inicial a un año.
+- Altas, ediciones y bajas de Activos se devuelven al archivo madre sin borrar filas.
+- Las fichas nuevas de Hotel generan una fila `PARADA` vinculada por identificador estable.
+- Mapeo de `PARADA`: A DFM, B matrícula, C tipo, D UPC, G sustituto, H PARADA, I programada, J parada, K recuperación/corte, L días, O marca, P km y Q TANCAMENT.
+- `TANCAMENT n` mantiene Q en rosa pastel hasta la supervisión del administrador principal y no cierra operativamente la ficha.
+- Outbox privado, confirmaciones idempotentes, token protegido y wrappers públicos sin `SECURITY DEFINER` para Activos.
+
+## r1.0.0-alpha.70 — 02/09/2026
+
+- Validada por el usuario y cerrada sobre el commit `32373e410fe9e4925cd7f8d201262d87090202f2`.
+- La carpeta `r1-alpha70` queda inmutable.
+- Alpha71 parte de una copia exacta y concentra las mejoras posteriores.
+- Se validan los catálogos editables, el buscador del Histórico, la última T por fecha efectiva, las exportaciones PDF/XLSX, la creación de reservas y la gestión protegida de Activos.
+
 ## Beta 1.7 — 29/07/2026
 
 - El DFM permanece visible en todos los pasos de la activación.
