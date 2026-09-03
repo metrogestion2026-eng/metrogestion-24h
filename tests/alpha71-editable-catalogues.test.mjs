@@ -10,7 +10,11 @@ const styles = await readFile(new URL('../r1-alpha71/editable-catalogue.css', im
 
 assert.match(helper, /setAttribute\('role', 'combobox'\)/, 'El campo editable debe identificarse como combobox.');
 assert.match(helper, /role: 'listbox'/, 'Debe existir un listado explícito de opciones.');
+assert.match(helper, /hidden: ''/, 'El listado debe permanecer oculto al abrir la ficha.');
 assert.match(helper, /className: 'a71-catalogue-trigger'/, 'Debe haber una flecha visible para abrir el listado.');
+assert.match(helper, /trigger\.addEventListener\('click'/, 'El listado solo debe abrirse mediante la flecha.');
+assert.match(helper, /input\.addEventListener\('focus', \(\) => setOpen\(false\)\)/, 'Tocar el campo no debe desplegar opciones en el móvil.');
+assert.doesNotMatch(helper, /createElement\(['"]datalist|element\(['"]datalist|setAttribute\(['"]list['"]/, 'No debe usarse el desplegable nativo que se abre automáticamente en móviles.');
 assert.match(helper, /onChange\?\.\(item, name\)/, 'Elegir una opción debe actualizar el valor guardado.');
 assert.match(helper, /input\.addEventListener\('input', update\)/, 'El campo debe seguir admitiendo escritura libre.');
 assert.match(helper, /setDisabled\(disabled\)/, 'El campo y su lista deben poder bloquearse juntos.');

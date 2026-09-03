@@ -35,7 +35,6 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
   const selected = findCatalogueItem(items, value);
   const inputId = `a71-catalogue-input-${crypto.randomUUID()}`;
   const listId = `a71-catalogue-list-${crypto.randomUUID()}`;
-  const fallbackId = `a71-catalogue-native-${crypto.randomUUID()}`;
   const input = createInput({ value: selected?.nombre || value || '', placeholder });
   const trigger = element('button', {
     className: 'a71-catalogue-trigger',
@@ -53,13 +52,11 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     'aria-label': `Listado de ${labelText}`,
     hidden: ''
   });
-  const fallback = element('datalist', { id: fallbackId });
-  const combo = element('div', { className: 'a71-editable-catalogue' }, [input, trigger, listbox, fallback]);
+  const combo = element('div', { className: 'a71-editable-catalogue' }, [input, trigger, listbox]);
   const label = element('label', { className: 'a71-catalogue-label', for: inputId, text: labelText });
   const field = element('div', { className: 'editor-field' }, [label, combo]);
 
   input.id = inputId;
-  input.setAttribute('list', fallbackId);
   input.setAttribute('autocomplete', 'off');
   input.setAttribute('spellcheck', 'false');
   input.setAttribute('role', 'combobox');
@@ -87,7 +84,8 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     input.value = name;
     onChange?.(item, name);
     setOpen(false);
-    input.focus();
+    // En móvil mantenemos el teclado cerrado después de elegir una opción.
+    trigger.focus({ preventScroll: true });
   };
 
   const renderOptions = () => {
@@ -118,11 +116,6 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
 
   const rebuild = (nextItems = items, nextValue, replaceValue = false) => {
     items = Array.isArray(nextItems) ? nextItems : [];
-    fallback.replaceChildren();
-    sortedItems().forEach(item => fallback.append(element('option', {
-      value: catalogueName(item),
-      label: catalogueCode(item)
-    })));
     if (replaceValue) {
       const next = findCatalogueItem(items, nextValue);
       input.value = next?.nombre || nextValue || '';
@@ -147,6 +140,7 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
       setOpen(false);
     }
   });
+  input.addEventListener('focus', () => setOpen(false));
   trigger.addEventListener('click', () => {
     renderOptions();
     setOpen(listbox.hidden);
