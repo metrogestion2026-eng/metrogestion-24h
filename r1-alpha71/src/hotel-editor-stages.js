@@ -1,9 +1,18 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import {
   bindCheckbox, bindText, createCheckbox, createInput, createTextarea,
-  fieldLabel, makeNewStage, makeNewWork
+  fieldLabel, makeNewStage, makeNewWork, stagesPayload
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js';
+
+export function stagesPayloadWithCatalogues(stages) {
+  return stagesPayload(stages).map((payload, index) => ({
+    ...payload,
+    estado_catalogo_codigo: stages[index]?.estado_catalogo_codigo || payload.estado,
+    taller_nombre: stages[index]?.taller_nombre || '',
+    centro_nombre: stages[index]?.centro_nombre || ''
+  }));
+}
 
 function renumberStages(stages) {
   stages.forEach((stage, index) => {

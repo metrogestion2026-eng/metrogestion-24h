@@ -1,9 +1,9 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js';
-import { renderStagesSection } from './hotel-editor-stages.js';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js';
 import {
-  displayDateTime, fichaPayload, normalizeDetail, requestId, stagesPayload, validate
+  displayDateTime, fichaPayload, normalizeDetail, requestId, validate
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 
 function prepareDetail(raw) {
@@ -23,15 +23,6 @@ function alpha71FichaPayload(ficha) {
     manteniment_dias_parada_manual: ficha.manteniment_dias_parada_manual ?? '',
     manteniment_km_facturables_manual: ficha.manteniment_km_facturables_manual ?? ''
   };
-}
-
-function stagesPayloadWithCatalogues(stages) {
-  return stagesPayload(stages).map((payload, index) => ({
-    ...payload,
-    estado_catalogo_codigo: stages[index]?.estado_catalogo_codigo || payload.estado,
-    taller_nombre: stages[index]?.taller_nombre || '',
-    centro_nombre: stages[index]?.centro_nombre || ''
-  }));
 }
 
 function renderErrors(host, errors) {
