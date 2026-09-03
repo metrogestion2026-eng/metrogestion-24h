@@ -1,5 +1,6 @@
 import '../../r1-alpha69/src/app.js';
 import './assistance-protocols.js';
+import './assistance-call-continuity.js';
 import './listados-export.js';
 import './reservas-create.js';
 import './history-search.js';
