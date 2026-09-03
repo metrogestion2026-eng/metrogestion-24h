@@ -1,6 +1,7 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js';
 import { fichaPayload, requestId, validate } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 
 function alpha71FichaPayload(ficha) {
@@ -41,8 +42,24 @@ function blankDetail() {
       manteniment_dias_parada_manual: '', manteniment_km_facturables_manual: ''
     },
     etapas: [],
-    catalogos: { estados: [], tipos_trabajo: [], talleres: [], vehiculos: [] }
+    catalogos: {
+      estados: [], estados_etapa: [], tipos_etapa: [], tipos_trabajo: [],
+      talleres: [], vehiculos: []
+    }
   };
+}
+
+function mergeWorkshopCentres(workshops, centres) {
+  const centresByWorkshop = new Map();
+  (centres || []).forEach(centre => {
+    const list = centresByWorkshop.get(centre.taller_id) || [];
+    list.push(centre);
+    centresByWorkshop.set(centre.taller_id, list);
+  });
+  return (workshops || []).map(workshop => ({
+    ...workshop,
+    centros: centresByWorkshop.get(workshop.id) || []
+  }));
 }
 
 export async function openHotelCreate({ onSaved } = {}) {
@@ -86,24 +103,41 @@ export async function openHotelCreate({ onSaved } = {}) {
   closeButton.addEventListener('click', () => close(false));
   overlay.addEventListener('click', event => { if (event.target === overlay) close(false); });
 
-  status.textContent = 'Cargando estados y maestro de vehículos ALTA…';
-  const [statesResult, vehiclesResult] = await Promise.all([
+  status.textContent = 'Cargando estados, T, talleres y maestro de vehículos ALTA…';
+  const [
+    statesResult, stageStatesResult, stageTypesResult, workTypesResult,
+    workshopsResult, centresResult, vehiclesResult
+  ] = await Promise.all([
     supabase.from('catalogo_estados_hotel').select('codigo,nombre,orden,color_semantico').eq('activo', true).order('orden', { ascending: true }),
+    supabase.from('catalogo_estados_etapa_hotel').select('codigo,nombre,estado_operativo,orden').eq('activo', true).order('orden', { ascending: true }),
+    supabase.from('catalogo_tipos_etapa_hotel').select('codigo,nombre,orden').eq('activo', true).order('orden', { ascending: true }),
+    supabase.from('catalogo_tipos_trabajo').select('codigo,nombre,requiere_expediente,requiere_diagnostico').eq('activo', true).order('codigo', { ascending: true }),
+    supabase.from('talleres').select('id,nombre,observaciones').eq('activo', true).order('nombre', { ascending: true }),
+    supabase.from('centros_taller').select('id,taller_id,nombre,direccion,poblacion').eq('activo', true).order('nombre', { ascending: true }),
     supabase.from('vehiculos_hotel_autocompletar').select('*').order('dfm', { ascending: true })
   ]);
 
-  if (statesResult.error) {
+  const catalogueError = [
+    statesResult, stageStatesResult, stageTypesResult, workTypesResult,
+    workshopsResult, centresResult
+  ].find(result => result.error)?.error;
+  if (catalogueError) {
     status.className = 'hotel-editor-status error';
-    status.textContent = `No se pudieron cargar los estados: ${statesResult.error.message}`;
+    status.textContent = `No se pudieron cargar los catálogos necesarios: ${catalogueError.message}`;
     return;
   }
 
   detail.catalogos.estados = statesResult.data || [];
+  detail.catalogos.estados_etapa = stageStatesResult.data || [];
+  detail.catalogos.tipos_etapa = stageTypesResult.data || [];
+  detail.catalogos.tipos_trabajo = workTypesResult.data || [];
+  detail.catalogos.talleres = mergeWorkshopCentres(workshopsResult.data, centresResult.data);
   detail.catalogos.vehiculos = vehiclesResult.error ? [] : (vehiclesResult.data || []);
 
   const form = element('form', { className: 'hotel-editor-form' });
   form.addEventListener('submit', event => event.preventDefault());
   const sections = renderMainSections(detail, markDirty);
+  const stagesSection = renderStagesSection(detail, markDirty);
   const errorsHost = element('div', { className: 'editor-errors hidden' });
   const createButton = element('button', { className: 'button primary', type: 'button', text: 'Crear ficha' });
   const cancelButton = element('button', { className: 'button secondary', type: 'button', text: 'Cancelar' });
@@ -120,11 +154,12 @@ export async function openHotelCreate({ onSaved } = {}) {
     cancelButton.disabled = true;
     closeButton.disabled = true;
     status.className = 'hotel-editor-status';
-    status.textContent = 'Creando ficha, asignando número de parada y registrando auditoría…';
+    status.textContent = 'Creando ficha y T, asignando número de parada y registrando auditoría…';
 
     const saveRequestId = requestId();
-    const { data, error } = await supabase.rpc('crear_ficha_hotel_alpha71', {
+    const { data, error } = await supabase.rpc('crear_ficha_hotel_con_etapas_alpha71', {
       p_ficha: alpha71FichaPayload(detail.ficha),
+      p_etapas: stagesPayloadWithCatalogues(detail.etapas),
       p_request_id: saveRequestId
     });
 
@@ -140,7 +175,9 @@ export async function openHotelCreate({ onSaved } = {}) {
 
     dirty = false;
     status.className = 'hotel-editor-status success';
-    status.textContent = `✓ Ficha creada y preparada para MANTENIMENT. Parada ${data.numero_parada || 'asignada'} · referencia ${data.request_id}.`;
+    const stageCount = Number(data.etapas_guardadas || 0);
+    const workCount = Number(data.trabajos_guardados || 0);
+    status.textContent = `✓ Ficha creada con ${stageCount} T y ${workCount} trabajo${workCount === 1 ? '' : 's'}. Parada ${data.numero_parada || 'asignada'} · referencia ${data.request_id}.`;
     await onSaved?.();
     setTimeout(() => close(true), 1200);
   });
@@ -148,7 +185,8 @@ export async function openHotelCreate({ onSaved } = {}) {
   form.append(
     sections[0],
     sections[1],
-    element('p', { className: 'muted', text: 'La ficha se creará en la pizarra actual. El número de parada se asigna automáticamente. Las T se pueden añadir después desde “Abrir edición completa”.' }),
+    stagesSection,
+    element('p', { className: 'muted', text: 'La ficha y todas sus T se crearán juntas en la pizarra actual. El número de parada se asigna automáticamente.' }),
     errorsHost,
     element('div', { className: 'editor-footer-actions' }, [createButton, cancelButton])
   );
