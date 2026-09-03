@@ -1,8 +1,9 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import {
-  STAGE_STATES, STAGE_TYPES, bindCheckbox, bindText, createCheckbox,
-  createInput, createSelect, createTextarea, fieldLabel, makeNewStage, makeNewWork
+  bindCheckbox, bindText, createCheckbox, createInput, createTextarea,
+  fieldLabel, makeNewStage, makeNewWork
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
+import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js';
 
 function renumberStages(stages) {
   stages.forEach((stage, index) => {
@@ -10,16 +11,8 @@ function renumberStages(stages) {
   });
 }
 
-function normaliseType(value) {
-  return String(value ?? '').trim().toLocaleLowerCase('es-ES');
-}
-
 function findType(catalogue, value) {
-  const key = normaliseType(value);
-  if (!key) return null;
-  return (catalogue || []).find(item =>
-    normaliseType(item.codigo) === key || normaliseType(item.nombre) === key
-  ) || null;
+  return findCatalogueItem(catalogue, value);
 }
 
 function displayType(catalogue, value) {
@@ -29,102 +22,15 @@ function displayType(catalogue, value) {
 
 function createEditableWorkType(detail, work, markDirty, onLabelChanged) {
   const catalogue = detail.catalogos.tipos_trabajo || [];
-  const listId = `a57-work-types-${crypto.randomUUID()}`;
-  const input = createInput({
-    value: displayType(catalogue, work.tipo_trabajo),
-    placeholder: 'Elige un tipo o escribe uno nuevo'
-  });
-  input.setAttribute('list', listId);
-  input.setAttribute('autocomplete', 'off');
-  input.setAttribute('spellcheck', 'false');
-
-  const datalist = element('datalist', { id: listId });
-  catalogue
-    .slice()
-    .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'))
-    .forEach(item => {
-      datalist.append(element('option', {
-        value: item.nombre || item.codigo,
-        label: item.codigo || ''
-      }));
-    });
-
-  const update = () => {
-    const typed = input.value.trim();
-    const existing = findType(catalogue, typed);
-    work.tipo_trabajo = existing?.codigo || typed;
-    onLabelChanged(displayType(catalogue, work.tipo_trabajo) || 'Trabajo');
-    markDirty();
-  };
-  input.addEventListener('input', update);
-  input.addEventListener('change', update);
-
-  const field = fieldLabel('Tipo', input);
-  field.append(
-    datalist,
-    element('small', {
-      className: 'muted',
-      text: 'Puedes elegir uno existente o escribir uno nuevo. Al guardar, el nuevo tipo quedará añadido al listado.'
-    })
-  );
-  return field;
-}
-
-
-function normaliseCatalogueValue(value) {
-  return String(value ?? '').trim().toLocaleLowerCase('es-ES');
-}
-
-function findCatalogueItem(catalogue, value) {
-  const key = normaliseCatalogueValue(value);
-  if (!key) return null;
-  return (catalogue || []).find(item =>
-    normaliseCatalogueValue(item.codigo ?? item.id) === key
-    || normaliseCatalogueValue(item.nombre) === key
-  ) || null;
-}
-
-function createEditableCatalogueField(labelText, catalogue, value, {
-  placeholder = 'Elige una opción o escribe una nueva',
-  hint = 'Puedes elegir un valor existente o escribir uno nuevo. Se añadirá al listado al guardar.',
-  onChange,
-} = {}) {
-  let items = Array.isArray(catalogue) ? catalogue : [];
-  const selected = findCatalogueItem(items, value);
-  const input = createInput({ value: selected?.nombre || value || '', placeholder });
-  const listId = `a70-catalogue-${crypto.randomUUID()}`;
-  const list = element('datalist', { id: listId });
-  input.setAttribute('list', listId);
-  input.setAttribute('autocomplete', 'off');
-  input.setAttribute('spellcheck', 'false');
-
-  const rebuild = (nextItems = items, nextValue, replaceValue = false) => {
-    items = Array.isArray(nextItems) ? nextItems : [];
-    list.replaceChildren();
-    items
-      .slice()
-      .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'))
-      .forEach(item => list.append(element('option', {
-        value: item.nombre || item.codigo || item.id,
-        label: item.codigo && item.codigo !== item.nombre ? item.codigo : ''
-      })));
-    if (replaceValue) {
-      const next = findCatalogueItem(items, nextValue);
-      input.value = next?.nombre || nextValue || '';
+  return createEditableCatalogueField('Tipo', catalogue, work.tipo_trabajo, {
+    placeholder: 'Elige un tipo o escribe uno nuevo',
+    hint: 'Puedes elegir uno existente o escribir uno nuevo. Al guardar, el nuevo tipo quedará añadido al listado.',
+    onChange: (item, typed) => {
+      work.tipo_trabajo = item?.codigo || typed;
+      onLabelChanged(displayType(catalogue, work.tipo_trabajo) || 'Trabajo');
+      markDirty();
     }
-  };
-
-  const update = () => {
-    const typed = input.value.trim();
-    onChange?.(findCatalogueItem(items, typed), typed);
-  };
-  input.addEventListener('input', update);
-  input.addEventListener('change', update);
-  rebuild(items, value, false);
-
-  const field = fieldLabel(labelText, input);
-  field.append(list, element('small', { className: 'muted', text: hint }));
-  return { input, field, rebuild };
+  }).field;
 }
 
 function createWorkshopEditor(detail, stage, markDirty, onWorkshopChanged) {
@@ -333,12 +239,9 @@ export function renderStagesSection(detail, markDirty) {
           markDirty();
         }
       });
-      const stageType = stageTypeEditor.input;
       let centerEditor;
       const workshopEditor = createWorkshopEditor(detail, stage, markDirty, () => centerEditor?.rebuildForWorkshop());
       centerEditor = createCenterEditor(detail, stage, markDirty);
-      const workshop = workshopEditor.input;
-      const center = centerEditor.input;
 
       const stagePlace = createInput({ value: stage.lugar || '' });
       bindText(stagePlace, stage, 'lugar', markDirty);
@@ -379,7 +282,7 @@ export function renderStagesSection(detail, markDirty) {
       ]);
       const refreshStageCancellation = () => {
         stageCancelBox.classList.toggle('hidden', !stage.cancelado || !stage.id);
-        stageState.disabled = stage.cancelado;
+        stageStateEditor.setDisabled(stage.cancelado);
         stageCard.classList.toggle('cancelled', stage.cancelado);
       };
       bindCheckbox(stageCancelled.input, stage, 'cancelado', markDirty, checked => {

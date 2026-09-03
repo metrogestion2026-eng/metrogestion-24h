@@ -1,65 +1,9 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import {
-  bindCheckbox, bindText, createCheckbox, createInput, createSelect,
+  bindCheckbox, bindText, createCheckbox, createInput,
   createTextarea, fieldLabel
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
-
-
-function normaliseCatalogueValue(value) {
-  return String(value ?? '').trim().toLocaleLowerCase('es-ES');
-}
-
-function findCatalogueItem(catalogue, value) {
-  const key = normaliseCatalogueValue(value);
-  if (!key) return null;
-  return (catalogue || []).find(item =>
-    normaliseCatalogueValue(item.codigo ?? item.id) === key
-    || normaliseCatalogueValue(item.nombre) === key
-  ) || null;
-}
-
-function createEditableCatalogueField(labelText, catalogue, value, {
-  placeholder = 'Elige una opción o escribe una nueva',
-  hint = 'Puedes elegir un valor existente o escribir uno nuevo. Se añadirá al listado al guardar.',
-  onChange,
-} = {}) {
-  let items = Array.isArray(catalogue) ? catalogue : [];
-  const selected = findCatalogueItem(items, value);
-  const input = createInput({ value: selected?.nombre || value || '', placeholder });
-  const listId = `a71-catalogue-${crypto.randomUUID()}`;
-  const list = element('datalist', { id: listId });
-  input.setAttribute('list', listId);
-  input.setAttribute('autocomplete', 'off');
-  input.setAttribute('spellcheck', 'false');
-
-  const rebuild = (nextItems = items, nextValue, replaceValue = false) => {
-    items = Array.isArray(nextItems) ? nextItems : [];
-    list.replaceChildren();
-    items
-      .slice()
-      .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'))
-      .forEach(item => list.append(element('option', {
-        value: item.nombre || item.codigo || item.id,
-        label: item.codigo && item.codigo !== item.nombre ? item.codigo : ''
-      })));
-    if (replaceValue) {
-      const next = findCatalogueItem(items, nextValue);
-      input.value = next?.nombre || nextValue || '';
-    }
-  };
-
-  const update = () => {
-    const typed = input.value.trim();
-    onChange?.(findCatalogueItem(items, typed), typed);
-  };
-  input.addEventListener('input', update);
-  input.addEventListener('change', update);
-  rebuild(items, value, false);
-
-  const field = fieldLabel(labelText, input);
-  field.append(list, element('small', { className: 'muted', text: hint }));
-  return { input, field, rebuild };
-}
+import { createEditableCatalogueField } from './editable-catalogue.js';
 
 function exactVehicle(catalog, value) {
   const code = String(value || '').trim().toUpperCase();
@@ -152,7 +96,6 @@ export function renderMainSections(detail, markDirty) {
       }
     }
   );
-  const state = stateEditor.input;
   const simpleFields = [
     ['Lugar', 'lugar', 'text'], ['Fecha programada de parada', 'fecha_programada_parada', 'date'],
     ['Fecha real de parada', 'fecha_parada', 'date'],
@@ -197,7 +140,7 @@ export function renderMainSections(detail, markDirty) {
   const refresh = () => {
     tempBox.classList.toggle('hidden', !detail.ficha.sustitucion_temporal);
     cancellationBox.classList.toggle('hidden', !detail.ficha.cancelado);
-    state.disabled = detail.ficha.cancelado;
+    stateEditor.setDisabled(detail.ficha.cancelado);
   };
   bindCheckbox(temp.input, detail.ficha, 'sustitucion_temporal', markDirty, refresh);
   bindCheckbox(cancelled.input, detail.ficha, 'cancelado', markDirty, checked => {
