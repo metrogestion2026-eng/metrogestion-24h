@@ -1,8 +1,16 @@
 # Metrogestión 24H — Memorando de versiones
 
+## r1.0.0-alpha.72 — 04/09/2026
+
+- Versión de trabajo creada desde Alpha71 validada y cerrada.
+- Hereda íntegramente Hotel, T, 24H, Panel, Histórico, Activos, Reservas, Listados, catálogos y sincronización MANTENIMENT de Alpha71.
+- No incorpora cambios funcionales respecto al cierre de Alpha71; será la única carpeta destinada a las mejoras siguientes.
+
 ## r1.0.0-alpha.71 — 02/09/2026
 
-- Versión de pruebas creada desde Alpha70 validada y cerrada.
+- Validada por el usuario y cerrada el 04/09/2026 sobre el commit remoto `88bbe1333c4b855953da640845a51cd33b1a57c1`.
+- La carpeta `r1-alpha71` queda inmutable; Alpha72 concentra todas las mejoras posteriores.
+- Versión creada desde Alpha70 validada y cerrada.
 - Sincronización bidireccional del maestro `ALTA`: I es matriculación y J es alta en delegación.
 - Fin de contrato calculado desde matriculación y próxima ITV inicial a un año.
 - Altas, ediciones y bajas de Activos se devuelven al archivo madre sin borrar filas.
@@ -10,6 +18,13 @@
 - Mapeo de `PARADA`: A DFM, B matrícula, C tipo, D UPC, G sustituto, H PARADA, I programada, J parada, K recuperación/corte, L días, O marca, P km y Q TANCAMENT.
 - `TANCAMENT n` mantiene Q en rosa pastel hasta la supervisión del administrador principal y no cierra operativamente la ficha.
 - Outbox privado, confirmaciones idempotentes, token protegido y wrappers públicos sin `SECURITY DEFINER` para Activos.
+- Hotel conserva la pantalla, el filtro y la edición activa durante las actualizaciones automáticas.
+- Los catálogos de la ficha son editables, muestran su listado bajo demanda y permanecen cerrados inicialmente para facilitar el uso móvil.
+- La llamada 24H conserva los datos recopilados y recupera la ficha de llamada al volver a Metrogestión.
+- Histórico busca todas las fichas independientemente de la fecha seleccionada.
+- Crear nueva ficha permite guardar conjuntamente sus T y trabajos en una operación atómica.
+- El número de parada recién asignado queda protegido al guardar conjuntamente las T.
+- Los resultados y avisos del Panel abren directamente la ficha o el módulo operativo correspondiente.
 
 ## r1.0.0-alpha.70 — 02/09/2026
 
