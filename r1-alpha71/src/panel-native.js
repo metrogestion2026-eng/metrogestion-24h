@@ -1,5 +1,6 @@
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { createDetailPdf, downloadDetailPdf } from './panel-pdf.js';
+import { openHotelEditor } from './hotel-editor.js';
 
 const nav = document.querySelector('#module-nav');
 const content = document.querySelector('#module-content');
@@ -163,6 +164,9 @@ function hotelItem(row, latestByHotel) {
       ? `Última T realizada: ${formatDateTime(latestStage.completedAt)} · ${latestStage.posicion || '—'}T ${latestStage.nombre || 'T sin nombre'}`
       : 'Última T realizada: ninguna registrada',
     note: [substitute, row.lugar, row.causa, row.incidencia ? `INC ${row.incidencia}` : ''].filter(Boolean).join(' · '),
+    module: 'hotel',
+    recordId: row.id,
+    actionLabel: 'Abrir ficha completa',
   };
 }
 
@@ -216,6 +220,8 @@ function reserveItem(row, coverageMap) {
     note: coverage
       ? `Sustituye a ${coverage.dfm || '—'}${coverage.matricula ? ` · ${coverage.matricula}` : ''} · ${coverage.numero_parada || ''}`
       : [row.ubicacion, row.pendientes].filter(Boolean).join(' · ') || 'Sin ocupación ni trabajos pendientes',
+    module: 'reservas',
+    actionLabel: 'Abrir Reservas',
   };
 }
 
@@ -224,6 +230,8 @@ function incidenceItem(row) {
     title: `DFM ${row.dfm || '—'}${row.matricula ? ` · ${row.matricula}` : ''}`,
     meta: `${stateLabel(row.estado)}${row.numero_caso ? ` · Caso ${row.numero_caso}` : ''} · ${formatDateTime(row.creado_en)}`,
     note: [row.averia, row.resultado, row.proveedor].filter(Boolean).join(' · ') || 'Sin detalle adicional',
+    module: 'activar24h',
+    actionLabel: 'Abrir incidencia 24H',
   };
 }
 
@@ -232,6 +240,8 @@ function contractItem(row, reason) {
     title: vehicleTitle(row),
     meta: reason,
     note: [row.marca, row.modelo, row.fin_contrato_fecha ? `Fin ${formatDate(row.fin_contrato_fecha)}` : '', row.fin_contrato_km ? `Contrato ${numberFormat.format(row.fin_contrato_km)} km` : '', row.km_actual != null ? `Actual ${numberFormat.format(row.km_actual)} km` : ''].filter(Boolean).join(' · '),
+    module: 'activos',
+    actionLabel: 'Abrir vehículo en Activos',
   };
 }
 
@@ -241,6 +251,9 @@ function stageItem(row, hotelById) {
     title: `${row.posicion || '—'}T · ${row.nombre || 'T sin nombre'} · ${hotel ? vehicleTitle(hotel) : 'Ficha no localizada'}`,
     meta: `${stateLabel(row.estado)} · ${row.fecha_prevista ? formatDateTime(row.fecha_prevista) : 'Sin fecha'}`,
     note: [row.lugar, hotel?.numero_parada, hotel?.causa].filter(Boolean).join(' · '),
+    module: 'hotel',
+    recordId: hotel?.id || row.registro_hotel_id,
+    actionLabel: 'Abrir T en su ficha',
   };
 }
 
@@ -249,6 +262,8 @@ function billingDfmItem(row) {
     title: `${row.numero_parada || '—'} · DFM ${row.dfm || '—'}${row.matricula ? ` · ${row.matricula}` : ''}`,
     meta: `${formatDate(row.tramo_inicio)}–${formatDate(row.tramo_fin)} · ${numberFormat.format(row.dias_facturables || 0)} días`,
     note: `${numberFormat.format(row.km_facturables || 0)} km · Media ${row.km_dia == null ? 'sin dato' : `${numberFormat.format(row.km_dia)} km/día`} · Sustituto ${row.sustituto || '—'}`,
+    module: 'listados',
+    actionLabel: 'Abrir en Listados',
   };
 }
 
@@ -257,6 +272,8 @@ function billingRItem(row) {
     title: `${row.numero_parada || '—'} · ${row.r_sustituido || 'R —'}`,
     meta: `${formatDate(row.fecha_inicio_parada)}–${formatDate(row.fecha_fin_parada)} · ${row.unidades || 0} unidad`,
     note: `Sustituto ${row.r_sustituto || '—'}${row.importe == null ? '' : ` · ${moneyFormat.format(Number(row.importe))}`}`,
+    module: 'listados',
+    actionLabel: 'Abrir en Listados',
   };
 }
 
@@ -266,6 +283,8 @@ function userItem(row) {
     title: profileName(row),
     meta: `${row.tipo_usuario || 'usuario'} · ${row.activo ? 'Activo' : 'Bloqueado'}`,
     note: `${row.correo || 'Sin correo'} · Usuarios: ${usersAccess ? 'autorizado' : 'sin acceso'}`,
+    module: 'usuarios',
+    actionLabel: 'Abrir en Usuarios',
   };
 }
 
@@ -275,6 +294,8 @@ function deviceItem(row, userMap) {
     title: row.nombre || 'Dispositivo',
     meta: `${stateLabel(row.estado)} · ${owner ? profileName(owner) : row.usuario_id || 'Usuario no localizado'}`,
     note: `Solicitado ${formatDateTime(row.solicitado_en)}${row.ultimo_acceso_en ? ` · Último acceso ${formatDateTime(row.ultimo_acceso_en)}` : ''}`,
+    module: 'usuarios',
+    actionLabel: 'Abrir en Usuarios',
   };
 }
 
@@ -346,6 +367,7 @@ function openModule(moduleId) {
     t_programadas: '[data-module="t_programadas"]',
     listados: '[data-alpha29-listados]',
     activar24h: '[data-alpha34-24h]',
+    activos: '[data-alpha70-activos]',
     usuarios: '[data-alpha51-users]',
   };
   const target = nav?.querySelector(selectors[moduleId] || '');
@@ -372,21 +394,26 @@ function buildAlerts({ priorityStops, overdueStages, openIncidents, contractProb
   priorityStops.forEach(row => alerts.push({
     severity: 'critical', icon: '⚠', title: `${vehicleTitle(row)} · Prioridad ${row.prioridad}`,
     meta: `${stateLabel(row.estado)} · ${row.lugar || 'Sin lugar'} · ${row.causa || 'Sin causa'}`,
+    module: 'hotel', recordId: row.id, actionLabel: 'Abrir ficha completa',
   }));
   overdueStages.forEach(row => alerts.push({
     severity: 'warning', icon: '⏱', title: `${row.posicion || '—'}T vencida · ${row.nombre || 'Sin nombre'}`,
     meta: `${formatDateTime(row.fecha_prevista)} · ${row.lugar || 'Sin lugar'}`,
+    module: 'hotel', recordId: row.registro_hotel_id, actionLabel: 'Abrir T en su ficha',
   }));
   openIncidents.forEach(row => alerts.push({
     severity: 'critical', icon: '🚨', title: `24H abierta · DFM ${row.dfm || '—'}`,
     meta: `${row.numero_caso ? `Caso ${row.numero_caso} · ` : ''}${row.averia || 'Sin descripción'}`,
+    module: 'activar24h', actionLabel: 'Abrir incidencia 24H',
   }));
   contractProblems.forEach(item => alerts.push({
     severity: 'warning', icon: '📄', title: `${vehicleTitle(item.row)} · contrato`, meta: item.reason,
+    module: 'activos', actionLabel: 'Abrir vehículo en Activos',
   }));
   if (missingMedia.length) alerts.push({
     severity: 'info', icon: '🧮', title: `${missingMedia.length} parada(s) sin media de km`,
     meta: 'No puede cerrarse correctamente el cálculo de kilómetros de sustitución.',
+    module: 'listados', actionLabel: 'Abrir en Listados',
   });
   return alerts.slice(0, 10);
 }
@@ -427,7 +454,9 @@ async function renderPanel({ automatic = false } = {}) {
     if (!moduleAccess(profile, 'resumen').view) throw new Error('Tu usuario no tiene acceso al Panel.');
 
     const admin = isPrimaryAdmin(profile);
-    const canHotel = moduleAccess(profile, 'hotel').view;
+    const hotelAccess = moduleAccess(profile, 'hotel');
+    const canHotel = hotelAccess.view;
+    const canEditHotel = hotelAccess.edit;
     const canReservations = moduleAccess(profile, 'reservas').view || canHotel;
     const can24h = moduleAccess(profile, 'activar24h').view;
     const canUsers = moduleAccess(profile, 'usuarios').view;
@@ -541,6 +570,15 @@ async function renderPanel({ automatic = false } = {}) {
     detailHost.hidden = true;
     root.append(detailHost);
 
+    const activatePanelItem = (item, spec = {}) => {
+      const moduleId = item?.module || spec.module;
+      if (moduleId === 'hotel' && item?.recordId && canEditHotel) {
+        openHotelEditor(item.recordId, { onSaved: () => renderPanel() });
+        return;
+      }
+      if (moduleId) openModule(moduleId);
+    };
+
     const openDetail = spec => {
       detailHost.replaceChildren();
       const detailHead = el('div', null, 'a52-detail-head');
@@ -580,6 +618,24 @@ async function renderPanel({ automatic = false } = {}) {
         if (item.meta) card.append(el('span', item.meta));
         if (item.lastStage) card.append(el('span', item.lastStage, 'a70-last-stage'));
         if (item.note) card.append(el('p', item.note));
+        const moduleId = item.module || spec.module;
+        if (moduleId) {
+          const actionLabel = item.actionLabel || spec.moduleLabel || 'Abrir módulo';
+          const openItem = () => activatePanelItem(item, spec);
+          const action = el('button', `→ ${actionLabel}`, 'button primary compact a71-panel-item-action');
+          action.type = 'button';
+          action.addEventListener('click', event => {
+            event.stopPropagation();
+            openItem();
+          });
+          card.classList.add('is-interactive');
+          card.title = actionLabel;
+          card.addEventListener('click', event => {
+            if (event.target.closest?.('button,a')) return;
+            openItem();
+          });
+          card.append(action);
+        }
         list.append(card);
       });
       detailHost.append(detailHead, list);
@@ -612,6 +668,21 @@ async function renderPanel({ automatic = false } = {}) {
       const alertText = el('div');
       alertText.append(el('strong', alert.title), el('small', alert.meta));
       row.append(alertText);
+      if (alert.module) {
+        const openAlert = () => activatePanelItem(alert);
+        const action = el('button', `→ ${alert.actionLabel || 'Abrir'}`, 'button secondary compact a71-panel-alert-action');
+        action.type = 'button';
+        action.addEventListener('click', event => {
+          event.stopPropagation();
+          openAlert();
+        });
+        row.classList.add('is-interactive');
+        row.addEventListener('click', event => {
+          if (event.target.closest?.('button,a')) return;
+          openAlert();
+        });
+        row.append(action);
+      }
       alertList.append(row);
     });
     attentionSection.append(attentionHead, alertList);
@@ -673,10 +744,10 @@ async function renderPanel({ automatic = false } = {}) {
       : el('section', 'Facturación no está autorizada para este usuario.', 'a52-permission-note');
 
     const contractMetrics = [
-      { label: 'Flota activa', value: vehicles.length, tone: 'main', detail: { title: 'Vehículos activos', items: vehicles.map(row => contractItem(row, 'Contrato vigente o pendiente de comprobar')), module: 'activar24h', moduleLabel: 'Abrir Activar 24H' } },
-      { label: 'Vencidos por fecha', value: expiredByDate.length, tone: expiredByDate.length ? 'red' : 'green', detail: { title: 'Contratos vencidos por fecha', items: expiredByDate.map(row => contractItem(row, `Vencido el ${formatDate(row.fin_contrato_fecha)}`)), module: 'activar24h', moduleLabel: 'Abrir Activar 24H' } },
-      { label: 'Superados por km', value: exceededKm.length, tone: exceededKm.length ? 'red' : 'green', detail: { title: 'Contratos superados por kilómetros', items: exceededKm.map(row => contractItem(row, `${numberFormat.format(row.km_actual)} / ${numberFormat.format(row.fin_contrato_km)} km`)), module: 'activar24h', moduleLabel: 'Abrir Activar 24H' } },
-      { label: 'Vencen en 30 días', value: expiring30.length, tone: expiring30.length ? 'amber' : 'green', detail: { title: 'Contratos que vencen en 30 días', items: expiring30.map(row => contractItem(row, `Vence el ${formatDate(row.fin_contrato_fecha)}`)), module: 'activar24h', moduleLabel: 'Abrir Activar 24H' } },
+      { label: 'Flota activa', value: vehicles.length, tone: 'main', detail: { title: 'Vehículos activos', items: vehicles.map(row => contractItem(row, 'Contrato vigente o pendiente de comprobar')), module: 'activos', moduleLabel: 'Abrir Activos' } },
+      { label: 'Vencidos por fecha', value: expiredByDate.length, tone: expiredByDate.length ? 'red' : 'green', detail: { title: 'Contratos vencidos por fecha', items: expiredByDate.map(row => contractItem(row, `Vencido el ${formatDate(row.fin_contrato_fecha)}`)), module: 'activos', moduleLabel: 'Abrir Activos' } },
+      { label: 'Superados por km', value: exceededKm.length, tone: exceededKm.length ? 'red' : 'green', detail: { title: 'Contratos superados por kilómetros', items: exceededKm.map(row => contractItem(row, `${numberFormat.format(row.km_actual)} / ${numberFormat.format(row.fin_contrato_km)} km`)), module: 'activos', moduleLabel: 'Abrir Activos' } },
+      { label: 'Vencen en 30 días', value: expiring30.length, tone: expiring30.length ? 'amber' : 'green', detail: { title: 'Contratos que vencen en 30 días', items: expiring30.map(row => contractItem(row, `Vence el ${formatDate(row.fin_contrato_fecha)}`)), module: 'activos', moduleLabel: 'Abrir Activos' } },
     ];
     const contractsSection = canFleet
       ? section('Contratos', 'Control por fecha y kilómetros de la flota activa.', contractMetrics, openDetail)
