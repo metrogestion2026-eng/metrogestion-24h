@@ -8,6 +8,10 @@ const migration = await readFile(
   new URL('../supabase/migrations/20260903095728_alpha71_crear_ficha_con_etapas.sql', import.meta.url),
   'utf8',
 );
+const stopNumberFixMigration = await readFile(
+  new URL('../supabase/migrations/20260904140255_alpha71_preservar_numero_parada_al_crear_con_t.sql', import.meta.url),
+  'utf8',
+);
 
 assert.match(
   createSource,
@@ -64,6 +68,21 @@ assert.match(
   migration,
   /grant execute on function public\.crear_ficha_hotel_con_etapas_alpha71\(jsonb, jsonb, text\)[\s\S]*?to authenticated, service_role/,
   'Solo los roles autorizados deben poder invocar el guardado.',
+);
+assert.match(
+  stopNumberFixMigration,
+  /v_numero_parada := nullif\(btrim\(v_created->>'numero_parada'\), ''\)/,
+  'El guardado debe capturar el número de parada generado por el alta.',
+);
+assert.match(
+  stopNumberFixMigration,
+  /v_ficha_guardar := p_ficha \|\| jsonb_build_object\([\s\S]*?'numero_parada', v_numero_parada[\s\S]*?guardar_ficha_hotel_edicion_alpha71\([\s\S]*?v_ficha_guardar/,
+  'El segundo guardado debe reutilizar el número generado en vez del campo vacío original.',
+);
+assert.match(
+  stopNumberFixMigration,
+  /'numero_parada', v_numero_parada/,
+  'La respuesta debe devolver el mismo número de parada conservado.',
 );
 
 console.log('Alpha71: creación conjunta de ficha, T y trabajos verificada.');
