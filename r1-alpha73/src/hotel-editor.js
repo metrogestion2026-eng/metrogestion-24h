@@ -17,6 +17,40 @@ function prepareDetail(raw) {
   return detail;
 }
 
+function normalizedIdentityValue(value, { upper = false } = {}) {
+  const normalized = String(value ?? '').trim();
+  return upper ? normalized.toUpperCase() : normalized;
+}
+
+function editionIdentity(ficha) {
+  return {
+    registro_id: normalizedIdentityValue(ficha?.id),
+    seguimiento_id: normalizedIdentityValue(ficha?.seguimiento_id),
+    pizarra_id: normalizedIdentityValue(ficha?.pizarra_id),
+    numero_parada: normalizedIdentityValue(ficha?.numero_parada),
+    vehiculo_sustituido: normalizedIdentityValue(ficha?.vehiculo_sustituido, { upper: true }),
+    matricula_sustituido: normalizedIdentityValue(ficha?.matricula_sustituido, { upper: true }),
+    vehiculo_reserva: normalizedIdentityValue(ficha?.vehiculo_reserva, { upper: true }),
+    matricula_reserva: normalizedIdentityValue(ficha?.matricula_reserva, { upper: true })
+  };
+}
+
+function sameEditionIdentity(current, loaded) {
+  return Object.keys(loaded).every(key => current[key] === loaded[key]);
+}
+
+function identityConfirmation(identity) {
+  return [
+    'Vas a guardar SOLO esta ficha:',
+    '',
+    `Vehículo: ${identity.vehiculo_sustituido || '—'}`,
+    `Parada: ${identity.numero_parada || '—'}`,
+    `Reserva: ${identity.vehiculo_reserva || 'sin reserva'}`,
+    '',
+    'Comprueba que no sea otra ficha que haya usado la misma reserva.'
+  ].join('\n');
+}
+
 function alpha72FichaPayload(ficha, detail) {
   return {
     ...fichaPayload(ficha),
@@ -87,6 +121,7 @@ function savedMessage(saved) {
 
 export async function openHotelEditor(registroId, { onSaved } = {}) {
   let detail;
+  let loadedIdentity;
   let dirty = false;
   let saving = false;
 
@@ -156,6 +191,12 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
   }
 
   detail = prepareDetail(detailResult.data);
+  if (String(detail.ficha?.id || '') !== String(registroId || '')) {
+    status.className = 'hotel-editor-status error';
+    status.textContent = 'No se ha abierto la ficha solicitada. Cierra y vuelve a intentarlo; no se modificará ningún dato.';
+    return;
+  }
+  loadedIdentity = Object.freeze(editionIdentity(detail.ficha));
   detail.catalogos.vehiculos = vehiclesResult.error ? [] : (vehiclesResult.data || []);
   title.textContent = `Edición completa · ${detail.ficha.vehiculo_sustituido || detail.ficha.vehiculo_reserva || 'Hotel'}`;
   versionBadge.textContent = `Versión ${detail.ficha.version}`;
@@ -176,6 +217,17 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     element('span', { text: `ID: ${detail.ficha.id}` }),
     element('span', { text: `Pizarra: ${detail.ficha.pizarra_id}` }),
     element('span', { text: `Última modificación: ${displayDateTime(detail.ficha.actualizado_en)}` })
+  ]);
+  const identityNotice = element('section', {
+    className: 'editor-identity-notice',
+    'aria-label': 'Identidad protegida de la ficha'
+  }, [
+    element('p', { className: 'editor-identity-eyebrow', text: 'FICHA QUE SE VA A GUARDAR' }),
+    element('strong', {
+      text: `${loadedIdentity.vehiculo_sustituido || 'Vehículo sin indicar'} · parada ${loadedIdentity.numero_parada || 'sin número'}`
+    }),
+    element('span', { text: `Reserva ${loadedIdentity.vehiculo_reserva || 'no asignada'}` }),
+    element('small', { text: 'La reserva puede reutilizarse y no identifica por sí sola una ficha.' })
   ]);
   const [identification, operation, controls] = renderMainSections(detail, markDirty);
   const annotationsSection = renderManualAnnotationsEditor(detail, markDirty);
@@ -209,6 +261,17 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
       return;
     }
 
+    if (!sameEditionIdentity(editionIdentity(detail.ficha), loadedIdentity)) {
+      status.className = 'hotel-editor-status error';
+      status.textContent = 'No se ha guardado: la identidad de la ficha cambió durante la edición. Cierra y vuelve a abrirla.';
+      return;
+    }
+    if (!window.confirm(identityConfirmation(loadedIdentity))) {
+      status.className = 'hotel-editor-status';
+      status.textContent = 'Guardado cancelado. No se ha modificado ningún dato.';
+      return;
+    }
+
     saving = true;
     saveButton.disabled = true;
     discardButton.disabled = true;
@@ -217,11 +280,12 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     status.textContent = 'Guardando la ficha y actualizando sus listados editables…';
 
     const saveRequestId = requestId();
-    const { data: saved, error: saveError } = await supabase.rpc('guardar_ficha_hotel_edicion_alpha72', {
+    const { data: saved, error: saveError } = await supabase.rpc('guardar_ficha_hotel_edicion_alpha73', {
       p_registro_id: detail.ficha.id,
       p_version: Number(detail.ficha.version),
       p_ficha: alpha72FichaPayload(detail.ficha, detail),
       p_etapas: stagesPayloadWithCatalogues(detail.etapas),
+      p_identidad: loadedIdentity,
       p_request_id: saveRequestId
     });
 
@@ -253,6 +317,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
   });
 
   form.append(
+    identityNotice,
     systemInfo,
     errorsHost,
     identification,

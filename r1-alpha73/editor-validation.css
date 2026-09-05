@@ -4,4 +4,9 @@
 .editor-field-error{display:block;margin-top:7px;color:#991b1b;font-size:12px;font-weight:800;line-height:1.35}
 .editor-stage-card.has-validation-error{border-color:#dc2626;background:#fff7f7}
 .editor-errors a{color:inherit;font-weight:850}
-@media(max-width:600px){.editor-field-needs-attention{padding:10px}.editor-field-error{font-size:13px}.editor-stage-card.has-validation-error{scroll-margin-top:150px}}
+.editor-identity-notice{display:grid;gap:5px;padding:14px 16px;border:2px solid #1d4ed8;border-radius:14px;background:#eff6ff;color:#172554;box-shadow:0 4px 14px rgba(29,78,216,.1)}
+.editor-identity-notice strong{font-size:18px;line-height:1.25}
+.editor-identity-notice span{font-weight:800;color:#1e3a8a}
+.editor-identity-notice small{color:#334155;line-height:1.4}
+.editor-identity-eyebrow{margin:0;color:#1d4ed8;font-size:11px;font-weight:900;letter-spacing:.08em}
+@media(max-width:600px){.editor-field-needs-attention{padding:10px}.editor-field-error{font-size:13px}.editor-stage-card.has-validation-error{scroll-margin-top:150px}.editor-identity-notice{padding:13px}.editor-identity-notice strong{font-size:17px}}

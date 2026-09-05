@@ -24,8 +24,10 @@ assert.deepEqual(files73, files72, 'Alpha73 debe partir del mismo árbol funcion
 const alpha73Changes = new Set([
   'VERSION',
   'annotations.css',
+  'editor-validation.css',
   path.join('src', 'annotations.js'),
   path.join('src', 'app.js'),
+  path.join('src', 'hotel-editor.js'),
   path.join('src', 'hotel-card.js'),
   path.join('src', 'hotel-native.js'),
 ]);
