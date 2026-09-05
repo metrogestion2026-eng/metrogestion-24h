@@ -1,6 +1,9 @@
 import { deviceToken, supabase } from '../../r1-alpha17/src/supabase.js';
 
 function detectedVersion() {
+  const declared = document.querySelector('meta[name="metrogestion-release"]');
+  const release = declared && declared.content ? declared.content.trim() : '';
+  if (/^r1\.0\.0-alpha\.\d+$/.test(release)) return release;
   const match = location.pathname.match(/\/r1-alpha(\d+)(?:\/|$)/i);
   return match ? 'r1.0.0-alpha.' + Number(match[1]) : 'r1.0.0-alpha.69';
 }
