@@ -5,11 +5,13 @@
 - Versión de trabajo creada desde Alpha72 validada y cerrada.
 - Hereda íntegramente todas las funciones de Alpha72.
 - Sin cambios funcionales iniciales.
+- No está asignada a los usuarios y no sustituirá a Alpha72 sin autorización expresa.
 
 ## r1.0.0-alpha.72 — 04/09/2026
 
 - Validada por el usuario y cerrada el 05/09/2026 sobre el commit remoto `3ba83cd48a8ec9e96545fbb33ca69a06d9abfe28`.
 - La carpeta `r1-alpha72` queda inmutable; Alpha73 concentra las mejoras posteriores.
+- Es la versión asignada a los usuarios y se mantendrá sin actualizar hasta nueva autorización expresa.
 - Versión creada desde Alpha71 validada y cerrada.
 - Hereda íntegramente Hotel, T, 24H, Panel, Histórico, Activos, Reservas, Listados, catálogos y sincronización MANTENIMENT de Alpha71.
 - Cierra automáticamente los pendientes exactos de una reserva cuando su trabajo se marca realizado, conservando un histórico inmutable.
