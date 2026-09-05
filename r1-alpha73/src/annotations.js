@@ -108,6 +108,96 @@ export function renderAnnotationsChronology(stages, notes, legacyText = '') {
   ]);
 }
 
+export function renderQuickAnnotationComposer(onSave) {
+  const textarea = element('textarea', {
+    className: 'a73-quick-note-text',
+    rows: 3,
+    maxLength: 4000,
+    placeholder: 'Escribe una anotación…',
+    'aria-label': 'Nueva anotación de la ficha',
+  });
+  const status = element('small', {
+    className: 'a73-quick-note-status',
+    text: '',
+  });
+  status.setAttribute('aria-live', 'polite');
+
+  const saveButton = element('button', {
+    className: 'button primary compact',
+    type: 'button',
+    text: 'Guardar anotación',
+  });
+  saveButton.disabled = true;
+
+  const cancelButton = element('button', {
+    className: 'button secondary compact',
+    type: 'button',
+    text: 'Cancelar',
+  });
+  const form = element('div', { className: 'a73-quick-note-form' }, [
+    textarea,
+    element('div', { className: 'a73-quick-note-actions' }, [saveButton, cancelButton]),
+    status,
+  ]);
+  form.hidden = true;
+
+  const openButton = element('button', {
+    className: 'button secondary a73-open-quick-note',
+    type: 'button',
+    text: '✎ Añadir anotación',
+    title: 'Añadir una anotación sin abrir la edición completa',
+  });
+
+  const setOpen = open => {
+    form.hidden = !open;
+    openButton.hidden = open;
+    if (open) textarea.focus();
+  };
+  const reset = () => {
+    textarea.value = '';
+    status.textContent = '';
+    status.className = 'a73-quick-note-status';
+    saveButton.disabled = true;
+    setOpen(false);
+  };
+
+  openButton.addEventListener('click', () => setOpen(true));
+  cancelButton.addEventListener('click', reset);
+  textarea.addEventListener('input', () => {
+    saveButton.disabled = !textarea.value.trim();
+    status.textContent = '';
+    status.className = 'a73-quick-note-status';
+  });
+  textarea.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    reset();
+  });
+  saveButton.addEventListener('click', async () => {
+    const text = textarea.value.trim();
+    if (!text || saveButton.disabled) return;
+
+    saveButton.disabled = true;
+    cancelButton.disabled = true;
+    textarea.disabled = true;
+    status.textContent = 'Guardando anotación…';
+    status.className = 'a73-quick-note-status';
+    try {
+      await onSave(text);
+      reset();
+    } catch (error) {
+      status.textContent = error?.message || 'No se pudo guardar la anotación.';
+      status.className = 'a73-quick-note-status is-error';
+      saveButton.disabled = false;
+    } finally {
+      cancelButton.disabled = false;
+      textarea.disabled = false;
+    }
+  });
+
+  return element('section', { className: 'a73-quick-note' }, [openButton, form]);
+}
+
 function normaliseEditorNotes(detail) {
   if (!Array.isArray(detail.anotaciones_manuales)) detail.anotaciones_manuales = [];
   detail.anotaciones_manuales = detail.anotaciones_manuales.map(note => ({

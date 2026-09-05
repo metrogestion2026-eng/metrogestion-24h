@@ -2,6 +2,7 @@ import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { openHotelCreate } from './hotel-create.js';
 import { openHotelEditor } from './hotel-editor.js';
+import { requestId } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
   HOTEL_FILTERS,
@@ -115,6 +116,16 @@ async function getHotelAccess() {
   const view = editFicha || hotel.ver === true || hotel.leer === true;
   const editDocuments = editFicha || documentation.editar === true;
   return { view, editFicha, editDocuments };
+}
+
+async function addQuickHotelNote(registroId, text) {
+  const { data, error } = await supabase.rpc('crear_anotacion_hotel_alpha73', {
+    p_registro_id: registroId,
+    p_texto: text,
+    p_request_id: requestId(),
+  });
+  if (error) throw new Error(`No se pudo guardar la anotación: ${error.message}`);
+  return data;
 }
 
 async function loadHotelData(access) {
@@ -407,7 +418,7 @@ async function renderHotelNative(container, access) {
       if (access.editFicha) {
         modeNotice.append(editMode
           ? notice(`✏️ Lectura y edición activada · ${editableIds.size} fichas autorizadas. Ya puedes crear una nueva ficha o editar las existentes.`, 'warning')
-          : notice('🔒 Protección de la ficha activada. El botón “Crear nueva ficha” permanece visible y se habilita al activar “Lectura y edición”.', 'success'));
+          : notice('🔒 Protección de la ficha activada. Puedes añadir anotaciones directamente; para crear o editar el resto de la ficha, activa “Lectura y edición”.', 'success'));
       } else {
         modeNotice.append(notice(
           access.editDocuments
@@ -424,6 +435,11 @@ async function renderHotelNative(container, access) {
           editMode: access.editFicha && editMode,
           editableIds,
           canEditDocuments: access.editDocuments,
+          canAddNotes: access.editFicha,
+          onAddNote: async (id, text) => {
+            await addQuickHotelNote(id, text);
+            await renderHotelNative(container, access);
+          },
           onOpenEditor: async id => openHotelEditor(id, {
             onSaved: async () => renderHotelNative(container, access),
           }),

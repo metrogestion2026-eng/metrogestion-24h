@@ -21,8 +21,17 @@ const files72 = await filesUnder(alpha72);
 const files73 = await filesUnder(alpha73);
 assert.deepEqual(files73, files72, 'Alpha73 debe partir del mismo árbol funcional que Alpha72');
 
+const alpha73Changes = new Set([
+  'VERSION',
+  'annotations.css',
+  path.join('src', 'annotations.js'),
+  path.join('src', 'app.js'),
+  path.join('src', 'hotel-card.js'),
+  path.join('src', 'hotel-native.js'),
+]);
+
 for (const file of files72) {
-  if (file === 'VERSION' || file === path.join('src', 'app.js')) continue;
+  if (alpha73Changes.has(file)) continue;
   const [content72, content73] = await Promise.all([
     readFile(path.join(alpha72, file)),
     readFile(path.join(alpha73, file)),
@@ -38,4 +47,4 @@ const normalized72 = (await readFile(path.join(alpha72, 'src', 'app.js'), 'utf8'
   .replace('r1.0.0-alpha.72', 'r1.0.0-alpha.73');
 assert.equal(app73, normalized72, 'app.js solo debe cambiar el identificador visible de versión');
 
-console.log('Alpha73: herencia íntegra de Alpha72 e identidad de versión verificadas.');
+console.log('Alpha73: herencia protegida de Alpha72 e identidad de versión verificadas.');
