@@ -159,10 +159,12 @@ export function renderManualAnnotationsEditor(detail, markDirty) {
         rows: 3,
         maxLength: 4000,
         value: note.texto,
-        disabled: note.eliminar,
         placeholder: 'Escribe una anotación…',
         'aria-label': `Anotación manual ${index + 1}`,
       });
+      // `disabled` es un atributo booleano: disabled="false" también bloquea
+      // el control. Solo se activa cuando la anotación está marcada para quitar.
+      textarea.disabled = note.eliminar;
       textarea.addEventListener('input', () => {
         note.texto = textarea.value;
         markDirty();

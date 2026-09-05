@@ -41,6 +41,8 @@ assert.match(annotations, /Anotaciones y pasos realizados/);
 assert.match(annotations, /Cada anotación se guarda como una línea independiente con fecha y autor/);
 assert.match(annotations, /manualAnnotationsPayload/);
 assert.match(annotations, /Otra sesión|eliminar/);
+assert.doesNotMatch(annotations, /disabled:\s*note\.eliminar/);
+assert.match(annotations, /textarea\.disabled\s*=\s*note\.eliminar/);
 assert.match(css, /font-family:Georgia/);
 assert.match(css, /font-style:italic/);
 assert.match(css, /@media\(max-width:640px\)/);
