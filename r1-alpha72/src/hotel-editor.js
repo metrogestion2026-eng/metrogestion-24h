@@ -10,12 +10,14 @@ function prepareDetail(raw) {
   const detail = normalizeDetail(raw);
   detail.catalogos.estados_etapa ||= [];
   detail.catalogos.tipos_etapa ||= [];
+  detail.catalogos.modalidades_operativas ||= [];
   return detail;
 }
 
-function alpha71FichaPayload(ficha) {
+function alpha72FichaPayload(ficha) {
   return {
     ...fichaPayload(ficha),
+    modalidad_operativa: ficha.modalidad_operativa || '',
     fecha_programada_parada: ficha.fecha_programada_parada || '',
     manteniment_fecha_corte: ficha.manteniment_fecha_corte || '',
     manteniment_tancament: ficha.manteniment_tancament || '',
@@ -107,7 +109,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
 
   status.textContent = 'Cargando ficha, T, trabajos y listado de tipos…';
   const [detailResult, vehiclesResult] = await Promise.all([
-    supabase.rpc('obtener_ficha_hotel_edicion_alpha71', { p_registro_id: registroId }),
+    supabase.rpc('obtener_ficha_hotel_edicion_alpha72', { p_registro_id: registroId }),
     supabase.from('vehiculos_hotel_autocompletar').select('*').order('dfm', { ascending: true })
   ]);
   if (detailResult.error || !detailResult.data) {
@@ -157,10 +159,10 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     status.textContent = 'Guardando la ficha y actualizando sus listados editables…';
 
     const saveRequestId = requestId();
-    const { data: saved, error: saveError } = await supabase.rpc('guardar_ficha_hotel_edicion_alpha71', {
+    const { data: saved, error: saveError } = await supabase.rpc('guardar_ficha_hotel_edicion_alpha72', {
       p_registro_id: detail.ficha.id,
       p_version: Number(detail.ficha.version),
-      p_ficha: alpha71FichaPayload(detail.ficha),
+      p_ficha: alpha72FichaPayload(detail.ficha),
       p_etapas: stagesPayloadWithCatalogues(detail.etapas),
       p_request_id: saveRequestId
     });

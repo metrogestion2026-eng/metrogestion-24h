@@ -124,6 +124,7 @@ export function renderHistoricalCard(row, stages, documentsByGroup, access, onSa
     createOperationalDates(row, stages),
     element('div', { className: 'detail-grid' }, [
       detail('Estado', row.estado),
+      detail('Modalidad operativa', row.modalidad_operativa_nombre || row.modalidad_operativa || 'Flujo normal'),
       detail('Reserva', row.reserva),
       detail('Prioridad', row.prioridad),
       detail('Lugar', row.lugar),
@@ -178,4 +179,3 @@ export function renderHistoricalCard(row, stages, documentsByGroup, access, onSa
   }
   return card;
 }
-
