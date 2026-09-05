@@ -23,6 +23,17 @@ Distribución: **no asignada a usuarios**. Alpha73 no sustituirá a Alpha72 sin 
 - El texto se limita a entre 1 y 4.000 caracteres y solo se admite sobre fichas activas de la pizarra en curso.
 - Alpha72 y los enlaces asignados a usuarios permanecen sin cambios.
 
+## Protección contra mezcla de fichas
+
+- El editor completo fija al abrir una identidad inmutable formada por registro, seguimiento, pizarra, número de parada, vehículo y reserva.
+- Antes de guardar muestra y pide confirmar explícitamente el vehículo, la parada y la reserva; se advierte que una reserva reutilizada no identifica una ficha.
+- La base de datos vuelve a comparar esa identidad con la fila bloqueada y rechaza cualquier discrepancia antes de modificar datos.
+- Cada T existente debe pertenecer al registro abierto y cada trabajo existente debe pertenecer a esa T y a ese registro.
+- Las dos anotaciones ajenas importadas en R1443 se cancelan mediante una corrección exacta y auditada; no se borran físicamente.
+- La anotación correcta de R1443, «parado pendiente de Fridiel», permanece visible.
+- La acción rápida para añadir una anotación conserva su operación independiente y no abre ni guarda la ficha completa.
+- Alpha72 permanece como versión de usuarios y su código no se modifica.
+
 ## Funciones heredadas
 
 - Hotel, T, cronología, múltiples entradas de taller y anotaciones auditadas.

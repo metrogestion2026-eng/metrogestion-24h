@@ -5,6 +5,8 @@
 - Versión de trabajo creada desde Alpha72 validada y cerrada.
 - Hereda íntegramente todas las funciones de Alpha72.
 - Permite añadir anotaciones auditadas desde cada ficha sin activar la edición completa; la operación no modifica ningún otro dato de Hotel.
+- Protege el guardado completo con la identidad inmutable de registro, seguimiento, pizarra, parada, vehículos y reserva; además exige una confirmación visible con vehículo, parada y reserva.
+- Corrige de forma localizada y auditable las dos anotaciones de R1304 que habían quedado asociadas por error a la parada 2600151 de R1443.
 - No está asignada a los usuarios y no sustituirá a Alpha72 sin autorización expresa.
 
 ## r1.0.0-alpha.72 — 04/09/2026
