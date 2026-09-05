@@ -9,6 +9,7 @@ const migration = await readFile(path.join(
 ), 'utf8');
 const presence = await readFile(path.join(root, 'r1-alpha69/src/presence-security.js'), 'utf8');
 const alpha63Index = await readFile(path.join(root, 'r1-alpha63/index.html'), 'utf8');
+const alpha69Index = await readFile(path.join(root, 'r1-alpha69/index.html'), 'utf8');
 
 assert.match(migration, /create table if not exists public\.accesos_usuario/);
 assert.match(migration, /unique \(usuario_id, sesion_clave\)/);
@@ -40,5 +41,10 @@ assert.match(alpha63Index, /src="\.\.\/r1-alpha72\/src\/app\.js"/);
 assert.match(alpha63Index, /src="\.\.\/r1-alpha72\/src\/hotel-native\.js"/);
 assert.match(alpha63Index, /src="\.\.\/r1-alpha72\/src\/history-native\.js"/);
 assert.match(alpha63Index, /src="\.\.\/r1-alpha72\/src\/panel-native\.js"/);
+assert.match(alpha69Index, /name="metrogestion-release" content="r1\.0\.0-alpha\.72"/);
+assert.match(alpha69Index, /src="\.\.\/r1-alpha72\/src\/app\.js"/);
+assert.match(alpha69Index, /src="\.\.\/r1-alpha72\/src\/hotel-native\.js"/);
+assert.match(alpha69Index, /src="\.\.\/r1-alpha72\/src\/history-native\.js"/);
+assert.match(alpha69Index, /src="\.\.\/r1-alpha72\/src\/panel-native\.js"/);
 
 console.log('Alpha72: marcador de accesos únicos por sesión verificado.');
