@@ -80,6 +80,7 @@ function savedMessage(saved) {
   const labels = [['estados','estado de ficha'],['estados_etapa','estado de T'],['tipos_etapa','tipo de T'],['talleres','taller'],['centros','centro'],['tipos_trabajo','tipo de trabajo']];
   const added = labels.map(([key,label]) => [Number(catalogues[key] || 0),label]).filter(([count]) => count > 0).map(([count,label]) => `${count} ${label}${count === 1 ? '' : 's'} nuevo${count === 1 ? '' : 's'}`);
   const parts = [auditEvents ? `${auditEvents} cambio${auditEvents === 1 ? '' : 's'} auditado${auditEvents === 1 ? '' : 's'}` : 'sin cambios adicionales que auditar'];
+  if (saved?.reactivacion_coherente) parts.unshift('reactivación completa: ficha, T final y reserva sincronizadas');
   if (added.length) parts.push(`listados actualizados: ${added.join(', ')}`);
   return `✓ Ficha guardada: ${parts.join(' · ')}. Referencia ${saved?.request_id || '—'}.`;
 }
