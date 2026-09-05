@@ -1,0 +1,7 @@
+.editor-field-needs-attention{padding:9px;border:2px solid #dc2626;border-radius:11px;background:#fff1f2;box-shadow:0 0 0 4px rgba(220,38,38,.12)}
+.editor-field-needs-attention>span,.editor-field-needs-attention>.a71-catalogue-label{color:#991b1b}
+.editor-field-needs-attention input,.editor-field-needs-attention select,.editor-field-needs-attention textarea,.editor-field-needs-attention .a71-catalogue-trigger{border-color:#dc2626}
+.editor-field-error{display:block;margin-top:7px;color:#991b1b;font-size:12px;font-weight:800;line-height:1.35}
+.editor-stage-card.has-validation-error{border-color:#dc2626;background:#fff7f7}
+.editor-errors a{color:inherit;font-weight:850}
+@media(max-width:600px){.editor-field-needs-attention{padding:10px}.editor-field-error{font-size:13px}.editor-stage-card.has-validation-error{scroll-margin-top:150px}}

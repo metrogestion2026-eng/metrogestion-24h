@@ -1,13 +1,27 @@
 # Metrogestión 24H — Memorando de versiones
 
+## r1.0.0-alpha.73 — 05/09/2026
+
+- Versión de trabajo creada desde Alpha72 validada y cerrada.
+- Hereda íntegramente todas las funciones de Alpha72.
+- Sin cambios funcionales iniciales.
+
 ## r1.0.0-alpha.72 — 04/09/2026
 
-- Versión de trabajo creada desde Alpha71 validada y cerrada.
+- Validada por el usuario y cerrada el 05/09/2026 sobre el commit remoto `3ba83cd48a8ec9e96545fbb33ca69a06d9abfe28`.
+- La carpeta `r1-alpha72` queda inmutable; Alpha73 concentra las mejoras posteriores.
+- Versión creada desde Alpha71 validada y cerrada.
 - Hereda íntegramente Hotel, T, 24H, Panel, Histórico, Activos, Reservas, Listados, catálogos y sincronización MANTENIMENT de Alpha71.
 - Cierra automáticamente los pendientes exactos de una reserva cuando su trabajo se marca realizado, conservando un histórico inmutable.
 - Separa la modalidad operativa del vehículo sustituto real con los valores iniciales «Sin sustitución», «Reparado en ruta» y «Reserva en reparación».
 - Cada ficha conserva siempre su número de parada y termina en Histórico; «Reparado en ruta» no genera recuperación y «Sin sustitución» solo la genera si la parada supera un día.
 - Permite crear desde la pizarra actual una ficha cuya fecha real de parada sea anterior, sin sustituirla por la fecha de la pizarra.
+- Admite varias entradas de taller dentro de una misma parada y conserva su cronología.
+- Permite crear y editar anotaciones manuales con autoría, fechas y auditoría.
+- Señala los campos incompatibles que impiden guardar una ficha.
+- Reactiva fichas históricas de forma coherente, reabre la T final y evita mezclar reservas entre fichas activas.
+- Clasifica los accesos no completados y añade un marcador por usuario con una sola entrada por sesión autenticada.
+- Los enlaces heredados Alpha63 y Alpha69 cargan la Alpha72 validada.
 
 ## r1.0.0-alpha.71 — 02/09/2026
 
