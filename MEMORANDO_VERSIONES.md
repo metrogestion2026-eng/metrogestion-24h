@@ -4,7 +4,7 @@
 
 - Versión de trabajo creada desde Alpha72 validada y cerrada.
 - Hereda íntegramente todas las funciones de Alpha72.
-- Sin cambios funcionales iniciales.
+- Permite añadir anotaciones auditadas desde cada ficha sin activar la edición completa; la operación no modifica ningún otro dato de Hotel.
 - No está asignada a los usuarios y no sustituirá a Alpha72 sin autorización expresa.
 
 ## r1.0.0-alpha.72 — 04/09/2026
