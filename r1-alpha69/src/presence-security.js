@@ -53,6 +53,7 @@ function ensureStyle() {
     '.a69-section{display:grid;gap:10px;padding:14px;border:1px solid #dbe5ec;border-radius:14px;background:#fff}.a69-list{display:grid;gap:9px}',
     '.a69-card{display:grid;gap:8px;padding:12px;border:1px solid #dbe5ec;border-radius:12px;background:#fff}.a69-card.unknown{border-color:#fdba74;background:#fff7ed}.a69-card.blocked{border-color:#fca5a5;background:#fff1f2}',
     '.a69-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}.a69-title{display:grid;gap:3px}.a69-meta{font-size:.84rem;color:#526273;overflow-wrap:anywhere}',
+    '.a69-access-stats{display:grid;grid-template-columns:repeat(2,minmax(110px,1fr));gap:8px}.a69-access-stat{display:grid;gap:2px;padding:9px;border:1px solid #dbe5ec;border-radius:10px;background:#f8fafc}.a69-access-stat strong{font-size:1.15rem}',
     '.a69-chips,.a69-actions{display:flex;gap:7px;flex-wrap:wrap}.a69-chip{display:inline-flex;align-items:center;min-height:27px;padding:3px 8px;border:1px solid #cbd5e1;border-radius:999px;background:#f8fafc;font-size:.78rem;font-weight:800}',
     '.a69-chip.online{border-color:#86efac;background:#dcfce7;color:#166534}.a69-chip.warn{border-color:#fcd34d;background:#fffbeb;color:#92400e}.a69-chip.off{border-color:#fecaca;background:#fff1f2;color:#991b1b}',
     '.a69-empty{padding:14px;border:1px dashed #cbd5e1;border-radius:11px;color:#64748b;text-align:center}',
@@ -389,6 +390,50 @@ function renderRecognized(view, rows) {
   return section;
 }
 
+function renderUserAccess(rows) {
+  const section = el('section', null, 'a69-section');
+  section.append(
+    el('strong', 'Marcador de accesos de usuarios'),
+    el('div', 'Cada sesión validada cuenta una sola vez. Las pestañas y las comprobaciones automáticas no aumentan el marcador.', 'a69-meta')
+  );
+  const list = el('div', null, 'a69-list');
+  if (!rows.length) {
+    list.append(el('div', 'Todavía no hay usuarios para mostrar.', 'a69-empty'));
+  }
+  rows.forEach(function (row) {
+    const card = el('article', null, 'a69-card');
+    const head = el('div', null, 'a69-card-head');
+    const title = el('div', null, 'a69-title');
+    title.append(
+      el('strong', row.nombre || row.correo || 'Usuario'),
+      el('div', (row.correo || '') + ' · ' + roleLabel(row.tipo_usuario), 'a69-meta')
+    );
+    const chips = el('div', null, 'a69-chips');
+    chips.append(makeChip(row.ultimo_acceso_en ? 'Último acceso registrado' : 'Sin accesos', row.ultimo_acceso_en ? 'online' : ''));
+    head.append(title, chips);
+
+    const stats = el('div', null, 'a69-access-stats');
+    const today = el('div', null, 'a69-access-stat');
+    today.append(el('strong', Number(row.accesos_hoy || 0)), el('span', 'Accesos de hoy', 'a69-meta'));
+    const week = el('div', null, 'a69-access-stat');
+    week.append(el('strong', Number(row.accesos_7_dias || 0)), el('span', 'Últimos 7 días', 'a69-meta'));
+    stats.append(today, week);
+
+    card.append(head, stats);
+    if (row.ultimo_acceso_en) {
+      card.append(el('div',
+        'Último acceso: ' + dateTime(row.ultimo_acceso_en) +
+        ' · Dispositivo: ' + (row.ultimo_dispositivo || 'No localizado') +
+        (row.ultima_version_cliente ? ' · Versión: ' + row.ultima_version_cliente : ''),
+        'a69-meta'
+      ));
+    }
+    list.append(card);
+  });
+  section.append(list);
+  return section;
+}
+
 function renderUnknown(view, rows) {
   const section = el('section', null, 'a69-section');
   section.append(
@@ -466,6 +511,7 @@ async function loadPanel(view) {
   const summary = el('div', null, 'a69-summary');
   summary.append(
     makeMetric('Reconocidos en línea', status.total_en_linea || 0),
+    makeMetric('Accesos válidos hoy', status.total_accesos_hoy || 0),
     makeMetric('En identificación', status.identificaciones_en_linea || status.no_reconocidos_en_linea || 0),
     makeMetric('Con contraseña rechazada', status.rechazos_credenciales || 0),
     makeMetric('Huellas bloqueadas', status.bloqueados || 0),
@@ -475,6 +521,7 @@ async function loadPanel(view) {
     summary,
     el('div', 'La lista reconocida procede de la sesión, el perfil y el dispositivo comprobados por Supabase. Un nombre o rango no puede ser inventado desde el navegador.', 'a69-note'),
     renderRecognized(view, status.en_linea || []),
+    renderUserAccess(status.accesos_usuarios || []),
     renderUnknown(view, status.intentos_no_reconocidos || [])
   );
   actionStatus(view, 'Actualizado ' + dateTime(status.consultado_en), false);
