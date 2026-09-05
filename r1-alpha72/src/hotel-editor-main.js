@@ -58,6 +58,7 @@ export function renderMainSections(detail, markDirty) {
       }
     }
   );
+  modalityEditor.field.dataset.validationKey = 'ficha:modalidad_operativa';
   identificationGrid.append(modalityEditor.field);
 
   const substituteFields = [

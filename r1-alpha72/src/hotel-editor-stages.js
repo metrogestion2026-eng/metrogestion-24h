@@ -239,6 +239,7 @@ export function renderStagesSection(detail, markDirty) {
           markDirty();
         }
       });
+      stageStateEditor.field.dataset.validationKey = `stage:${stage.client_key || stage.id || stage.posicion}:estado`;
       const stageState = stageStateEditor.input;
       const stageTypeEditor = createEditableCatalogueField('Tipo de T', detail.catalogos.tipos_etapa || [], stage.tipo_etapa || 'otro', {
         placeholder: 'Elige un tipo de T o escribe uno nuevo',
