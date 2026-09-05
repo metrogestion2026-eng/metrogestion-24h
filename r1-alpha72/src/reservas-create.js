@@ -3,6 +3,8 @@ import { supabase } from '../../r1-alpha17/src/supabase.js';
 const nav = document.querySelector('#module-nav');
 const content = document.querySelector('#module-content');
 let profilePromise = null;
+let historyLoadRunning = false;
+let historyTimer = null;
 
 function clean(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -213,6 +215,95 @@ async function ensureCreateButton() {
   }
 }
 
+function reserveCodeFromCard(card) {
+  return clean(card.querySelector('h3')?.textContent).split(' · ')[0]
+    .toLocaleUpperCase('es-ES');
+}
+
+function formatResolvedDate(value) {
+  if (!value) return 'Fecha no registrada';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return clean(value);
+  return new Intl.DateTimeFormat('es-ES', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function appendResolvedHistory(card, rows) {
+  card.dataset.a72ResolvedHistory = '1';
+  if (!rows.length) return;
+
+  const details = document.createElement('details');
+  details.className = 'a72-resolved-history';
+  const summary = document.createElement('summary');
+  summary.textContent = `Pendientes resueltos · ${rows.length}`;
+  const list = document.createElement('div');
+  list.className = 'a72-resolved-history-list';
+
+  rows.forEach(row => {
+    const item = document.createElement('div');
+    item.className = 'a72-resolved-history-item';
+    const title = document.createElement('strong');
+    title.textContent = row.pendiente_texto || row.pendiente_codigo || 'Pendiente';
+    const trace = document.createElement('span');
+    const stage = `${row.etapa_posicion || '—'}T · ${clean(row.etapa_nombre) || 'T realizada'}`;
+    const stop = row.numero_parada ? ` · parada ${row.numero_parada}` : '';
+    trace.textContent = `${stage}${stop} · ${formatResolvedDate(row.resuelto_en)}`;
+    item.append(title, trace);
+    list.append(item);
+  });
+
+  const note = document.createElement('p');
+  note.className = 'muted a72-resolved-history-note';
+  note.textContent = 'Conservado en el histórico; no se puede borrar.';
+  details.append(summary, list, note);
+  card.append(details);
+}
+
+async function ensureResolvedHistory() {
+  if (historyLoadRunning || !content) return;
+  const cards = [...content.querySelectorAll('.reserve-card')]
+    .filter(card => card.dataset.a72ResolvedHistory !== '1');
+  if (!cards.length) return;
+
+  const pairs = cards
+    .map(card => ({ card, code: reserveCodeFromCard(card) }))
+    .filter(item => item.code);
+  if (!pairs.length) return;
+
+  historyLoadRunning = true;
+  try {
+    const codes = [...new Set(pairs.map(item => item.code))];
+    const { data, error } = await supabase
+      .from('reservas_pendientes_resueltos')
+      .select('reserva_codigo,pendiente_codigo,pendiente_texto,numero_parada,etapa_posicion,etapa_nombre,resuelto_en,origen')
+      .in('reserva_codigo', codes)
+      .order('resuelto_en', { ascending: false });
+    if (error) throw error;
+
+    const byCode = new Map();
+    (data || []).forEach(row => {
+      const code = clean(row.reserva_codigo).toLocaleUpperCase('es-ES');
+      if (!byCode.has(code)) byCode.set(code, []);
+      byCode.get(code).push(row);
+    });
+    pairs.forEach(({ card, code }) => {
+      if (card.isConnected) appendResolvedHistory(card, byCode.get(code) || []);
+    });
+  } catch (error) {
+    console.warn('No se pudo cargar el histórico de pendientes resueltos.', error);
+  } finally {
+    historyLoadRunning = false;
+  }
+}
+
+function scheduleReservationEnhancements() {
+  ensureCreateButton();
+  window.clearTimeout(historyTimer);
+  historyTimer = window.setTimeout(ensureResolvedHistory, 0);
+}
+
 function ensureStyle() {
   if (document.querySelector('#alpha70-reservas-create-style')) return;
   const style = document.createElement('style');
@@ -225,6 +316,7 @@ function ensureStyle() {
     .a70-reserve-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
     .a70-reserve-field{display:grid;gap:5px;font-weight:700}.a70-reserve-field input,.a70-reserve-field textarea{width:100%;box-sizing:border-box;min-height:44px;padding:9px 10px;border:1px solid #aebdca;border-radius:10px;background:#fff;font:inherit}.a70-reserve-field textarea{min-height:92px;resize:vertical}
     .a70-reserve-form .wide{grid-column:1/-1}.a70-reserve-modal-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.a70-reserve-status.success{color:#166534}
+    .a72-resolved-history{margin-top:12px;border-top:1px solid #d8e1ea;padding-top:10px}.a72-resolved-history summary{cursor:pointer;font-weight:800;color:#174f78}.a72-resolved-history-list{display:grid;gap:8px;margin-top:10px}.a72-resolved-history-item{display:grid;gap:2px;padding:9px 10px;border-radius:10px;background:#f1f7fb}.a72-resolved-history-item span{font-size:.9rem;color:#526475}.a72-resolved-history-note{margin:8px 0 0;font-size:.85rem}
     body.a70-reserve-modal-open{overflow:hidden}
     @media(max-width:620px){.a70-reserve-heading-actions,.a70-reserve-heading-actions .button{width:100%}.a70-reserve-form{grid-template-columns:1fr}.a70-reserve-form .wide{grid-column:auto}.a70-reserve-modal-actions .button{width:100%}}
   `;
@@ -234,8 +326,8 @@ function ensureStyle() {
 ensureStyle();
 
 if (content) {
-  new MutationObserver(ensureCreateButton).observe(content, { childList: true, subtree: true });
-  ensureCreateButton();
+  new MutationObserver(scheduleReservationEnhancements).observe(content, { childList: true, subtree: true });
+  scheduleReservationEnhancements();
 }
 
 supabase.auth.onAuthStateChange(event => {

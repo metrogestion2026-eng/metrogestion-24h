@@ -22,7 +22,11 @@ const files72 = await filesUnder(alpha72);
 assert.deepEqual(files72, files71, 'Alpha72 debe contener los mismos archivos que Alpha71');
 
 for (const file of files71) {
-  if (file === 'VERSION' || file === path.join('src', 'app.js')) continue;
+  if (
+    file === 'VERSION'
+    || file === path.join('src', 'app.js')
+    || file === path.join('src', 'reservas-create.js')
+  ) continue;
   const [content71, content72] = await Promise.all([
     readFile(path.join(alpha71, file)),
     readFile(path.join(alpha72, file)),
@@ -38,4 +42,4 @@ const normalized71 = (await readFile(path.join(alpha71, 'src', 'app.js'), 'utf8'
   .replace("r1.0.0-alpha.71", "r1.0.0-alpha.72");
 assert.equal(app72, normalized71, 'app.js solo debe cambiar el identificador visible de versión');
 
-console.log('Alpha72: copia funcional de Alpha71 e identidad de versión verificadas.');
+console.log('Alpha72: herencia de Alpha71 e identidad de versión verificadas.');
