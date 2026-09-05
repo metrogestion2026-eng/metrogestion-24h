@@ -34,6 +34,14 @@ Distribución: **no asignada a usuarios**. Alpha73 no sustituirá a Alpha72 sin 
 - La acción rápida para añadir una anotación conserva su operación independiente y no abre ni guarda la ficha completa.
 - Alpha72 permanece como versión de usuarios y su código no se modifica.
 
+## Refuerzo de sesiones
+
+- Todas las operaciones que dependen de `usuario_activo()` conservan la comprobación de cambio de contraseña y añaden la validación del `session_id` del JWT.
+- La sesión debe existir en `auth.sessions`, pertenecer al mismo usuario y no haber superado `not_after`.
+- Un JWT de una sesión cerrada, inexistente o vencida deja de autorizar operaciones aunque todavía no haya alcanzado su expiración local.
+- La función interna no es ejecutable por `anon` ni por `authenticated`; únicamente la invocan los controles protegidos del servidor.
+- El refuerzo no modifica el código de Alpha72 ni exige actualizar la versión instalada por los usuarios.
+
 ## Funciones heredadas
 
 - Hotel, T, cronología, múltiples entradas de taller y anotaciones auditadas.

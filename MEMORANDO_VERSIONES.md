@@ -7,6 +7,7 @@
 - Permite añadir anotaciones auditadas desde cada ficha sin activar la edición completa; la operación no modifica ningún otro dato de Hotel.
 - Protege el guardado completo con la identidad inmutable de registro, seguimiento, pizarra, parada, vehículos y reserva; además exige una confirmación visible con vehículo, parada y reserva.
 - Corrige de forma localizada y auditable las dos anotaciones de R1304 que habían quedado asociadas por error a la parada 2600151 de R1443.
+- Refuerza el servidor común: una credencial solo es válida si su `session_id` continúa en Auth, pertenece al mismo usuario y no ha vencido; cerrar una sesión invalida también sus operaciones sobre la base de datos.
 - No está asignada a los usuarios y no sustituirá a Alpha72 sin autorización expresa.
 
 ## r1.0.0-alpha.72 — 04/09/2026
