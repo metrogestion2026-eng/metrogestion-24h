@@ -49,7 +49,7 @@ function normaliseSearch(value) {
     .trim();
 }
 
-function buildSearchBase(row, stages) {
+function buildSearchBase(row, stages, manualNotes) {
   const stageValues = stages.flatMap(stage => [
     stage.posicion != null ? `${stage.posicion}t` : '',
     stage.nombre,
@@ -82,6 +82,7 @@ function buildSearchBase(row, stages) {
     row.marca,
     row.modelo,
     row.tipo_unidad,
+    ...(manualNotes || []).map(note => note.texto),
     ...stageValues,
   ].filter(Boolean).join(' '));
 }
@@ -128,7 +129,9 @@ async function loadHotelData(access) {
   if (hotelResult.error) throw new Error(`No se pudo cargar Hotel: ${hotelResult.error.message}`);
   const rows = hotelResult.data || [];
   const recordIds = rows.map(row => row.id).filter(Boolean);
+  const trackingIds = [...new Set(rows.map(row => row.seguimiento_id).filter(Boolean))];
   let stages = [];
+  let manualNotes = [];
 
   if (recordIds.length) {
     const { data, error } = await supabase
@@ -140,11 +143,29 @@ async function loadHotelData(access) {
     stages = data || [];
   }
 
+  if (trackingIds.length) {
+    const { data, error } = await supabase
+      .from('anotaciones_manuales_hotel')
+      .select('id,seguimiento_id,texto,fecha_evento,origen,autor_nombre,modificador_nombre,version,creado_en,actualizado_en,cancelada')
+      .in('seguimiento_id', trackingIds)
+      .eq('cancelada', false)
+      .order('fecha_evento', { ascending: true });
+    if (error) throw new Error(`No se pudieron cargar las anotaciones: ${error.message}`);
+    manualNotes = data || [];
+  }
+
   const stagesByRecord = new Map();
   stages.forEach(stage => {
     const current = stagesByRecord.get(stage.registro_hotel_id) || [];
     current.push(stage);
     stagesByRecord.set(stage.registro_hotel_id, current);
+  });
+
+  const notesByTracking = new Map();
+  manualNotes.forEach(note => {
+    const current = notesByTracking.get(note.seguimiento_id) || [];
+    current.push(note);
+    notesByTracking.set(note.seguimiento_id, current);
   });
 
   let documentsByGroup = new Map();
@@ -160,6 +181,7 @@ async function loadHotelData(access) {
     editableResult,
     rows,
     stagesByRecord,
+    notesByTracking,
     documentsByGroup,
     documentsWarning,
   };
@@ -239,7 +261,7 @@ async function renderHotelNative(container, access) {
     }
     if (data.documentsWarning) container.append(notice(data.documentsWarning, 'warning'));
 
-    const { rows, stagesByRecord, documentsByGroup } = data;
+    const { rows, stagesByRecord, notesByTracking, documentsByGroup } = data;
     const editableIds = new Set((data.editableResult.data || []).map(row => row.registro_hotel_id));
 
     const searchInput = element('input', {
@@ -397,7 +419,8 @@ async function renderHotelNative(container, access) {
 
       rows.forEach(row => {
         const rowStages = stagesByRecord.get(row.id) || [];
-        const card = renderHotelCard(row, rowStages, documentsByGroup, {
+        const rowNotes = notesByTracking.get(row.seguimiento_id) || [];
+        const card = renderHotelCard(row, rowStages, documentsByGroup, rowNotes, {
           editMode: access.editFicha && editMode,
           editableIds,
           canEditDocuments: access.editDocuments,
@@ -405,7 +428,7 @@ async function renderHotelNative(container, access) {
             onSaved: async () => renderHotelNative(container, access),
           }),
         });
-        card.dataset.searchBase = buildSearchBase(row, rowStages);
+        card.dataset.searchBase = buildSearchBase(row, rowStages, rowNotes);
         list.append(card);
       });
       applyFilter();

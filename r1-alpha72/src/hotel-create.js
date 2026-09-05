@@ -2,9 +2,10 @@ import { element } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js';
 import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js';
+import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import { fichaPayload, requestId, validate } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 
-function alpha72FichaPayload(ficha) {
+function alpha72FichaPayload(ficha, detail) {
   return {
     ...fichaPayload(ficha),
     modalidad_operativa: ficha.modalidad_operativa || '',
@@ -13,7 +14,8 @@ function alpha72FichaPayload(ficha) {
     manteniment_tancament: ficha.manteniment_tancament || '',
     manteniment_tancament_supervisado: ficha.manteniment_tancament_supervisado === true,
     manteniment_dias_parada_manual: ficha.manteniment_dias_parada_manual ?? '',
-    manteniment_km_facturables_manual: ficha.manteniment_km_facturables_manual ?? ''
+    manteniment_km_facturables_manual: ficha.manteniment_km_facturables_manual ?? '',
+    anotaciones_manuales: manualAnnotationsPayload(detail)
   };
 }
 
@@ -44,6 +46,7 @@ function blankDetail() {
       manteniment_dias_parada_manual: '', manteniment_km_facturables_manual: ''
     },
     etapas: [],
+    anotaciones_manuales: [],
     catalogos: {
       estados: [], estados_etapa: [], tipos_etapa: [], tipos_trabajo: [], modalidades_operativas: [],
       talleres: [], vehiculos: []
@@ -141,6 +144,7 @@ export async function openHotelCreate({ onSaved } = {}) {
   const form = element('form', { className: 'hotel-editor-form' });
   form.addEventListener('submit', event => event.preventDefault());
   const sections = renderMainSections(detail, markDirty);
+  const annotationsSection = renderManualAnnotationsEditor(detail, markDirty);
   const stagesSection = renderStagesSection(detail, markDirty);
   const errorsHost = element('div', { className: 'editor-errors hidden' });
   const createButton = element('button', { className: 'button primary', type: 'button', text: 'Crear ficha' });
@@ -162,7 +166,7 @@ export async function openHotelCreate({ onSaved } = {}) {
 
     const saveRequestId = requestId();
     const { data, error } = await supabase.rpc('crear_ficha_hotel_con_etapas_alpha72', {
-      p_ficha: alpha72FichaPayload(detail.ficha),
+      p_ficha: alpha72FichaPayload(detail.ficha, detail),
       p_etapas: stagesPayloadWithCatalogues(detail.etapas),
       p_request_id: saveRequestId
     });
@@ -189,6 +193,7 @@ export async function openHotelCreate({ onSaved } = {}) {
   form.append(
     sections[0],
     sections[1],
+    annotationsSection,
     stagesSection,
     element('p', { className: 'muted', text: 'La ficha y todas sus T se crearán juntas en la pizarra actual. El número de parada se asigna siempre automáticamente, aunque la fecha real de parada sea anterior. Al finalizar, la ficha se conserva en Histórico.' }),
     errorsHost,

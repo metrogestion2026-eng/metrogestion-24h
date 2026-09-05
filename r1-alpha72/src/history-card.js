@@ -4,6 +4,7 @@ import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/h
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
 import { createOperationalDates, createSubstitutionBilling } from './card-operational.js';
 import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
+import { renderAnnotationsChronology } from './annotations.js';
 
 export function formatDateTime(value) {
   if (!value) return '—';
@@ -99,7 +100,7 @@ function renderHistoricalStage(stage, documentsByGroup, canEditDocuments, onDocu
   return host;
 }
 
-export function renderHistoricalCard(row, stages, documentsByGroup, access, onSaved) {
+export function renderHistoricalCard(row, stages, documentsByGroup, manualNotes, access, onSaved) {
   const flags = [];
   if (row.retirado_hotel_activo) flags.push('Retirado del Hotel activo');
   if (row.cancelado) {
@@ -135,6 +136,9 @@ export function renderHistoricalCard(row, stages, documentsByGroup, access, onSa
       detail('Última modificación', formatDateTime(row.actualizado_en)),
     ])
   );
+
+  const chronology = renderAnnotationsChronology(stages, manualNotes, row.observaciones);
+  if (chronology) card.append(chronology);
 
   card.append(createSubstitutionBilling(row, { allowManual: false }));
 
