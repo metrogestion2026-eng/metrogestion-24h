@@ -19,7 +19,12 @@ async function filesUnder(directory, relative = '') {
 
 const files71 = await filesUnder(alpha71);
 const files72 = await filesUnder(alpha72);
-const alpha72Additions = ['annotations.css', path.join('src', 'annotations.js')];
+const alpha72Additions = [
+  'annotations.css',
+  'editor-validation.css',
+  path.join('src', 'annotations.js'),
+  path.join('src', 'hotel-editor-validation.js')
+];
 assert.deepEqual(
   files72,
   [...files71, ...alpha72Additions].sort(),
@@ -34,6 +39,7 @@ for (const file of files71) {
     || file === path.join('src', 'reservas-create.js')
     || file === path.join('src', 'hotel-create.js')
     || file === path.join('src', 'hotel-editor-main.js')
+    || file === path.join('src', 'hotel-editor-stages.js')
     || file === path.join('src', 'hotel-editor.js')
     || file === path.join('src', 'hotel-native.js')
     || file === path.join('src', 'history-native.js')
