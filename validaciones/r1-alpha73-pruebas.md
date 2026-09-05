@@ -4,6 +4,8 @@ Fecha de creación: 05/09/2026
 
 Estado: **en pruebas**. Alpha72 permanece validada, cerrada e inmutable.
 
+Distribución: **no asignada a usuarios**. Alpha73 no sustituirá a Alpha72 sin autorización expresa del usuario responsable.
+
 ## Punto de partida
 
 - Copia funcional exacta de Alpha72 en el momento de su cierre.

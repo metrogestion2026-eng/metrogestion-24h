@@ -15,6 +15,8 @@ Enlace histórico:
 ## Reglas de cierre
 
 - La carpeta `r1-alpha72` queda inmutable.
+- Alpha72 es la versión asignada actualmente a los usuarios.
+- Los usuarios permanecerán en Alpha72 y no se actualizarán a Alpha73 ni a otra versión hasta que el usuario responsable lo autorice expresamente.
 - Cualquier corrección o mejora posterior se realizará en `r1-alpha73` o una versión posterior.
 - Alpha73 y las versiones siguientes deberán conservar íntegramente las funciones validadas de Alpha72.
 - Alpha71 permanece intacta como base validada anterior.
