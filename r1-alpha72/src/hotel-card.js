@@ -176,6 +176,9 @@ export function renderHotelCard(row, stages, documentsByGroup, {
     row.trazo_marron
       ? element('span', { className: 'badge hotel-brown-outline-badge', text: 'Trazo marrón' })
       : null,
+    row.modalidad_operativa_nombre
+      ? element('span', { className: 'badge', text: row.modalidad_operativa_nombre })
+      : null,
   ]);
 
   const editable = editableIds.has(row.id);
@@ -244,4 +247,3 @@ export function renderHotelCard(row, stages, documentsByGroup, {
 
   return card;
 }
-

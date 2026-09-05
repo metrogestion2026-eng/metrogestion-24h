@@ -4,7 +4,10 @@
 
 - Versión de trabajo creada desde Alpha71 validada y cerrada.
 - Hereda íntegramente Hotel, T, 24H, Panel, Histórico, Activos, Reservas, Listados, catálogos y sincronización MANTENIMENT de Alpha71.
-- No incorpora cambios funcionales respecto al cierre de Alpha71; será la única carpeta destinada a las mejoras siguientes.
+- Cierra automáticamente los pendientes exactos de una reserva cuando su trabajo se marca realizado, conservando un histórico inmutable.
+- Separa la modalidad operativa del vehículo sustituto real con los valores iniciales «Sin sustitución», «Reparado en ruta» y «Reserva en reparación».
+- Cada ficha conserva siempre su número de parada y termina en Histórico; «Reparado en ruta» no genera recuperación y «Sin sustitución» solo la genera si la parada supera un día.
+- Permite crear desde la pizarra actual una ficha cuya fecha real de parada sea anterior, sin sustituirla por la fecha de la pizarra.
 
 ## r1.0.0-alpha.71 — 02/09/2026
 

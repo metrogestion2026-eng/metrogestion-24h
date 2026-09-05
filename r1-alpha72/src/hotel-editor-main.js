@@ -31,12 +31,42 @@ export function renderMainSections(detail, markDirty) {
   const controls = {};
   const fields = [
     ['Nº de parada', 'numero_parada'], ['Vehículo sustituido', 'vehiculo_sustituido'],
-    ['Matrícula sustituido', 'matricula_sustituido'], ['Sustituto (RESERVA/FLOTA)', 'vehiculo_reserva'],
+    ['Matrícula sustituido', 'matricula_sustituido'],
+  ];
+  for (const [label, key] of fields) {
+    const control = createInput({ value: detail.ficha[key] || '' });
+    controls[key] = control;
+    bindText(control, detail.ficha, key, markDirty);
+    identificationGrid.append(fieldLabel(label, control));
+  }
+
+  const modalityEditor = createEditableCatalogueField(
+    'Modalidad operativa',
+    detail.catalogos.modalidades_operativas || [],
+    detail.ficha.modalidad_operativa || '',
+    {
+      placeholder: 'Sin seleccionar',
+      hint: 'Déjalo vacío si existe un sustituto real. También puedes elegir o escribir una modalidad nueva.',
+      onChange: (item, typed) => {
+        detail.ficha.modalidad_operativa = item?.codigo || typed;
+        if (['sin_sustitucion', 'reparado_en_ruta'].includes(item?.comportamiento)) {
+          setControl(controls, detail.ficha, 'vehiculo_reserva', '');
+          setControl(controls, detail.ficha, 'matricula_reserva', '');
+          setControl(controls, detail.ficha, 'etiqueta_reserva', '');
+        }
+        markDirty();
+      }
+    }
+  );
+  identificationGrid.append(modalityEditor.field);
+
+  const substituteFields = [
+    ['Sustituto real (RESERVA/FLOTA)', 'vehiculo_reserva'],
     ['Matrícula sustituto', 'matricula_reserva'], ['Etiqueta reserva', 'etiqueta_reserva'],
     ['Tipo de unidad', 'tipo_unidad'], ['Marca', 'marca'], ['Tipo de motor', 'tipo_motor'],
     ['Modelo', 'modelo'], ['UPC', 'upc'], ['Teléfono del vehículo', 'telefono']
   ];
-  for (const [label, key] of fields) {
+  for (const [label, key] of substituteFields) {
     const control = createInput({ value: detail.ficha[key] || '' });
     controls[key] = control;
     bindText(control, detail.ficha, key, markDirty);
@@ -76,7 +106,7 @@ export function renderMainSections(detail, markDirty) {
   }
 
   identification.append(identificationGrid,
-    element('p', { className: 'muted', text: 'Fuente de autocompletado: MANTENIMENT · ALTA. Todos los campos permanecen editables para unidades aún no dadas de alta.' }));
+    element('p', { className: 'muted', text: 'Fuente de autocompletado: MANTENIMENT · ALTA. “Modalidad operativa” no ocupa el campo del sustituto. Todos los campos permanecen editables.' }));
 
   const operation = element('section', { className: 'editor-section' }, [element('h3', { text: '2. Situación operativa' })]);
   const operationGrid = element('div', { className: 'editor-grid' });
@@ -169,7 +199,11 @@ export function renderMainSections(detail, markDirty) {
     className: 'muted',
     text: 'Con TANCAMENT, K es solo la fecha de corte de facturación y no recupera el vehículo. Sin TANCAMENT, la recuperación real continúa vinculada al cierre operativo de la ficha.'
   });
-  editorControls.append(temp.label, tempBox, retired.label, cancelled.label, cancellationBox, syncTitle, syncGrid, supervised.label, syncHelp);
+  const historyHelp = element('p', {
+    className: 'muted',
+    text: 'Al finalizar, la ficha sale del Hotel activo pero conserva el número de parada, sus T, documentos y fechas en Histórico.'
+  });
+  editorControls.append(temp.label, tempBox, retired.label, cancelled.label, cancellationBox, syncTitle, syncGrid, supervised.label, syncHelp, historyHelp);
   refresh();
   return [identification, operation, editorControls];
 }

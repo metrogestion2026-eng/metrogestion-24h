@@ -67,6 +67,8 @@ function buildSearchBase(row, stages) {
     row.matricula_sustituto,
     row.matricula_reserva,
     row.tipo_sustituto,
+    row.modalidad_operativa,
+    row.modalidad_operativa_nombre,
     row.etiqueta_sustituto,
     row.etiqueta_reserva,
     row.estado,

@@ -4,9 +4,10 @@ import { renderMainSections } from './hotel-editor-main.js';
 import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js';
 import { fichaPayload, requestId, validate } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 
-function alpha71FichaPayload(ficha) {
+function alpha72FichaPayload(ficha) {
   return {
     ...fichaPayload(ficha),
+    modalidad_operativa: ficha.modalidad_operativa || '',
     fecha_programada_parada: ficha.fecha_programada_parada || '',
     manteniment_fecha_corte: ficha.manteniment_fecha_corte || '',
     manteniment_tancament: ficha.manteniment_tancament || '',
@@ -32,6 +33,7 @@ function blankDetail() {
     ficha: {
       numero_parada: '', vehiculo_sustituido: '', matricula_sustituido: '',
       vehiculo_reserva: '', matricula_reserva: '', etiqueta_reserva: '',
+      modalidad_operativa: '',
       tipo_unidad: '', marca: '', tipo_motor: '', modelo: '', upc: '', telefono: '',
       prioridad: 5, estado: 'pendiente_taller', lugar: '', fecha_programada_parada: '', fecha_parada: '', fecha_entrada: '',
       tipo_movimiento: '', causa: '', trabajos_reserva: '', incidencia: '', proximo: '', observaciones: '',
@@ -43,7 +45,7 @@ function blankDetail() {
     },
     etapas: [],
     catalogos: {
-      estados: [], estados_etapa: [], tipos_etapa: [], tipos_trabajo: [],
+      estados: [], estados_etapa: [], tipos_etapa: [], tipos_trabajo: [], modalidades_operativas: [],
       talleres: [], vehiculos: []
     }
   };
@@ -106,7 +108,7 @@ export async function openHotelCreate({ onSaved } = {}) {
   status.textContent = 'Cargando estados, T, talleres y maestro de vehículos ALTA…';
   const [
     statesResult, stageStatesResult, stageTypesResult, workTypesResult,
-    workshopsResult, centresResult, vehiclesResult
+    workshopsResult, centresResult, vehiclesResult, modalitiesResult
   ] = await Promise.all([
     supabase.from('catalogo_estados_hotel').select('codigo,nombre,orden,color_semantico').eq('activo', true).order('orden', { ascending: true }),
     supabase.from('catalogo_estados_etapa_hotel').select('codigo,nombre,estado_operativo,orden').eq('activo', true).order('orden', { ascending: true }),
@@ -114,12 +116,13 @@ export async function openHotelCreate({ onSaved } = {}) {
     supabase.from('catalogo_tipos_trabajo').select('codigo,nombre,requiere_expediente,requiere_diagnostico').eq('activo', true).order('codigo', { ascending: true }),
     supabase.from('talleres').select('id,nombre,observaciones').eq('activo', true).order('nombre', { ascending: true }),
     supabase.from('centros_taller').select('id,taller_id,nombre,direccion,poblacion').eq('activo', true).order('nombre', { ascending: true }),
-    supabase.from('vehiculos_hotel_autocompletar').select('*').order('dfm', { ascending: true })
+    supabase.from('vehiculos_hotel_autocompletar').select('*').order('dfm', { ascending: true }),
+    supabase.from('catalogo_modalidades_operativas_hotel').select('codigo,nombre,comportamiento,orden').eq('activo', true).order('orden', { ascending: true })
   ]);
 
   const catalogueError = [
     statesResult, stageStatesResult, stageTypesResult, workTypesResult,
-    workshopsResult, centresResult
+    workshopsResult, centresResult, modalitiesResult
   ].find(result => result.error)?.error;
   if (catalogueError) {
     status.className = 'hotel-editor-status error';
@@ -133,6 +136,7 @@ export async function openHotelCreate({ onSaved } = {}) {
   detail.catalogos.tipos_trabajo = workTypesResult.data || [];
   detail.catalogos.talleres = mergeWorkshopCentres(workshopsResult.data, centresResult.data);
   detail.catalogos.vehiculos = vehiclesResult.error ? [] : (vehiclesResult.data || []);
+  detail.catalogos.modalidades_operativas = modalitiesResult.data || [];
 
   const form = element('form', { className: 'hotel-editor-form' });
   form.addEventListener('submit', event => event.preventDefault());
@@ -157,8 +161,8 @@ export async function openHotelCreate({ onSaved } = {}) {
     status.textContent = 'Creando ficha y T, asignando número de parada y registrando auditoría…';
 
     const saveRequestId = requestId();
-    const { data, error } = await supabase.rpc('crear_ficha_hotel_con_etapas_alpha71', {
-      p_ficha: alpha71FichaPayload(detail.ficha),
+    const { data, error } = await supabase.rpc('crear_ficha_hotel_con_etapas_alpha72', {
+      p_ficha: alpha72FichaPayload(detail.ficha),
       p_etapas: stagesPayloadWithCatalogues(detail.etapas),
       p_request_id: saveRequestId
     });
@@ -186,7 +190,7 @@ export async function openHotelCreate({ onSaved } = {}) {
     sections[0],
     sections[1],
     stagesSection,
-    element('p', { className: 'muted', text: 'La ficha y todas sus T se crearán juntas en la pizarra actual. El número de parada se asigna automáticamente.' }),
+    element('p', { className: 'muted', text: 'La ficha y todas sus T se crearán juntas en la pizarra actual. El número de parada se asigna siempre automáticamente, aunque la fecha real de parada sea anterior. Al finalizar, la ficha se conserva en Histórico.' }),
     errorsHost,
     element('div', { className: 'editor-footer-actions' }, [createButton, cancelButton])
   );

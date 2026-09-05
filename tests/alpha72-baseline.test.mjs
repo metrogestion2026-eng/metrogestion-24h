@@ -26,6 +26,12 @@ for (const file of files71) {
     file === 'VERSION'
     || file === path.join('src', 'app.js')
     || file === path.join('src', 'reservas-create.js')
+    || file === path.join('src', 'hotel-create.js')
+    || file === path.join('src', 'hotel-editor-main.js')
+    || file === path.join('src', 'hotel-editor.js')
+    || file === path.join('src', 'hotel-native.js')
+    || file === path.join('src', 'hotel-card.js')
+    || file === path.join('src', 'history-card.js')
   ) continue;
   const [content71, content72] = await Promise.all([
     readFile(path.join(alpha71, file)),
