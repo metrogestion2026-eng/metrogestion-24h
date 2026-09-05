@@ -1,6 +1,11 @@
 import { deviceToken, supabase } from '../../r1-alpha17/src/supabase.js';
 
-const VERSION = 'r1.0.0-alpha.69';
+function detectedVersion() {
+  const match = location.pathname.match(/\/r1-alpha(\d+)(?:\/|$)/i);
+  return match ? 'r1.0.0-alpha.' + Number(match[1]) : 'r1.0.0-alpha.69';
+}
+
+const VERSION = detectedVersion();
 const HEARTBEAT_MS = 15000;
 const ANON_CHECK_MS = 12000;
 const ONLINE_SECONDS = 45;
@@ -387,34 +392,58 @@ function renderRecognized(view, rows) {
 function renderUnknown(view, rows) {
   const section = el('section', null, 'a69-section');
   section.append(
-    el('strong', 'No reconocidos · detenidos en el acceso'),
-    el('div', 'Estas huellas no han entrado en los datos de Metrogestión. Se muestran si siguen en la pantalla de identificación o si lo intentaron durante las últimas 24 horas.', 'a69-meta')
+    el('strong', 'Fuera de la aplicación · accesos sin completar'),
+    el('div', 'Una apertura es solo una visita a la pantalla de identificación, no una contraseña fallida. Los dispositivos autorizados y los accesos completados se retiran automáticamente de esta lista.', 'a69-meta')
   );
   const list = el('div', null, 'a69-list');
   if (!rows.length) {
-    list.append(el('div', 'No hay intentos no reconocidos recientes.', 'a69-empty'));
+    list.append(el('div', 'No hay accesos pendientes ni contraseñas rechazadas recientes.', 'a69-empty'));
   }
   rows.forEach(function (row) {
     const card = el('article', null, 'a69-card unknown' + (row.bloqueado ? ' blocked' : ''));
     const head = el('div', null, 'a69-card-head');
     const title = el('div', null, 'a69-title');
+    const openings = Number.isFinite(Number(row.aperturas_login))
+      ? Number(row.aperturas_login)
+      : Number(row.repeticiones || 0);
+    const rejected = Number(row.credenciales_rechazadas || 0);
+    const details = [
+      'Último contacto: ' + dateTime(row.ultimo_en),
+      'Aperturas: ' + openings
+    ];
+    if (rejected > 0) details.push('Contraseñas rechazadas: ' + rejected);
     title.append(
-      el('strong', row.correo_indicado || 'Anónimo no reconocido'),
-      el('div', 'Último contacto: ' + dateTime(row.ultimo_en) + ' · Intentos: ' + row.repeticiones, 'a69-meta')
+      el('strong', row.correo_indicado || (row.clasificacion === 'credenciales_rechazadas'
+        ? 'Credenciales no válidas'
+        : 'Pantalla de identificación')),
+      el('div', details.join(' · '), 'a69-meta')
     );
     const chips = el('div', null, 'a69-chips');
-    if (row.en_linea) chips.append(makeChip('● En acceso ahora', 'warn'));
-    chips.append(makeChip(row.bloqueado ? 'Bloqueado' : 'No reconocido', row.bloqueado ? 'off' : 'warn'));
+    if (row.en_linea) chips.append(makeChip('● Pantalla abierta', 'warn'));
+    if (row.bloqueado) {
+      chips.append(makeChip('Bloqueado', 'off'));
+    } else if (row.clasificacion === 'credenciales_rechazadas') {
+      chips.append(makeChip('Contraseña rechazada', 'warn'));
+    } else if (row.estado_dispositivo === 'pendiente') {
+      chips.append(makeChip('Dispositivo pendiente', 'warn'));
+    } else {
+      chips.append(makeChip('Identificación sin completar', 'warn'));
+    }
     head.append(title, chips);
     card.append(head);
     if (row.agente) card.append(el('div', String(row.agente).slice(0, 180), 'a69-meta'));
     if (row.motivo_bloqueo) card.append(el('div', 'Motivo: ' + row.motivo_bloqueo, 'a69-meta'));
-    const actions = el('div', null, 'a69-actions');
-    const toggle = el('button', row.bloqueado ? 'Desbloquear huella' : 'Bloquear huella', 'button secondary compact');
-    toggle.type = 'button';
-    toggle.addEventListener('click', function () { toggleAnonymousBlock(view, row); });
-    actions.append(toggle);
-    card.append(actions);
+    const deviceManagedBlock = row.bloqueo_origen === 'dispositivo';
+    if (deviceManagedBlock) {
+      card.append(el('div', 'El dispositivo ya está revocado. Su autorización se gestiona desde Usuarios.', 'a69-meta'));
+    } else {
+      const actions = el('div', null, 'a69-actions');
+      const toggle = el('button', row.bloqueado ? 'Desbloquear huella' : 'Bloquear huella', 'button secondary compact');
+      toggle.type = 'button';
+      toggle.addEventListener('click', function () { toggleAnonymousBlock(view, row); });
+      actions.append(toggle);
+      card.append(actions);
+    }
     list.append(card);
   });
   section.append(list);
@@ -437,7 +466,8 @@ async function loadPanel(view) {
   const summary = el('div', null, 'a69-summary');
   summary.append(
     makeMetric('Reconocidos en línea', status.total_en_linea || 0),
-    makeMetric('No reconocidos ahora', status.no_reconocidos_en_linea || 0),
+    makeMetric('En identificación', status.identificaciones_en_linea || status.no_reconocidos_en_linea || 0),
+    makeMetric('Con contraseña rechazada', status.rechazos_credenciales || 0),
     makeMetric('Huellas bloqueadas', status.bloqueados || 0),
     makeMetric('Umbral en línea', (status.umbral_segundos || ONLINE_SECONDS) + ' s')
   );
