@@ -36,6 +36,7 @@ const STAGE_SEARCH_COLUMNS = [
   'tipo_etapa', 'estado',
 ];
 const DOCUMENT_SEARCH_COLUMNS = ['nombre_original', 'nombre_mostrado', 'descripcion'];
+const NOTE_SELECT = 'id,seguimiento_id,texto,fecha_evento,origen,autor_nombre,modificador_nombre,version,creado_en,actualizado_en,cancelada';
 
 function chunks(values, size = HISTORY_QUERY_CHUNK) {
   const result = [];
@@ -114,6 +115,7 @@ async function getHistoryAccess() {
 
 async function loadHistoryRelations(rows) {
   const ids = (rows || []).map(row => row.id).filter(Boolean);
+  const trackingIds = [...new Set((rows || []).map(row => row.seguimiento_id).filter(Boolean))];
   const stageResults = await Promise.all(chunks(ids).map(recordIds => supabase
     .from('etapas_hotel')
     .select(STAGE_SELECT)
@@ -130,6 +132,21 @@ async function loadHistoryRelations(rows) {
     stagesByRecord.set(stage.registro_hotel_id, list);
   });
 
+  const noteResults = await Promise.all(chunks(trackingIds).map(ids => supabase
+    .from('anotaciones_manuales_hotel')
+    .select(NOTE_SELECT)
+    .in('seguimiento_id', ids)
+    .eq('cancelada', false)
+    .order('fecha_evento', { ascending: true })));
+  const noteError = noteResults.find(result => result.error)?.error;
+  if (noteError) throw new Error(`No se pudieron cargar las anotaciones: ${noteError.message}`);
+  const notesByTracking = new Map();
+  noteResults.flatMap(result => result.data || []).forEach(note => {
+    const list = notesByTracking.get(note.seguimiento_id) || [];
+    list.push(note);
+    notesByTracking.set(note.seguimiento_id, list);
+  });
+
   const groupIds = [...new Set(stages.map(stage => stage.grupo_documental_id).filter(Boolean))];
   const documentMaps = await Promise.all(chunks(groupIds).map(loadDocumentsForGroups));
   const documentsByGroup = new Map(groupIds.map(id => [id, []]));
@@ -137,7 +154,7 @@ async function loadHistoryRelations(rows) {
     documentsByGroup.set(groupId, documents);
   }));
 
-  return { stagesByRecord, documentsByGroup };
+  return { stagesByRecord, notesByTracking, documentsByGroup };
 }
 
 async function showHistoryRows(container, rows, access, {
@@ -160,7 +177,7 @@ async function showHistoryRows(container, rows, access, {
     return;
   }
 
-  const { stagesByRecord, documentsByGroup } = relations;
+  const { stagesByRecord, notesByTracking, documentsByGroup } = relations;
   clear(resultHost);
   if (searchTerm) {
     resultHost.append(notice(
@@ -192,7 +209,8 @@ async function showHistoryRows(container, rows, access, {
 
   (rows || []).forEach(row => {
     const rowStages = stagesByRecord.get(row.id) || [];
-    const card = renderHistoricalCard(row, rowStages, documentsByGroup, access, reload);
+    const rowNotes = notesByTracking.get(row.seguimiento_id) || [];
+    const card = renderHistoricalCard(row, rowStages, documentsByGroup, rowNotes, access, reload);
     if (searchTerm) {
       card.prepend(element('div', {
         className: 'badge',
@@ -265,7 +283,7 @@ async function searchAllHistory(container, access, searchInput) {
     'warning'
   ));
 
-  const [recordResult, stageResult, documentResult] = await Promise.all([
+  const [recordResult, stageResult, documentResult, noteResult] = await Promise.all([
     supabase
       .from('hotel_por_dia')
       .select('*', { count: 'exact' })
@@ -283,9 +301,15 @@ async function searchAllHistory(container, access, searchInput) {
       .select('registro_hotel_id,etapa_hotel_id,grupo_etapa_id')
       .or(ilikeAny(DOCUMENT_SEARCH_COLUMNS, searchTerm))
       .limit(HISTORY_SEARCH_LIMIT),
+    supabase
+      .from('anotaciones_manuales_hotel')
+      .select('seguimiento_id')
+      .eq('cancelada', false)
+      .ilike('texto', `%${searchTerm}%`)
+      .limit(HISTORY_SEARCH_LIMIT),
   ]);
 
-  const searchError = recordResult.error || stageResult.error || documentResult.error;
+  const searchError = recordResult.error || stageResult.error || documentResult.error || noteResult.error;
   if (searchError) {
     clear(resultHost);
     resultHost.append(notice(`No se pudo buscar en todo el Histórico: ${searchError.message}`, 'danger'));
@@ -293,6 +317,7 @@ async function searchAllHistory(container, access, searchInput) {
   }
 
   const recordIds = new Set((stageResult.data || []).map(stage => stage.registro_hotel_id).filter(Boolean));
+  const trackingIds = new Set((noteResult.data || []).map(note => note.seguimiento_id).filter(Boolean));
   const documentStageIds = new Set();
   const documentGroupIds = new Set();
   (documentResult.data || []).forEach(document => {
@@ -329,7 +354,13 @@ async function searchAllHistory(container, access, searchInput) {
     .from('hotel_por_dia')
     .select('*')
     .in('id', ids)));
-  const additionalError = additionalResults.find(result => result.error)?.error;
+  const trackingResults = await Promise.all(chunks([...trackingIds]).map(ids => supabase
+    .from('hotel_por_dia')
+    .select('*')
+    .in('seguimiento_id', ids)
+    .order('fecha_pizarra', { ascending: false })));
+  const additionalError = additionalResults.find(result => result.error)?.error
+    || trackingResults.find(result => result.error)?.error;
   if (additionalError) {
     clear(resultHost);
     resultHost.append(notice(`No se pudieron cargar las fichas encontradas: ${additionalError.message}`, 'danger'));
@@ -339,6 +370,7 @@ async function searchAllHistory(container, access, searchInput) {
   const allRows = uniqueLatestRows([
     ...directRows,
     ...additionalResults.flatMap(result => result.data || []),
+    ...trackingResults.flatMap(result => result.data || []),
   ]);
   const truncated = Number(recordResult.count || 0) > HISTORY_SEARCH_LIMIT
     || allRows.length > HISTORY_SEARCH_LIMIT;

@@ -3,6 +3,7 @@ import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/h
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
 import { createOperationalDates, createSubstitutionBilling } from './card-operational.js';
 import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
+import { renderAnnotationsChronology } from './annotations.js';
 import {
   STATE_LABELS,
   STAGE_STATE_LABELS,
@@ -163,7 +164,7 @@ function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsCha
   return section;
 }
 
-export function renderHotelCard(row, stages, documentsByGroup, {
+export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
   editMode,
   editableIds,
   canEditDocuments,
@@ -208,12 +209,8 @@ export function renderHotelCard(row, stages, documentsByGroup, {
     ])
   );
 
-  if (row.observaciones) {
-    card.append(element('section', { className: 'hotel-final-notes' }, [
-      element('strong', { text: 'Anotaciones' }),
-      element('p', { text: row.observaciones }),
-    ]));
-  }
+  const chronology = renderAnnotationsChronology(stages, manualNotes, row.observaciones);
+  if (chronology) card.append(chronology);
 
   card.append(createSubstitutionBilling(row, { allowManual: true }));
 

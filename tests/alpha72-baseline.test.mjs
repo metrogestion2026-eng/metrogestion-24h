@@ -19,17 +19,24 @@ async function filesUnder(directory, relative = '') {
 
 const files71 = await filesUnder(alpha71);
 const files72 = await filesUnder(alpha72);
-assert.deepEqual(files72, files71, 'Alpha72 debe contener los mismos archivos que Alpha71');
+const alpha72Additions = ['annotations.css', path.join('src', 'annotations.js')];
+assert.deepEqual(
+  files72,
+  [...files71, ...alpha72Additions].sort(),
+  'Alpha72 solo puede añadir los archivos propios autorizados'
+);
 
 for (const file of files71) {
   if (
     file === 'VERSION'
+    || file === 'index.html'
     || file === path.join('src', 'app.js')
     || file === path.join('src', 'reservas-create.js')
     || file === path.join('src', 'hotel-create.js')
     || file === path.join('src', 'hotel-editor-main.js')
     || file === path.join('src', 'hotel-editor.js')
     || file === path.join('src', 'hotel-native.js')
+    || file === path.join('src', 'history-native.js')
     || file === path.join('src', 'hotel-card.js')
     || file === path.join('src', 'history-card.js')
   ) continue;

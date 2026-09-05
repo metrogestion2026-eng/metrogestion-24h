@@ -2,6 +2,7 @@ import { element } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js';
 import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js';
+import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import {
   displayDateTime, fichaPayload, normalizeDetail, requestId, validate
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
@@ -11,10 +12,11 @@ function prepareDetail(raw) {
   detail.catalogos.estados_etapa ||= [];
   detail.catalogos.tipos_etapa ||= [];
   detail.catalogos.modalidades_operativas ||= [];
+  detail.anotaciones_manuales ||= [];
   return detail;
 }
 
-function alpha72FichaPayload(ficha) {
+function alpha72FichaPayload(ficha, detail) {
   return {
     ...fichaPayload(ficha),
     modalidad_operativa: ficha.modalidad_operativa || '',
@@ -23,7 +25,8 @@ function alpha72FichaPayload(ficha) {
     manteniment_tancament: ficha.manteniment_tancament || '',
     manteniment_tancament_supervisado: ficha.manteniment_tancament_supervisado === true,
     manteniment_dias_parada_manual: ficha.manteniment_dias_parada_manual ?? '',
-    manteniment_km_facturables_manual: ficha.manteniment_km_facturables_manual ?? ''
+    manteniment_km_facturables_manual: ficha.manteniment_km_facturables_manual ?? '',
+    anotaciones_manuales: manualAnnotationsPayload(detail)
   };
 }
 
@@ -131,6 +134,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     element('span', { text: `Última modificación: ${displayDateTime(detail.ficha.actualizado_en)}` })
   ]);
   const [identification, operation, controls] = renderMainSections(detail, markDirty);
+  const annotationsSection = renderManualAnnotationsEditor(detail, markDirty);
   const stagesSection = renderStagesSection(detail, markDirty);
   const errorsHost = element('div', { className: 'editor-errors hidden' });
   const saveButton = element('button', {
@@ -162,7 +166,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     const { data: saved, error: saveError } = await supabase.rpc('guardar_ficha_hotel_edicion_alpha72', {
       p_registro_id: detail.ficha.id,
       p_version: Number(detail.ficha.version),
-      p_ficha: alpha72FichaPayload(detail.ficha),
+      p_ficha: alpha72FichaPayload(detail.ficha, detail),
       p_etapas: stagesPayloadWithCatalogues(detail.etapas),
       p_request_id: saveRequestId
     });
@@ -192,6 +196,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     systemInfo,
     identification,
     operation,
+    annotationsSection,
     controls,
     stagesSection,
     errorsHost,

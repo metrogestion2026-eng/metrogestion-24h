@@ -144,7 +144,7 @@ export function renderMainSections(detail, markDirty) {
 
   const longFields = [
     ['Causa / pendientes del sustituido', 'causa'], ['Pendientes propios de la reserva', 'trabajos_reserva'],
-    ['Próximo previsto', 'proximo'], ['Observaciones', 'observaciones']
+    ['Próximo previsto', 'proximo']
   ];
   const longGrid = element('div', { className: 'editor-grid editor-grid-two' });
   for (const [label, key] of longFields) {
