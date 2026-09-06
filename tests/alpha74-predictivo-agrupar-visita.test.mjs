@@ -136,6 +136,63 @@ test('el número de parada en E no reactiva por sí solo un histórico realizado
   assert.equal(trabajos.length, 0);
 });
 
+test('una asignación antigua ya vinculada se omite y no bloquea las pendientes actuales', () => {
+  const linkedSyncId = '254901df-7e2e-44f1-ad92-69b064750315';
+  const pendingSyncId = '49880d2a-7c1c-4b96-a6c4-25a95d3f2336';
+  const linked = row({
+    dfm: '2710',
+    parada: 'PA-2600102',
+    taller: 'AUTODIS',
+    tipo: 'AVERÍA',
+    designacion: 'AV',
+    necesidad: '17/06/2026',
+    realizada: '17/06/2026',
+  });
+  linked[1] = '7038NGM';
+  const pending = row({
+    dfm: '2710',
+    taller: 'APPLUS VILAFRANCA',
+    tipo: 'TRÁMITE',
+    designacion: '44TN',
+    necesidad: '09/10/2026',
+  });
+  pending[1] = '7038NGM';
+  const values = [Array(17).fill(''), linked, pending];
+  const notesE = ['', `METROGESTION_T:${linkedSyncId}`, ''];
+  const writes = [];
+  const sheet = {
+    getRange(rowNumber, column) {
+      assert.equal(column, 5);
+      return {
+        getDisplayValue: () => values[rowNumber - 1][4],
+        getNote: () => notesE[rowNumber - 1],
+        setValue: value => { values[rowNumber - 1][4] = value; writes.push(['value', rowNumber, value]); },
+        setNote: value => { notesE[rowNumber - 1] = value; writes.push(['note', rowNumber, value]); },
+        setBackground: value => { writes.push(['background', rowNumber, value]); },
+      };
+    },
+  };
+
+  const applied = context.metrogestionAplicarAsignacionesTrabajos_(sheet, [
+    {
+      fila: 3299,
+      clave_fila: '2710|7038NGM|AUTODIS PDF6|ELECTRONICA|AV|2026-06-17',
+      trabajo_sync_id: linkedSyncId,
+    },
+    {
+      fila: 3310,
+      clave_fila: context.metrogestionClaveFilaTrabajo_(pending),
+      trabajo_sync_id: pendingSyncId,
+    },
+  ], 'PA-2600102', { values, notesE });
+
+  assert.equal(applied, 1);
+  assert.equal(values[1][4], 'PA-2600102');
+  assert.equal(values[2][4], 'PA-2600102');
+  assert.ok(!writes.some(([, rowNumber]) => rowNumber === 2));
+  assert.ok(writes.some(([type, rowNumber]) => type === 'note' && rowNumber === 3));
+});
+
 test('los trabajos de un mismo taller se alojan en la T de entrada', () => {
   assert.match(migration, /if v_visit_stage\.modalidad = 'taller' then\s+v_stage_id := v_entry_id;/);
   assert.match(migration, /Cada H diferente es un trabajo dentro de esa misma T/);
