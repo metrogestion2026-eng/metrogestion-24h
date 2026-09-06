@@ -54,11 +54,13 @@ test('solo el fondo blanco de H origina necesidades nuevas', () => {
   ];
   const notes = [[''], [''], [''], ['METROGESTION_T:11111111-1111-4111-8111-111111111111']];
   const backgrounds = [['#ffffff'], ['#ffffff'], ['#b7e1cd'], ['#b7e1cd']];
+  const priorityBackgrounds = [['#ffffff'], ['#ffffff'], ['#ffffff'], ['#ffffff']];
 
   const trabajos = context.metrogestionLeerTrabajos_(
     values,
     notes,
     backgrounds,
+    priorityBackgrounds,
     '2026-10-07'
   );
 
@@ -68,6 +70,29 @@ test('solo el fondo blanco de H origina necesidades nuevas', () => {
   assert.equal(trabajos[1].designacion, 'BPW');
   assert.equal(trabajos[1].pendiente_fondo_blanco, false);
   assert.ok(!trabajos.some(item => item.designacion === 'AV'));
+});
+
+test('el amarillo en A incluye una necesidad aunque esté a más de un mes', () => {
+  const values = [
+    Array(17).fill(''),
+    row({ dfm: '1443', taller: 'FRIDIEL', tipo: 'AVERÍA', designacion: 'AV', necesidad: '08/10/2026' }),
+    row({ dfm: '1443', taller: 'FRIDIEL', tipo: 'TRÁMITE', designacion: 'LKT', necesidad: '08/10/2026' }),
+  ];
+  const notes = [[''], [''], ['']];
+  const workBackgrounds = [['#ffffff'], ['#ffffff'], ['#ffffff']];
+  const priorityBackgrounds = [['#ffffff'], ['#ffff00'], ['#ffffff']];
+
+  const trabajos = context.metrogestionLeerTrabajos_(
+    values,
+    notes,
+    workBackgrounds,
+    priorityBackgrounds,
+    '2026-10-06'
+  );
+
+  assert.equal(trabajos.length, 1);
+  assert.equal(trabajos[0].designacion, 'AV');
+  assert.equal(trabajos[0].prioridad_fondo_amarillo, true);
 });
 
 test('los trabajos de un mismo taller se alojan en la T de entrada', () => {
@@ -86,4 +111,3 @@ test('la corrección protege el histórico realizado', () => {
   assert.match(migration, /not exists \([\s\S]*public\.reservas_pendientes_resueltos/);
   assert.doesNotMatch(migration, /delete\s+from/i);
 });
-
