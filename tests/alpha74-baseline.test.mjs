@@ -29,6 +29,8 @@ assert.deepEqual(
 const alpha74Changes = new Set([
   'VERSION',
   'index.html',
+  path.join('google-apps-script', 'README.md'),
+  path.join('google-apps-script', 'sincronizar_manteniment.gs'),
   path.join('src', 'annotations.js'),
   path.join('src', 'app.js'),
   path.join('src', 'hotel-card.js'),

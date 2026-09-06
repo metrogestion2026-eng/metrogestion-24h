@@ -16,6 +16,12 @@ Este script sustituye el contenido del proyecto de Google Apps Script vinculado 
 - La columna E conserva su enlace de Drive cuando el número de parada protegido no ha cambiado.
 - `TANCAMENT n` utiliza la fecha K como corte de facturación y no como recuperación operativa.
 - La celda Q permanece rosa pastel mientras el cierre no esté supervisado.
+- En las necesidades predictivas, el fondo de la columna H es autoritativo:
+  **blanco significa pendiente**; cualquier otro color no crea una T nueva.
+- Los trabajos que comparten taller en F se agrupan dentro de una sola visita:
+  una T de entrada, todos sus trabajos y una T de recogida.
+- Una H diferente en el mismo taller crea otro trabajo dentro de la visita,
+  no otra T. `GESTIÓN` y `TRÁMITE` sí conservan una T propia.
 
 ## Instalación
 
