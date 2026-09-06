@@ -1,17 +1,19 @@
-# Alpha73 · base de pruebas
+# Alpha73 · versión validada de usuarios
 
 Fecha de creación: 05/09/2026
 
-Estado: **en pruebas**. Alpha72 permanece validada, cerrada e inmutable.
+Estado: **validada y publicada** el 06/09/2026. Alpha72 permanece cerrada e inmutable.
 
-Distribución: **no asignada a usuarios**. Alpha73 no sustituirá a Alpha72 sin autorización expresa del usuario responsable.
+Distribución: **versión oficial de usuarios**. Sustituye a Alpha72 con autorización expresa del usuario responsable.
+
+Enlace oficial: https://metrogestion2026-eng.github.io/metrogestion-24h/r1-alpha73/
 
 ## Punto de partida
 
 - Copia funcional exacta de Alpha72 en el momento de su cierre.
 - Identificador visible actualizado a `r1.0.0-alpha.73`.
 - Parte de una copia sin cambios funcionales de Alpha72.
-- Toda mejora nueva deberá realizarse únicamente dentro de Alpha73 y sus migraciones asociadas.
+- Alpha73 queda cerrada como versión de usuarios; cualquier mejora posterior deberá prepararse en una versión nueva.
 
 ## Anotaciones sin modo edición
 
@@ -21,7 +23,7 @@ Distribución: **no asignada a usuarios**. Alpha73 no sustituirá a Alpha72 sin 
 - Cada alta conserva autor, fecha, origen e identificador de auditoría.
 - El identificador de petición hace el alta idempotente y evita duplicados por reintentos.
 - El texto se limita a entre 1 y 4.000 caracteres y solo se admite sobre fichas activas de la pizarra en curso.
-- Alpha72 y los enlaces asignados a usuarios permanecen sin cambios.
+- Alpha72 permanece sin cambios; los enlaces heredados Alpha63 y Alpha69 cargan ahora Alpha73.
 
 ## Protección contra mezcla de fichas
 
@@ -32,7 +34,7 @@ Distribución: **no asignada a usuarios**. Alpha73 no sustituirá a Alpha72 sin 
 - Las dos anotaciones ajenas importadas en R1443 se cancelan mediante una corrección exacta y auditada; no se borran físicamente.
 - La anotación correcta de R1443, «parado pendiente de Fridiel», permanece visible.
 - La acción rápida para añadir una anotación conserva su operación independiente y no abre ni guarda la ficha completa.
-- Alpha72 permanece como versión de usuarios y su código no se modifica.
+- Alpha72 permanece cerrada e inmutable; Alpha73 es la versión de usuarios.
 
 ## Refuerzo de sesiones
 
@@ -40,7 +42,7 @@ Distribución: **no asignada a usuarios**. Alpha73 no sustituirá a Alpha72 sin 
 - La sesión debe existir en `auth.sessions`, pertenecer al mismo usuario y no haber superado `not_after`.
 - Un JWT de una sesión cerrada, inexistente o vencida deja de autorizar operaciones aunque todavía no haya alcanzado su expiración local.
 - La función interna no es ejecutable por `anon` ni por `authenticated`; únicamente la invocan los controles protegidos del servidor.
-- El refuerzo no modifica el código de Alpha72 ni exige actualizar la versión instalada por los usuarios.
+- El refuerzo no modifica el código de Alpha72 y queda incluido en la versión oficial Alpha73.
 
 ## Funciones heredadas
 
