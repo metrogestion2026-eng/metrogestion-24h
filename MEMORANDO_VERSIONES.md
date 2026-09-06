@@ -8,13 +8,14 @@
 - Protege el guardado completo con la identidad inmutable de registro, seguimiento, pizarra, parada, vehículos y reserva; además exige una confirmación visible con vehículo, parada y reserva.
 - Corrige de forma localizada y auditable las dos anotaciones de R1304 que habían quedado asociadas por error a la parada 2600151 de R1443.
 - Refuerza el servidor común: una credencial solo es válida si su `session_id` continúa en Auth, pertenece al mismo usuario y no ha vencido; cerrar una sesión invalida también sus operaciones sobre la base de datos.
-- No está asignada a los usuarios y no sustituirá a Alpha72 sin autorización expresa.
+- Validada y asignada como versión oficial de usuarios el 06/09/2026, sustituyendo a Alpha72 sin modificar su carpeta histórica.
+- Los enlaces heredados Alpha63 y Alpha69 cargan Alpha73 para actualizar a los usuarios que conservan accesos antiguos.
 
 ## r1.0.0-alpha.72 — 04/09/2026
 
 - Validada por el usuario y cerrada el 05/09/2026 sobre el commit remoto `3ba83cd48a8ec9e96545fbb33ca69a06d9abfe28`.
 - La carpeta `r1-alpha72` queda inmutable; Alpha73 concentra las mejoras posteriores.
-- Es la versión asignada a los usuarios y se mantendrá sin actualizar hasta nueva autorización expresa.
+- Fue la versión asignada a los usuarios hasta el 06/09/2026; permanece cerrada e inmutable como referencia histórica.
 - Versión creada desde Alpha71 validada y cerrada.
 - Hereda íntegramente Hotel, T, 24H, Panel, Histórico, Activos, Reservas, Listados, catálogos y sincronización MANTENIMENT de Alpha71.
 - Cierra automáticamente los pendientes exactos de una reserva cuando su trabajo se marca realizado, conservando un histórico inmutable.
@@ -26,7 +27,7 @@
 - Señala los campos incompatibles que impiden guardar una ficha.
 - Reactiva fichas históricas de forma coherente, reabre la T final y evita mezclar reservas entre fichas activas.
 - Clasifica los accesos no completados y añade un marcador por usuario con una sola entrada por sesión autenticada.
-- Los enlaces heredados Alpha63 y Alpha69 cargan la Alpha72 validada.
+- Desde el 06/09/2026 los enlaces heredados Alpha63 y Alpha69 cargan la Alpha73 validada.
 
 ## r1.0.0-alpha.71 — 02/09/2026
 
