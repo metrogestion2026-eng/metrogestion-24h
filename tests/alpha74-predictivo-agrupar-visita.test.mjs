@@ -193,6 +193,49 @@ test('una asignación antigua ya vinculada se omite y no bloquea las pendientes 
   assert.ok(writes.some(([type, rowNumber]) => type === 'note' && rowNumber === 3));
 });
 
+test('varios bloques del mismo trabajo pueden compartir vínculo dentro de la misma parada', () => {
+  const sharedSyncId = '1017482d-4a36-42a3-a5f3-28a637608fc8';
+  const first = row({
+    dfm: '2726',
+    parada: 'PA-2600127',
+    taller: 'AUTODIS PDF14',
+    tipo: 'VBX',
+    designacion: 'MCD',
+    necesidad: '25/08/2026',
+  });
+  first[1] = '2741NHC';
+  const second = row({
+    dfm: '2726',
+    parada: 'PA-2600127',
+    taller: 'AUTODIS PDF14',
+    tipo: 'EO+M1+EP3+EP4+T1+FF',
+    designacion: 'MCD',
+    necesidad: '25/08/2026',
+  });
+  second[1] = '2741NHC';
+  const values = [Array(17).fill(''), first, second];
+  const notesE = ['', `METROGESTION_T:${sharedSyncId}`, `METROGESTION_T:${sharedSyncId}`];
+  const sheet = {
+    getRange(rowNumber, column) {
+      assert.equal(column, 5);
+      return {
+        getDisplayValue: () => values[rowNumber - 1][4],
+        getNote: () => notesE[rowNumber - 1],
+        setValue: () => assert.fail('No debe reescribir una fila ya vinculada'),
+        setNote: () => assert.fail('No debe reescribir una nota ya vinculada'),
+        setBackground: () => assert.fail('No debe cambiar el fondo de una fila ya vinculada'),
+      };
+    },
+  };
+
+  const applied = context.metrogestionAplicarAsignacionesTrabajos_(sheet, [
+    { fila: 2, clave_fila: context.metrogestionClaveFilaTrabajo_(first), trabajo_sync_id: sharedSyncId },
+    { fila: 3, clave_fila: context.metrogestionClaveFilaTrabajo_(second), trabajo_sync_id: sharedSyncId },
+  ], 'PA-2600127', { values, notesE });
+
+  assert.equal(applied, 0);
+});
+
 test('los trabajos de un mismo taller se alojan en la T de entrada', () => {
   assert.match(migration, /if v_visit_stage\.modalidad = 'taller' then\s+v_stage_id := v_entry_id;/);
   assert.match(migration, /Cada H diferente es un trabajo dentro de esa misma T/);
