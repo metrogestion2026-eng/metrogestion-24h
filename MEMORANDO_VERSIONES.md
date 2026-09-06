@@ -7,6 +7,7 @@
 - Permite modificar una anotación ya existente desde la propia ficha sin activar la edición general.
 - Permite eliminarla de la vista con confirmación, conservándola cancelada en la base de datos y en auditoría.
 - Comprueba la ficha activa, el seguimiento de la anotación y su versión antes de modificarla para impedir cruces entre fichas o sobrescrituras concurrentes.
+- Añade al Panel una vista de solo lectura de las órdenes PARADA que MANTENIMENT aún no ha confirmado, visible exclusivamente para el administrador principal y sin exponer la cola privada ni sus payloads.
 - No está asignada a los usuarios y no sustituirá a Alpha73 sin validación y autorización expresa.
 
 ## r1.0.0-alpha.73 — 05/09/2026

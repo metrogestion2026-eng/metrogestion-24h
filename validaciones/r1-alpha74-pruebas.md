@@ -21,3 +21,12 @@ Distribución: **no asignada a usuarios**. Alpha74 no sustituirá a Alpha73 sin 
 - El servidor comprueba que la ficha sigue activa y que la anotación pertenece al mismo seguimiento.
 - El número de versión evita sobrescribir un cambio realizado desde otro dispositivo.
 - Las operaciones no modifican registros, T, trabajos, reservas ni ningún otro campo de Hotel.
+
+## Órdenes pendientes de MANTENIMENT
+
+- El Panel muestra al administrador principal el número de órdenes PARADA pendientes y su detalle por vehículo y número de parada.
+- Cada línea indica si debe crear o actualizar la fila, la revisión y la última actualización.
+- La vista es estrictamente de solo lectura: no confirma, reenvía, cancela ni modifica órdenes.
+- La consulta exige usuario activo, sesión Auth vigente, dispositivo autorizado y rol de administrador principal.
+- No expone el payload, el token, el identificador de sincronización ni el texto interno de posibles errores.
+- Los demás usuarios no ejecutan la consulta ni ven la sección.
