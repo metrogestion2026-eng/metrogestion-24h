@@ -60,6 +60,21 @@ assert.equal(sheetData[1][7], 'ANULADA');
 assert.deepEqual([8, 9, 10, 11, 15, 16].map(index => sheetData[1][index]), operationalBefore);
 assert.equal(backgrounds.get('2:8'), '#f4cccc');
 
+const existingRows = [
+  ['2489','','','','PA-2600200','','','PARADA','','','','','','','','',''],
+  ['2489','','','','PA-2600200','','','PARADA','','','','','','','','','TANCAMENT 9'],
+];
+const existingSheet = {
+  getLastRow() { return existingRows.length + 1; },
+  getRange() { return { getDisplayValues() { return existingRows; } }; },
+};
+assert.equal(context.metrogestionBuscarFilaParadaExistente_(existingSheet, {
+  dfm: '2489', numero_parada: 'PA-2600200', tancament: 'TANCAMENT 9'
+}), 3);
+assert.throws(() => context.metrogestionBuscarFilaParadaExistente_(existingSheet, {
+  dfm: '2489', numero_parada: 'PA-2600200', tancament: ''
+}), /coincide con varias filas/);
+
 assert.match(migration, /if btrim\(coalesce\(v_payload->>'numero_parada', ''\)\) = '' then return/);
 assert.match(migration, /'estado', case when v_anulada then 'ANULADA' else 'PARADA' end/);
 assert.match(migration, /v_estado not in \('PARADA', 'ANULADA'\)/);

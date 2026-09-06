@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.06.2',
+  scriptVersion: 'alpha74-2026.09.06.3',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -274,6 +274,7 @@ function metrogestionAplicarComandos_(sheet, commands) {
     const syncId = String(command?.sync_id || payload.sync_id || '').trim();
     if (!/^[0-9a-f-]{36}$/i.test(syncId)) throw new Error('Supabase devolvió una fila PARADA sin identificador válido.');
     let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId);
+    if (!rowNumber) rowNumber = metrogestionBuscarFilaParadaExistente_(sheet, payload);
     const nuevaFila = !rowNumber;
     if (nuevaFila) rowNumber = metrogestionInsertarFilaParada_(sheet, payload);
     metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuevaFila);
@@ -360,6 +361,35 @@ function metrogestionBuscarFilaPorSyncId_(sheet, syncId) {
   const expected = `METROGESTION_PARADA:${syncId}`.toUpperCase();
   const index = notes.findIndex(item => String(item[0] || '').trim().toUpperCase() === expected);
   return index < 0 ? 0 : index + 2;
+}
+
+function metrogestionBuscarFilaParadaExistente_(sheet, payload) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  const values = sheet.getRange(2, 1, lastRow - 1, 17).getDisplayValues();
+  const dfm = metrogestionNormalizar_(payload.dfm);
+  const numeroParada = metrogestionNormalizar_(payload.numero_parada);
+  if (!dfm || !numeroParada) return 0;
+
+  const matches = [];
+  values.forEach((row, index) => {
+    const estado = metrogestionNormalizar_(row[7]);
+    if (
+      metrogestionNormalizar_(row[0]) === dfm
+      && metrogestionNormalizar_(row[4]) === numeroParada
+      && ['PARADA', 'ANULADA'].includes(estado)
+    ) matches.push({ rowNumber: index + 2, tancament: metrogestionNormalizar_(row[16]) });
+  });
+
+  if (matches.length === 0) return 0;
+  if (matches.length === 1) return matches[0].rowNumber;
+
+  const tancament = metrogestionNormalizar_(payload.tancament);
+  const samePeriod = tancament ? matches.filter(item => item.tancament === tancament) : [];
+  if (samePeriod.length === 1) return samePeriod[0].rowNumber;
+  throw new Error(
+    `La parada ${payload.numero_parada} del DFM ${payload.dfm} coincide con varias filas; no se ha creado ni modificado ninguna.`
+  );
 }
 
 function metrogestionInsertarFilaParada_(sheet, payload) {
