@@ -45,7 +45,7 @@ const row = ({
   return value;
 };
 
-test('solo el fondo blanco de H origina necesidades nuevas', () => {
+test('solo el fondo blanco de H origina necesidades, incluso si ya estaban vinculadas', () => {
   const values = [
     Array(17).fill(''),
     row({ dfm: '1487', taller: 'DIRECAUTO', tipo: 'REPARACIÓN', designacion: 'GP', necesidad: '06/09/2026' }),
@@ -64,12 +64,11 @@ test('solo el fondo blanco de H origina necesidades nuevas', () => {
     '2026-10-07'
   );
 
-  assert.equal(trabajos.length, 2);
+  assert.equal(trabajos.length, 1);
   assert.equal(trabajos[0].designacion, 'GP');
   assert.equal(trabajos[0].pendiente_fondo_blanco, true);
-  assert.equal(trabajos[1].designacion, 'BPW');
-  assert.equal(trabajos[1].pendiente_fondo_blanco, false);
   assert.ok(!trabajos.some(item => item.designacion === 'AV'));
+  assert.ok(!trabajos.some(item => item.designacion === 'BPW'));
 });
 
 test('el amarillo en A incluye una necesidad aunque esté a más de un mes', () => {
@@ -93,6 +92,48 @@ test('el amarillo en A incluye una necesidad aunque esté a más de un mes', () 
   assert.equal(trabajos.length, 1);
   assert.equal(trabajos[0].designacion, 'AV');
   assert.equal(trabajos[0].prioridad_fondo_amarillo, true);
+});
+
+test('el amarillo de A no reactiva una H que ya tiene color', () => {
+  const values = [
+    Array(17).fill(''),
+    row({ dfm: '1443', taller: 'FRIDIEL', tipo: 'AVERÍA', designacion: 'AV', necesidad: '08/10/2026' }),
+  ];
+
+  const trabajos = context.metrogestionLeerTrabajos_(
+    values,
+    [[''], ['']],
+    [['#ffffff'], ['#b7e1cd']],
+    [['#ffffff'], ['#ffff00']],
+    '2026-10-06'
+  );
+
+  assert.equal(trabajos.length, 0);
+});
+
+test('el número de parada en E no reactiva por sí solo un histórico realizado', () => {
+  const values = [
+    Array(17).fill(''),
+    row({
+      dfm: '2710',
+      parada: 'PA-2600102',
+      taller: 'AUTODIS',
+      tipo: 'AVERÍA',
+      designacion: 'AV',
+      necesidad: '17/06/2026',
+      realizada: '17/06/2026',
+    }),
+  ];
+
+  const trabajos = context.metrogestionLeerTrabajos_(
+    values,
+    [[''], ['']],
+    [['#ffffff'], ['#b7e1cd']],
+    [['#ffffff'], ['#ffffff']],
+    '2026-10-06'
+  );
+
+  assert.equal(trabajos.length, 0);
 });
 
 test('los trabajos de un mismo taller se alojan en la T de entrada', () => {

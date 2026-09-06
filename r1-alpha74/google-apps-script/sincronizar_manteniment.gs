@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.06.13',
+  scriptVersion: 'alpha74-2026.09.06.14',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -358,14 +358,16 @@ function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityB
     const numeroParada = String(row[4] || '').trim();
     const fechaNecesidad = metrogestionFechaIso_(row[8], `de necesidad de la fila ${index + 1}`);
     const fechaRealizada = metrogestionFechaIso_(row[9], `de realización de la fila ${index + 1}`);
-    const vinculada = Boolean(trabajoSyncId || numeroParada);
+    // Solo la nota técnica confirma que la necesidad ya está vinculada. Tener
+    // un número en E no convierte una línea histórica realizada en pendiente.
+    const vinculada = Boolean(trabajoSyncId);
     const pendienteFondoBlanco = metrogestionEsFondoBlanco_(workBackgrounds?.[index]?.[0]);
     const prioridadFondoAmarillo = metrogestionEsFondoAmarillo_(priorityBackgrounds?.[index]?.[0]);
 
-    // Las líneas históricas terminadas no vinculadas y las necesidades aún
-    // lejanas no deben viajar en cada sincronización. Una línea ya vinculada
-    // siempre se conserva para poder reflejar su realización o recogida.
-    if (!vinculada && !pendienteFondoBlanco && !prioridadFondoAmarillo) continue;
+    // H manda sobre cualquier otra señal visual: si tiene color, la necesidad
+    // ya está clasificada o realizada y no vuelve a entrar. El amarillo de A
+    // solo elimina el límite de fecha para una H que continúa blanca.
+    if (!pendienteFondoBlanco) continue;
     if (!vinculada && fechaRealizada) continue;
     if (!vinculada && !prioridadFondoAmarillo && fechaCorteIso && fechaNecesidad > fechaCorteIso) continue;
     result.push({
