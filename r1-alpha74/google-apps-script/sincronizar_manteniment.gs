@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.06.12',
+  scriptVersion: 'alpha74-2026.09.06.13',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -101,6 +101,9 @@ function metrogestionEjecutarSincronizacion_(modo) {
     const values = sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
     const notes = sheet.getRange(1, 1, lastRow, 1).getNotes();
     const workNotes = sheet.getRange(1, 5, lastRow, 1).getNotes();
+    // A (DFM/R) amarillo fuerza la inclusión de la necesidad aunque su fecha
+    // quede fuera de la ventana ordinaria de un mes.
+    const priorityBackgrounds = sheet.getRange(1, 1, lastRow, 1).getBackgrounds();
     // H (MANTENIMENT) es la referencia visual del estado de la necesidad:
     // blanco = pendiente; cualquier otro fondo = ya clasificada/no pendiente.
     const workBackgrounds = sheet.getRange(1, 8, lastRow, 1).getBackgrounds();
@@ -130,6 +133,7 @@ function metrogestionEjecutarSincronizacion_(modo) {
       values,
       workNotes,
       workBackgrounds,
+      priorityBackgrounds,
       metrogestionFechaCorteTrabajos_()
     );
     const modifiedAt = DriveApp.getFileById(METROGESTION.spreadsheetId).getLastUpdated();
@@ -331,7 +335,12 @@ function metrogestionEsFondoBlanco_(value) {
   return color === '' || color === '#ffffff' || color === '#fff';
 }
 
-function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, fechaCorteIso) {
+function metrogestionEsFondoAmarillo_(value) {
+  const color = String(value || '').trim().toLowerCase();
+  return new Set(['#ffff00', '#ff0', '#fff2cc', '#ffe599', '#ffd966']).has(color);
+}
+
+function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityBackgrounds, fechaCorteIso) {
   // TANCAMENT, MITJANA y CANVI son líneas auxiliares de cálculo de MANTENIMENT.
   // Aunque contienen una fecha en I, sus columnas J/K/L son métricas y no
   // representan la realización o recogida de una T.
@@ -351,13 +360,14 @@ function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, fechaCort
     const fechaRealizada = metrogestionFechaIso_(row[9], `de realización de la fila ${index + 1}`);
     const vinculada = Boolean(trabajoSyncId || numeroParada);
     const pendienteFondoBlanco = metrogestionEsFondoBlanco_(workBackgrounds?.[index]?.[0]);
+    const prioridadFondoAmarillo = metrogestionEsFondoAmarillo_(priorityBackgrounds?.[index]?.[0]);
 
     // Las líneas históricas terminadas no vinculadas y las necesidades aún
     // lejanas no deben viajar en cada sincronización. Una línea ya vinculada
     // siempre se conserva para poder reflejar su realización o recogida.
-    if (!vinculada && !pendienteFondoBlanco) continue;
+    if (!vinculada && !pendienteFondoBlanco && !prioridadFondoAmarillo) continue;
     if (!vinculada && fechaRealizada) continue;
-    if (!vinculada && fechaCorteIso && fechaNecesidad > fechaCorteIso) continue;
+    if (!vinculada && !prioridadFondoAmarillo && fechaCorteIso && fechaNecesidad > fechaCorteIso) continue;
     result.push({
       fila: index + 1,
       trabajo_sync_id: trabajoSyncId,
@@ -372,6 +382,7 @@ function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, fechaCort
       fecha_realizada: fechaRealizada,
       fecha_recogida: metrogestionFechaIso_(row[10], `de recogida de la fila ${index + 1}`),
       pendiente_fondo_blanco: pendienteFondoBlanco,
+      prioridad_fondo_amarillo: prioridadFondoAmarillo,
     });
   }
   return result;
