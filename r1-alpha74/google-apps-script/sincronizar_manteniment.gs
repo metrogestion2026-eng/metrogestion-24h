@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha71-2026.09.02.1',
+  scriptVersion: 'alpha74-2026.09.06.1',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -243,6 +243,7 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
       matricula: row[1],
       tipo: row[2],
       upc: row[3],
+      numero_parada: row[4],
       sustituto: row[6],
       estado: row[7],
       fecha_programada: metrogestionFechaIso_(row[8], `programada de la fila ${index + 1}`),
@@ -264,8 +265,9 @@ function metrogestionAplicarComandos_(sheet, commands) {
     const syncId = String(command?.sync_id || payload.sync_id || '').trim();
     if (!/^[0-9a-f-]{36}$/i.test(syncId)) throw new Error('Supabase devolvió una fila PARADA sin identificador válido.');
     let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId);
-    if (!rowNumber) rowNumber = metrogestionInsertarFilaParada_(sheet, payload);
-    metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId);
+    const nuevaFila = !rowNumber;
+    if (nuevaFila) rowNumber = metrogestionInsertarFilaParada_(sheet, payload);
+    metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuevaFila);
     return {
       tipo: 'parada',
       sync_id: syncId,
@@ -383,31 +385,50 @@ function metrogestionDate_(iso) {
   return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 }
 
-function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId) {
-  const range = sheet.getRange(rowNumber, 1, 1, 17);
-  const row = range.getValues()[0];
-  row[0] = payload.dfm || '';
-  row[1] = payload.matricula || '';
-  row[2] = payload.tipo || '';
-  row[3] = payload.upc || '';
-  row[6] = payload.sustituto || '';
-  row[7] = 'PARADA';
-  row[8] = metrogestionDate_(payload.fecha_programada);
-  row[9] = metrogestionDate_(payload.fecha_parada);
-  row[10] = metrogestionDate_(payload.fecha_k);
-  row[11] = payload.dias_parada ?? '';
-  row[14] = payload.marca || '';
-  row[15] = payload.km_facturables ?? '';
-  row[16] = payload.tancament || '';
-  range.setValues([row]);
+function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuevaFila) {
+  if (nuevaFila) {
+    const range = sheet.getRange(rowNumber, 1, 1, 17);
+    const row = range.getValues()[0];
+    row[0] = payload.dfm || '';
+    row[1] = payload.matricula || '';
+    row[2] = payload.tipo || '';
+    row[3] = payload.upc || '';
+    row[4] = payload.numero_parada || '';
+    row[6] = payload.sustituto || '';
+    row[7] = 'PARADA';
+    row[8] = metrogestionDate_(payload.fecha_programada);
+    row[9] = metrogestionDate_(payload.fecha_parada);
+    row[10] = metrogestionDate_(payload.fecha_k);
+    row[11] = payload.dias_parada ?? '';
+    row[14] = payload.marca || '';
+    row[15] = payload.km_facturables ?? '';
+    row[16] = payload.tancament || '';
+    range.setValues([row]);
+  } else {
+    // Metrogestión protege la identidad (A-E, G y O) y el marcador PARADA (H).
+    // MANTENIMENT gobierna I-K, L, P y Q, por lo que nunca se reescriben aquí.
+    sheet.getRange(rowNumber, 1, 1, 4).setValues([[
+      payload.dfm || '',
+      payload.matricula || '',
+      payload.tipo || '',
+      payload.upc || '',
+    ]]);
+    const paradaEsperada = String(payload.numero_parada || '').trim();
+    const paradaActual = String(sheet.getRange(rowNumber, 5).getDisplayValue() || '').trim();
+    // Si el valor ya coincide, no tocamos E y conservamos su enlace de Drive.
+    if (paradaActual !== paradaEsperada) sheet.getRange(rowNumber, 5).setValue(paradaEsperada);
+    sheet.getRange(rowNumber, 7, 1, 2).setValues([[payload.sustituto || '', 'PARADA']]);
+    sheet.getRange(rowNumber, 15).setValue(payload.marca || '');
+  }
   sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
   sheet.getRange(rowNumber, 12).setNumberFormat('0');
   sheet.getRange(rowNumber, 16).setNumberFormat('0.00');
   sheet.getRange(rowNumber, 1).setNote(`METROGESTION_PARADA:${syncId}`);
   const baseColour = '#d9e2e3';
-  sheet.getRange(rowNumber, 1, 1, 17).setBackground(baseColour);
+  if (nuevaFila) sheet.getRange(rowNumber, 1, 1, 17).setBackground(baseColour);
+  const rowColour = nuevaFila ? baseColour : sheet.getRange(rowNumber, 1).getBackground();
   sheet.getRange(rowNumber, 17).setBackground(
-    payload.tancament && payload.tancament_supervisado !== true ? '#f4cccc' : baseColour
+    payload.tancament && payload.tancament_supervisado !== true ? '#f4cccc' : rowColour
   );
 }
 
