@@ -30,3 +30,12 @@ Distribución: **no asignada a usuarios**. Alpha74 no sustituirá a Alpha73 sin 
 - La consulta exige usuario activo, sesión Auth vigente, dispositivo autorizado y rol de administrador principal.
 - No expone el payload, el token, el identificador de sincronización ni el texto interno de posibles errores.
 - Los demás usuarios no ejecutan la consulta ni ven la sección.
+
+## PARADA al asignar número y anulación trazable
+
+- Al asignarse el número de parada se encola inmediatamente una única fila `PARADA`, aunque J siga vacía porque todavía sea una propuesta pendiente de parar.
+- La columna I nace con la fecha de propuesta del día en que Metrogestión genera el número; J continúa vacía hasta la parada real.
+- La misma fila queda vinculada por `sync_id`; reintentos y cambios actualizan esa fila y no crean duplicados.
+- Si la ficha se anula, H cambia a `ANULADA` con fondo rosa pastel y la fila se conserva como histórico.
+- Una fila anulada deja de enviar fechas, días, kilómetros o TANCAMENT a Metrogestión.
+- La identidad A-E, G y O continúa gobernada y restaurada por Metrogestión.
