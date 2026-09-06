@@ -36,6 +36,7 @@ Distribución: **no asignada a usuarios**. Alpha74 no sustituirá a Alpha73 sin 
 - Al asignarse el número de parada se encola inmediatamente una única fila `PARADA`, aunque J siga vacía porque todavía sea una propuesta pendiente de parar.
 - La columna I nace con la fecha de propuesta del día en que Metrogestión genera el número; J continúa vacía hasta la parada real.
 - La misma fila queda vinculada por `sync_id`; reintentos y cambios actualizan esa fila y no crean duplicados.
+- Si una fila histórica aún no tiene `sync_id`, solo se adopta por coincidencia exacta de DFM y número de parada; una coincidencia múltiple se bloquea sin escribir.
 - Si la ficha se anula, H cambia a `ANULADA` con fondo rosa pastel y la fila se conserva como histórico.
 - Una fila anulada deja de enviar fechas, días, kilómetros o TANCAMENT a Metrogestión.
 - La identidad A-E, G y O continúa gobernada y restaurada por Metrogestión.
