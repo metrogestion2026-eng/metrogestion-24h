@@ -299,6 +299,18 @@ function deviceItem(row, userMap) {
   };
 }
 
+function mantenimentOrderItem(row) {
+  const vehicle = row.dfm || '—';
+  const plate = row.matricula && row.matricula !== '—' ? ` · ${row.matricula}` : '';
+  return {
+    title: `${vehicle}${plate} · parada ${row.numero_parada || '—'}`,
+    meta: `${row.accion || 'Sincronizar fila PARADA'} · revisión ${row.revision || 1}`,
+    note: row.con_error
+      ? `Con incidencia comunicada · actualizada ${formatDateTime(row.actualizado_en)}`
+      : `Pendiente de confirmación de MANTENIMENT · actualizada ${formatDateTime(row.actualizado_en)}`,
+  };
+}
+
 function metricButton({ label, value, hint = '', tone = 'neutral', detail }, openDetail) {
   const button = el('button', null, `a52-metric tone-${tone}`);
   button.type = 'button';
@@ -444,7 +456,7 @@ async function renderPanel({ automatic = false } = {}) {
   refresh.addEventListener('click', () => renderPanel());
   actions.append(updated, refresh);
   head.append(copy, actions);
-  const loading = el('div', 'Consultando Hotel, reservas, 24H, T, facturación, contratos y usuarios…', 'a52-loading');
+  const loading = el('div', 'Consultando Hotel, reservas, 24H, T, facturación, contratos, usuarios y MANTENIMENT…', 'a52-loading');
   root.append(head, loading);
   content.append(root);
 
@@ -463,7 +475,7 @@ async function renderPanel({ automatic = false } = {}) {
     const canBilling = moduleAccess(profile, 'historico').view || moduleAccess(profile, 'resumen').view;
     const canFleet = can24h || moduleAccess(profile, 'resumen').view;
 
-    const [hotelResult, reservesResult, incidentsResult, vehiclesResult, periodsResult, dfmBillingResult, rBillingResult, substitutionsResult, usersResult, devicesResult] = await Promise.all([
+    const [hotelResult, reservesResult, incidentsResult, vehiclesResult, periodsResult, dfmBillingResult, rBillingResult, substitutionsResult, usersResult, devicesResult, mantenimentOrdersResult] = await Promise.all([
       canHotel ? readQuery('Hotel', supabase.from('hotel_actual_detalle').select('id,numero_parada,dfm,matricula,sustituto,matricula_sustituto,tipo_sustituto,estado,lugar,causa,incidencia,prioridad,proximo,t_pendientes,actualizado_en').order('orden', { ascending: true })) : skipped('Hotel'),
       canReservations ? readQuery('Reservas', supabase.from('reservas_hotel').select('id,vehiculo_codigo,matricula,etiqueta,estado,ubicacion,pendientes,activo,actualizado_en').eq('activo', true).order('vehiculo_codigo')) : skipped('Reservas'),
       can24h ? readQuery('24H', supabase.from('activaciones_24h').select('id,dfm,matricula,numero_caso,estado,resultado,averia,proveedor,creado_en,actualizado_en,creado_por').order('creado_en', { ascending: false })) : skipped('24H'),
@@ -474,6 +486,7 @@ async function renderPanel({ automatic = false } = {}) {
       canBilling ? readQuery('Sustituciones', supabase.from('paradas_sustitucion_resumen').select('seguimiento_id,numero_parada,unidad,matricula,sustituto,estado,fecha_fin_parada,clase_facturacion,km_dia,km_sustitucion_total')) : skipped('Sustituciones'),
       canUsers ? readQuery('Usuarios', supabase.from('usuarios').select('id,nombre,apellidos,correo,tipo_usuario,permisos,activo,creado_en,actualizado_en').order('creado_en')) : skipped('Usuarios'),
       admin ? readQuery('Dispositivos', supabase.from('dispositivos_usuario').select('id,usuario_id,nombre,estado,solicitado_en,ultimo_acceso_en,observaciones').order('solicitado_en', { ascending: false })) : skipped('Dispositivos'),
+      admin ? readQuery('Órdenes MANTENIMENT', supabase.rpc('listar_ordenes_manteniment_pendientes_alpha74')) : skipped('Órdenes MANTENIMENT'),
     ]);
 
     const hotelRows = hotelResult.data || [];
@@ -484,7 +497,7 @@ async function renderPanel({ automatic = false } = {}) {
 
     if (!panelRenderIsCurrent(sequence, root)) return;
 
-    const results = [hotelResult, reservesResult, incidentsResult, vehiclesResult, periodsResult, dfmBillingResult, rBillingResult, substitutionsResult, usersResult, devicesResult, stagesResult];
+    const results = [hotelResult, reservesResult, incidentsResult, vehiclesResult, periodsResult, dfmBillingResult, rBillingResult, substitutionsResult, usersResult, devicesResult, mantenimentOrdersResult, stagesResult];
     const errors = results.filter(result => result.error).map(result => `${result.label}: ${result.error.message || result.error}`);
 
     const today = localDateKey();
@@ -559,6 +572,8 @@ async function renderPanel({ automatic = false } = {}) {
     const usersAuthorized = users.filter(row => isPrimaryAdmin(row) || moduleAccess(row, 'usuarios').view);
     const devices = devicesResult.data || [];
     const pendingDevices = devices.filter(row => row.estado === 'pendiente');
+    const mantenimentOrders = mantenimentOrdersResult.data || [];
+    const mantenimentOrdersWithError = mantenimentOrders.filter(row => row.con_error === true);
 
     const alerts = buildAlerts({ priorityStops, overdueStages, openIncidents, contractProblems, missingMedia });
 
@@ -764,6 +779,32 @@ async function renderPanel({ automatic = false } = {}) {
         { label: 'Dispositivos pendientes', value: pendingDevices.length, tone: pendingDevices.length ? 'amber' : 'green', detail: { title: 'Dispositivos pendientes', items: pendingDevices.map(row => deviceItem(row, userMap)), module: 'usuarios', moduleLabel: 'Abrir Usuarios' } },
       ];
       root.append(section('Usuarios y accesos', 'Visible únicamente para el administrador o cuentas autorizadas.', userMetrics, openDetail));
+    }
+
+    if (admin) {
+      const mantenimentMetrics = [
+        {
+          label: 'Órdenes pendientes',
+          value: mantenimentOrders.length,
+          hint: mantenimentOrdersWithError.length
+            ? `${mantenimentOrdersWithError.length} con incidencia`
+            : 'Sin errores comunicados',
+          tone: mantenimentOrdersWithError.length ? 'red' : (mantenimentOrders.length ? 'amber' : 'green'),
+          detail: {
+            title: 'MANTENIMENT · Órdenes pendientes',
+            subtitle: 'Instrucciones PARADA aún no confirmadas por el archivo maestro.',
+            items: mantenimentOrders.map(mantenimentOrderItem),
+            empty: 'MANTENIMENT no tiene órdenes pendientes.',
+            exportable: false,
+          },
+        },
+      ];
+      root.append(section(
+        'MANTENIMENT · Sincronización',
+        'Vista administrativa de solo lectura; no permite confirmar, reenviar ni modificar órdenes.',
+        mantenimentMetrics,
+        openDetail
+      ));
     }
 
     if (errors.length) {
