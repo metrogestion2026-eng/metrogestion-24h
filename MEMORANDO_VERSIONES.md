@@ -1,5 +1,14 @@
 # Metrogestión 24H — Memorando de versiones
 
+## r1.0.0-alpha.74 — 06/09/2026
+
+- Versión de pruebas creada desde Alpha73 validada, cerrada y publicada.
+- Alpha73 permanece sin cambios como versión oficial de usuarios.
+- Permite modificar una anotación ya existente desde la propia ficha sin activar la edición general.
+- Permite eliminarla de la vista con confirmación, conservándola cancelada en la base de datos y en auditoría.
+- Comprueba la ficha activa, el seguimiento de la anotación y su versión antes de modificarla para impedir cruces entre fichas o sobrescrituras concurrentes.
+- No está asignada a los usuarios y no sustituirá a Alpha73 sin validación y autorización expresa.
+
 ## r1.0.0-alpha.73 — 05/09/2026
 
 - Versión de trabajo creada desde Alpha72 validada y cerrada.

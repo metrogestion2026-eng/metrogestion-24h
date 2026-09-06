@@ -1,0 +1,58 @@
+.a74-note-manage {
+  margin-top: 8px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-style: normal;
+}
+
+.a74-note-manage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.a74-note-manage-form {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.a74-note-manage-form[hidden] {
+  display: none;
+}
+
+.a74-note-manage-text {
+  width: 100%;
+  min-height: 88px;
+  box-sizing: border-box;
+  color: #1e3a5f;
+  background: #fff;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-style: italic;
+}
+
+.a74-note-manage-status {
+  min-height: 1.2em;
+  color: #475569;
+}
+
+.a74-note-manage-status.is-error {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.a74-note-manage .danger {
+  border-color: #fecaca;
+  color: #991b1b;
+  background: #fff7f7;
+}
+
+@media (max-width: 640px) {
+  .a74-note-manage-actions .button {
+    width: 100%;
+  }
+
+  .a74-note-manage-text {
+    min-height: 96px;
+    font-size: 16px;
+  }
+}
