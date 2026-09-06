@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.06.1',
+  scriptVersion: 'alpha74-2026.09.06.2',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -233,8 +233,17 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
     const match = note.match(/^METROGESTION_PARADA:([0-9a-f-]{36})$/i);
     if (!match) continue;
     const row = values[index];
-    if (metrogestionNormalizar_(row[7]) !== 'PARADA') {
-      throw new Error(`La fila vinculada ${index + 1} debe conservar MANTENIMENT = PARADA.`);
+    const estado = metrogestionNormalizar_(row[7]);
+    if (!['PARADA', 'ANULADA'].includes(estado)) {
+      throw new Error(`La fila vinculada ${index + 1} debe conservar MANTENIMENT = PARADA o ANULADA.`);
+    }
+    if (estado === 'ANULADA') {
+      result.push({
+        fila: index + 1,
+        sync_id: match[1],
+        estado,
+      });
+      continue;
     }
     result.push({
       fila: index + 1,
@@ -245,7 +254,7 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
       upc: row[3],
       numero_parada: row[4],
       sustituto: row[6],
-      estado: row[7],
+      estado,
       fecha_programada: metrogestionFechaIso_(row[8], `programada de la fila ${index + 1}`),
       fecha_parada: metrogestionFechaIso_(row[9], `de parada de la fila ${index + 1}`),
       fecha_k: metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 1}`),
@@ -386,6 +395,7 @@ function metrogestionDate_(iso) {
 }
 
 function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuevaFila) {
+  const estado = metrogestionNormalizar_(payload.estado) === 'ANULADA' ? 'ANULADA' : 'PARADA';
   if (nuevaFila) {
     const range = sheet.getRange(rowNumber, 1, 1, 17);
     const row = range.getValues()[0];
@@ -395,7 +405,7 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     row[3] = payload.upc || '';
     row[4] = payload.numero_parada || '';
     row[6] = payload.sustituto || '';
-    row[7] = 'PARADA';
+    row[7] = estado;
     row[8] = metrogestionDate_(payload.fecha_programada);
     row[9] = metrogestionDate_(payload.fecha_parada);
     row[10] = metrogestionDate_(payload.fecha_k);
@@ -417,7 +427,7 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     const paradaActual = String(sheet.getRange(rowNumber, 5).getDisplayValue() || '').trim();
     // Si el valor ya coincide, no tocamos E y conservamos su enlace de Drive.
     if (paradaActual !== paradaEsperada) sheet.getRange(rowNumber, 5).setValue(paradaEsperada);
-    sheet.getRange(rowNumber, 7, 1, 2).setValues([[payload.sustituto || '', 'PARADA']]);
+    sheet.getRange(rowNumber, 7, 1, 2).setValues([[payload.sustituto || '', estado]]);
     sheet.getRange(rowNumber, 15).setValue(payload.marca || '');
   }
   sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
@@ -427,6 +437,7 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
   const baseColour = '#d9e2e3';
   if (nuevaFila) sheet.getRange(rowNumber, 1, 1, 17).setBackground(baseColour);
   const rowColour = nuevaFila ? baseColour : sheet.getRange(rowNumber, 1).getBackground();
+  sheet.getRange(rowNumber, 8).setBackground(estado === 'ANULADA' ? '#f4cccc' : rowColour);
   sheet.getRange(rowNumber, 17).setBackground(
     payload.tancament && payload.tancament_supervisado !== true ? '#f4cccc' : rowColour
   );
