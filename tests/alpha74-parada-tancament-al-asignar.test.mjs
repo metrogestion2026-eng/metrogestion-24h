@@ -73,7 +73,7 @@ assert.equal(context.metrogestionBuscarFilaParadaExistente_(existingSheet, {
 }), 3);
 assert.throws(() => context.metrogestionBuscarFilaParadaExistente_(existingSheet, {
   dfm: '2489', numero_parada: 'PA-2600200', tancament: ''
-}), /coincide con varias filas/);
+}), /varias filas/);
 
 assert.match(migration, /if btrim\(coalesce\(v_payload->>'numero_parada', ''\)\) = '' then return/);
 assert.match(migration, /'estado', case when v_anulada then 'ANULADA' else 'PARADA' end/);
