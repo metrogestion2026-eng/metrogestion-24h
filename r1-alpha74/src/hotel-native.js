@@ -98,16 +98,16 @@ function matchesSearch(card, query) {
 
 async function getHotelAccess() {
   const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData?.user) return { view: false, editFicha: false, editDocuments: false };
+  if (authError || !authData?.user) return { view: false, editFicha: false, editDocuments: false, primary: false };
 
   const { data: profile, error } = await supabase
     .from('usuarios')
     .select('activo,tipo_usuario,permisos')
     .eq('id', authData.user.id)
     .maybeSingle();
-  if (error || profile?.activo !== true) return { view: false, editFicha: false, editDocuments: false };
+  if (error || profile?.activo !== true) return { view: false, editFicha: false, editDocuments: false, primary: false };
   if (profile.tipo_usuario === 'administrador_principal') {
-    return { view: true, editFicha: true, editDocuments: true };
+    return { view: true, editFicha: true, editDocuments: true, primary: true };
   }
 
   const hotel = profile.permisos?.hotel || {};
@@ -115,7 +115,7 @@ async function getHotelAccess() {
   const editFicha = hotel.editar === true;
   const view = editFicha || hotel.ver === true || hotel.leer === true;
   const editDocuments = editFicha || documentation.editar === true;
-  return { view, editFicha, editDocuments };
+  return { view, editFicha, editDocuments, primary: false };
 }
 
 async function addQuickHotelNote(registroId, text) {
@@ -151,6 +151,16 @@ async function deleteQuickHotelNote(registroId, note) {
   return data;
 }
 
+async function annulGeneratedHotelNote(registroId, stage) {
+  const { data, error } = await supabase.rpc('anular_anotacion_generada_hotel_alpha74', {
+    p_registro_id: registroId,
+    p_etapa_id: stage.id,
+    p_request_id: requestId(),
+  });
+  if (error) throw new Error(`No se pudo anular la anotación generada: ${error.message}`);
+  return data;
+}
+
 async function loadHotelData(access) {
   const [boardResult, hotelResult, editableResult] = await Promise.all([
     supabase.from('pizarras').select('id,fecha,estado').eq('estado', 'en_curso').maybeSingle(),
@@ -166,6 +176,7 @@ async function loadHotelData(access) {
   const trackingIds = [...new Set(rows.map(row => row.seguimiento_id).filter(Boolean))];
   let stages = [];
   let manualNotes = [];
+  let generatedCancellations = [];
 
   if (recordIds.length) {
     const { data, error } = await supabase
@@ -186,6 +197,15 @@ async function loadHotelData(access) {
       .order('fecha_evento', { ascending: true });
     if (error) throw new Error(`No se pudieron cargar las anotaciones: ${error.message}`);
     manualNotes = data || [];
+
+    const { data: cancelledData, error: cancelledError } = await supabase
+      .from('anotaciones_generadas_hotel_anuladas')
+      .select('seguimiento_id,etapa_seguimiento_id,anulada_en')
+      .in('seguimiento_id', trackingIds);
+    if (cancelledError) {
+      throw new Error(`No se pudieron cargar las anotaciones generadas anuladas: ${cancelledError.message}`);
+    }
+    generatedCancellations = cancelledData || [];
   }
 
   const stagesByRecord = new Map();
@@ -202,6 +222,13 @@ async function loadHotelData(access) {
     notesByTracking.set(note.seguimiento_id, current);
   });
 
+  const generatedCancellationsByTracking = new Map();
+  generatedCancellations.forEach(item => {
+    const current = generatedCancellationsByTracking.get(item.seguimiento_id) || [];
+    current.push(item);
+    generatedCancellationsByTracking.set(item.seguimiento_id, current);
+  });
+
   let documentsByGroup = new Map();
   let documentsWarning = '';
   try {
@@ -216,6 +243,7 @@ async function loadHotelData(access) {
     rows,
     stagesByRecord,
     notesByTracking,
+    generatedCancellationsByTracking,
     documentsByGroup,
     documentsWarning,
   };
@@ -295,7 +323,13 @@ async function renderHotelNative(container, access) {
     }
     if (data.documentsWarning) container.append(notice(data.documentsWarning, 'warning'));
 
-    const { rows, stagesByRecord, notesByTracking, documentsByGroup } = data;
+    const {
+      rows,
+      stagesByRecord,
+      notesByTracking,
+      generatedCancellationsByTracking,
+      documentsByGroup,
+    } = data;
     const editableIds = new Set((data.editableResult.data || []).map(row => row.registro_hotel_id));
 
     const searchInput = element('input', {
@@ -441,7 +475,7 @@ async function renderHotelNative(container, access) {
       if (access.editFicha) {
         modeNotice.append(editMode
           ? notice(`✏️ Lectura y edición activada · ${editableIds.size} fichas autorizadas. Ya puedes crear una nueva ficha o editar las existentes.`, 'warning')
-          : notice('🔒 Protección de la ficha activada. Puedes añadir, modificar o eliminar anotaciones directamente; para crear o editar el resto de la ficha, activa “Lectura y edición”.', 'success'));
+          : notice('🔒 Protección de la ficha activada. Puedes añadir, modificar o anular anotaciones directamente; el administrador principal también puede anular las generadas sin modificar la T.', 'success'));
       } else {
         modeNotice.append(notice(
           access.editDocuments
@@ -454,12 +488,14 @@ async function renderHotelNative(container, access) {
       rows.forEach(row => {
         const rowStages = stagesByRecord.get(row.id) || [];
         const rowNotes = notesByTracking.get(row.seguimiento_id) || [];
+        const rowGeneratedCancellations = generatedCancellationsByTracking.get(row.seguimiento_id) || [];
         const card = renderHotelCard(row, rowStages, documentsByGroup, rowNotes, {
           editMode: access.editFicha && editMode,
           editableIds,
           canEditDocuments: access.editDocuments,
           canAddNotes: access.editFicha,
           canManageNotes: access.editFicha,
+          generatedCancellations: rowGeneratedCancellations,
           onAddNote: async (id, text) => {
             await addQuickHotelNote(id, text);
             await renderHotelNative(container, access);
@@ -472,6 +508,10 @@ async function renderHotelNative(container, access) {
             await deleteQuickHotelNote(id, note);
             await renderHotelNative(container, access);
           },
+          onAnnulGeneratedNote: access.primary ? async (id, stage) => {
+            await annulGeneratedHotelNote(id, stage);
+            await renderHotelNative(container, access);
+          } : null,
           onOpenEditor: async id => openHotelEditor(id, {
             onSaved: async () => renderHotelNative(container, access),
           }),
