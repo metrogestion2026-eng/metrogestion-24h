@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.07.17',
+  scriptVersion: 'alpha74-2026.09.07.18',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -179,7 +179,16 @@ function metrogestionEjecutarSincronizacion_(modo) {
       notesA: notes.map(row => String(row?.[0] || '')),
       notesE: workNotes.map(row => String(row?.[0] || '')),
     };
-    const confirmations = metrogestionAplicarComandos_(sheet, commands, sheetState);
+    // Google Sheets impide escribir o insertar sobre filas ocultas por un filtro
+    // básico. Conservamos el filtro, lo retiramos solo durante las escrituras y
+    // lo restauramos siempre, también si una orden produce un error.
+    const filterState = commands.length ? metrogestionSuspenderFiltro_(sheet) : null;
+    let confirmations;
+    try {
+      confirmations = metrogestionAplicarComandos_(sheet, commands, sheetState);
+    } finally {
+      metrogestionRestaurarFiltro_(sheet, filterState);
+    }
     if (confirmations.length) metrogestionConfirmarComandos_(token, confirmations);
     const assignedWorks = confirmations.reduce((total, item) => total + Number(item.trabajos_asignados || 0), 0);
     const message = [
@@ -198,6 +207,47 @@ function metrogestionEjecutarSincronizacion_(modo) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function metrogestionSuspenderFiltro_(sheet) {
+  const filter = sheet.getFilter();
+  if (!filter) return null;
+  const range = filter.getRange();
+  const startColumn = range.getColumn();
+  const endColumn = range.getLastColumn();
+  const criteria = [];
+  for (let column = startColumn; column <= endColumn; column += 1) {
+    const criterion = filter.getColumnFilterCriteria(column);
+    if (criterion) criteria.push({ column, criterion });
+  }
+  const state = {
+    startRow: range.getRow(),
+    startColumn,
+    numRows: range.getNumRows(),
+    numColumns: range.getNumColumns(),
+    maxRows: sheet.getMaxRows(),
+    criteria,
+  };
+  filter.remove();
+  SpreadsheetApp.flush();
+  return state;
+}
+
+function metrogestionRestaurarFiltro_(sheet, state) {
+  if (!state) return;
+  const current = sheet.getFilter();
+  if (current) current.remove();
+  const addedRows = Math.max(0, sheet.getMaxRows() - state.maxRows);
+  const availableRows = sheet.getMaxRows() - state.startRow + 1;
+  const numRows = Math.min(availableRows, state.numRows + addedRows);
+  if (numRows < 1) return;
+  const filter = sheet
+    .getRange(state.startRow, state.startColumn, numRows, state.numColumns)
+    .createFilter();
+  state.criteria.forEach(item => {
+    filter.setColumnFilterCriteria(item.column, item.criterion);
+  });
+  SpreadsheetApp.flush();
 }
 
 function metrogestionLeerToken_() {
