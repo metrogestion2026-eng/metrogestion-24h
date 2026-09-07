@@ -14,6 +14,20 @@ Este script sustituye el contenido del proyecto de Google Apps Script vinculado 
 - En las filas `PARADA` vinculadas, **MANTENIMENT gobierna I, J, K, L, P y Q**: fechas, días, kilómetros y TANCAMENT.
 - **Metrogestión protege A-E, G y O**: DFM, matrícula, tipo, UPC, número de actuación, sustituto y marca. Los cambios de esas columnas se ignoran al importar y la orden siguiente restaura los valores de la ficha.
 - La columna E conserva su enlace de Drive cuando el número de actuación protegido no ha cambiado.
+
+## Taller F automático para semirremolques R
+
+Si F está vacío, Metrogestión lo completa al importar sin modificar la hoja:
+
+- GESTIÓN → `UPC`.
+- MANTENIMIENTO + H=`BPW` → `DIRECAUTO`.
+- MANTENIMIENTO + H=`MCD` + Q=`THERMO KING` → `FRIGICOLL`.
+- MANTENIMIENTO + H=`MCD` + Q=`CARRIER` → `FRIDIEL`.
+- TRÁMITE + H=`ITV` → `APPLUS (RED DE ITV)`.
+- TRÁMITE + H=`TMG` o `ATP` → `INVERYCA`.
+- TRÁMITE + H=`EXTINTOR` → `UPC`.
+
+Un valor escrito en F siempre tiene prioridad. REPARACIÓN no infiere taller.
 - `TANCAMENT n` utiliza la fecha K como corte de facturación y no como recuperación operativa.
 - La celda Q permanece rosa pastel mientras el cierre no esté supervisado.
 - En las necesidades predictivas, el fondo de la columna H es autoritativo:
