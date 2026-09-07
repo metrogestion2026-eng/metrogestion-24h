@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.07.22',
+  scriptVersion: 'alpha74-2026.09.07.23',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -417,7 +417,11 @@ function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityB
     // H manda sobre cualquier otra señal visual: si tiene color, la necesidad
     // ya está clasificada o realizada y no vuelve a entrar. El amarillo de A
     // solo elimina el límite de fecha para una H que continúa blanca.
-    if (!pendienteFondoBlanco) continue;
+    // Una H coloreada puede corresponder a una necesidad pendiente que ya está
+    // en Hotel. Si conserva número de actuación en E y J sigue vacío, también
+    // se envía para completar o reparar su enlace técnico.
+    const pendienteYaEnHotel = !vinculada && Boolean(numeroParada) && !fechaRealizada;
+    if (!pendienteFondoBlanco && !pendienteYaEnHotel) continue;
     if (!vinculada && fechaRealizada) continue;
     if (!vinculada && !prioridadFondoAmarillo && fechaCorteIso && fechaNecesidad > fechaCorteIso) continue;
     result.push({
@@ -548,7 +552,7 @@ function metrogestionBuscarFilaTrabajoPorActuacion_(
     if (
       !usedRows.has(rowNumber)
       && rowStop === expectedStop
-      && metrogestionCoincideIdentidadTrabajo_(row, expectedKey)
+      && metrogestionClaveFilaTrabajo_(row) === expectedKey
     ) matches.push(rowNumber);
   });
   matches.sort((a, b) => Math.abs(a - requested) - Math.abs(b - requested) || a - b);
@@ -563,19 +567,7 @@ function metrogestionIdentidadClaveTrabajo_(key) {
 function metrogestionTrabajoActual_(assignment, currentWorks) {
   const works = Array.isArray(currentWorks) ? currentWorks : [];
   const expectedKey = String(assignment?.clave_fila || '').trim();
-  const exact = works.find(work => String(work?.clave_fila || '').trim() === expectedKey);
-  if (exact) return exact;
-  const identity = metrogestionIdentidadClaveTrabajo_(expectedKey);
-  if (!identity) return null;
-  const matches = works.filter(work =>
-    metrogestionIdentidadClaveTrabajo_(work?.clave_fila) === identity
-  );
-  if (!matches.length) return null;
-  const requested = Number(assignment?.fila || 0);
-  matches.sort((a, b) =>
-    Math.abs(Number(a?.fila || 0) - requested) - Math.abs(Number(b?.fila || 0) - requested)
-  );
-  return matches[0];
+  return works.find(work => String(work?.clave_fila || '').trim() === expectedKey) || null;
 }
 
 function metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState) {
