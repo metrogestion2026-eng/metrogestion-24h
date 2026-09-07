@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.07.21',
+  scriptVersion: 'alpha74-2026.09.07.22',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -477,13 +477,18 @@ function metrogestionNotaConTrabajo_(note, syncId) {
   return lines.join('\n');
 }
 
-function metrogestionCoincideTrabajoRealizado_(row, expectedKey) {
+function metrogestionCoincideIdentidadTrabajo_(row, expectedKey) {
   const parts = String(expectedKey || '').split('|');
-  if (parts.length !== 6 || !String(row?.[9] || '').trim()) return false;
+  if (parts.length !== 6) return false;
   return metrogestionNormalizar_(row[0]) === parts[0]
     && metrogestionNormalizar_(row[1]) === parts[1]
     && metrogestionNormalizar_(row[7]) === parts[4]
-    && metrogestionFechaIso_(row[8], 'de necesidad realizada') === parts[5];
+    && metrogestionFechaIso_(row[8], 'de necesidad') === parts[5];
+}
+
+function metrogestionCoincideTrabajoRealizado_(row, expectedKey) {
+  return Boolean(String(row?.[9] || '').trim())
+    && metrogestionCoincideIdentidadTrabajo_(row, expectedKey);
 }
 
 function metrogestionBuscarFilaTrabajo_(sheet, assignment, usedRows, sheetState) {
@@ -522,6 +527,32 @@ function metrogestionBuscarFilaTrabajo_(sheet, assignment, usedRows, sheetState)
   }
   completedMatches.sort((a, b) => Math.abs(a - requested) - Math.abs(b - requested) || a - b);
   return completedMatches[0];
+}
+
+function metrogestionBuscarFilaTrabajoPorActuacion_(
+  sheet,
+  assignment,
+  expectedStop,
+  usedRows,
+  sheetState
+) {
+  const lastRow = sheetState?.values?.length || sheet.getLastRow();
+  const values = sheetState?.values?.slice(1)
+    || sheet.getRange(2, 1, lastRow - 1, 17).getDisplayValues();
+  const expectedKey = String(assignment?.clave_fila || '').trim();
+  const requested = Number(assignment?.fila || 0);
+  const matches = [];
+  values.forEach((row, index) => {
+    const rowNumber = index + 2;
+    const rowStop = metrogestionNormalizar_(row[4]).replace(/^PA-/, '');
+    if (
+      !usedRows.has(rowNumber)
+      && rowStop === expectedStop
+      && metrogestionCoincideIdentidadTrabajo_(row, expectedKey)
+    ) matches.push(rowNumber);
+  });
+  matches.sort((a, b) => Math.abs(a - requested) - Math.abs(b - requested) || a - b);
+  return matches[0] || 0;
 }
 
 function metrogestionIdentidadClaveTrabajo_(key) {
@@ -573,9 +604,27 @@ function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroPara
     const originalExpectedKey = String(assignment?.clave_fila || '').trim();
     const linkedRows = metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState);
     const currentWork = metrogestionTrabajoActual_(assignment, currentWorks);
-    // Si ya no existe en la fotografía actual, la necesidad dejó de estar
-    // pendiente. Se descarta la referencia antigua aunque conserve alguna nota
-    // técnica: nunca se usa su viejo número de fila para tocar otra necesidad.
+    const linkedByStopRow = metrogestionBuscarFilaTrabajoPorActuacion_(
+      sheet,
+      assignment,
+      expectedStop,
+      usedRows,
+      sheetState
+    );
+    // Una H ya coloreada deja de aparecer como pendiente, pero si conserva la
+    // misma identidad y el mismo número de actuación sigue siendo la necesidad
+    // correcta. Se añade su nota técnica sin modificar F, G, H, I, J o K.
+    if (!currentWork && linkedByStopRow) {
+      usedRows.add(linkedByStopRow);
+      return {
+        rowNumber: linkedByStopRow,
+        syncId,
+        alreadyLinked: false,
+        linkedByStop: true,
+      };
+    }
+    // Si tampoco existe una fila con su identidad y actuación, la referencia
+    // antigua se descarta sin tocar la fila que ahora ocupa aquel número.
     if (!currentWork) {
       return {
         rowNumber: linkedRows.find(rowNumber => !usedRows.has(rowNumber)) || 0,
