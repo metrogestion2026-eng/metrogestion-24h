@@ -119,7 +119,7 @@ export function renderHistoricalCard(row, stages, documentsByGroup, manualNotes,
       ]),
       element('span', {
         className: 'badge',
-        text: row.numero_parada ? `Parada ${row.numero_parada}` : 'Sin nº de parada',
+        text: row.numero_parada ? `Actuación ${row.numero_parada}` : 'Sin n.º de actuación',
       }),
     ]),
     createOperationalDates(row, stages),

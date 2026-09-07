@@ -272,7 +272,7 @@ async function searchAllHistory(container, access, searchInput) {
   const searchTerm = safeHistorySearch(searchInput.value);
   if (!searchTerm) {
     clear(resultHost);
-    resultHost.append(notice('Escribe un DFM, matrícula, parada, reserva, INC, T o documento.', 'warning'));
+    resultHost.append(notice('Escribe un DFM, matrícula, actuación, reserva, INC, T o documento.', 'warning'));
     searchInput.focus();
     return;
   }
@@ -395,7 +395,7 @@ async function renderHistoryNative(container, access) {
   });
   const searchInput = element('input', {
     type: 'search',
-    placeholder: 'DFM, matrícula, parada, reserva, INC, T o documento',
+    placeholder: 'DFM, matrícula, actuación, reserva, INC, T o documento',
     'aria-label': 'Buscar en todo el histórico',
     enterkeyhint: 'search',
   });

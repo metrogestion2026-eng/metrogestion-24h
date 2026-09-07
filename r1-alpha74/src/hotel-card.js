@@ -130,7 +130,7 @@ function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsCha
 
   const section = element('section', { className: 'hotel-card-stages' });
   section.append(element('div', { className: 'hotel-stage-heading' }, [
-    element('h4', { text: 'T de la parada' }),
+    element('h4', { text: 'T de la actuación' }),
     element('span', { className: 'badge', text: `${active.length} activa${active.length === 1 ? '' : 's'}` }),
   ]));
 
@@ -203,7 +203,7 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
     ]),
     createOperationalDates(row, stages),
     element('div', { className: 'detail-grid' }, [
-      detail('Nº de parada', row.numero_parada),
+      detail('N.º de actuación', row.numero_parada),
       detail('Lugar', row.lugar),
       detail('UPC', row.upc),
       detail('Causa', row.causa),
