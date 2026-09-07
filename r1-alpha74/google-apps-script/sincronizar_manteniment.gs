@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.07.20',
+  scriptVersion: 'alpha74-2026.09.07.21',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -573,11 +573,16 @@ function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroPara
     const originalExpectedKey = String(assignment?.clave_fila || '').trim();
     const linkedRows = metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState);
     const currentWork = metrogestionTrabajoActual_(assignment, currentWorks);
-    // Si ya no existe en la fotografía actual y tampoco conserva nota técnica,
-    // la necesidad dejó de estar pendiente. La orden antigua se confirma sin
-    // escribir sobre otra fila ni volver a crearla.
-    if (!linkedRows.length && !currentWork) {
-      return { rowNumber: 0, syncId, alreadyLinked: true, noLongerPending: true };
+    // Si ya no existe en la fotografía actual, la necesidad dejó de estar
+    // pendiente. Se descarta la referencia antigua aunque conserve alguna nota
+    // técnica: nunca se usa su viejo número de fila para tocar otra necesidad.
+    if (!currentWork) {
+      return {
+        rowNumber: linkedRows.find(rowNumber => !usedRows.has(rowNumber)) || 0,
+        syncId,
+        alreadyLinked: true,
+        noLongerPending: true,
+      };
     }
     const requested = Number(currentWork?.fila || originalRequested);
     const expectedKey = String(currentWork?.clave_fila || originalExpectedKey).trim();
