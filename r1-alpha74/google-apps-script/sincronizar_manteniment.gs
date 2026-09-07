@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.07.23',
+  scriptVersion: 'alpha74-2026.09.07.24',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -403,7 +403,10 @@ function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityB
     const row = values[index];
     const dfm = metrogestionNormalizar_(row[0]);
     const designacion = metrogestionNormalizar_(row[7]);
-    if (!dfm || !designacion || ignored.has(designacion) || !String(row[8] || '').trim()) continue;
+    // Alpha74 se está implantando primero para las unidades R. Las unidades
+    // DFM se incorporarán cuando estén definidas sus reglas de F/G/H.
+    if (!dfm.startsWith('R')) continue;
+    if (!designacion || ignored.has(designacion) || !String(row[8] || '').trim()) continue;
     const trabajoSyncId = metrogestionNotaTrabajoId_(workNotes[index]?.[0]);
     const numeroParada = String(row[4] || '').trim();
     const fechaNecesidad = metrogestionFechaIso_(row[8], `de necesidad de la fila ${index + 1}`);
