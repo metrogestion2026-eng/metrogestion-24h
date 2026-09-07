@@ -80,7 +80,7 @@ function uniqueLatestRows(rows) {
 async function getHistoryAccess() {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError || !authData?.user) {
-    return { view: false, editFicha: false, editDocuments: false };
+    return { view: false, editFicha: false, editDocuments: false, primary: false };
   }
 
   const { data: profile, error } = await supabase
@@ -90,10 +90,10 @@ async function getHistoryAccess() {
     .maybeSingle();
 
   if (error || profile?.activo !== true) {
-    return { view: false, editFicha: false, editDocuments: false };
+    return { view: false, editFicha: false, editDocuments: false, primary: false };
   }
   if (profile.tipo_usuario === 'administrador_principal') {
-    return { view: true, editFicha: true, editDocuments: true };
+    return { view: true, editFicha: true, editDocuments: true, primary: true };
   }
 
   const history = profile.permisos?.historico || {};
@@ -110,7 +110,22 @@ async function getHistoryAccess() {
     view,
     editFicha: hotel.editar === true || history.editar === true,
     editDocuments: hotel.editar === true || documentation.editar === true,
+    primary: false,
   };
+}
+
+function requestId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `a74-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+async function annulGeneratedHotelNote(registroId, stage) {
+  const { error } = await supabase.rpc('anular_anotacion_generada_hotel_alpha74', {
+    p_registro_id: registroId,
+    p_etapa_id: stage.id,
+    p_request_id: requestId(),
+  });
+  if (error) throw new Error(`No se pudo anular la anotación generada: ${error.message}`);
 }
 
 async function loadHistoryRelations(rows) {
@@ -147,6 +162,21 @@ async function loadHistoryRelations(rows) {
     notesByTracking.set(note.seguimiento_id, list);
   });
 
+  const cancellationResults = await Promise.all(chunks(trackingIds).map(ids => supabase
+    .from('anotaciones_generadas_hotel_anuladas')
+    .select('seguimiento_id,etapa_seguimiento_id,anulada_en')
+    .in('seguimiento_id', ids)));
+  const cancellationError = cancellationResults.find(result => result.error)?.error;
+  if (cancellationError) {
+    throw new Error(`No se pudieron cargar las anotaciones generadas anuladas: ${cancellationError.message}`);
+  }
+  const generatedCancellationsByTracking = new Map();
+  cancellationResults.flatMap(result => result.data || []).forEach(item => {
+    const list = generatedCancellationsByTracking.get(item.seguimiento_id) || [];
+    list.push(item);
+    generatedCancellationsByTracking.set(item.seguimiento_id, list);
+  });
+
   const groupIds = [...new Set(stages.map(stage => stage.grupo_documental_id).filter(Boolean))];
   const documentMaps = await Promise.all(chunks(groupIds).map(loadDocumentsForGroups));
   const documentsByGroup = new Map(groupIds.map(id => [id, []]));
@@ -154,7 +184,7 @@ async function loadHistoryRelations(rows) {
     documentsByGroup.set(groupId, documents);
   }));
 
-  return { stagesByRecord, notesByTracking, documentsByGroup };
+  return { stagesByRecord, notesByTracking, generatedCancellationsByTracking, documentsByGroup };
 }
 
 async function showHistoryRows(container, rows, access, {
@@ -177,7 +207,7 @@ async function showHistoryRows(container, rows, access, {
     return;
   }
 
-  const { stagesByRecord, notesByTracking, documentsByGroup } = relations;
+  const { stagesByRecord, notesByTracking, generatedCancellationsByTracking, documentsByGroup } = relations;
   clear(resultHost);
   if (searchTerm) {
     resultHost.append(notice(
@@ -210,7 +240,20 @@ async function showHistoryRows(container, rows, access, {
   (rows || []).forEach(row => {
     const rowStages = stagesByRecord.get(row.id) || [];
     const rowNotes = notesByTracking.get(row.seguimiento_id) || [];
-    const card = renderHistoricalCard(row, rowStages, documentsByGroup, rowNotes, access, reload);
+    const rowGeneratedCancellations = generatedCancellationsByTracking.get(row.seguimiento_id) || [];
+    const card = renderHistoricalCard(
+      row,
+      rowStages,
+      documentsByGroup,
+      rowNotes,
+      rowGeneratedCancellations,
+      access,
+      reload,
+      access.primary ? async (registroId, stage) => {
+        await annulGeneratedHotelNote(registroId, stage);
+        await reload();
+      } : null
+    );
     if (searchTerm) {
       card.prepend(element('div', {
         className: 'badge',

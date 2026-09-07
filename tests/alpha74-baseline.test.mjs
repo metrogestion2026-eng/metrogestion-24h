@@ -34,6 +34,8 @@ const alpha74Changes = new Set([
   path.join('src', 'hotel-card.js'),
   path.join('src', 'hotel-native.js'),
   path.join('src', 'panel-native.js'),
+  path.join('src', 'history-card.js'),
+  path.join('src', 'history-native.js'),
 ]);
 
 for (const file of files73) {

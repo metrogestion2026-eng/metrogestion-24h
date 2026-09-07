@@ -100,7 +100,16 @@ function renderHistoricalStage(stage, documentsByGroup, canEditDocuments, onDocu
   return host;
 }
 
-export function renderHistoricalCard(row, stages, documentsByGroup, manualNotes, access, onSaved) {
+export function renderHistoricalCard(
+  row,
+  stages,
+  documentsByGroup,
+  manualNotes,
+  generatedCancellations,
+  access,
+  onSaved,
+  onAnnulGeneratedNote
+) {
   const flags = [];
   if (row.retirado_hotel_activo) flags.push('Retirado del Hotel activo');
   if (row.cancelado) {
@@ -137,7 +146,12 @@ export function renderHistoricalCard(row, stages, documentsByGroup, manualNotes,
     ])
   );
 
-  const chronology = renderAnnotationsChronology(stages, manualNotes, row.observaciones);
+  const chronology = renderAnnotationsChronology(stages, manualNotes, row.observaciones, {
+    generatedCancellations,
+    onAnnulGenerated: typeof onAnnulGeneratedNote === 'function'
+      ? stage => onAnnulGeneratedNote(row.id, stage)
+      : null,
+  });
   if (chronology) card.append(chronology);
 
   card.append(createSubstitutionBilling(row, { allowManual: false }));

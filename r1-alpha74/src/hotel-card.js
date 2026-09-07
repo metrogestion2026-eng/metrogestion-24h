@@ -170,9 +170,11 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
   canEditDocuments,
   canAddNotes,
   canManageNotes,
+  generatedCancellations,
   onAddNote,
   onEditNote,
   onDeleteNote,
+  onAnnulGeneratedNote,
   onOpenEditor,
 }) {
   const badges = element('div', { className: 'hotel-card-badges' }, [
@@ -215,11 +217,15 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
   );
 
   const chronology = renderAnnotationsChronology(stages, manualNotes, row.observaciones, {
+    generatedCancellations,
     onEdit: canManageNotes && typeof onEditNote === 'function'
       ? note => onEditNote(row.id, note)
       : null,
     onDelete: canManageNotes && typeof onDeleteNote === 'function'
       ? note => onDeleteNote(row.id, note)
+      : null,
+    onAnnulGenerated: canManageNotes && typeof onAnnulGeneratedNote === 'function'
+      ? stage => onAnnulGeneratedNote(row.id, stage)
       : null,
   });
   if (chronology) card.append(chronology);

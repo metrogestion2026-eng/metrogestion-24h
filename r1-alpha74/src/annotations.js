@@ -28,10 +28,16 @@ function completedStages(stages) {
   return [...unique.values()];
 }
 
-function chronologyEvents(stages, notes, legacyText) {
-  const automatic = completedStages(stages).map(stage => ({
+function chronologyEvents(stages, notes, legacyText, generatedCancellations = []) {
+  const cancelledStageTrackings = new Set((generatedCancellations || [])
+    .map(item => item.etapa_seguimiento_id)
+    .filter(Boolean));
+  const automatic = completedStages(stages)
+    .filter(stage => !cancelledStageTrackings.has(stage.seguimiento_id || stage.id))
+    .map(stage => ({
     id: `stage-${stage.seguimiento_id || stage.id}`,
     type: 'automatic',
+    stage,
     date: stage.fecha_real || stage.fecha_fin_real || stage.fecha_inicio_real || stage.actualizado_en,
     position: Number(stage.posicion || 0),
     title: `${stage.posicion ?? '—'}T · ${stage.nombre || 'T sin nombre'}`,
@@ -41,7 +47,7 @@ function chronologyEvents(stages, notes, legacyText) {
       'Paso realizado',
     ].filter(Boolean).join(' · '),
     text: stage.observaciones || '',
-  }));
+    }));
 
   let manual = (notes || []).filter(note => !note.cancelada).map(note => ({
     id: `note-${note.id}`,
@@ -102,8 +108,8 @@ function renderAnnotationActions(note, { onEdit, onDelete }) {
   const deleteButton = element('button', {
     className: 'button secondary compact danger',
     type: 'button',
-    text: 'Eliminar',
-    title: 'Retirar la anotación de la ficha conservándola en auditoría',
+    text: 'Anular',
+    title: 'Anular la anotación conservándola en auditoría',
   });
   const saveButton = element('button', {
     className: 'button primary compact',
@@ -174,7 +180,7 @@ function renderAnnotationActions(note, { onEdit, onDelete }) {
   });
   deleteButton.addEventListener('click', async () => {
     const confirmed = window.confirm(
-      '¿Eliminar esta anotación de la ficha? Seguirá conservada en la auditoría.'
+      '¿Anular esta anotación? Dejará de mostrarse, pero seguirá conservada en la auditoría.'
     );
     if (!confirmed) return;
     editButton.disabled = true;
@@ -191,8 +197,38 @@ function renderAnnotationActions(note, { onEdit, onDelete }) {
   return element('div', { className: 'a74-note-manage' }, [actions, form, status]);
 }
 
+function renderGeneratedAnnotationAction(stage, onAnnulGenerated) {
+  const status = element('small', { className: 'a74-note-manage-status', text: '' });
+  status.setAttribute('aria-live', 'polite');
+  const button = element('button', {
+    className: 'button secondary compact danger',
+    type: 'button',
+    text: 'Anular anotación generada',
+    title: 'Oculta esta línea automática sin cancelar ni modificar la T',
+  });
+  button.addEventListener('click', async () => {
+    const confirmed = window.confirm(
+      '¿Anular esta anotación generada? La T realizada seguirá intacta y la anulación quedará registrada.'
+    );
+    if (!confirmed) return;
+    button.disabled = true;
+    status.textContent = 'Anulando anotación…';
+    try {
+      await onAnnulGenerated({ id: stage.id, seguimiento_id: stage.seguimiento_id });
+    } catch (error) {
+      status.textContent = error?.message || 'No se pudo anular la anotación generada.';
+      status.className = 'a74-note-manage-status is-error';
+      button.disabled = false;
+    }
+  });
+  return element('div', { className: 'a74-note-manage' }, [
+    element('div', { className: 'a74-note-manage-actions' }, [button]),
+    status,
+  ]);
+}
+
 export function renderAnnotationsChronology(stages, notes, legacyText = '', options = {}) {
-  const events = chronologyEvents(stages, notes, legacyText);
+  const events = chronologyEvents(stages, notes, legacyText, options.generatedCancellations);
   if (!events.length) return null;
 
   const list = element('ol', { className: 'a72-chronology-list' });
@@ -210,6 +246,11 @@ export function renderAnnotationsChronology(stages, notes, legacyText = '', opti
           && typeof options.onEdit === 'function'
           && typeof options.onDelete === 'function'
           ? renderAnnotationActions(event.note, options)
+          : null,
+        event.type === 'automatic'
+          && event.stage?.id
+          && typeof options.onAnnulGenerated === 'function'
+          ? renderGeneratedAnnotationAction(event.stage, options.onAnnulGenerated)
           : null,
       ]),
     ]));
