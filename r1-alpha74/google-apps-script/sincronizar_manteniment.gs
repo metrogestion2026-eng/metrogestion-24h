@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.06.16',
+  scriptVersion: 'alpha74-2026.09.07.17',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -380,6 +380,7 @@ function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityB
       taller: row[5],
       tipo_trabajo: row[6],
       designacion: row[7],
+      marca_equipo: row[16],
       fecha_necesidad: fechaNecesidad,
       fecha_realizada: fechaRealizada,
       fecha_recogida: metrogestionFechaIso_(row[10], `de recogida de la fila ${index + 1}`),
