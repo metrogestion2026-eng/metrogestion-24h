@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.07.19',
+  scriptVersion: 'alpha74-2026.09.07.20',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -185,7 +185,7 @@ function metrogestionEjecutarSincronizacion_(modo) {
     const filterState = commands.length ? metrogestionSuspenderFiltro_(sheet) : null;
     let confirmations;
     try {
-      confirmations = metrogestionAplicarComandos_(sheet, commands, sheetState);
+      confirmations = metrogestionAplicarComandos_(sheet, commands, sheetState, trabajos);
     } finally {
       metrogestionRestaurarFiltro_(sheet, filterState);
     }
@@ -441,7 +441,7 @@ function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityB
   return result;
 }
 
-function metrogestionAplicarComandos_(sheet, commands, sheetState) {
+function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks) {
   return commands.map(command => {
     if (command?.tipo === 'alta') return metrogestionAplicarComandoAlta_(sheet, command, sheetState);
     const payload = command?.payload || {};
@@ -456,7 +456,8 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState) {
       sheet,
       Array.isArray(payload.trabajos_asignados) ? payload.trabajos_asignados : [],
       payload.numero_parada,
-      sheetState
+      sheetState,
+      currentWorks
     );
     return {
       tipo: 'parada',
@@ -523,6 +524,29 @@ function metrogestionBuscarFilaTrabajo_(sheet, assignment, usedRows, sheetState)
   return completedMatches[0];
 }
 
+function metrogestionIdentidadClaveTrabajo_(key) {
+  const parts = String(key || '').split('|');
+  return parts.length === 6 ? [parts[0], parts[1], parts[4], parts[5]].join('|') : '';
+}
+
+function metrogestionTrabajoActual_(assignment, currentWorks) {
+  const works = Array.isArray(currentWorks) ? currentWorks : [];
+  const expectedKey = String(assignment?.clave_fila || '').trim();
+  const exact = works.find(work => String(work?.clave_fila || '').trim() === expectedKey);
+  if (exact) return exact;
+  const identity = metrogestionIdentidadClaveTrabajo_(expectedKey);
+  if (!identity) return null;
+  const matches = works.filter(work =>
+    metrogestionIdentidadClaveTrabajo_(work?.clave_fila) === identity
+  );
+  if (!matches.length) return null;
+  const requested = Number(assignment?.fila || 0);
+  matches.sort((a, b) =>
+    Math.abs(Number(a?.fila || 0) - requested) - Math.abs(Number(b?.fila || 0) - requested)
+  );
+  return matches[0];
+}
+
 function metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState) {
   const lastRow = sheetState?.values?.length || sheet.getLastRow();
   const notes = sheetState?.notesE
@@ -534,7 +558,7 @@ function metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState) {
   return matches;
 }
 
-function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroParada, sheetState) {
+function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroParada, sheetState, currentWorks) {
   if (!assignments.length) return 0;
   const expectedStop = metrogestionNormalizar_(numeroParada).replace(/^PA-/, '');
   if (!expectedStop) throw new Error('No se pueden vincular T sin número de actuación.');
@@ -545,9 +569,18 @@ function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroPara
     // Una orden pendiente puede conservar la clave y el número de fila que
     // tenía cuando se creó. La nota técnica es la identidad estable: si el
     // trabajo ya está vinculado a esta parada, se omite sin tocar el histórico.
-    const requested = Number(assignment?.fila || 0);
-    const expectedKey = String(assignment?.clave_fila || '').trim();
+    const originalRequested = Number(assignment?.fila || 0);
+    const originalExpectedKey = String(assignment?.clave_fila || '').trim();
     const linkedRows = metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState);
+    const currentWork = metrogestionTrabajoActual_(assignment, currentWorks);
+    // Si ya no existe en la fotografía actual y tampoco conserva nota técnica,
+    // la necesidad dejó de estar pendiente. La orden antigua se confirma sin
+    // escribir sobre otra fila ni volver a crearla.
+    if (!linkedRows.length && !currentWork) {
+      return { rowNumber: 0, syncId, alreadyLinked: true, noLongerPending: true };
+    }
+    const requested = Number(currentWork?.fila || originalRequested);
+    const expectedKey = String(currentWork?.clave_fila || originalExpectedKey).trim();
     // Un mismo trabajo puede proceder de varias filas/bloques de MANTENIMENT.
     // Compartir METROGESTION_T es válido siempre que todas pertenezcan a la
     // misma parada. Se escoge primero su fila original, después su clave y por
@@ -572,7 +605,12 @@ function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroPara
       .sort((a, b) => Math.abs(a - requested) - Math.abs(b - requested) || a - b)[0]
       || 0;
     const rowNumber = linkedRow
-      || metrogestionBuscarFilaTrabajo_(sheet, assignment, usedRows, sheetState);
+      || metrogestionBuscarFilaTrabajo_(
+        sheet,
+        { ...assignment, fila: requested, clave_fila: expectedKey },
+        usedRows,
+        sheetState
+      );
     usedRows.add(rowNumber);
     const currentStopValue = sheetState?.values?.[rowNumber - 1]?.[4]
       ?? sheet.getRange(rowNumber, 5).getDisplayValue();
