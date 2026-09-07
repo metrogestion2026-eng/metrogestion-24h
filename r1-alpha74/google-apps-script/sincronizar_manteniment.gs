@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.07.18',
+  scriptVersion: 'alpha74-2026.09.07.19',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -476,6 +476,15 @@ function metrogestionNotaConTrabajo_(note, syncId) {
   return lines.join('\n');
 }
 
+function metrogestionCoincideTrabajoRealizado_(row, expectedKey) {
+  const parts = String(expectedKey || '').split('|');
+  if (parts.length !== 6 || !String(row?.[9] || '').trim()) return false;
+  return metrogestionNormalizar_(row[0]) === parts[0]
+    && metrogestionNormalizar_(row[1]) === parts[1]
+    && metrogestionNormalizar_(row[7]) === parts[4]
+    && metrogestionFechaIso_(row[8], 'de necesidad realizada') === parts[5];
+}
+
 function metrogestionBuscarFilaTrabajo_(sheet, assignment, usedRows, sheetState) {
   const lastRow = sheetState?.values?.length || sheet.getLastRow();
   const expectedKey = String(assignment?.clave_fila || '').trim();
@@ -484,6 +493,10 @@ function metrogestionBuscarFilaTrabajo_(sheet, assignment, usedRows, sheetState)
     const row = sheetState?.values?.[requested - 1]
       || sheet.getRange(requested, 1, 1, 17).getDisplayValues()[0];
     if (metrogestionClaveFilaTrabajo_(row) === expectedKey) return requested;
+    // Una necesidad ya realizada puede haber recibido F o G antes de que
+    // Metrogestión lograra grabar su nota técnica. Se reconoce por la identidad
+    // estable DFM + matrícula + H + fecha I, nunca solo por el número de fila.
+    if (metrogestionCoincideTrabajoRealizado_(row, expectedKey)) return requested;
   }
   const values = sheetState?.values?.slice(1)
     || sheet.getRange(2, 1, lastRow - 1, 17).getDisplayValues();
@@ -492,9 +505,22 @@ function metrogestionBuscarFilaTrabajo_(sheet, assignment, usedRows, sheetState)
     const rowNumber = index + 2;
     if (!usedRows.has(rowNumber) && metrogestionClaveFilaTrabajo_(row) === expectedKey) matches.push(rowNumber);
   });
-  if (!matches.length) throw new Error(`No se localiza la necesidad procedente de la fila ${requested || 'desconocida'}.`);
-  matches.sort((a, b) => Math.abs(a - requested) - Math.abs(b - requested) || a - b);
-  return matches[0];
+  if (matches.length) {
+    matches.sort((a, b) => Math.abs(a - requested) - Math.abs(b - requested) || a - b);
+    return matches[0];
+  }
+  const completedMatches = [];
+  values.forEach((row, index) => {
+    const rowNumber = index + 2;
+    if (!usedRows.has(rowNumber) && metrogestionCoincideTrabajoRealizado_(row, expectedKey)) {
+      completedMatches.push(rowNumber);
+    }
+  });
+  if (!completedMatches.length) {
+    throw new Error(`No se localiza la necesidad procedente de la fila ${requested || 'desconocida'}.`);
+  }
+  completedMatches.sort((a, b) => Math.abs(a - requested) - Math.abs(b - requested) || a - b);
+  return completedMatches[0];
 }
 
 function metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState) {
