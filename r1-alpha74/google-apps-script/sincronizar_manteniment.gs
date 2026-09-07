@@ -460,7 +460,7 @@ function metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState) {
 function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroParada, sheetState) {
   if (!assignments.length) return 0;
   const expectedStop = metrogestionNormalizar_(numeroParada).replace(/^PA-/, '');
-  if (!expectedStop) throw new Error('No se pueden vincular T sin número de parada.');
+  if (!expectedStop) throw new Error('No se pueden vincular T sin número de actuación.');
   const usedRows = new Set();
   const planned = assignments.map(assignment => {
     const syncId = String(assignment?.trabajo_sync_id || '').trim();
@@ -480,7 +480,7 @@ function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroPara
         ?? sheet.getRange(linkedRowNumber, 5).getDisplayValue();
       const linkedStop = metrogestionNormalizar_(linkedStopValue).replace(/^PA-/, '');
       if (linkedStop && linkedStop !== expectedStop) {
-        throw new Error(`El trabajo vinculado de la fila ${linkedRowNumber} pertenece a otra parada. No se ha reasignado.`);
+        throw new Error(`El trabajo vinculado de la fila ${linkedRowNumber} pertenece a otra actuación. No se ha reasignado.`);
       }
     });
     const linkedRow = (
@@ -501,7 +501,7 @@ function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroPara
       ?? sheet.getRange(rowNumber, 5).getDisplayValue();
     const currentStop = metrogestionNormalizar_(currentStopValue).replace(/^PA-/, '');
     if (currentStop && currentStop !== expectedStop) {
-      throw new Error(`La fila ${rowNumber} ya pertenece a otra parada. No se ha reasignado.`);
+      throw new Error(`La fila ${rowNumber} ya pertenece a otra actuación. No se ha reasignado.`);
     }
     return { rowNumber, syncId, alreadyLinked: Boolean(linkedRow) };
   });
@@ -676,7 +676,7 @@ function metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState) {
   if (candidates.length === 1) return candidates[0].rowNumber;
 
   throw new Error(
-    `La parada ${payload.numero_parada} del DFM ${payload.dfm} mantiene varias filas igualmente válidas; no se ha creado ni modificado ninguna.`
+    `La actuación ${payload.numero_parada} del DFM ${payload.dfm} mantiene varias filas igualmente válidas; no se ha creado ni modificado ninguna.`
   );
 }
 

@@ -44,7 +44,7 @@ function identityConfirmation(identity) {
     'Vas a guardar SOLO esta ficha:',
     '',
     `Vehículo: ${identity.vehiculo_sustituido || '—'}`,
-    `Parada: ${identity.numero_parada || '—'}`,
+    `Actuación: ${identity.numero_parada || '—'}`,
     `Reserva: ${identity.vehiculo_reserva || 'sin reserva'}`,
     '',
     'Comprueba que no sea otra ficha que haya usado la misma reserva.'
@@ -224,7 +224,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
   }, [
     element('p', { className: 'editor-identity-eyebrow', text: 'FICHA QUE SE VA A GUARDAR' }),
     element('strong', {
-      text: `${loadedIdentity.vehiculo_sustituido || 'Vehículo sin indicar'} · parada ${loadedIdentity.numero_parada || 'sin número'}`
+      text: `${loadedIdentity.vehiculo_sustituido || 'Vehículo sin indicar'} · actuación ${loadedIdentity.numero_parada || 'sin número'}`
     }),
     element('span', { text: `Reserva ${loadedIdentity.vehiculo_reserva || 'no asignada'}` }),
     element('small', { text: 'La reserva puede reutilizarse y no identifica por sí sola una ficha.' })

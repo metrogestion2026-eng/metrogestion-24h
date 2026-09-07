@@ -300,7 +300,7 @@ async function renderHotelNative(container, access) {
 
     const searchInput = element('input', {
       type: 'search',
-      placeholder: 'DFM, matrícula, nº de parada, sustituto, INC, lugar, T…',
+      placeholder: 'DFM, matrícula, n.º de actuación, sustituto, INC, lugar, T…',
       autocomplete: 'off',
       spellcheck: 'false',
       'aria-label': 'Buscar una ficha en la pizarra',
