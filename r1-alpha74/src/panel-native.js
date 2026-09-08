@@ -350,10 +350,10 @@ function panelOwnsContent() {
     && content.firstElementChild?.matches?.('.a52-panel');
 }
 
-function panelRenderIsCurrent(sequence, root) {
+function panelRenderIsCurrent(sequence, visibleRoot) {
   return sequence === renderSequence
     && panelOwnsContent()
-    && content.firstElementChild === root;
+    && content.firstElementChild === visibleRoot;
 }
 
 function startAutoRefresh() {
@@ -364,7 +364,8 @@ function startAutoRefresh() {
       stopAutoRefresh();
       return;
     }
-    if (!document.hidden && !document.querySelector('.hotel-editor-overlay')) {
+    const detailOpen = content.querySelector('.a52-detail:not([hidden])');
+    if (!document.hidden && !document.querySelector('.hotel-editor-overlay') && !detailOpen) {
       renderPanel({ automatic: true });
     }
   }, REFRESH_MS);
@@ -444,8 +445,12 @@ async function renderPanel({ automatic = false } = {}) {
   }
   const sequence = ++renderSequence;
   stopAutoRefresh();
+  const previousRoot = automatic ? content.firstElementChild : null;
+  const visibleRoot = previousRoot || null;
+  const previousUpdated = previousRoot?.querySelector?.('.a52-updated');
   content.dataset[PANEL_FLAG] = '1';
-  content.replaceChildren();
+  if (!automatic) content.replaceChildren();
+  else if (previousUpdated) previousUpdated.textContent = 'Actualizando en segundo plano…';
 
   const root = el('section', null, 'a52-panel');
   const head = el('div', null, 'a52-panel-head');
@@ -460,11 +465,13 @@ async function renderPanel({ automatic = false } = {}) {
   head.append(copy, actions);
   const loading = el('div', 'Consultando Hotel, reservas, 24H, T, facturación, contratos, usuarios y MANTENIMENT…', 'a52-loading');
   root.append(head, loading);
-  content.append(root);
+  if (!automatic) content.append(root);
+
+  const renderedRoot = visibleRoot || root;
 
   try {
     const profile = await currentProfile();
-    if (!panelRenderIsCurrent(sequence, root)) return;
+    if (!panelRenderIsCurrent(sequence, renderedRoot)) return;
     if (!moduleAccess(profile, 'resumen').view) throw new Error('Tu usuario no tiene acceso al Panel.');
 
     const admin = isPrimaryAdmin(profile);
@@ -497,7 +504,7 @@ async function renderPanel({ automatic = false } = {}) {
       ? await readQuery('T programadas', supabase.from('etapas_hotel').select('id,registro_hotel_id,nombre,posicion,estado,tipo_etapa,lugar,fecha_prevista,fecha_inicio_real,fecha_fin_real,fecha_real,cancelado').in('registro_hotel_id', hotelIds).eq('cancelado', false).order('fecha_prevista', { ascending: true, nullsFirst: false }))
       : { label: 'T programadas', data: [], error: null, skipped: !canHotel };
 
-    if (!panelRenderIsCurrent(sequence, root)) return;
+    if (!panelRenderIsCurrent(sequence, renderedRoot)) return;
 
     const results = [hotelResult, reservesResult, incidentsResult, vehiclesResult, periodsResult, dfmBillingResult, rBillingResult, substitutionsResult, usersResult, devicesResult, mantenimentOrdersResult, stagesResult];
     const errors = results.filter(result => result.error).map(result => `${result.label}: ${result.error.message || result.error}`);
@@ -821,9 +828,18 @@ async function renderPanel({ automatic = false } = {}) {
     }
 
     root.append(el('div', `Panel consultado por ${profileName(profile)}. Los cambios se realizan en el módulo de origen y el Panel los vuelve a leer.`, 'a52-footnote'));
+    if (automatic) {
+      if (!panelRenderIsCurrent(sequence, renderedRoot)) return;
+      content.replaceChildren(root);
+    }
     startAutoRefresh();
   } catch (error) {
-    if (!panelRenderIsCurrent(sequence, root)) return;
+    if (!panelRenderIsCurrent(sequence, renderedRoot)) return;
+    if (automatic) {
+      if (previousUpdated) previousUpdated.textContent = 'No se pudo actualizar · se conserva el Panel';
+      startAutoRefresh();
+      return;
+    }
     loading.className = 'a52-error';
     loading.textContent = `No se pudo cargar el Panel: ${error?.message || 'error desconocido'}`;
     updated.textContent = 'Sin actualizar';
@@ -859,7 +875,8 @@ if (content) {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && panelOwnsContent() && Date.now() - lastLoadedAt > REFRESH_MS) {
+  const detailOpen = content?.querySelector?.('.a52-detail:not([hidden])');
+  if (!document.hidden && panelOwnsContent() && !detailOpen && Date.now() - lastLoadedAt > REFRESH_MS) {
     renderPanel({ automatic: true });
   }
 });
