@@ -53,3 +53,10 @@ Distribución: **no asignada a usuarios**. Alpha74 no sustituirá a Alpha73 sin 
 - Si la ficha se anula, H cambia a `ANULADA` con fondo rosa pastel y la fila se conserva como histórico.
 - Una fila anulada deja de enviar fechas, días, kilómetros o TANCAMENT a Metrogestión.
 - La identidad A-E, G y O continúa gobernada y restaurada por Metrogestión.
+# Estados Trámite y Gestión en Operativa
+
+- En una ficha del Hotel, abre `2. Situación operativa` y despliega `Estado`: deben aparecer `Trámite` y `Gestión`.
+- Guarda una ficha con cada uno de los nuevos estados y vuelve a abrirla: debe conservar el valor elegido.
+- En la pizarra del Hotel deben aparecer los filtros `Trámites` y `Gestiones`, cada uno con su contador.
+- En `Panel > Operativa ahora` deben aparecer también los contadores `Trámites` y `Gestiones`.
+- En Histórico, el estado debe mostrarse con tilde y nombre legible, no como el código interno.
