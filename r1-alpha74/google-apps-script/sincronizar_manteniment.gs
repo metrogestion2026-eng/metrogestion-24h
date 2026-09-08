@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.08.25',
+  scriptVersion: 'alpha74-2026.09.08.26',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -464,7 +464,8 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
       Array.isArray(payload.trabajos_asignados) ? payload.trabajos_asignados : [],
       payload.numero_parada,
       sheetState,
-      currentWorks
+      currentWorks,
+      payload.reversion_t || null
     );
     return {
       tipo: 'parada',
@@ -584,7 +585,14 @@ function metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState) {
   return matches;
 }
 
-function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroParada, sheetState, currentWorks) {
+function metrogestionAplicarAsignacionesTrabajos_(
+  sheet,
+  assignments,
+  numeroParada,
+  sheetState,
+  currentWorks,
+  reversion
+) {
   if (!assignments.length) return 0;
   const expectedStop = metrogestionNormalizar_(numeroParada).replace(/^PA-/, '');
   if (!expectedStop) throw new Error('No se pueden vincular T sin número de actuación.');
@@ -688,21 +696,41 @@ function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroPara
   // Las fechas reales de las T gobiernan J/K en todas las líneas de trabajo
   // vinculadas a la misma visita. Una recogida confirmada colorea A:Q para que
   // la necesidad quede visualmente cerrada y no vuelva a tratarse como pendiente.
+  // Si la T se reabre, el mismo vínculo técnico permite deshacer exactamente
+  // J o K sin depender de que la fila siga apareciendo entre las necesidades.
+  const reversalIds = new Set(
+    (Array.isArray(reversion?.trabajo_sync_ids) ? reversion.trabajo_sync_ids : [])
+      .map(value => String(value || '').trim().toLowerCase())
+      .filter(Boolean)
+  );
   planned.forEach((item, index) => {
     if (!item.rowNumber) return;
     const assignment = assignments[index] || {};
     const fechaEntradaIso = String(assignment.fecha_entrada || '').trim();
     const fechaSalidaIso = String(assignment.fecha_salida || '').trim();
     const cached = sheetState?.values?.[item.rowNumber - 1];
+    const revertThisWork = reversalIds.has(item.syncId.toLowerCase());
 
-    if (fechaEntradaIso) {
+    if (revertThisWork && reversion?.limpiar_fecha_entrada === true) {
+      sheet.getRange(item.rowNumber, 10).clearContent().setNumberFormat('dd/MM/yyyy');
+      if (cached) cached[9] = '';
+    }
+
+    if (revertThisWork && reversion?.limpiar_fecha_salida === true) {
+      sheet.getRange(item.rowNumber, 11).clearContent().setNumberFormat('dd/MM/yyyy');
+      sheet.getRange(item.rowNumber, 1, 1, 17).setBackground('#ffffff');
+      sheet.getRange(item.rowNumber, 5).setBackground('#cfe2f3');
+      if (cached) cached[10] = '';
+    }
+
+    if (fechaEntradaIso && !(revertThisWork && reversion?.limpiar_fecha_entrada === true)) {
       const currentEntry = String(cached?.[9] ?? sheet.getRange(item.rowNumber, 10).getDisplayValue()).trim();
       if (!currentEntry) sheet.getRange(item.rowNumber, 10).setValue(metrogestionDate_(fechaEntradaIso));
       sheet.getRange(item.rowNumber, 10).setNumberFormat('dd/MM/yyyy');
       if (cached) cached[9] = fechaEntradaIso;
     }
 
-    if (fechaSalidaIso) {
+    if (fechaSalidaIso && !(revertThisWork && reversion?.limpiar_fecha_salida === true)) {
       const currentExit = String(cached?.[10] ?? sheet.getRange(item.rowNumber, 11).getDisplayValue()).trim();
       if (!currentExit) sheet.getRange(item.rowNumber, 11).setValue(metrogestionDate_(fechaSalidaIso));
       sheet.getRange(item.rowNumber, 11).setNumberFormat('dd/MM/yyyy');
@@ -949,7 +977,10 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
       sheetState?.values?.[rowNumber - 1]?.[10]
       ?? sheet.getRange(rowNumber, 11).getDisplayValue()
     ).trim();
-    if (fechaKIso && !fechaKActual) {
+    if (payload.reversion_t?.limpiar_k_parada === true) {
+      sheet.getRange(rowNumber, 11).clearContent();
+      if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][10] = '';
+    } else if (fechaKIso && !fechaKActual) {
       sheet.getRange(rowNumber, 11).setValue(metrogestionDate_(fechaKIso));
       if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][10] = fechaKIso;
     }

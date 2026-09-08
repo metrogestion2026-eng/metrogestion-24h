@@ -3,6 +3,7 @@ import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/h
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
 import { createOperationalDates, createSubstitutionBilling } from './card-operational.js';
 import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
+import { createStageReopenControl } from './stage-reopen.js';
 import { renderAnnotationsChronology, renderQuickAnnotationComposer } from './annotations.js';
 import {
   STATE_LABELS,
@@ -90,6 +91,7 @@ function renderStage(stage, documentsByGroup, canEditDocuments, onDocumentsChang
 
   // Control nativo de la propia T. Solo se renderiza para el administrador principal.
   content.append(createQuickStageControl(stage));
+  content.append(createStageReopenControl(stage));
 
   content.append(createStageDocuments(stage, {
     canEdit: canEditDocuments,
