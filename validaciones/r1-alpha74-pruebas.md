@@ -60,3 +60,10 @@ Distribución: **no asignada a usuarios**. Alpha74 no sustituirá a Alpha73 sin 
 - En la pizarra del Hotel deben aparecer los filtros `Trámites` y `Gestiones`, cada uno con su contador.
 - En `Panel > Operativa ahora` deben aparecer también los contadores `Trámites` y `Gestiones`.
 - En Histórico, el estado debe mostrarse con tilde y nombre legible, no como el código interno.
+
+## Refresco estable del Panel
+
+- Deja abierto el Panel durante más de un minuto: debe permanecer visible mientras se actualiza en segundo plano.
+- Abre el detalle de uno de sus contadores y déjalo abierto: el refresco automático no debe cerrarlo.
+- Si falla una consulta automática, el Panel anterior debe conservarse y mostrar el aviso `No se pudo actualizar · se conserva el Panel`.
+- El botón `Actualizar` debe seguir permitiendo una recarga manual completa.
