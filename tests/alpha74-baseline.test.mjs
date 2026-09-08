@@ -19,7 +19,7 @@ async function filesUnder(directory, relative = '') {
 
 const files73 = await filesUnder(alpha73);
 const files74 = await filesUnder(alpha74);
-const expectedExtra = ['annotation-management.css'];
+const expectedExtra = ['annotation-management.css', path.join('src', 'stage-reopen.js')];
 assert.deepEqual(
   files74.filter(file => !expectedExtra.includes(file)),
   files73,
@@ -29,6 +29,8 @@ assert.deepEqual(
 const alpha74Changes = new Set([
   'VERSION',
   'index.html',
+  path.join('google-apps-script', 'README.md'),
+  path.join('google-apps-script', 'sincronizar_manteniment.gs'),
   path.join('src', 'annotations.js'),
   path.join('src', 'app.js'),
   path.join('src', 'hotel-card.js'),
@@ -36,6 +38,11 @@ const alpha74Changes = new Set([
   path.join('src', 'panel-native.js'),
   path.join('src', 'history-card.js'),
   path.join('src', 'history-native.js'),
+  path.join('src', 'history-search.js'),
+  path.join('src', 'hotel-create.js'),
+  path.join('src', 'hotel-editor-main.js'),
+  path.join('src', 'hotel-editor.js'),
+  path.join('src', 'reservas-create.js'),
 ]);
 
 for (const file of files73) {
@@ -47,10 +54,10 @@ for (const file of files73) {
   assert.deepEqual(content74, content73, `El archivo heredado ${file} debe permanecer idéntico`);
 }
 
-assert.equal((await readFile(path.join(alpha74, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.74');
+assert.equal((await readFile(path.join(alpha74, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.74.1');
 assert.match(
   await readFile(path.join(alpha74, 'src', 'app.js'), 'utf8'),
-  /const VERSION = 'r1\.0\.0-alpha\.74';/
+  /const VERSION = 'r1\.0\.0-alpha\.74\.1';/
 );
 
 console.log('Alpha74: herencia protegida de Alpha73 e identidad de versión verificadas.');

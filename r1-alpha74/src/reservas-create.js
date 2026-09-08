@@ -248,7 +248,7 @@ function appendResolvedHistory(card, rows) {
     title.textContent = row.pendiente_texto || row.pendiente_codigo || 'Pendiente';
     const trace = document.createElement('span');
     const stage = `${row.etapa_posicion || '—'}T · ${clean(row.etapa_nombre) || 'T realizada'}`;
-    const stop = row.numero_parada ? ` · parada ${row.numero_parada}` : '';
+    const stop = row.numero_parada ? ` · actuación ${row.numero_parada}` : '';
     trace.textContent = `${stage}${stop} · ${formatResolvedDate(row.resuelto_en)}`;
     item.append(title, trace);
     list.append(item);

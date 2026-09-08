@@ -1,18 +1,41 @@
-# MANTENIMENT ↔ Metrogestión · Alpha71
+# MANTENIMENT ↔ Metrogestión · Alpha74
 
 Este script sustituye el contenido del proyecto de Google Apps Script vinculado al archivo madre **MANTENIMIENTOS**.
 
 ## Qué sincroniza
 
 - Solo usa la hoja `MANTENIMENT` del archivo madre configurado.
-- Las filas `ALTA` viajan de Google a Supabase.
-- Las altas, ediciones y bajas realizadas en **Activos** vuelven a la misma fila de Google; las bajas se conservan como `BAJA` y nunca borran el histórico.
+- Las filas `ALTA` mantienen el comportamiento bidireccional existente entre Google y Supabase.
+- Las bajas se conservan como `BAJA` y nunca borran el histórico.
 - La columna I se interpreta como **fecha de matriculación**.
 - La columna J se interpreta como **fecha de alta en delegación**.
 - Las fichas nuevas de Hotel crean o actualizan una fila `PARADA` identificada mediante una nota técnica en la celda A.
 - Solo las filas `PARADA` creadas por Metrogestión pueden volver desde Google a su ficha. Las filas históricas sin identificador no se importan automáticamente.
+- En las filas `PARADA` vinculadas, **MANTENIMENT gobierna I, J, K, L, P y Q**: fechas, días, kilómetros y TANCAMENT.
+- **Metrogestión protege A-E, G y O**: DFM, matrícula, tipo, UPC, número de actuación, sustituto y marca. Los cambios de esas columnas se ignoran al importar y la orden siguiente restaura los valores de la ficha.
+- La columna E conserva su enlace de Drive cuando el número de actuación protegido no ha cambiado.
+
+## Taller F automático para semirremolques R
+
+Si F está vacío, Metrogestión lo completa al importar sin modificar la hoja:
+
+- GESTIÓN → `UPC`.
+- MANTENIMIENTO + H=`BPW` → `DIRECAUTO`.
+- MANTENIMIENTO + H=`MCD` + Q=`THERMO KING` → `FRIGICOLL`.
+- MANTENIMIENTO + H=`MCD` + Q=`CARRIER` → `FRIDIEL`.
+- TRÁMITE + H=`ITV` → `APPLUS (RED DE ITV)`.
+- TRÁMITE + H=`TMG` o `ATP` → `INVERYCA`.
+- TRÁMITE + H=`EXTINTOR` → `UPC`.
+
+Un valor escrito en F siempre tiene prioridad. REPARACIÓN no infiere taller.
 - `TANCAMENT n` utiliza la fecha K como corte de facturación y no como recuperación operativa.
 - La celda Q permanece rosa pastel mientras el cierre no esté supervisado.
+- En las necesidades predictivas, el fondo de la columna H es autoritativo:
+  **blanco significa pendiente**; cualquier otro color no crea una T nueva.
+- Los trabajos que comparten taller en F se agrupan dentro de una sola visita:
+  una T de entrada, todos sus trabajos y una T de recogida.
+- Una H diferente en el mismo taller crea otro trabajo dentro de la visita,
+  no otra T. `GESTIÓN` y `TRÁMITE` sí conservan una T propia.
 
 ## Instalación
 
