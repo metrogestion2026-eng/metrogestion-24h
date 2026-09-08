@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.07.24',
+  scriptVersion: 'alpha74-2026.09.08.25',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -670,7 +670,7 @@ function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroPara
     return { rowNumber, syncId, alreadyLinked: Boolean(linkedRow) };
   });
 
-  planned.filter(item => !item.alreadyLinked).forEach(({ rowNumber, syncId }) => {
+  planned.filter(item => !item.alreadyLinked && item.rowNumber).forEach(({ rowNumber, syncId }) => {
     const cell = sheet.getRange(rowNumber, 5);
     const currentValue = sheetState?.values?.[rowNumber - 1]?.[4]
       ?? cell.getDisplayValue();
@@ -684,6 +684,33 @@ function metrogestionAplicarAsignacionesTrabajos_(sheet, assignments, numeroPara
     if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][4] = numeroParada;
     if (sheetState?.notesE) sheetState.notesE[rowNumber - 1] = nextNote;
   });
+
+  // Las fechas reales de las T gobiernan J/K en todas las líneas de trabajo
+  // vinculadas a la misma visita. Una recogida confirmada colorea A:Q para que
+  // la necesidad quede visualmente cerrada y no vuelva a tratarse como pendiente.
+  planned.forEach((item, index) => {
+    if (!item.rowNumber) return;
+    const assignment = assignments[index] || {};
+    const fechaEntradaIso = String(assignment.fecha_entrada || '').trim();
+    const fechaSalidaIso = String(assignment.fecha_salida || '').trim();
+    const cached = sheetState?.values?.[item.rowNumber - 1];
+
+    if (fechaEntradaIso) {
+      const currentEntry = String(cached?.[9] ?? sheet.getRange(item.rowNumber, 10).getDisplayValue()).trim();
+      if (!currentEntry) sheet.getRange(item.rowNumber, 10).setValue(metrogestionDate_(fechaEntradaIso));
+      sheet.getRange(item.rowNumber, 10).setNumberFormat('dd/MM/yyyy');
+      if (cached) cached[9] = fechaEntradaIso;
+    }
+
+    if (fechaSalidaIso) {
+      const currentExit = String(cached?.[10] ?? sheet.getRange(item.rowNumber, 11).getDisplayValue()).trim();
+      if (!currentExit) sheet.getRange(item.rowNumber, 11).setValue(metrogestionDate_(fechaSalidaIso));
+      sheet.getRange(item.rowNumber, 11).setNumberFormat('dd/MM/yyyy');
+      sheet.getRange(item.rowNumber, 1, 1, 17).setBackground('#d9ead3');
+      if (cached) cached[10] = fechaSalidaIso;
+    }
+  });
+
   return planned.filter(item => !item.alreadyLinked).length;
 }
 
@@ -902,7 +929,8 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     range.setValues([row]);
   } else {
     // Metrogestión protege la identidad (A-E, G y O) y el marcador PARADA (H).
-    // MANTENIMENT gobierna I-K, L, P y Q, por lo que nunca se reescriben aquí.
+    // MANTENIMENT sigue gobernando I, J, L, P y Q. Al realizar la T final de
+    // recuperación, Metrogestión completa K en la fila PARADA si aún está vacía.
     sheet.getRange(rowNumber, 1, 1, 4).setValues([[
       payload.dfm || '',
       payload.matricula || '',
@@ -915,6 +943,16 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     if (paradaActual !== paradaEsperada) sheet.getRange(rowNumber, 5).setValue(paradaEsperada);
     sheet.getRange(rowNumber, 7, 1, 2).setValues([[payload.sustituto || '', estado]]);
     sheet.getRange(rowNumber, 15).setValue(payload.marca || '');
+
+    const fechaKIso = String(payload.fecha_k || '').trim();
+    const fechaKActual = String(
+      sheetState?.values?.[rowNumber - 1]?.[10]
+      ?? sheet.getRange(rowNumber, 11).getDisplayValue()
+    ).trim();
+    if (fechaKIso && !fechaKActual) {
+      sheet.getRange(rowNumber, 11).setValue(metrogestionDate_(fechaKIso));
+      if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][10] = fechaKIso;
+    }
   }
   sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
   sheet.getRange(rowNumber, 12).setNumberFormat('0');
