@@ -6,6 +6,7 @@ import { createOperationalDates, createSubstitutionBilling } from './card-operat
 import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
 import { createStageReopenControl } from './stage-reopen.js';
 import { renderAnnotationsChronology } from './annotations.js';
+import { STATE_LABELS } from '../../r1-alpha53/src/hotel-utils.js';
 
 export function formatDateTime(value) {
   if (!value) return '—';
@@ -135,7 +136,7 @@ export function renderHistoricalCard(
     ]),
     createOperationalDates(row, stages),
     element('div', { className: 'detail-grid' }, [
-      detail('Estado', row.estado),
+      detail('Estado', STATE_LABELS[row.estado] || row.estado),
       detail('Modalidad operativa', row.modalidad_operativa_nombre || row.modalidad_operativa || 'Flujo normal'),
       detail('Reserva', row.reserva),
       detail('Prioridad', row.prioridad),

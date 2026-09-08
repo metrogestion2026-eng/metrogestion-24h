@@ -50,6 +50,8 @@ function stateLabel(value) {
     planificado: 'Pendiente de parar',
     pendiente_taller: 'Pendiente de taller',
     asistencia_24h: 'Asistencia 24H activa',
+    tramite: 'Trámite',
+    gestion: 'Gestión',
     pendiente_diagnostico: 'Pendiente de diagnóstico',
     pendiente_autorizacion: 'Pendiente de autorización',
     en_taller: 'En taller',
@@ -507,6 +509,8 @@ async function renderPanel({ automatic = false } = {}) {
 
     const planned = hotelRows.filter(row => row.estado === 'planificado');
     const pendingWorkshop = hotelRows.filter(row => row.estado === 'pendiente_taller');
+    const procedures = hotelRows.filter(row => row.estado === 'tramite');
+    const management = hotelRows.filter(row => row.estado === 'gestion');
     const inWorkshop = hotelRows.filter(row => ['en_taller', 'pendiente_diagnostico', 'pendiente_autorizacion', 'pendiente_repuestos'].includes(row.estado));
     const pendingPickup = hotelRows.filter(row => row.estado === 'terminado_pendiente_recogida');
     const pendingRecover = hotelRows.filter(row => row.estado === 'recogido_pendiente_ruta');
@@ -662,6 +666,8 @@ async function renderPanel({ automatic = false } = {}) {
       { label: 'Fichas activas', value: hotelRows.length, hint: 'Toda la pizarra', tone: 'main', detail: { title: 'Fichas activas', items: hotelRows.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel', exportable: true } },
       { label: 'Pendientes de parar', value: planned.length, tone: 'yellow', detail: { title: 'Pendientes de parar', items: planned.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Pendientes de taller', value: pendingWorkshop.length, tone: 'neutral', detail: { title: 'Pendientes de taller', items: pendingWorkshop.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
+      { label: 'Trámites', value: procedures.length, tone: 'neutral', detail: { title: 'Trámites', items: procedures.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
+      { label: 'Gestiones', value: management.length, tone: 'neutral', detail: { title: 'Gestiones', items: management.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'En taller', value: inWorkshop.length, tone: 'lilac', detail: { title: 'En taller', items: inWorkshop.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Pendientes de recoger', value: pendingPickup.length, tone: 'blue', detail: { title: 'Pendientes de recoger', items: pendingPickup.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Pendientes de recuperar', value: pendingRecover.length, tone: 'orange', detail: { title: 'Pendientes de recuperar', items: pendingRecover.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
