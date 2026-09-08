@@ -30,7 +30,7 @@ function ensureStyle() {
   const style = document.createElement('style');
   style.id = 'alpha74-stage-reopen-style';
   style.textContent = `
-    .a74-reopen-host{margin-top:10px}.a74-reopen-panel{display:grid;gap:8px;padding:10px 11px;border:1px solid #fca5a5;border-radius:11px;background:#fff7f7}.a74-reopen-title{color:#7f1d1d}.a74-reopen-reason{width:100%;min-height:64px;resize:vertical}.a74-reopen-button{justify-self:start;min-width:230px}.a74-reopen-button.a74-reopen-armed{border-color:#dc2626;background:#dc2626;color:#fff;font-weight:800}.a74-reopen-button.a74-reopen-saving{border-color:#94a3b8;background:#e2e8f0;color:#334155}.a74-reopen-help{font-size:.86rem;color:#6b4b4b}.a74-reopen-status{padding:8px 9px;border-radius:8px;background:#fff1f2;color:#9f1239;font-size:.88rem}.a74-reopen-status.success{background:#f0fdf4;color:#166534}
+    .a74-reopen-host{margin-top:8px}.a74-reopen-disclosure{width:max-content;max-width:100%}.a74-reopen-toggle{display:inline-flex;align-items:center;cursor:pointer;list-style:none}.a74-reopen-toggle::-webkit-details-marker{display:none}.a74-reopen-disclosure[open]{width:100%}.a74-reopen-disclosure[open]>.a74-reopen-toggle{margin-bottom:8px}.a74-reopen-panel{display:grid;gap:8px;padding:10px 11px;border:1px solid #cbd5e1;border-radius:11px;background:#f8fafc}.a74-reopen-reason{width:100%;min-height:64px;resize:vertical}.a74-reopen-button{justify-self:start;min-width:230px}.a74-reopen-button.a74-reopen-armed{border-color:#dc2626;background:#dc2626;color:#fff;font-weight:800}.a74-reopen-button.a74-reopen-saving{border-color:#94a3b8;background:#e2e8f0;color:#334155}.a74-reopen-help{font-size:.86rem;color:#64748b}.a74-reopen-status{padding:8px 9px;border-radius:8px;background:#fff1f2;color:#9f1239;font-size:.88rem}.a74-reopen-status.success{background:#f0fdf4;color:#166534}
     @media(max-width:720px){.a74-reopen-button{width:100%;justify-self:stretch}}
   `;
   document.head.append(style);
@@ -73,8 +73,10 @@ function refreshActiveModule() {
 }
 
 function renderPanel(root, stage) {
+  const disclosure = el('details', null, 'a74-reopen-disclosure');
+  const toggle = el('summary', '↶ Deshacer realizada', 'button secondary compact a74-reopen-toggle');
+  toggle.title = 'Abre las opciones para devolver esta T a Pendiente';
   const panel = el('section', null, 'a74-reopen-panel');
-  const title = el('strong', '↶ Reabrir T (deshacer realizada)', 'a74-reopen-title');
   const reason = el('textarea', null, 'a74-reopen-reason');
   reason.placeholder = 'Motivo obligatorio: por qué no se pudo realizar…';
   reason.maxLength = 500;
@@ -200,8 +202,9 @@ function renderPanel(root, stage) {
     confirm();
   });
 
-  panel.append(title, reason, button, help, status);
-  root.append(panel);
+  panel.append(reason, button, help, status);
+  disclosure.append(toggle, panel);
+  root.append(disclosure);
 }
 
 export function createStageReopenControl(stage) {
@@ -237,4 +240,3 @@ export function createStageReopenControl(stage) {
 supabase.auth.onAuthStateChange(() => {
   primaryAdminPromise = null;
 });
-

@@ -67,3 +67,10 @@ Distribución: **no asignada a usuarios**. Alpha74 no sustituirá a Alpha73 sin 
 - Abre el detalle de uno de sus contadores y déjalo abierto: el refresco automático no debe cerrarlo.
 - Si falla una consulta automática, el Panel anterior debe conservarse y mostrar el aviso `No se pudo actualizar · se conserva el Panel`.
 - El botón `Actualizar` debe seguir permitiendo una recarga manual completa.
+
+## Reapertura compacta de una T realizada
+
+- Cada T realizada debe mostrar únicamente el botón discreto `Deshacer realizada`.
+- Al pulsarlo se despliegan el motivo obligatorio, la preparación y la explicación auditada.
+- Al cerrar el desplegable, la T vuelve a ocupar solo el espacio habitual.
+- El color rojo se reserva para la confirmación final o los avisos, no para el estado normal de una T realizada.
