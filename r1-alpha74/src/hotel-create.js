@@ -162,7 +162,7 @@ export async function openHotelCreate({ onSaved } = {}) {
     cancelButton.disabled = true;
     closeButton.disabled = true;
     status.className = 'hotel-editor-status';
-    status.textContent = 'Creando ficha y T, asignando número de parada y registrando auditoría…';
+    status.textContent = 'Creando ficha y T, asignando número de actuación y registrando auditoría…';
 
     const saveRequestId = requestId();
     const { data, error } = await supabase.rpc('crear_ficha_hotel_con_etapas_alpha72', {
@@ -185,7 +185,7 @@ export async function openHotelCreate({ onSaved } = {}) {
     status.className = 'hotel-editor-status success';
     const stageCount = Number(data.etapas_guardadas || 0);
     const workCount = Number(data.trabajos_guardados || 0);
-    status.textContent = `✓ Ficha creada con ${stageCount} T y ${workCount} trabajo${workCount === 1 ? '' : 's'}. Parada ${data.numero_parada || 'asignada'} · referencia ${data.request_id}.`;
+    status.textContent = `✓ Ficha creada con ${stageCount} T y ${workCount} trabajo${workCount === 1 ? '' : 's'}. Actuación ${data.numero_parada || 'asignada'} · referencia ${data.request_id}.`;
     await onSaved?.();
     setTimeout(() => close(true), 1200);
   });
@@ -195,7 +195,7 @@ export async function openHotelCreate({ onSaved } = {}) {
     sections[1],
     annotationsSection,
     stagesSection,
-    element('p', { className: 'muted', text: 'La ficha y todas sus T se crearán juntas en la pizarra actual. El número de parada se asigna siempre automáticamente, aunque la fecha real de parada sea anterior. Al finalizar, la ficha se conserva en Histórico.' }),
+    element('p', { className: 'muted', text: 'La ficha y todas sus T se crearán juntas en la pizarra actual. El número de actuación se asigna siempre automáticamente, aunque la fecha real de parada sea anterior. Al finalizar, la ficha se conserva en Histórico.' }),
     errorsHost,
     element('div', { className: 'editor-footer-actions' }, [createButton, cancelButton])
   );

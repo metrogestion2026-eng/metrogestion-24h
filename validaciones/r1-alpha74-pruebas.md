@@ -9,8 +9,21 @@ Distribución: **no asignada a usuarios**. Alpha74 no sustituirá a Alpha73 sin 
 ## Punto de partida
 
 - Copia funcional de Alpha73 en el momento de su cierre.
-- Identificador visible actualizado a `r1.0.0-alpha.74`.
+- Identificador visible actualizado a `r1.0.0-alpha.74.1`.
 - Alpha73 no se modifica.
+
+## Reabrir una T realizada
+
+- El administrador principal dispone de «Reabrir T (deshacer realizada)» en las T realizadas de la Pizarra actual.
+- La operación exige motivo y dos pulsaciones; la segunda se habilita tras 650 ms y caduca a los 5 segundos.
+- La T no se elimina: vuelve a `pendiente` o `programada` y conserva usuario, fecha, motivo y contador de reaperturas.
+- Si existe una T posterior realizada, se bloquea la operación y se exige reabrir de la última a la primera.
+- Al reabrir una entrada a taller se borra la fecha J de sus trabajos vinculados en la siguiente sincronización.
+- Al reabrir una recogida se borra K y se retira el fondo verde A:Q, conservando E azul como vínculo de la actuación.
+- Al reabrir la recuperación se borra K de la fila PARADA y la ficha recupera el estado que tenía antes del cierre.
+- Los pendientes de reserva resueltos por la T vuelven a la reserva y se cierran otra vez si la T se realiza de nuevo.
+- La reversión se transmite por el mismo `sync_id`, sin duplicar PARADA ni líneas de trabajo.
+- Las pruebas de entrada, recogida, recuperación y bloqueo por orden se ejecutaron dentro de transacciones con `ROLLBACK`.
 
 ## Gestión directa de anotaciones
 
@@ -30,3 +43,13 @@ Distribución: **no asignada a usuarios**. Alpha74 no sustituirá a Alpha73 sin 
 - La consulta exige usuario activo, sesión Auth vigente, dispositivo autorizado y rol de administrador principal.
 - No expone el payload, el token, el identificador de sincronización ni el texto interno de posibles errores.
 - Los demás usuarios no ejecutan la consulta ni ven la sección.
+
+## PARADA al asignar número y anulación trazable
+
+- Al asignarse el número de parada se encola inmediatamente una única fila `PARADA`, aunque J siga vacía porque todavía sea una propuesta pendiente de parar.
+- La columna I nace con la fecha de propuesta del día en que Metrogestión genera el número; J continúa vacía hasta la parada real.
+- La misma fila queda vinculada por `sync_id`; reintentos y cambios actualizan esa fila y no crean duplicados.
+- Si una fila histórica aún no tiene `sync_id`, solo se adopta por coincidencia exacta de DFM y número de parada; una coincidencia múltiple se bloquea sin escribir.
+- Si la ficha se anula, H cambia a `ANULADA` con fondo rosa pastel y la fila se conserva como histórico.
+- Una fila anulada deja de enviar fechas, días, kilómetros o TANCAMENT a Metrogestión.
+- La identidad A-E, G y O continúa gobernada y restaurada por Metrogestión.

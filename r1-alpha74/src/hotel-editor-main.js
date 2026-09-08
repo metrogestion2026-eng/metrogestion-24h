@@ -30,7 +30,7 @@ export function renderMainSections(detail, markDirty) {
   const identificationGrid = element('div', { className: 'editor-grid' });
   const controls = {};
   const fields = [
-    ['Nº de parada', 'numero_parada'], ['Vehículo sustituido', 'vehiculo_sustituido'],
+    ['N.º de actuación', 'numero_parada'], ['Vehículo sustituido', 'vehiculo_sustituido'],
     ['Matrícula sustituido', 'matricula_sustituido'],
   ];
   for (const [label, key] of fields) {
@@ -202,7 +202,7 @@ export function renderMainSections(detail, markDirty) {
   });
   const historyHelp = element('p', {
     className: 'muted',
-    text: 'Al finalizar, la ficha sale del Hotel activo pero conserva el número de parada, sus T, documentos y fechas en Histórico.'
+    text: 'Al finalizar, la ficha sale del Hotel activo pero conserva el número de actuación, sus T, documentos y fechas en Histórico.'
   });
   editorControls.append(temp.label, tempBox, retired.label, cancelled.label, cancellationBox, syncTitle, syncGrid, supervised.label, syncHelp, historyHelp);
   refresh();

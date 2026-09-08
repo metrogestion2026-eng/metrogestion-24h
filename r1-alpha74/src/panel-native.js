@@ -159,7 +159,7 @@ function hotelItem(row, latestByHotel) {
   const latestStage = latestByHotel.get(row.id);
   return {
     title: vehicleTitle(row),
-    meta: `${row.numero_parada || 'Sin nº de parada'} · ${stateLabel(row.estado)} · Prioridad ${row.prioridad ?? '—'}`,
+    meta: `${row.numero_parada || 'Sin n.º de actuación'} · ${stateLabel(row.estado)} · Prioridad ${row.prioridad ?? '—'}`,
     lastStage: latestStage
       ? `Última T realizada: ${formatDateTime(latestStage.completedAt)} · ${latestStage.posicion || '—'}T ${latestStage.nombre || 'T sin nombre'}`
       : 'Última T realizada: ninguna registrada',
@@ -303,7 +303,7 @@ function mantenimentOrderItem(row) {
   const vehicle = row.dfm || '—';
   const plate = row.matricula && row.matricula !== '—' ? ` · ${row.matricula}` : '';
   return {
-    title: `${vehicle}${plate} · parada ${row.numero_parada || '—'}`,
+    title: `${vehicle}${plate} · actuación ${row.numero_parada || '—'}`,
     meta: `${row.accion || 'Sincronizar fila PARADA'} · revisión ${row.revision || 1}`,
     note: row.con_error
       ? `Con incidencia comunicada · actualizada ${formatDateTime(row.actualizado_en)}`

@@ -40,7 +40,7 @@ function ensureStatus(resultHost, cardsHost) {
 
 function applyHistorySearch(input = searchInput()) {
   if (!input || !content) return;
-  input.placeholder = 'DFM, matrícula, parada, reserva, INC, T o documento';
+  input.placeholder = 'DFM, matrícula, actuación, reserva, INC, T o documento';
   const cardsHost = content.querySelector('[data-history-cards]');
   const resultHost = cardsHost?.closest('[data-history-results]');
   if (!cardsHost || !resultHost) return;
