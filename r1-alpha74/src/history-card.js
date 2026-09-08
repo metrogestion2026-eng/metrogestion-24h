@@ -4,6 +4,7 @@ import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/h
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
 import { createOperationalDates, createSubstitutionBilling } from './card-operational.js';
 import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
+import { createStageReopenControl } from './stage-reopen.js';
 import { renderAnnotationsChronology } from './annotations.js';
 
 export function formatDateTime(value) {
@@ -87,6 +88,7 @@ function renderHistoricalStage(stage, documentsByGroup, canEditDocuments, onDocu
   // En Histórico no se permite marcar una T como realizada, pero sí completar
   // una T que se cerró rápidamente desde la Pizarra actual.
   host.append(createQuickStageControl(stage, { historical: true }));
+  host.append(createStageReopenControl(stage));
 
   host.append(createStageDocuments(stage, {
     canEdit: canEditDocuments,
