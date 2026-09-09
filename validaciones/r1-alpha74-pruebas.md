@@ -74,3 +74,12 @@ Distribución: **no asignada a usuarios**. Alpha74 no sustituirá a Alpha73 sin 
 - Al pulsarlo se despliegan el motivo obligatorio, la preparación y la explicación auditada.
 - Al cerrar el desplegable, la T vuelve a ocupar solo el espacio habitual.
 - El color rojo se reserva para la confirmación final o los avisos, no para el estado normal de una T realizada.
+
+## Pendientes 30d dentro de T pendientes
+
+- La navegación debe mostrar `T pendientes` en lugar de `T programadas`.
+- Dentro de la pestaña deben aparecer `Todas pendientes`, `Pendientes 30d`, `Vencidas`, `Sin fecha` y `En curso`.
+- `Pendientes 30d` incluye únicamente unidades R con fecha entre hoy y los próximos 30 días; no mezcla DFM. Las anteriores aparecen en `Vencidas`.
+- Los filtros disponibles son `ITV`, `Averías`, `Mantenimientos`, `Extintores`, `Trámites` y `Otros`.
+- Una T con varios trabajos de MANTENIMENT aparece una sola vez y conserva el acceso a su ficha completa.
+- Las T realizadas o anuladas no aparecen; si una T realizada se reabre, vuelve a entrar automáticamente.
