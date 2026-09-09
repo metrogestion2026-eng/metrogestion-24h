@@ -15,7 +15,7 @@ assert.match(moduleSource, /\['AVERIA', 'Averías'\]/);
 assert.match(moduleSource, /\['MANTENIMIENTO', 'Mantenimientos'\]/);
 assert.match(moduleSource, /\['EXTINTOR', 'Extintores'\]/);
 assert.match(moduleSource, /\['TRAMITE', 'Trámites'\]/);
-assert.match(moduleSource, /new Map\(\(data \|\| \[\]\)[\s\S]*?\.map\(row => \[row\.etapa_id, row\]\)/);
+assert.match(moduleSource, /new Map\(\(hotelResult\.data \|\| \[\]\)[\s\S]*?\.map\(row => \[row\.etapa_id, \{ \.\.\.row, source: 'hotel' \}\]\)/);
 assert.match(moduleSource, /openStageDetail\(\{/);
 
 assert.match(migration, /create or replace function app_private\.listar_t_pendientes_30d_alpha74\(\)/i);
