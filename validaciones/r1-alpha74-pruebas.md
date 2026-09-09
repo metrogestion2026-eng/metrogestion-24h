@@ -90,3 +90,9 @@ Distribución: **no asignada a usuarios**. Alpha74 no sustituirá a Alpha73 sin 
 - `LKT` y `EXTINTOR` se clasifican como `TRÁMITE` aunque F esté rellenada.
 - Cada `LKT` o `EXTINTOR` conserva una sola T propia, sin duplicados y sin recogida.
 - Al guardar o reconciliar manualmente una ficha, las recogidas excluidas no vuelven a crearse.
+
+## Gestión en Tipo de T
+
+- El selector `Tipo de T` muestra `GESTIÓN` junto a `TRÁMITE`.
+- Una T de tipo `GESTIÓN` se puede crear y editar con el guardado habitual.
+- `GESTIÓN` no implica entrada en taller ni genera una T de recogida.
