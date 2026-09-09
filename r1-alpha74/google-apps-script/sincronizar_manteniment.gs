@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.08.26',
+  scriptVersion: 'alpha74-2026.09.09.27',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -403,9 +403,9 @@ function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityB
     const row = values[index];
     const dfm = metrogestionNormalizar_(row[0]);
     const designacion = metrogestionNormalizar_(row[7]);
-    // Alpha74 se está implantando primero para las unidades R. Las unidades
-    // DFM se incorporarán cuando estén definidas sus reglas de F/G/H.
-    if (!dfm.startsWith('R')) continue;
+    // Alpha74 admite tanto semirremolques R como tractoras y rígidos DFM.
+    // Una línea sin unidad identificable no puede crear una actuación segura.
+    if (!dfm) continue;
     if (!designacion || ignored.has(designacion) || !String(row[8] || '').trim()) continue;
     const trabajoSyncId = metrogestionNotaTrabajoId_(workNotes[index]?.[0]);
     const numeroParada = String(row[4] || '').trim();
@@ -437,6 +437,7 @@ function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityB
       taller: row[5],
       tipo_trabajo: row[6],
       designacion: row[7],
+      marca_vehiculo: row[14],
       marca_equipo: row[16],
       fecha_necesidad: fechaNecesidad,
       fecha_realizada: fechaRealizada,

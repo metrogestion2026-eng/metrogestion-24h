@@ -6,6 +6,6 @@ import './reservas-create.js';
 import './activos.js';
 import './pending-stages.js';
 
-const VERSION = 'r1.0.0-alpha.74.8';
+const VERSION = 'r1.0.0-alpha.74.9';
 const versionNode = document.querySelector('#app-version');
 if (versionNode) versionNode.textContent = VERSION;
