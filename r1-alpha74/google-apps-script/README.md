@@ -15,7 +15,7 @@ Este script sustituye el contenido del proyecto de Google Apps Script vinculado 
 - **Metrogestión protege A-E, G y O**: DFM, matrícula, tipo, UPC, número de actuación, sustituto y marca. Los cambios de esas columnas se ignoran al importar y la orden siguiente restaura los valores de la ficha.
 - La columna E conserva su enlace de Drive cuando el número de actuación protegido no ha cambiado.
 
-## Taller F automático para semirremolques R
+## Taller F automático para R y DFM
 
 Si F está vacío, Metrogestión lo completa al importar sin modificar la hoja:
 
@@ -24,8 +24,19 @@ Si F está vacío, Metrogestión lo completa al importar sin modificar la hoja:
 - MANTENIMIENTO + H=`MCD` + Q=`THERMO KING` → `FRIGICOLL`.
 - MANTENIMIENTO + H=`MCD` + Q=`CARRIER` → `FRIDIEL`.
 - TRÁMITE + H=`ITV` → `APPLUS (RED DE ITV)`.
+- TRÁMITE + H=`RT` → `AUTODIS`.
 - TRÁMITE + H=`TMG` o `ATP` → `INVERYCA`.
 - TRÁMITE + H=`EXTINTOR` → `UPC`.
+
+Para los DFM, si F está vacío y H=`MCD` o H=`AV`, la marca de O asigna el taller:
+
+- `MERCEDES` → `STERN MOTOR`.
+- `IVECO` → `AUTO DISTRIBUCIÓN`.
+- `MAN` → `MAN`.
+- `VOLVO` → `VOLVO`.
+
+Si O no permite identificar exactamente una de estas cuatro marcas, el taller
+queda vacío para revisión manual.
 
 Un valor escrito en F tiene prioridad salvo en `TRÁMITE` y `GESTIÓN`, donde manda G.
 `LKT` y `EXTINTOR` se consideran siempre `TRÁMITE`. REPARACIÓN no infiere taller.
@@ -33,6 +44,7 @@ Un valor escrito en F tiene prioridad salvo en `TRÁMITE` y `GESTIÓN`, donde ma
 - La celda Q permanece rosa pastel mientras el cierre no esté supervisado.
 - En las necesidades predictivas, el fondo de la columna H es autoritativo:
   **blanco significa pendiente**; cualquier otro color no crea una T nueva.
+- Las necesidades predictivas incluyen tanto unidades R como DFM.
 - Los trabajos que comparten taller en F se agrupan dentro de una sola visita:
   una T de entrada, todos sus trabajos y una T de recogida.
 - Una H diferente en el mismo taller crea otro trabajo dentro de la visita,
