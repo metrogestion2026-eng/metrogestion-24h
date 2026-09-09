@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.09.27',
+  scriptVersion: 'alpha74-2026.09.09.28',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -958,8 +958,9 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     range.setValues([row]);
   } else {
     // Metrogestión protege la identidad (A-E, G y O) y el marcador PARADA (H).
-    // MANTENIMENT sigue gobernando I, J, L, P y Q. Al realizar la T final de
-    // recuperación, Metrogestión completa K en la fila PARADA si aún está vacía.
+    // MANTENIMENT sigue gobernando I, J, L y P. Q conserva cualquier valor
+    // informado y Metrogestión solo completa el periodo actual si está vacío.
+    // Al realizar la T final de recuperación, también completa K si está vacía.
     sheet.getRange(rowNumber, 1, 1, 4).setValues([[
       payload.dfm || '',
       payload.matricula || '',
@@ -984,6 +985,18 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     } else if (fechaKIso && !fechaKActual) {
       sheet.getRange(rowNumber, 11).setValue(metrogestionDate_(fechaKIso));
       if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][10] = fechaKIso;
+    }
+
+    const tancamentEsperado = String(payload.tancament || '').trim();
+    const tancamentActual = String(
+      sheetState?.values?.[rowNumber - 1]?.[16]
+      ?? sheet.getRange(rowNumber, 17).getDisplayValue()
+    ).trim();
+    if (tancamentEsperado && !tancamentActual) {
+      sheet.getRange(rowNumber, 17).setValue(tancamentEsperado);
+      if (sheetState?.values?.[rowNumber - 1]) {
+        sheetState.values[rowNumber - 1][16] = tancamentEsperado;
+      }
     }
   }
   sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');

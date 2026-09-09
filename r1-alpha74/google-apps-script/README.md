@@ -11,7 +11,7 @@ Este script sustituye el contenido del proyecto de Google Apps Script vinculado 
 - La columna J se interpreta como **fecha de alta en delegación**.
 - Las fichas nuevas de Hotel crean o actualizan una fila `PARADA` identificada mediante una nota técnica en la celda A.
 - Solo las filas `PARADA` creadas por Metrogestión pueden volver desde Google a su ficha. Las filas históricas sin identificador no se importan automáticamente.
-- En las filas `PARADA` vinculadas, **MANTENIMENT gobierna I, J, K, L, P y Q**: fechas, días, kilómetros y TANCAMENT.
+- En las filas `PARADA` vinculadas, **MANTENIMENT gobierna I, J, K, L y P**. En Q conserva lo ya escrito; si está vacío, Metrogestión añade automáticamente el período abierto como `TANCAMENT n`.
 - **Metrogestión protege A-E, G y O**: DFM, matrícula, tipo, UPC, número de actuación, sustituto y marca. Los cambios de esas columnas se ignoran al importar y la orden siguiente restaura los valores de la ficha.
 - La columna E conserva su enlace de Drive cuando el número de actuación protegido no ha cambiado.
 
