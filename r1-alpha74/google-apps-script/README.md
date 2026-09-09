@@ -27,7 +27,8 @@ Si F está vacío, Metrogestión lo completa al importar sin modificar la hoja:
 - TRÁMITE + H=`TMG` o `ATP` → `INVERYCA`.
 - TRÁMITE + H=`EXTINTOR` → `UPC`.
 
-Un valor escrito en F siempre tiene prioridad. REPARACIÓN no infiere taller.
+Un valor escrito en F tiene prioridad salvo en `TRÁMITE` y `GESTIÓN`, donde manda G.
+`LKT` y `EXTINTOR` se consideran siempre `TRÁMITE`. REPARACIÓN no infiere taller.
 - `TANCAMENT n` utiliza la fecha K como corte de facturación y no como recuperación operativa.
 - La celda Q permanece rosa pastel mientras el cierre no esté supervisado.
 - En las necesidades predictivas, el fondo de la columna H es autoritativo:
@@ -36,6 +37,8 @@ Un valor escrito en F siempre tiene prioridad. REPARACIÓN no infiere taller.
   una T de entrada, todos sus trabajos y una T de recogida.
 - Una H diferente en el mismo taller crea otro trabajo dentro de la visita,
   no otra T. `GESTIÓN` y `TRÁMITE` sí conservan una T propia.
+- `TM` crea una entrada con sus trabajos, pero no crea T de recogida.
+- `LKT`, `EXTINTOR` y los demás `TRÁMITE` crean una sola T propia y nunca recogida.
 
 ## Instalación
 

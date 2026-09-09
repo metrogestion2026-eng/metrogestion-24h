@@ -83,3 +83,10 @@ Distribución: **no asignada a usuarios**. Alpha74 no sustituirá a Alpha73 sin 
 - Los filtros disponibles son `ITV`, `Averías`, `Mantenimientos`, `Extintores`, `Trámites` y `Otros`.
 - Una T con varios trabajos de MANTENIMENT aparece una sola vez y conserva el acceso a su ficha completa.
 - Las T realizadas o anuladas no aparecen; si una T realizada se reabre, vuelve a entrar automáticamente.
+
+## Trámites y TM sin recogida
+
+- Una necesidad con F=`TM` mantiene una T de entrada con sus trabajos, pero no genera `Recogida taller`.
+- `LKT` y `EXTINTOR` se clasifican como `TRÁMITE` aunque F esté rellenada.
+- Cada `LKT` o `EXTINTOR` conserva una sola T propia, sin duplicados y sin recogida.
+- Al guardar o reconciliar manualmente una ficha, las recogidas excluidas no vuelven a crearse.
