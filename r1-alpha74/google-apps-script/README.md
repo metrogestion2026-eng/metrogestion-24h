@@ -9,7 +9,7 @@ Este script sustituye el contenido del proyecto de Google Apps Script vinculado 
 - Las bajas se conservan como `BAJA` y nunca borran el histórico.
 - La columna I se interpreta como **fecha de matriculación**.
 - La columna J se interpreta como **fecha de alta en delegación**.
-- Las fichas nuevas de Hotel crean o actualizan una fila `PARADA` identificada mediante una nota técnica en la celda A.
+- Las fichas nuevas de Hotel solo crean o actualizan una fila `PARADA` cuando existe un sustituto real. TRÁMITE y GESTIÓN conservan su número de actuación sin crear esa fila.
 - Solo las filas `PARADA` creadas por Metrogestión pueden volver desde Google a su ficha. Las filas históricas sin identificador no se importan automáticamente.
 - En las filas `PARADA` vinculadas, **MANTENIMENT gobierna I, J, K, L y P**. En Q conserva lo ya escrito; si está vacío, Metrogestión añade automáticamente el período abierto como `TANCAMENT n`.
 - **Metrogestión protege A-E, G y O**: DFM, matrícula, tipo, UPC, número de actuación, sustituto y marca. Los cambios de esas columnas se ignoran al importar y la orden siguiente restaura los valores de la ficha.
@@ -51,6 +51,9 @@ Un valor escrito en F tiene prioridad salvo en `TRÁMITE` y `GESTIÓN`, donde ma
   no otra T. `GESTIÓN` y `TRÁMITE` sí conservan una T propia.
 - `TM` crea una entrada con sus trabajos, pero no crea T de recogida.
 - `LKT`, `EXTINTOR` y los demás `TRÁMITE` crean una sola T propia y nunca recogida.
+- `TRÁMITE` y `GESTIÓN` no generan entrada, recogida ni recuperación de ruta.
+- Al realizar una T administrativa, su fecha se escribe en J y K y la línea completa
+  queda verde, sin crear por ello una fila `PARADA`.
 
 ## Instalación
 

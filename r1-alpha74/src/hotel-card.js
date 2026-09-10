@@ -181,7 +181,10 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
 }) {
   const badges = element('div', { className: 'hotel-card-badges' }, [
     element('span', { className: 'badge', text: `Prioridad ${row.prioridad ?? '—'}` }),
-    element('span', { className: 'badge', text: STATE_LABELS[row.estado] || row.estado || 'Sin estado' }),
+    element('span', {
+      className: `badge hotel-status-badge${row.estado === 'terminado_pendiente_recogida' ? ' hotel-status-pickup' : ''}`,
+      text: STATE_LABELS[row.estado] || row.estado || 'Sin estado',
+    }),
     element('span', { className: 'badge', text: `Fondo ${row.fondo_visual || 'blanco'}` }),
     row.trazo_marron
       ? element('span', { className: 'badge hotel-brown-outline-badge', text: 'Trazo marrón' })

@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.09.28',
+  scriptVersion: 'alpha74-2026.09.10.30',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -455,6 +455,23 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
     const payload = command?.payload || {};
     const syncId = String(command?.sync_id || payload.sync_id || '').trim();
     if (!/^[0-9a-f-]{36}$/i.test(syncId)) throw new Error('Supabase devolvió una fila PARADA sin identificador válido.');
+    if (payload.solo_trabajos === true) {
+      const assignedWorks = metrogestionAplicarAsignacionesTrabajos_(
+        sheet,
+        Array.isArray(payload.trabajos_asignados) ? payload.trabajos_asignados : [],
+        payload.numero_parada,
+        sheetState,
+        currentWorks,
+        payload.reversion_t || null
+      );
+      return {
+        tipo: 'trabajos',
+        sync_id: syncId,
+        revision: Number(command.revision),
+        estado: 'aplicado',
+        trabajos_asignados: assignedWorks,
+      };
+    }
     let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, sheetState);
     if (!rowNumber) rowNumber = metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState);
     const nuevaFila = !rowNumber;
