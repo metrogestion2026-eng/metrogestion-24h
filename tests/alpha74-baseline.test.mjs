@@ -60,10 +60,10 @@ for (const file of files73) {
   assert.deepEqual(content74, content73, `El archivo heredado ${file} debe permanecer idéntico`);
 }
 
-assert.equal((await readFile(path.join(alpha74, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.74.13');
+assert.equal((await readFile(path.join(alpha74, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.74.14');
 assert.match(
   await readFile(path.join(alpha74, 'src', 'app.js'), 'utf8'),
-  /const VERSION = 'r1\.0\.0-alpha\.74\.13';/
+  /const VERSION = 'r1\.0\.0-alpha\.74\.14';/
 );
 
 console.log('Alpha74: herencia protegida de Alpha73 e identidad de versión verificadas.');
