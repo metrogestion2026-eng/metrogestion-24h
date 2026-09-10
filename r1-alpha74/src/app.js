@@ -7,6 +7,6 @@ import './activos.js';
 import './pending-stages.js';
 import './assistance-followup.js';
 
-const VERSION = 'r1.0.0-alpha.74.17';
+const VERSION = 'r1.0.0-alpha.74.18';
 const versionNode = document.querySelector('#app-version');
 if (versionNode) versionNode.textContent = VERSION;
