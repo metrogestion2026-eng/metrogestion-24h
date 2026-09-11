@@ -84,6 +84,8 @@ function openFollowup(row, card) {
   const grid = document.createElement('div');
   grid.className = 'a74-follow-grid';
 
+  const [activationDateLabel, activationDate] = field('Fecha real de activación', String(row.fecha_activacion || '').slice(0, 10), 'date');
+  const [activationTimeLabel, activationTime] = field('Hora real de activación', String(row.hora_activacion || '').slice(0, 5), 'time');
   const [arrivedLabel, arrived] = check('Técnico llegado', row.tecnico_llegado);
   const [arrivalLabel, arrival] = field('Hora real de llegada', String(row.hora_llegada || '').slice(0, 5), 'time');
   const [diagnosisCheckLabel, diagnosisCheck] = check('Diagnóstico confirmado', row.diagnostico_confirmado);
@@ -100,7 +102,7 @@ function openFollowup(row, card) {
   const [reasonLabel, reason] = field('Anotación del seguimiento', '', 'textarea');
   diagnosisLabel.classList.add('a74-follow-wide');
   reasonLabel.classList.add('a74-follow-wide');
-  grid.append(arrivedLabel, arrivalLabel, diagnosisCheckLabel, diagnosisLabel, resultLabel, workshopLabel, operationalLabel, finishLabel, reasonLabel);
+  grid.append(activationDateLabel, activationTimeLabel, arrivedLabel, arrivalLabel, diagnosisCheckLabel, diagnosisLabel, resultLabel, workshopLabel, operationalLabel, finishLabel, reasonLabel);
 
   const error = document.createElement('div');
   error.className = 'h24-status danger';
@@ -141,6 +143,8 @@ function openFollowup(row, card) {
       error.hidden = false;
     };
     error.hidden = true;
+    if (!activationDate.value) return fail('Indica la fecha real de activación.');
+    if (!activationTime.value) return fail('Indica la hora real de activación.');
     if (arrived.checked && !arrival.value) return fail('Indica la hora real de llegada del técnico.');
     if (diagnosisCheck.checked && !diagnosis.value.trim()) return fail('Escribe el diagnóstico confirmado.');
     if (result.value === 'trasladado_taller' && !workshop.value.trim()) return fail('Indica el taller al que lo lleva la grúa.');
@@ -153,6 +157,8 @@ function openFollowup(row, card) {
       matricula: row.matricula || '',
       averia: row.averia || 'Seguimiento de asistencia 24H',
       numero_caso: row.numero_caso || '',
+      fecha_activacion: activationDate.value,
+      hora_activacion: activationTime.value,
       eta_tecnico: String(row.eta_tecnico || '').slice(0, 5),
       proveedor: row.proveedor || '',
       tecnico_llegado: String(arrived.checked),
@@ -206,7 +212,7 @@ async function patchIncidentCards() {
   patching = true;
   try {
     const { data, error } = await supabase.from('activaciones_24h').select(
-      'id,dfm,matricula,averia,numero_caso,eta_tecnico,proveedor,tecnico_llegado,hora_llegada,diagnostico_confirmado,diagnostico,trasladado_taller,taller_traslado,estado_operativo_confirmado,hora_fin_reparacion,resultado,estado,creado_en'
+      'id,dfm,matricula,averia,numero_caso,fecha_activacion,hora_activacion,eta_tecnico,proveedor,tecnico_llegado,hora_llegada,diagnostico_confirmado,diagnostico,trasladado_taller,taller_traslado,estado_operativo_confirmado,hora_fin_reparacion,resultado,estado,creado_en'
     ).eq('estado', 'abierta').order('creado_en', { ascending: false });
     if (error) return;
     cards.forEach(card => {
