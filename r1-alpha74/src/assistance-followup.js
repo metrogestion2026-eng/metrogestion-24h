@@ -68,7 +68,12 @@ function identityFromCard(card) {
   };
 }
 
-function openFollowup(row, card) {
+function findFleetVehicle(fleet, value) {
+  const key = normalize(value).replace(/^DFM\s*/, '').split('·')[0].trim();
+  return fleet.find(vehicle => normalize(vehicle.dfm) === key) || null;
+}
+
+function openFollowup(row, card, fleet = []) {
   const overlay = document.createElement('div');
   overlay.className = 'a50-modal';
   overlay.setAttribute('role', 'dialog');
@@ -109,6 +114,14 @@ function openFollowup(row, card) {
   const [finishLabel, finish] = field('Hora de fin de reparación', String(row.hora_fin_reparacion || '').slice(0, 5), 'time');
   const [substituteDfmLabel, substituteDfm] = field('DFM del vehículo sustituto', row.vehiculo_sustituto || '');
   const [substitutePlateLabel, substitutePlate] = field('Matrícula del vehículo sustituto', row.matricula_sustituto || '');
+  const substituteList = document.createElement('datalist');
+  substituteList.id = `a74-substitute-fleet-${String(row.id || 'case').replace(/[^a-z0-9_-]/gi, '')}`;
+  fleet.forEach(vehicle => substituteList.append(new Option(
+    `${vehicle.matricula || 'Sin matrícula'} · ${vehicle.marca || ''}`,
+    String(vehicle.dfm || '')
+  )));
+  substituteDfm.setAttribute('list', substituteList.id);
+  substituteDfm.placeholder = 'Escribe el DFM completo';
   const [reasonLabel, reason] = field('Anotación del seguimiento', '', 'textarea');
   diagnosisLabel.classList.add('a74-follow-wide');
   reasonLabel.classList.add('a74-follow-wide');
@@ -128,7 +141,7 @@ function openFollowup(row, card) {
   save.className = 'button primary';
   save.textContent = 'Guardar seguimiento';
   actions.append(cancel, save);
-  modal.append(title, note, grid, error, actions);
+  modal.append(title, note, grid, substituteList, error, actions);
   overlay.append(modal);
   document.body.append(overlay);
 
@@ -144,6 +157,15 @@ function openFollowup(row, card) {
   };
   syncVisibility();
   result.onchange = syncVisibility;
+  const autofillSubstitute = () => {
+    const vehicle = findFleetVehicle(fleet, substituteDfm.value);
+    if (!vehicle) return;
+    substituteDfm.value = String(vehicle.dfm || '').trim();
+    substitutePlate.value = String(vehicle.matricula || '').trim().toUpperCase();
+  };
+  substituteDfm.addEventListener('input', autofillSubstitute);
+  substituteDfm.addEventListener('change', autofillSubstitute);
+  substituteDfm.addEventListener('blur', autofillSubstitute);
   cancel.onclick = () => overlay.remove();
   overlay.addEventListener('click', event => {
     if (event.target === overlay) overlay.remove();
@@ -227,10 +249,13 @@ async function patchIncidentCards() {
   if (!cards.length) return;
   patching = true;
   try {
-    const { data, error } = await supabase.from('activaciones_24h').select(
-      'id,dfm,matricula,averia,numero_caso,fecha_activacion,hora_activacion,eta_tecnico,proveedor,tecnico_llegado,hora_llegada,diagnostico_confirmado,diagnostico,trasladado_taller,taller_traslado,estado_operativo_confirmado,hora_fin_reparacion,estado_seguimiento,vehiculo_sustituto,matricula_sustituto,resultado,estado,creado_en'
-    ).eq('estado', 'abierta').order('creado_en', { ascending: false });
-    if (error) return;
+    const [{ data, error }, { data: fleet, error: fleetError }] = await Promise.all([
+      supabase.from('activaciones_24h').select(
+        'id,dfm,matricula,averia,numero_caso,fecha_activacion,hora_activacion,eta_tecnico,proveedor,tecnico_llegado,hora_llegada,diagnostico_confirmado,diagnostico,trasladado_taller,taller_traslado,estado_operativo_confirmado,hora_fin_reparacion,estado_seguimiento,vehiculo_sustituto,matricula_sustituto,resultado,estado,creado_en'
+      ).eq('estado', 'abierta').order('creado_en', { ascending: false }),
+      supabase.from('vehiculos').select('id,dfm,matricula,marca').eq('activo', true).order('dfm'),
+    ]);
+    if (error || fleetError) return;
     cards.forEach(card => {
       const identity = identityFromCard(card);
       const matches = (data || []).filter(row => normalize(row.dfm) === identity.dfm
@@ -244,7 +269,7 @@ async function patchIncidentCards() {
       button.onclick = event => {
         event.preventDefault();
         event.stopPropagation();
-        openFollowup(matches[0], card);
+        openFollowup(matches[0], card, fleet || []);
       };
       card.querySelector('.a50-actions')?.prepend(button);
     });
