@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.11.4',
+  scriptVersion: 'alpha75-2026.09.11.5',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -540,12 +540,6 @@ function metrogestionClaveNumeroParada_(value) {
   return metrogestionNormalizar_(value).replace(/^PA-/, '');
 }
 
-function metrogestionIdCarpetaDesdeUrl_(url) {
-  const text = String(url || '').trim();
-  const match = text.match(/\/folders\/([^/?#]+)/i);
-  return match ? match[1] : text;
-}
-
 function metrogestionBuscarCarpetaUnica_(parent, name) {
   const folders = parent.getFoldersByName(name);
   if (!folders.hasNext()) return null;
@@ -585,21 +579,11 @@ function metrogestionEnlazarArchivoParada_(sheet, numeroParada, dfm, sheetState)
   });
   if (!matchingRows.length) return 0;
 
-  const richValues = sheet.getRange(2, 5, lastRow - 1, 1).getRichTextValues();
-  const linksByFolder = new Map();
-  matchingRows.forEach(rowNumber => {
-    const url = richValues[rowNumber - 2]?.[0]?.getLinkUrl?.() || '';
-    if (url) linksByFolder.set(metrogestionIdCarpetaDesdeUrl_(url), url);
-  });
-  if (linksByFolder.size > 1) {
-    throw new Error(`Las filas de ${canonicalStop} apuntan a carpetas distintas. No se han modificado.`);
-  }
-
-  let folderUrl = linksByFolder.size ? [...linksByFolder.values()][0] : '';
-  if (!folderUrl) {
-    const inferredDfm = String(dfm || values[matchingRows[0] - 1]?.[0] || '').trim();
-    folderUrl = metrogestionObtenerCarpetaParada_(inferredDfm, canonicalStop).getUrl();
-  }
+  // El enlace que hubiera en E puede pertenecer a GP, ACT u otro trabajo.
+  // La carpeta común se resuelve siempre por su ruta canónica; así los enlaces
+  // históricos de trabajos distintos no compiten entre sí.
+  const inferredDfm = String(dfm || values[matchingRows[0] - 1]?.[0] || '').trim();
+  const folderUrl = metrogestionObtenerCarpetaParada_(inferredDfm, canonicalStop).getUrl();
 
   matchingRows.forEach(rowNumber => {
     const cell = sheet.getRange(rowNumber, 5);
