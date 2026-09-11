@@ -2,7 +2,7 @@ import { element } from '../../r1-alpha17/src/dom.js';
 
 export const STATE_LABELS=Object.freeze({
   planificado:'Pendiente de parar',pendiente_taller:'Pendiente de taller',asistencia_24h:'24H en curso',
-  tramite:'Trámite',gestion:'Gestión',
+  tramite:'Trámite',gestion:'Gestión',sustitucion_momentanea:'Sustitución momentánea',
   pendiente_diagnostico:'Pendiente de diagnóstico',pendiente_autorizacion:'Pendiente de autorización',
   en_taller:'En taller',pendiente_repuestos:'Pendiente de repuestos',terminado_pendiente_recogida:'Pendiente de recoger',
   recogido_pendiente_ruta:'Pendiente de recuperar',reserva_liberada:'Reserva libre',recuperado:'Recuperado',anulado:'Anulado',

@@ -1,7 +1,7 @@
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { openHotelCreate } from './hotel-create.js';
-import { openHotelEditor } from './hotel-editor.js';
+import { openHotelEditor } from './hotel-editor.js?v=74.25';
 import { requestId } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
@@ -10,7 +10,7 @@ import {
   ensureNativeHotelStyle,
   metric,
   formatBoardDate,
-} from '../../r1-alpha53/src/hotel-utils.js?v=74.24';
+} from '../../r1-alpha53/src/hotel-utils.js?v=74.25';
 import { renderHotelCard } from './hotel-card.js';
 
 ensureNativeHotelStyle();
