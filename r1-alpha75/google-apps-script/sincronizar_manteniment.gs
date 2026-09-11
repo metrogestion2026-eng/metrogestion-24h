@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.11.6',
+  scriptVersion: 'alpha75-2026.09.11.7',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -97,6 +97,7 @@ function metrogestionEjecutarSincronizacion_(modo) {
     }
     const sheet = spreadsheet.getSheetByName(METROGESTION.sheetName);
     if (!sheet) throw new Error('No existe la hoja MANTENIMENT.');
+    metrogestionAsegurarProteccionColumnasAuxiliares_(sheet);
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) throw new Error('MANTENIMENT no contiene filas de datos.');
     const values = sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
@@ -253,6 +254,21 @@ function metrogestionRestaurarFiltro_(sheet, state) {
 
 function metrogestionLeerToken_() {
   return (PropertiesService.getScriptProperties().getProperty(METROGESTION.tokenProperty) || '').trim();
+}
+
+function metrogestionAsegurarProteccionColumnasAuxiliares_(sheet) {
+  const description = 'METROGESTION · R/S calculadas exclusivamente desde J';
+  const existing = sheet
+    .getProtections(SpreadsheetApp.ProtectionType.RANGE)
+    .find(protection => protection.getDescription() === description);
+  if (existing) {
+    if (existing.isWarningOnly()) existing.setWarningOnly(false);
+    return existing;
+  }
+  return sheet.getRange('R:S')
+    .protect()
+    .setDescription(description)
+    .setWarningOnly(false);
 }
 
 function metrogestionValidarCabeceras_(headers) {
@@ -1007,6 +1023,12 @@ function metrogestionAplicarComandoAlta_(sheet, command, sheetState) {
   };
 }
 
+function metrogestionCopiarPlantillaOperativa_(sheet, sourceRow, targetRow) {
+  // R y S pertenecen a ARRAYFORMULA y deben quedar libres para que calculen
+  // mes y año desde J. Solo copiamos las columnas operativas A:Q.
+  sheet.getRange(sourceRow, 1, 1, 17).copyTo(sheet.getRange(targetRow, 1, 1, 17));
+}
+
 function metrogestionBuscarFilaAlta_(sheet, payload, sheetState) {
   const lastRow = sheetState?.values?.length || sheet.getLastRow();
   if (lastRow < 2) return 0;
@@ -1032,8 +1054,7 @@ function metrogestionInsertarFilaAlta_(sheet, sheetState) {
   const exampleRow = exampleIndex + 2;
   sheet.insertRowAfter(lastRow);
   const targetRow = lastRow + 1;
-  const lastColumn = Math.max(sheet.getLastColumn(), 17);
-  sheet.getRange(exampleRow, 1, 1, lastColumn).copyTo(sheet.getRange(targetRow, 1, 1, lastColumn));
+  metrogestionCopiarPlantillaOperativa_(sheet, exampleRow, targetRow);
   sheet.getRange(targetRow, 1, 1, 17).clearContent().clearNote();
   sheet.setRowHeight(targetRow, sheet.getRowHeight(exampleRow));
   if (sheetState?.values) sheetState.values.push(Array(17).fill(''));
@@ -1166,8 +1187,7 @@ function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
   anchorRow = Math.max(anchorRow, altaRow);
   sheet.insertRowAfter(anchorRow);
   const targetRow = anchorRow + 1;
-  const lastColumn = Math.max(sheet.getLastColumn(), 17);
-  sheet.getRange(altaRow, 1, 1, lastColumn).copyTo(sheet.getRange(targetRow, 1, 1, lastColumn));
+  metrogestionCopiarPlantillaOperativa_(sheet, altaRow, targetRow);
   sheet.getRange(targetRow, 1, 1, 17).clearContent().clearNote();
   sheet.setRowHeight(targetRow, sheet.getRowHeight(altaRow));
   if (sheetState?.values) sheetState.values.splice(targetRow - 1, 0, Array(17).fill(''));
