@@ -1,19 +1,29 @@
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { openHotelCreate } from './hotel-create.js';
-import { openHotelEditor } from './hotel-editor.js?v=75.1';
+import { openHotelEditor } from './hotel-editor.js?v=75.2';
 import { requestId } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
-  HOTEL_FILTERS,
+  HOTEL_FILTERS as BASE_HOTEL_FILTERS,
   STATE_LABELS,
   ensureNativeHotelStyle,
   metric,
   formatBoardDate,
-} from '../../r1-alpha53/src/hotel-utils.js?v=75.1';
+} from '../../r1-alpha53/src/hotel-utils.js?v=75.2';
 import { renderHotelCard } from './hotel-card.js';
 
 ensureNativeHotelStyle();
+
+const HOTEL_FILTERS = Object.freeze([
+  ...BASE_HOTEL_FILTERS,
+  {
+    key: 'momentary-substitutions',
+    label: 'Sustituciones momentáneas',
+    states: new Set(['sustitucion_momentanea']),
+    title: 'Mostrar solo vehículos de flota en sustitución momentánea',
+  },
+]);
 
 const hotelViewState = {
   filter: 'all',
@@ -31,6 +41,10 @@ function ensureAlpha71HotelStyle() {
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
       margin-bottom: 14px;
+    }
+    .hotel-filter-metric[data-hotel-filter="momentary-substitutions"] {
+      background: #f2dfcf;
+      border-color: #9a6848;
     }
     @media (max-width: 760px) {
       .a71-hotel-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
