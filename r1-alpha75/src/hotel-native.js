@@ -1,7 +1,7 @@
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { openHotelCreate } from './hotel-create.js';
-import { openHotelEditor } from './hotel-editor.js?v=75.6';
+import { openHotelEditor } from './hotel-editor.js?v=75.7';
 import { requestId } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
@@ -65,8 +65,48 @@ function ensureAlpha71HotelStyle() {
       background: #e5c8b2;
       border-color: #9a6848;
     }
+    .a75-cancelled-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(15, 23, 42, .68);
+    }
+    .a75-cancelled-panel {
+      width: min(920px, 100%);
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      padding: 20px;
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, .32);
+    }
+    .a75-cancelled-head,
+    .a75-cancelled-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .a75-cancelled-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .a75-cancelled-card {
+      padding: 16px;
+      border: 2px solid #cbd5e1;
+      border-radius: 14px;
+      background: #f8fafc;
+    }
+    .a75-cancelled-card h3 { margin: 0; }
+    .a75-cancelled-card .reserve-actions { margin-top: 12px; }
     @media (max-width: 760px) {
       .a71-hotel-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .a75-cancelled-head,
+      .a75-cancelled-card-head { flex-direction: column; }
     }
   `;
   document.head.append(style);
@@ -288,6 +328,110 @@ async function loadHotelData(access) {
   };
 }
 
+function cancelledCardTitle(row) {
+  if (row.dfm) return `${String(row.dfm).startsWith('R') ? 'Semirremolque' : 'DFM'} ${row.dfm} · ${row.matricula || '—'}`;
+  return `Reserva ${row.reserva || '—'} · ${row.matricula_reserva || '—'}`;
+}
+
+async function openCancelledCardsDialog(boardId, access, container) {
+  if (!access.editFicha || !boardId) return;
+
+  const overlay = element('div', {
+    className: 'a75-cancelled-overlay',
+    role: 'dialog',
+    'aria-modal': 'true',
+    'aria-label': 'Fichas canceladas',
+  });
+  const closeButton = element('button', {
+    className: 'button secondary compact',
+    type: 'button',
+    text: 'Cerrar',
+  });
+  const list = element('div', { className: 'a75-cancelled-list' });
+  const panel = element('section', { className: 'a75-cancelled-panel' }, [
+    element('div', { className: 'a75-cancelled-head' }, [
+      element('div', {}, [
+        element('p', { className: 'eyebrow', text: 'Edición separada' }),
+        element('h2', { text: 'Fichas canceladas' }),
+        element('p', { className: 'muted', text: 'Estas fichas no aparecen en la edición de las fichas activas.' }),
+      ]),
+      closeButton,
+    ]),
+    list,
+  ]);
+  overlay.append(panel);
+  document.body.append(overlay);
+  document.body.classList.add('editor-open');
+
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    document.removeEventListener('keydown', handleKeydown);
+    overlay.remove();
+    document.body.classList.remove('editor-open');
+  };
+  const handleKeydown = event => {
+    if (event.key === 'Escape') close();
+  };
+  document.addEventListener('keydown', handleKeydown);
+  closeButton.addEventListener('click', close);
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) close();
+  });
+
+  list.append(notice('Cargando fichas canceladas…', 'warning'));
+  const { data, error } = await supabase
+    .from('hotel_por_dia')
+    .select('id,dfm,matricula,reserva,matricula_reserva,numero_parada,motivo_cancelacion,cancelado_en,actualizado_en')
+    .eq('pizarra_id', boardId)
+    .eq('cancelado', true)
+    .order('cancelado_en', { ascending: false, nullsFirst: false });
+
+  if (closed) return;
+  list.replaceChildren();
+  if (error) {
+    list.append(notice(`No se pudieron cargar las fichas canceladas: ${error.message}`, 'danger'));
+    return;
+  }
+  if (!data?.length) {
+    list.append(notice('No hay fichas canceladas en la pizarra actual.', 'success'));
+    return;
+  }
+
+  data.forEach(row => {
+    const editButton = element('button', {
+      className: 'button primary',
+      type: 'button',
+      text: 'Editar o restaurar ficha',
+    });
+    editButton.addEventListener('click', () => {
+      close();
+      openHotelEditor(row.id, {
+        onSaved: async () => renderHotelNative(container, access),
+      });
+    });
+    list.append(element('article', { className: 'a75-cancelled-card' }, [
+      element('div', { className: 'a75-cancelled-card-head' }, [
+        element('div', {}, [
+          element('h3', { text: cancelledCardTitle(row) }),
+          element('div', {
+            className: 'muted',
+            text: row.numero_parada ? `Actuación ${row.numero_parada}` : 'Sin n.º de actuación',
+          }),
+        ]),
+        element('span', { className: 'badge', text: 'Cancelada' }),
+      ]),
+      element('p', {
+        text: row.motivo_cancelacion
+          ? `Motivo: ${row.motivo_cancelacion}`
+          : 'Sin motivo de cancelación indicado.',
+      }),
+      element('div', { className: 'reserve-actions' }, [editButton]),
+    ]));
+  });
+}
+
 async function renderHotelNative(container, access) {
   clear(container);
   container.dataset.alpha56HotelNative = 'loading';
@@ -314,6 +458,20 @@ async function renderHotelNative(container, access) {
         title: 'Activa “Lectura y edición” para crear una ficha nueva',
       })
     : null;
+  const cancelledButton = access.editFicha
+    ? element('button', {
+        className: 'button secondary a75-cancelled-cards-button',
+        type: 'button',
+        text: 'Acceder a fichas canceladas',
+        title: 'Activa “Lectura y edición” para consultar las fichas canceladas',
+      })
+    : null;
+  if (cancelledButton) {
+    cancelledButton.hidden = true;
+    cancelledButton.disabled = true;
+    cancelledButton.setAttribute('aria-disabled', 'true');
+    headingActions.prepend(cancelledButton);
+  }
   if (createButton) {
     createButton.disabled = true;
     createButton.setAttribute('aria-disabled', 'true');
@@ -508,6 +666,16 @@ async function renderHotelNative(container, access) {
         : 'Activa “Lectura y edición” para crear una ficha nueva';
     };
 
+    const syncCancelledButton = () => {
+      if (!cancelledButton) return;
+      cancelledButton.hidden = !editMode;
+      cancelledButton.disabled = !editMode;
+      cancelledButton.setAttribute('aria-disabled', editMode ? 'false' : 'true');
+      cancelledButton.title = editMode
+        ? 'Abrir aparte las fichas canceladas de la pizarra actual'
+        : 'Activa “Lectura y edición” para consultar las fichas canceladas';
+    };
+
     const renderRows = () => {
       list.replaceChildren();
       modeNotice.replaceChildren();
@@ -570,6 +738,13 @@ async function renderHotelNative(container, access) {
       });
     }
 
+    if (cancelledButton) {
+      cancelledButton.addEventListener('click', () => {
+        if (!editMode || cancelledButton.disabled) return;
+        openCancelledCardsDialog(data.boardResult.data?.id, access, container);
+      });
+    }
+
     if (modeButton) {
       modeButton.addEventListener('click', () => {
         editMode = !editMode;
@@ -578,6 +753,7 @@ async function renderHotelNative(container, access) {
         modeButton.classList.toggle('primary', editMode);
         modeButton.classList.toggle('secondary', !editMode);
         syncCreateButton();
+        syncCancelledButton();
         renderRows();
       });
     }
@@ -588,6 +764,7 @@ async function renderHotelNative(container, access) {
       modeButton.classList.toggle('secondary', !editMode);
     }
     syncCreateButton();
+    syncCancelledButton();
     renderRows();
     container.dataset.alpha56HotelNative = '1';
   } catch (error) {
