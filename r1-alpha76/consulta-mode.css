@@ -1,0 +1,36 @@
+.a76-reader-hidden{display:none!important}
+.a76-session-tag{font-weight:800;color:#075985}
+.a76-consulta{display:grid;gap:18px;color:#0f172a}
+.a76-consulta-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:24px;border:1px solid #bae6fd;border-radius:20px;background:linear-gradient(135deg,#f0f9ff,#fff)}
+.a76-consulta-head h2{margin:2px 0 8px;font-size:clamp(1.65rem,4vw,2.25rem)}
+.a76-consulta-head p:last-child{margin:0;max-width:650px;font-size:1rem;line-height:1.55;color:#475569}
+.a76-readonly-badge{flex:0 0 auto;padding:8px 13px;border:2px solid #38bdf8;border-radius:999px;background:#e0f2fe;color:#075985;font-weight:900}
+.a76-search-card{display:grid;grid-template-columns:minmax(220px,.75fr) minmax(320px,1.25fr);gap:22px;align-items:end;padding:22px;border:1px solid #cbd5e1;border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+.a76-search-card h3,.a76-guide-card h3{margin:0 0 6px;font-size:1.2rem}
+.a76-search-card p{margin:0;color:#64748b}
+.a76-search-form label{display:block;margin-bottom:7px;font-weight:800}
+.a76-search-form>div{display:flex;gap:9px}
+.a76-search-form input{min-width:0;flex:1;min-height:46px;padding:10px 12px;border:2px solid #94a3b8;border-radius:10px;font:inherit}
+.a76-search-form input:focus{outline:3px solid rgba(14,165,233,.25);border-color:#0284c7}
+.a76-form-message{min-height:1.4em;margin:6px 0 0!important;color:#b45309!important;font-weight:700}
+.a76-entry-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.a76-entry-card{display:flex;align-items:center;gap:15px;min-height:96px;padding:18px;text-align:left;border:2px solid #7dd3fc;border-radius:16px;background:#f0f9ff;color:#0c4a6e;cursor:pointer}
+.a76-entry-card:hover{background:#e0f2fe;border-color:#0284c7;transform:translateY(-1px)}
+.a76-entry-card:focus-visible{outline:3px solid #f59e0b;outline-offset:3px}
+.a76-entry-card:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.a76-entry-icon{font-size:1.75rem}
+.a76-entry-card strong,.a76-entry-card small{display:block}
+.a76-entry-card strong{font-size:1.1rem}
+.a76-entry-card small{margin-top:4px;color:#475569;font-size:.92rem}
+.a76-guide-grid{display:grid;grid-template-columns:minmax(250px,.7fr) minmax(360px,1.3fr);gap:14px}
+.a76-guide-card{padding:21px;border:1px solid #cbd5e1;border-radius:16px;background:#fff}
+.a76-guide-card ol{margin:12px 0 0;padding-left:22px;line-height:1.8}
+.a76-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:13px 0;padding:0;list-style:none}
+.a76-legend-item{display:flex;align-items:center;gap:9px;min-width:0}
+.a76-legend-item strong,.a76-legend-item small{display:block}
+.a76-legend-item small{color:#64748b;line-height:1.25}
+.a76-swatch{width:28px;height:28px;flex:0 0 auto;border:2px solid #64748b;border-radius:8px}
+.a76-swatch.yellow{background:#fef08a;border-color:#eab308}.a76-swatch.white{background:#fff;border-color:#cbd5e1}.a76-swatch.lilac{background:#e9d5ff;border-color:#a855f7}.a76-swatch.blue{background:#bfdbfe;border-color:#3b82f6}.a76-swatch.orange{background:#fed7aa;border-color:#f97316}.a76-swatch.brown{background:#d6b49a;border-color:#8b5e3c}.a76-swatch.lightblue{background:#e0f2fe;border-color:#38bdf8}
+.a76-outline-note{display:flex;align-items:center;gap:9px;margin:14px 0 0;color:#475569}
+.a76-outline-note>span{width:28px;height:28px;flex:0 0 auto;border:4px solid #8b5e3c;border-radius:8px;background:#fff}
+@media(max-width:760px){.a76-consulta-head{display:grid;padding:19px}.a76-readonly-badge{justify-self:start}.a76-search-card,.a76-guide-grid{grid-template-columns:1fr}.a76-search-form>div{display:grid}.a76-entry-grid,.a76-legend{grid-template-columns:1fr}.a76-entry-card{min-height:86px}}
