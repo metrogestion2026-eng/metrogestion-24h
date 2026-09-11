@@ -38,6 +38,7 @@ test('Alpha75 nace como copia funcional exacta de Alpha74 validada', async () =>
     path.join('src', 'app.js'),
     path.join('src', 'hotel-native.js'),
     path.join('src', 'panel-native.js'),
+    path.join('src', 'reservas-create.js'),
     'panel-native.css',
   ]);
 
@@ -57,10 +58,10 @@ test('Alpha75 nace como copia funcional exacta de Alpha74 validada', async () =>
 });
 
 test('Alpha75 muestra y carga su identificador independiente', async () => {
-  assert.equal((await readFile(path.join(alpha75, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.75.3');
+  assert.equal((await readFile(path.join(alpha75, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.75.4');
   const app = await readFile(path.join(alpha75, 'src', 'app.js'), 'utf8');
   const html = await readFile(path.join(alpha75, 'index.html'), 'utf8');
-  assert.match(app, /r1\.0\.0-alpha\.75\.3/);
-  assert.match(html, /\.\/src\/app\.js\?v=75\.3/);
+  assert.match(app, /r1\.0\.0-alpha\.75\.4/);
+  assert.match(html, /\.\/src\/app\.js\?v=75\.4/);
   assert.doesNotMatch(html, /r1-alpha74/);
 });
