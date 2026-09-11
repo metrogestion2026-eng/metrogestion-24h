@@ -3,7 +3,7 @@ const METROGESTION = Object.freeze({
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha74-2026.09.10.30',
+  scriptVersion: 'alpha74-2026.09.11.31',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -456,6 +456,7 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
     const syncId = String(command?.sync_id || payload.sync_id || '').trim();
     if (!/^[0-9a-f-]{36}$/i.test(syncId)) throw new Error('Supabase devolvió una fila PARADA sin identificador válido.');
     if (payload.solo_trabajos === true) {
+      const adjustment24h = metrogestionAplicarAjuste24h_(sheet, payload.ajuste_24h, sheetState);
       const assignedWorks = metrogestionAplicarAsignacionesTrabajos_(
         sheet,
         Array.isArray(payload.trabajos_asignados) ? payload.trabajos_asignados : [],
@@ -470,6 +471,7 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
         revision: Number(command.revision),
         estado: 'aplicado',
         trabajos_asignados: assignedWorks,
+        ajustes_24h: adjustment24h,
       };
     }
     let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, sheetState);
@@ -477,6 +479,7 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
     const nuevaFila = !rowNumber;
     if (nuevaFila) rowNumber = metrogestionInsertarFilaParada_(sheet, payload, sheetState);
     metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuevaFila, sheetState);
+    const adjustment24h = metrogestionAplicarAjuste24h_(sheet, payload.ajuste_24h, sheetState);
     const assignedWorks = metrogestionAplicarAsignacionesTrabajos_(
       sheet,
       Array.isArray(payload.trabajos_asignados) ? payload.trabajos_asignados : [],
@@ -492,8 +495,87 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
       estado: 'aplicado',
       fila: rowNumber,
       trabajos_asignados: assignedWorks,
+      ajustes_24h: adjustment24h,
     };
   });
+}
+
+function metrogestionNotaSinTrabajo_(note) {
+  return String(note || '').split(/\r?\n/)
+    .filter(line => line && !/^METROGESTION_T:/i.test(line))
+    .join('\n');
+}
+
+function metrogestionAplicarAjuste24h_(sheet, adjustment, sheetState) {
+  if (!adjustment || typeof adjustment !== 'object') return 0;
+  const dfm = metrogestionNormalizar_(adjustment.dfm);
+  const numeroParada = metrogestionNormalizar_(adjustment.numero_parada);
+  if (!dfm || !numeroParada) throw new Error('La fila AV24H no tiene DFM o número de actuación.');
+
+  const lastRow = sheetState?.values?.length || sheet.getLastRow();
+  const values = sheetState?.values || sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
+  let avRow = 0;
+  let desvinculadas = 0;
+
+  values.forEach((row, index) => {
+    const rowNumber = index + 1;
+    if (rowNumber < 2
+        || metrogestionNormalizar_(row[0]) !== dfm
+        || metrogestionNormalizar_(row[4]) !== numeroParada) return;
+    const designacion = metrogestionNormalizar_(row[7]);
+    if (designacion === 'AV24H') {
+      avRow = rowNumber;
+      return;
+    }
+    if (designacion === 'PARADA' || designacion === 'ANULADA') return;
+
+    const cell = sheet.getRange(rowNumber, 5);
+    const note = sheetState?.notesE?.[rowNumber - 1] ?? cell.getNote();
+    cell.clearContent().setNote(metrogestionNotaSinTrabajo_(note)).setBackground('#ffffff');
+    if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][4] = '';
+    if (sheetState?.notesE) sheetState.notesE[rowNumber - 1] = metrogestionNotaSinTrabajo_(note);
+    desvinculadas += 1;
+  });
+
+  const nuevaFila = !avRow;
+  if (nuevaFila) avRow = metrogestionInsertarFilaParada_(sheet, adjustment, sheetState);
+  const range = sheet.getRange(avRow, 1, 1, 17);
+  const row = range.getValues()[0];
+  row[0] = adjustment.dfm || '';
+  row[1] = adjustment.matricula || '';
+  row[2] = adjustment.tipo || '';
+  row[3] = adjustment.upc || '';
+  row[4] = adjustment.numero_parada || '';
+  row[5] = '';
+  row[6] = adjustment.tipo_trabajo || 'AVERÍA';
+  row[7] = adjustment.designacion || 'AV24H';
+  row[8] = metrogestionDate_(adjustment.fecha_necesidad);
+  row[9] = metrogestionDate_(adjustment.fecha_entrada);
+  row[10] = metrogestionDate_(adjustment.fecha_salida);
+  row[14] = adjustment.marca || '';
+  range.setValues([row]);
+  range.setBackground(adjustment.fecha_salida ? '#d9ead3' : '#ffffff');
+  sheet.getRange(avRow, 5).setBackground('#cfe2f3');
+  sheet.getRange(avRow, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
+  sheet.getRange(avRow, 5).setNote(`METROGESTION_AV24H:${adjustment.seguimiento_id}`);
+  const detalle = [
+    adjustment.numero_caso ? `CASO ${adjustment.numero_caso}` : '',
+    adjustment.averia || '',
+    adjustment.diagnostico || '',
+  ].filter(Boolean).join('\n');
+  if (detalle) sheet.getRange(avRow, 8).setNote(detalle);
+
+  if (sheetState?.values?.[avRow - 1]) {
+    const cached = sheetState.values[avRow - 1];
+    row.forEach((value, index) => { cached[index] = value; });
+    cached[8] = adjustment.fecha_necesidad || '';
+    cached[9] = adjustment.fecha_entrada || '';
+    cached[10] = adjustment.fecha_salida || '';
+  }
+  if (sheetState?.notesE) {
+    sheetState.notesE[avRow - 1] = `METROGESTION_AV24H:${adjustment.seguimiento_id}`;
+  }
+  return desvinculadas + (nuevaFila ? 1 : 0);
 }
 
 function metrogestionNotaConTrabajo_(note, syncId) {
