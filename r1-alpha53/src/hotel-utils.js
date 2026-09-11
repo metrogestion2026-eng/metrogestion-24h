@@ -1,7 +1,7 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 
 export const STATE_LABELS=Object.freeze({
-  planificado:'Pendiente de parar',pendiente_taller:'Pendiente de taller',asistencia_24h:'Asistencia 24H activa',
+  planificado:'Pendiente de parar',pendiente_taller:'Pendiente de taller',asistencia_24h:'24H en curso',
   tramite:'Trámite',gestion:'Gestión',
   pendiente_diagnostico:'Pendiente de diagnóstico',pendiente_autorizacion:'Pendiente de autorización',
   en_taller:'En taller',pendiente_repuestos:'Pendiente de repuestos',terminado_pendiente_recogida:'Pendiente de recoger',
@@ -14,6 +14,7 @@ export const HOTEL_FILTERS=Object.freeze([
   {key:'pending-workshop',label:'Pendientes de taller',states:new Set(['pendiente_taller']),title:'Mostrar solo pendientes de taller'},
   {key:'procedures',label:'Trámites',states:new Set(['tramite']),title:'Mostrar solo trámites'},
   {key:'management',label:'Gestiones',states:new Set(['gestion']),title:'Mostrar solo gestiones'},
+  {key:'assistance-24h',label:'24H en curso',states:new Set(['asistencia_24h']),title:'Mostrar solo asistencias 24H en curso'},
   {key:'workshop',label:'En taller',states:new Set(['en_taller','pendiente_diagnostico','pendiente_autorizacion','pendiente_repuestos']),title:'Mostrar solo vehículos en taller'},
   {key:'pickup',label:'Pendientes de recoger',states:new Set(['terminado_pendiente_recogida']),title:'Mostrar solo pendientes de recoger'},
   {key:'recover',label:'Pendientes de recuperar',states:new Set(['recogido_pendiente_ruta']),title:'Mostrar solo pendientes de recuperar'},

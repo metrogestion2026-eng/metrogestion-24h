@@ -8,17 +8,18 @@ const index = await readFile(new URL('../r1-alpha74/index.html', import.meta.url
 
 test('el Panel distingue 24H en curso de En taller', () => {
   assert.match(panel, /tipo_sustituto,tipo_movimiento,estado/);
-  assert.match(panel, /function is24hRecord\(row\)/);
-  assert.match(panel, /const assistance24h = hotelRows\.filter/);
+  assert.match(panel, /asistencia_24h: '24H en curso'/);
+  assert.match(panel, /const assistance24h = hotelRows\.filter\(row => row\.estado === 'asistencia_24h'\)/);
   assert.match(panel, /label: '24H en curso', value: assistance24h\.length/);
 });
 
-test('una asistencia solo entra en En taller al realizar su T de entrada', () => {
-  assert.match(panel, /stage\.tipo_etapa === 'entrada_taller' && stage\.estado === 'realizada'/);
-  assert.match(panel, /const inWorkshop = hotelRows\.filter\(row => is24hRecord\(row\)[\s\S]*?enteredWorkshopHotelIds\.has\(row\.id\)/);
+test('Panel confía en el estado general compartido con Hotel', () => {
+  assert.match(panel, /const inWorkshop = hotelRows\.filter\(row => workshopStates\.has\(row\.estado\)\)/);
+  assert.doesNotMatch(panel, /enteredWorkshopHotelIds/);
 });
 
-test('la versión visible avanza a alpha 74.23', () => {
-  assert.match(app, /r1\.0\.0-alpha\.74\.23/);
-  assert.match(index, /panel-native\.js\?v=74\.23/);
+test('la versión visible avanza a alpha 74.24', () => {
+  assert.match(app, /r1\.0\.0-alpha\.74\.24/);
+  assert.match(index, /panel-native\.js\?v=74\.24/);
+  assert.match(index, /hotel-native\.js\?v=74\.24/);
 });
