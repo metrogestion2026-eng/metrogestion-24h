@@ -1,5 +1,12 @@
 # Metrogestión 24H — Memorando de versiones
 
+## r1.0.0-alpha.75 — 11/09/2026
+
+- Versión de trabajo creada desde Alpha74 validada y cerrada.
+- Hereda íntegramente el comportamiento validado de Alpha74 como punto de partida.
+- Alpha74 permanece sin cambios como referencia estable y versión de retorno.
+- Las mejoras posteriores se desarrollarán exclusivamente en Alpha75 hasta su validación.
+
 ## r1.0.0-alpha.74 — 06/09/2026
 
 - Versión de pruebas creada desde Alpha73 validada, cerrada y publicada.
