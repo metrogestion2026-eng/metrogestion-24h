@@ -79,6 +79,10 @@ function stateLabel(value) {
   })[value] || value || '—';
 }
 
+function is24hRecord(row) {
+  return String(row?.tipo_movimiento || '').trim().toUpperCase() === '24H';
+}
+
 function profileName(profile) {
   return [profile?.nombre, profile?.apellidos].filter(Boolean).join(' ').trim() || profile?.correo || 'Usuario';
 }
@@ -485,7 +489,7 @@ async function renderPanel({ automatic = false } = {}) {
     const canFleet = can24h || moduleAccess(profile, 'resumen').view;
 
     const [hotelResult, reservesResult, incidentsResult, vehiclesResult, periodsResult, dfmBillingResult, rBillingResult, substitutionsResult, usersResult, devicesResult, mantenimentOrdersResult] = await Promise.all([
-      canHotel ? readQuery('Hotel', supabase.from('hotel_actual_detalle').select('id,numero_parada,dfm,matricula,sustituto,matricula_sustituto,tipo_sustituto,estado,lugar,causa,incidencia,prioridad,proximo,t_pendientes,actualizado_en').order('orden', { ascending: true })) : skipped('Hotel'),
+      canHotel ? readQuery('Hotel', supabase.from('hotel_actual_detalle').select('id,numero_parada,dfm,matricula,sustituto,matricula_sustituto,tipo_sustituto,tipo_movimiento,estado,lugar,causa,incidencia,prioridad,proximo,t_pendientes,actualizado_en').order('orden', { ascending: true })) : skipped('Hotel'),
       canReservations ? readQuery('Reservas', supabase.from('reservas_hotel').select('id,vehiculo_codigo,matricula,etiqueta,estado,ubicacion,pendientes,activo,actualizado_en').eq('activo', true).order('vehiculo_codigo')) : skipped('Reservas'),
       can24h ? readQuery('24H', supabase.from('activaciones_24h').select('id,dfm,matricula,numero_caso,estado,resultado,averia,proveedor,creado_en,actualizado_en,creado_por').order('creado_en', { ascending: false })) : skipped('24H'),
       canFleet ? readQuery('Contratos', supabase.from('vehiculos').select('dfm,matricula,categoria,clase_vehiculo,marca,modelo,km_actual,fin_contrato_km,fin_contrato_fecha,activo').eq('activo', true).order('dfm')) : skipped('Contratos'),
@@ -513,12 +517,25 @@ async function renderPanel({ automatic = false } = {}) {
     const now = new Date();
     const month = today.slice(0, 7);
     const period = findCurrentPeriod(periodsResult.data || [], today);
+    const stages = (stagesResult.data || []).filter(row => row.estado !== 'anulada');
+    const enteredWorkshopHotelIds = new Set(
+      stages
+        .filter(stage => stage.tipo_etapa === 'entrada_taller' && stage.estado === 'realizada')
+        .map(stage => stage.registro_hotel_id)
+    );
+    const closedHotelStates = new Set(['terminado_pendiente_recogida', 'recogido_pendiente_ruta', 'reserva_liberada', 'recuperado', 'anulada', 'anulado']);
+    const workshopStates = new Set(['en_taller', 'pendiente_diagnostico', 'pendiente_autorizacion', 'pendiente_repuestos']);
 
     const planned = hotelRows.filter(row => row.estado === 'planificado');
     const pendingWorkshop = hotelRows.filter(row => row.estado === 'pendiente_taller');
     const procedures = hotelRows.filter(row => row.estado === 'tramite');
     const management = hotelRows.filter(row => row.estado === 'gestion');
-    const inWorkshop = hotelRows.filter(row => ['en_taller', 'pendiente_diagnostico', 'pendiente_autorizacion', 'pendiente_repuestos'].includes(row.estado));
+    const assistance24h = hotelRows.filter(row => is24hRecord(row)
+      && !enteredWorkshopHotelIds.has(row.id)
+      && !closedHotelStates.has(row.estado));
+    const inWorkshop = hotelRows.filter(row => is24hRecord(row)
+      ? enteredWorkshopHotelIds.has(row.id)
+      : workshopStates.has(row.estado));
     const pendingPickup = hotelRows.filter(row => row.estado === 'terminado_pendiente_recogida');
     const pendingRecover = hotelRows.filter(row => row.estado === 'recogido_pendiente_ruta');
     const priorityStops = hotelRows.filter(row => Number(row.prioridad) <= 1);
@@ -540,7 +557,6 @@ async function renderPanel({ automatic = false } = {}) {
     const incidentsMonth = incidents.filter(row => String(row.creado_en || '').slice(0, 7) === month);
 
     const hotelById = new Map(hotelRows.map(row => [row.id, row]));
-    const stages = (stagesResult.data || []).filter(row => row.estado !== 'anulada');
     const latestCompletedByHotel = latestCompletedStages(stages);
     const toHotelItem = row => hotelItem(row, latestCompletedByHotel);
     const pendingStageStates = new Set(['pendiente', 'programada']);
@@ -675,6 +691,7 @@ async function renderPanel({ automatic = false } = {}) {
       { label: 'Pendientes de taller', value: pendingWorkshop.length, tone: 'neutral', detail: { title: 'Pendientes de taller', items: pendingWorkshop.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Trámites', value: procedures.length, tone: 'neutral', detail: { title: 'Trámites', items: procedures.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Gestiones', value: management.length, tone: 'neutral', detail: { title: 'Gestiones', items: management.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
+      { label: '24H en curso', value: assistance24h.length, tone: 'main', detail: { title: '24H en curso', items: assistance24h.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'En taller', value: inWorkshop.length, tone: 'lilac', detail: { title: 'En taller', items: inWorkshop.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Pendientes de recoger', value: pendingPickup.length, tone: 'blue', detail: { title: 'Pendientes de recoger', items: pendingPickup.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Pendientes de recuperar', value: pendingRecover.length, tone: 'orange', detail: { title: 'Pendientes de recuperar', items: pendingRecover.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
