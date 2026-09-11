@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.11.3',
+  scriptVersion: 'alpha75-2026.09.11.4',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -317,6 +317,18 @@ function metrogestionKilometrosFacturables_(value, rowNumber, periodoAbierto) {
   return metrogestionNumero_(value, `Los kilómetros de la fila ${rowNumber}`, periodoAbierto);
 }
 
+function metrogestionPeriodoTancament_(value, rowNumber) {
+  const text = metrogestionNormalizar_(value);
+  if (!text) return '';
+  // Q también contiene enlaces y referencias documentales como FOTO u OR-….
+  // Solo un valor que empiece por TANCAMENT pertenece al cierre facturable.
+  if (!text.startsWith('TANCAMENT')) return '';
+  if (!/^TANCAMENT \d+$/.test(text)) {
+    throw new Error(`TANCAMENT de la fila ${rowNumber} debe ir seguido del número de periodo.`);
+  }
+  return text;
+}
+
 function metrogestionLeerParadasVinculadas_(values, notes) {
   const result = [];
   for (let index = 1; index < values.length; index += 1) {
@@ -354,7 +366,7 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
       dias_parada: metrogestionNumero_(row[11], `Los días de la fila ${index + 1}`, periodoAbierto),
       marca: row[14],
       km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, periodoAbierto),
-      tancament: metrogestionNormalizar_(row[16]),
+      tancament: metrogestionPeriodoTancament_(row[16], index + 1),
     });
   }
   return result;
