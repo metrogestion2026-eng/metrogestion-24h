@@ -16,7 +16,7 @@ test('Alpha75 añade el filtro de sustituciones momentáneas sin modificar el ca
 test('el contador y la visibilidad usan el estado operativo unificado', () => {
   assert.match(hotel, /rows\.filter\(row => filter\.states\.has\(row\.estado\)\)\.length/);
   assert.match(hotel, /selected\.states\.has\(card\.dataset\.state \|\| ''\)/);
-  assert.match(hotel, /data-hotel-filter="momentary-substitutions"/);
+  assert.match(hotel, /'momentary-substitutions': 'brown'/);
 });
 
 test('Panel presenta el mismo bloque de sustituciones momentáneas que Hotel', () => {

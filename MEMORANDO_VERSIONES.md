@@ -8,6 +8,7 @@
 - Las mejoras posteriores se desarrollarán exclusivamente en Alpha75 hasta su validación.
 - Incorpora un filtro marrón «Sustituciones momentáneas» coordinado entre Hotel/Pizarra y Panel, con contador y listado basados en el mismo estado operativo unificado.
 - Convierte las tarjetas de Reservas en fichas interactivas: permite editar sus datos operativos y dar pendientes por realizados con control de versión, permisos, auditoría y recálculo automático del estado.
+- Iguala los colores de todos los filtros operativos entre Hotel/Pizarra y Panel: amarillo, blanco, lila, azul, calabaza y marrón según el estado representado.
 
 ## r1.0.0-alpha.74 — 06/09/2026
 
