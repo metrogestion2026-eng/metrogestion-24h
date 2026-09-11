@@ -11,7 +11,7 @@ import {
   formatDateTime,
   vehicleLabel,
   substituteText,
-} from '../../r1-alpha53/src/hotel-utils.js';
+} from '../../r1-alpha53/src/hotel-utils.js?v=74.24';
 
 function stageVisual(stage) {
   if (stage.cancelado === true || stage.estado === 'anulada') {

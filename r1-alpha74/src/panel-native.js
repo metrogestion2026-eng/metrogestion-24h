@@ -49,7 +49,7 @@ function stateLabel(value) {
   return ({
     planificado: 'Pendiente de parar',
     pendiente_taller: 'Pendiente de taller',
-    asistencia_24h: 'Asistencia 24H activa',
+    asistencia_24h: '24H en curso',
     tramite: 'Trámite',
     gestion: 'Gestión',
     pendiente_diagnostico: 'Pendiente de diagnóstico',
@@ -77,10 +77,6 @@ function stateLabel(value) {
     bloqueado: 'Bloqueado',
     revocado: 'Revocado',
   })[value] || value || '—';
-}
-
-function is24hRecord(row) {
-  return String(row?.tipo_movimiento || '').trim().toUpperCase() === '24H';
 }
 
 function profileName(profile) {
@@ -518,24 +514,14 @@ async function renderPanel({ automatic = false } = {}) {
     const month = today.slice(0, 7);
     const period = findCurrentPeriod(periodsResult.data || [], today);
     const stages = (stagesResult.data || []).filter(row => row.estado !== 'anulada');
-    const enteredWorkshopHotelIds = new Set(
-      stages
-        .filter(stage => stage.tipo_etapa === 'entrada_taller' && stage.estado === 'realizada')
-        .map(stage => stage.registro_hotel_id)
-    );
-    const closedHotelStates = new Set(['terminado_pendiente_recogida', 'recogido_pendiente_ruta', 'reserva_liberada', 'recuperado', 'anulada', 'anulado']);
     const workshopStates = new Set(['en_taller', 'pendiente_diagnostico', 'pendiente_autorizacion', 'pendiente_repuestos']);
 
     const planned = hotelRows.filter(row => row.estado === 'planificado');
     const pendingWorkshop = hotelRows.filter(row => row.estado === 'pendiente_taller');
     const procedures = hotelRows.filter(row => row.estado === 'tramite');
     const management = hotelRows.filter(row => row.estado === 'gestion');
-    const assistance24h = hotelRows.filter(row => is24hRecord(row)
-      && !enteredWorkshopHotelIds.has(row.id)
-      && !closedHotelStates.has(row.estado));
-    const inWorkshop = hotelRows.filter(row => is24hRecord(row)
-      ? enteredWorkshopHotelIds.has(row.id)
-      : workshopStates.has(row.estado));
+    const assistance24h = hotelRows.filter(row => row.estado === 'asistencia_24h');
+    const inWorkshop = hotelRows.filter(row => workshopStates.has(row.estado));
     const pendingPickup = hotelRows.filter(row => row.estado === 'terminado_pendiente_recogida');
     const pendingRecover = hotelRows.filter(row => row.estado === 'recogido_pendiente_ruta');
     const priorityStops = hotelRows.filter(row => Number(row.prioridad) <= 1);
