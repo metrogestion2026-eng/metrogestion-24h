@@ -50,6 +50,7 @@ function stateLabel(value) {
     planificado: 'Pendiente de parar',
     pendiente_taller: 'Pendiente de taller',
     asistencia_24h: '24H en curso',
+    sustitucion_momentanea: 'Sustitución momentánea',
     tramite: 'Trámite',
     gestion: 'Gestión',
     pendiente_diagnostico: 'Pendiente de diagnóstico',

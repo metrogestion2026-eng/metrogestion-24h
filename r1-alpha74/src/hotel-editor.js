@@ -1,6 +1,6 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { renderMainSections } from './hotel-editor-main.js';
+import { renderMainSections } from './hotel-editor-main.js?v=74.25';
 import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import { saveErrorIssues, stageStateMismatchIssues } from './hotel-editor-validation.js';

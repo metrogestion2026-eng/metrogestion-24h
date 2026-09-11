@@ -113,11 +113,13 @@ export function renderMainSections(detail, markDirty) {
   const operationGrid = element('div', { className: 'editor-grid' });
   const priority = createInput({ type: 'number', min: 0, max: 5, step: 1, value: detail.ficha.prioridad ?? 5 });
   bindText(priority, detail.ficha, 'prioridad', markDirty, Number);
-  const stateOptions = detail.catalogos.estados.filter(item => !['anulado', 'reserva_liberada'].includes(item.codigo));
+  const baseState = () => detail.ficha.estado === 'anulado' ? 'pendiente_taller' : detail.ficha.estado;
+  const momentaryState = { codigo: 'sustitucion_momentanea', nombre: 'Sustitución momentánea', orden: -1 };
+  const stateOptions = detail.catalogos.estados.filter(item => !['anulado', 'reserva_liberada', 'sustitucion_momentanea'].includes(item.codigo));
   const stateEditor = createEditableCatalogueField(
     'Estado',
-    stateOptions,
-    detail.ficha.estado === 'anulado' ? 'pendiente_taller' : detail.ficha.estado,
+    detail.ficha.sustitucion_temporal ? [momentaryState, ...stateOptions] : stateOptions,
+    detail.ficha.sustitucion_temporal ? 'sustitucion_momentanea' : baseState(),
     {
       placeholder: 'Elige un estado o escribe uno nuevo',
       hint: 'El estado nuevo quedará disponible en este listado al guardar.',
@@ -156,7 +158,7 @@ export function renderMainSections(detail, markDirty) {
   operation.append(operationGrid, longGrid);
 
   const editorControls = element('section', { className: 'editor-section' }, [element('h3', { text: '3. Sustitución, retirada y cancelación' })]);
-  const temp = createCheckbox('Sustitución temporal activa', detail.ficha.sustitucion_temporal);
+  const temp = createCheckbox('Sustitución momentánea activa', detail.ficha.sustitucion_temporal);
   const tempReason = createTextarea(detail.ficha.motivo_sustitucion_temporal || '');
   const tempLimit = createInput({ type: 'datetime-local', value: detail.ficha.fecha_limite_sustitucion || '' });
   bindText(tempReason, detail.ficha, 'motivo_sustitucion_temporal', markDirty);
@@ -171,7 +173,12 @@ export function renderMainSections(detail, markDirty) {
   const refresh = () => {
     tempBox.classList.toggle('hidden', !detail.ficha.sustitucion_temporal);
     cancellationBox.classList.toggle('hidden', !detail.ficha.cancelado);
-    stateEditor.setDisabled(detail.ficha.cancelado);
+    stateEditor.rebuild(
+      detail.ficha.sustitucion_temporal ? [momentaryState, ...stateOptions] : stateOptions,
+      detail.ficha.sustitucion_temporal ? 'sustitucion_momentanea' : baseState(),
+      true
+    );
+    stateEditor.setDisabled(detail.ficha.cancelado || detail.ficha.sustitucion_temporal);
   };
   bindCheckbox(temp.input, detail.ficha, 'sustitucion_temporal', markDirty, refresh);
   bindCheckbox(cancelled.input, detail.ficha, 'cancelado', markDirty, checked => {
