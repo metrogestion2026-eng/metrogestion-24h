@@ -679,7 +679,7 @@ async function renderPanel({ automatic = false } = {}) {
       { label: 'Pendientes de taller', value: pendingWorkshop.length, tone: 'neutral', detail: { title: 'Pendientes de taller', items: pendingWorkshop.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Trámites', value: procedures.length, tone: 'neutral', detail: { title: 'Trámites', items: procedures.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Gestiones', value: management.length, tone: 'neutral', detail: { title: 'Gestiones', items: management.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
-      { label: '24H en curso', value: assistance24h.length, tone: 'main', detail: { title: '24H en curso', items: assistance24h.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
+      { label: '24H en curso', value: assistance24h.length, tone: 'neutral', detail: { title: '24H en curso', items: assistance24h.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Sustituciones momentáneas', value: momentarySubstitutions.length, tone: 'brown', detail: { title: 'Sustituciones momentáneas', items: momentarySubstitutions.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'En taller', value: inWorkshop.length, tone: 'lilac', detail: { title: 'En taller', items: inWorkshop.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Pendientes de recoger', value: pendingPickup.length, tone: 'blue', detail: { title: 'Pendientes de recoger', items: pendingPickup.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },

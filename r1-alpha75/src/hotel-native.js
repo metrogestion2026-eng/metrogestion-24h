@@ -25,6 +25,19 @@ const HOTEL_FILTERS = Object.freeze([
   },
 ]);
 
+const HOTEL_FILTER_TONES = Object.freeze({
+  all: 'main',
+  planned: 'yellow',
+  'pending-workshop': 'neutral',
+  procedures: 'neutral',
+  management: 'neutral',
+  'assistance-24h': 'neutral',
+  workshop: 'lilac',
+  pickup: 'blue',
+  recover: 'orange',
+  'momentary-substitutions': 'brown',
+});
+
 const hotelViewState = {
   filter: 'all',
   search: '',
@@ -42,8 +55,14 @@ function ensureAlpha71HotelStyle() {
       gap: 10px;
       margin-bottom: 14px;
     }
-    .hotel-filter-metric[data-hotel-filter="momentary-substitutions"] {
-      background: #f2dfcf;
+    .hotel-filter-metric[data-hotel-tone="main"] { background: #eff8ff; border-color: #7dd3fc; }
+    .hotel-filter-metric[data-hotel-tone="yellow"] { background: #fefce8; border-color: #eab308; }
+    .hotel-filter-metric[data-hotel-tone="neutral"] { background: #fff; border-color: #cbd5e1; }
+    .hotel-filter-metric[data-hotel-tone="lilac"] { background: #faf5ff; border-color: #a78bfa; }
+    .hotel-filter-metric[data-hotel-tone="blue"] { background: #eff6ff; border-color: #60a5fa; }
+    .hotel-filter-metric[data-hotel-tone="orange"] { background: #fff4e6; border-color: #f97316; }
+    .hotel-filter-metric[data-hotel-tone="brown"] {
+      background: #e5c8b2;
       border-color: #9a6848;
     }
     @media (max-width: 760px) {
@@ -54,6 +73,12 @@ function ensureAlpha71HotelStyle() {
 }
 
 ensureAlpha71HotelStyle();
+
+function colouredHotelMetric(filter, value) {
+  const node = metric(filter, value);
+  node.dataset.hotelTone = HOTEL_FILTER_TONES[filter.key] || 'neutral';
+  return node;
+}
 
 function normaliseSearch(value) {
   return String(value ?? '')
@@ -386,7 +411,7 @@ async function renderHotelNative(container, access) {
     // Clase propia: evita que los controladores de filtros heredados de
     // Alpha27/28/32/33 vuelvan a seleccionar "Fichas activas".
     const summary = element('div', { className: 'a71-hotel-summary' }, HOTEL_FILTERS.map(filter =>
-      metric(filter, filter.states ? rows.filter(row => filter.states.has(row.estado)).length : rows.length)
+      colouredHotelMetric(filter, filter.states ? rows.filter(row => filter.states.has(row.estado)).length : rows.length)
     ));
     const modeNotice = element('div');
     const list = element('div', { className: 'grid' });
