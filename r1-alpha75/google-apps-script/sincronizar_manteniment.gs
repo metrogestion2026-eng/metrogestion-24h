@@ -4,10 +4,12 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.11.7',
+  scriptVersion: 'alpha75-2026.09.11.8',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
+
+const METROGESTION_EXECUTION_CACHE = new Map();
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -97,7 +99,6 @@ function metrogestionEjecutarSincronizacion_(modo) {
     }
     const sheet = spreadsheet.getSheetByName(METROGESTION.sheetName);
     if (!sheet) throw new Error('No existe la hoja MANTENIMENT.');
-    metrogestionAsegurarProteccionColumnasAuxiliares_(sheet);
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) throw new Error('MANTENIMENT no contiene filas de datos.');
     const values = sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
@@ -607,6 +608,10 @@ function metrogestionOrdenarCarpetas_(folders) {
 function metrogestionObtenerCarpetaParada_(dfm, numeroParada, preferredUrls) {
   const codigoDfm = String(dfm || '').trim();
   if (!codigoDfm) throw new Error(`No se puede localizar el archivo de ${numeroParada}: falta el DFM.`);
+  const cacheKey = `${metrogestionNormalizar_(codigoDfm)}|${metrogestionNormalizar_(numeroParada)}`;
+  if (METROGESTION_EXECUTION_CACHE.has(cacheKey)) {
+    return METROGESTION_EXECUTION_CACHE.get(cacheKey);
+  }
   const archivoFlota = DriveApp.getFolderById(METROGESTION.archivoFlotaFolderId);
   const carpetaDfm = metrogestionBuscarCarpetaUnica_(archivoFlota, codigoDfm);
   if (!carpetaDfm) {
@@ -622,11 +627,15 @@ function metrogestionObtenerCarpetaParada_(dfm, numeroParada, preferredUrls) {
   if (candidatas.length) {
     const preferredIds = new Set((preferredUrls || []).map(metrogestionIdCarpetaDesdeUrl_).filter(Boolean));
     const preferred = candidatas.filter(folder => preferredIds.has(metrogestionIdCarpeta_(folder)));
-    return metrogestionOrdenarCarpetas_(preferred.length ? preferred : candidatas)[0];
+    const selected = metrogestionOrdenarCarpetas_(preferred.length ? preferred : candidatas)[0];
+    METROGESTION_EXECUTION_CACHE.set(cacheKey, selected);
+    return selected;
   }
 
   const paradas = metrogestionOrdenarCarpetas_(carpetasParadas)[0];
-  return paradas.createFolder(numeroParada);
+  const selected = paradas.createFolder(numeroParada);
+  METROGESTION_EXECUTION_CACHE.set(cacheKey, selected);
+  return selected;
 }
 
 function metrogestionEnlazarArchivoParada_(sheet, numeroParada, dfm, sheetState) {
@@ -647,15 +656,20 @@ function metrogestionEnlazarArchivoParada_(sheet, numeroParada, dfm, sheetState)
   // La carpeta común se resuelve siempre por su ruta canónica; así los enlaces
   // históricos de trabajos distintos no compiten entre sí.
   const inferredDfm = String(dfm || values[matchingRows[0] - 1]?.[0] || '').trim();
+  const currentRichTexts = new Map();
   const currentUrls = matchingRows.map(rowNumber => {
     const richText = sheet.getRange(rowNumber, 5).getRichTextValue();
+    currentRichTexts.set(rowNumber, richText);
     return richText ? richText.getLinkUrl() : '';
   }).filter(Boolean);
   const folderUrl = metrogestionObtenerCarpetaParada_(inferredDfm, canonicalStop, currentUrls).getUrl();
 
   matchingRows.forEach(rowNumber => {
     const cell = sheet.getRange(rowNumber, 5);
-    const current = cell.getRichTextValue();
+    const current = currentRichTexts.get(rowNumber) || null;
+    const currentFolderId = metrogestionIdCarpetaDesdeUrl_(current ? current.getLinkUrl() : '');
+    const expectedFolderId = metrogestionIdCarpetaDesdeUrl_(folderUrl);
+    if (currentFolderId && currentFolderId === expectedFolderId) return;
     const text = String(values[rowNumber - 1]?.[4] || cell.getDisplayValue() || canonicalStop);
     const builder = current
       ? current.copy()
