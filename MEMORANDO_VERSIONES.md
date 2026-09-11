@@ -6,7 +6,7 @@
 - Hereda íntegramente el comportamiento validado de Alpha74 como punto de partida.
 - Alpha74 permanece sin cambios como referencia estable y versión de retorno.
 - Las mejoras posteriores se desarrollarán exclusivamente en Alpha75 hasta su validación.
-- Incorpora un filtro marrón «Sustituciones momentáneas» en Hotel/Pizarra, con contador y listado basados en el estado operativo unificado.
+- Incorpora un filtro marrón «Sustituciones momentáneas» coordinado entre Hotel/Pizarra y Panel, con contador y listado basados en el mismo estado operativo unificado.
 
 ## r1.0.0-alpha.74 — 06/09/2026
 
