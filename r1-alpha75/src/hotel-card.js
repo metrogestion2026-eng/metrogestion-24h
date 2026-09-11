@@ -233,7 +233,27 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
       ? stage => onAnnulGeneratedNote(row.id, stage)
       : null,
   });
-  if (chronology) card.append(chronology);
+  if (chronology) {
+    chronology.hidden = true;
+    const notificationsButton = element('button', {
+      className: 'button secondary compact a75-card-notifications-toggle',
+      type: 'button',
+      text: 'Desplegar notificaciones',
+      'aria-expanded': 'false',
+      title: 'Mostrar las anotaciones y los pasos realizados de esta ficha',
+    });
+    notificationsButton.addEventListener('click', () => {
+      chronology.hidden = !chronology.hidden;
+      notificationsButton.textContent = chronology.hidden
+        ? 'Desplegar notificaciones'
+        : 'Ocultar notificaciones';
+      notificationsButton.setAttribute('aria-expanded', chronology.hidden ? 'false' : 'true');
+      notificationsButton.title = chronology.hidden
+        ? 'Mostrar las anotaciones y los pasos realizados de esta ficha'
+        : 'Ocultar las anotaciones y los pasos realizados de esta ficha';
+    });
+    card.append(notificationsButton, chronology);
+  }
   if (canAddNotes && typeof onAddNote === 'function') {
     card.append(renderQuickAnnotationComposer(text => onAddNote(row.id, text)));
   }
