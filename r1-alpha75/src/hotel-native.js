@@ -1,7 +1,7 @@
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { openHotelCreate } from './hotel-create.js';
-import { openHotelEditor } from './hotel-editor.js?v=75.8';
+import { openHotelEditor } from './hotel-editor.js?v=75.9';
 import { requestId } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
@@ -42,7 +42,6 @@ const hotelViewState = {
   filter: 'all',
   search: '',
   editMode: false,
-  notificationsExpanded: false,
 };
 
 function ensureAlpha71HotelStyle() {
@@ -467,14 +466,6 @@ async function renderHotelNative(container, access) {
         title: 'Activa “Lectura y edición” para consultar las fichas canceladas',
       })
     : null;
-  const notificationsButton = element('button', {
-    className: 'button secondary a75-notifications-toggle',
-    type: 'button',
-    text: 'Desplegar notificaciones',
-    'aria-expanded': 'false',
-    title: 'Mostrar las anotaciones y los pasos realizados de las fichas',
-  });
-  headingActions.prepend(notificationsButton);
   if (cancelledButton) {
     cancelledButton.hidden = true;
     cancelledButton.disabled = true;
@@ -735,34 +726,8 @@ async function renderHotelNative(container, access) {
         card.dataset.searchBase = buildSearchBase(row, rowStages, rowNotes);
         list.append(card);
       });
-      const chronologies = [...list.querySelectorAll('.a72-chronology')];
-      chronologies.forEach(chronology => {
-        chronology.hidden = !hotelViewState.notificationsExpanded;
-      });
-      notificationsButton.textContent = hotelViewState.notificationsExpanded
-        ? 'Ocultar notificaciones'
-        : 'Desplegar notificaciones';
-      notificationsButton.setAttribute('aria-expanded', hotelViewState.notificationsExpanded ? 'true' : 'false');
-      notificationsButton.disabled = chronologies.length === 0;
-      notificationsButton.title = chronologies.length
-        ? (hotelViewState.notificationsExpanded
-            ? 'Ocultar las anotaciones y los pasos realizados de las fichas'
-            : 'Mostrar las anotaciones y los pasos realizados de las fichas')
-        : 'No hay notificaciones en las fichas actuales';
       applyFilter();
     };
-
-    notificationsButton.addEventListener('click', () => {
-      if (notificationsButton.disabled) return;
-      hotelViewState.notificationsExpanded = !hotelViewState.notificationsExpanded;
-      list.querySelectorAll('.a72-chronology').forEach(chronology => {
-        chronology.hidden = !hotelViewState.notificationsExpanded;
-      });
-      notificationsButton.textContent = hotelViewState.notificationsExpanded
-        ? 'Ocultar notificaciones'
-        : 'Desplegar notificaciones';
-      notificationsButton.setAttribute('aria-expanded', hotelViewState.notificationsExpanded ? 'true' : 'false');
-    });
 
     if (createButton) {
       createButton.addEventListener('click', () => {
@@ -856,7 +821,6 @@ nav?.addEventListener('click', event => {
     hotelViewState.filter = 'all';
     hotelViewState.search = '';
     hotelViewState.editMode = false;
-    hotelViewState.notificationsExpanded = false;
     return;
   }
   if (content) delete content.dataset.alpha55HistoryNative;
