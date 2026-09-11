@@ -2,8 +2,9 @@ const METROGESTION = Object.freeze({
   spreadsheetId: '1PQE5VsjTvDFvQZcqedyQKIs3RbSySHFK4JPQXBD0XyU',
   spreadsheetName: 'MANTENIMIENTOS',
   sheetName: 'MANTENIMENT',
+  archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.11.1',
+  scriptVersion: 'alpha75-2026.09.11.3',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -307,6 +308,15 @@ function metrogestionNumero_(value, label, ignorarNegativoDePeriodoAbierto) {
   return number;
 }
 
+function metrogestionKilometrosFacturables_(value, rowNumber, periodoAbierto) {
+  const status = metrogestionNormalizar_(value);
+  // Algunas plantillas históricas reservan P para el control validado OK/KO.
+  // Ese estado pertenece a MANTENIMENT: se conserva en la hoja y no se envía
+  // como kilometraje a Metrogestión.
+  if (status === 'OK' || status === 'KO') return '';
+  return metrogestionNumero_(value, `Los kilómetros de la fila ${rowNumber}`, periodoAbierto);
+}
+
 function metrogestionLeerParadasVinculadas_(values, notes) {
   const result = [];
   for (let index = 1; index < values.length; index += 1) {
@@ -343,7 +353,7 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
       fecha_k: fechaK,
       dias_parada: metrogestionNumero_(row[11], `Los días de la fila ${index + 1}`, periodoAbierto),
       marca: row[14],
-      km_facturables: metrogestionNumero_(row[15], `Los kilómetros de la fila ${index + 1}`, periodoAbierto),
+      km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, periodoAbierto),
       tancament: metrogestionNormalizar_(row[16]),
     });
   }
@@ -465,6 +475,12 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
         currentWorks,
         payload.reversion_t || null
       );
+      const linkedArchiveRows = metrogestionEnlazarArchivoParada_(
+        sheet,
+        payload.numero_parada,
+        payload.dfm,
+        sheetState
+      );
       return {
         tipo: 'trabajos',
         sync_id: syncId,
@@ -472,6 +488,7 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
         estado: 'aplicado',
         trabajos_asignados: assignedWorks,
         ajustes_24h: adjustment24h,
+        filas_archivo_enlazadas: linkedArchiveRows,
       };
     }
     let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, sheetState);
@@ -488,6 +505,12 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
       currentWorks,
       payload.reversion_t || null
     );
+    const linkedArchiveRows = metrogestionEnlazarArchivoParada_(
+      sheet,
+      payload.numero_parada,
+      payload.dfm,
+      sheetState
+    );
     return {
       tipo: 'parada',
       sync_id: syncId,
@@ -496,8 +519,86 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
       fila: rowNumber,
       trabajos_asignados: assignedWorks,
       ajustes_24h: adjustment24h,
+      filas_archivo_enlazadas: linkedArchiveRows,
     };
   });
+}
+
+function metrogestionClaveNumeroParada_(value) {
+  return metrogestionNormalizar_(value).replace(/^PA-/, '');
+}
+
+function metrogestionIdCarpetaDesdeUrl_(url) {
+  const text = String(url || '').trim();
+  const match = text.match(/\/folders\/([^/?#]+)/i);
+  return match ? match[1] : text;
+}
+
+function metrogestionBuscarCarpetaUnica_(parent, name) {
+  const folders = parent.getFoldersByName(name);
+  if (!folders.hasNext()) return null;
+  const folder = folders.next();
+  if (folders.hasNext()) {
+    throw new Error(`Hay más de una carpeta llamada ${name}. No se han modificado los enlaces.`);
+  }
+  return folder;
+}
+
+function metrogestionObtenerCarpetaParada_(dfm, numeroParada) {
+  const codigoDfm = String(dfm || '').trim();
+  if (!codigoDfm) throw new Error(`No se puede localizar el archivo de ${numeroParada}: falta el DFM.`);
+  const archivoFlota = DriveApp.getFolderById(METROGESTION.archivoFlotaFolderId);
+  const carpetaDfm = metrogestionBuscarCarpetaUnica_(archivoFlota, codigoDfm);
+  if (!carpetaDfm) {
+    throw new Error(`No existe la carpeta del DFM ${codigoDfm} dentro de A-FLOTA.`);
+  }
+  let paradas = metrogestionBuscarCarpetaUnica_(carpetaDfm, 'PARADAS');
+  if (!paradas) paradas = carpetaDfm.createFolder('PARADAS');
+  let parada = metrogestionBuscarCarpetaUnica_(paradas, numeroParada);
+  if (!parada) parada = paradas.createFolder(numeroParada);
+  return parada;
+}
+
+function metrogestionEnlazarArchivoParada_(sheet, numeroParada, dfm, sheetState) {
+  const stopKey = metrogestionClaveNumeroParada_(numeroParada);
+  if (!stopKey) return 0;
+  const canonicalStop = `PA-${stopKey}`;
+  const lastRow = sheetState?.values?.length || sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  const values = sheetState?.values
+    || sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
+  const matchingRows = [];
+  values.forEach((row, index) => {
+    if (index > 0 && metrogestionClaveNumeroParada_(row[4]) === stopKey) matchingRows.push(index + 1);
+  });
+  if (!matchingRows.length) return 0;
+
+  const richValues = sheet.getRange(2, 5, lastRow - 1, 1).getRichTextValues();
+  const linksByFolder = new Map();
+  matchingRows.forEach(rowNumber => {
+    const url = richValues[rowNumber - 2]?.[0]?.getLinkUrl?.() || '';
+    if (url) linksByFolder.set(metrogestionIdCarpetaDesdeUrl_(url), url);
+  });
+  if (linksByFolder.size > 1) {
+    throw new Error(`Las filas de ${canonicalStop} apuntan a carpetas distintas. No se han modificado.`);
+  }
+
+  let folderUrl = linksByFolder.size ? [...linksByFolder.values()][0] : '';
+  if (!folderUrl) {
+    const inferredDfm = String(dfm || values[matchingRows[0] - 1]?.[0] || '').trim();
+    folderUrl = metrogestionObtenerCarpetaParada_(inferredDfm, canonicalStop).getUrl();
+  }
+
+  matchingRows.forEach(rowNumber => {
+    const cell = sheet.getRange(rowNumber, 5);
+    const current = cell.getRichTextValue();
+    const text = String(values[rowNumber - 1]?.[4] || cell.getDisplayValue() || canonicalStop);
+    const builder = current
+      ? current.copy()
+      : SpreadsheetApp.newRichTextValue().setText(text);
+    cell.setRichTextValue(builder.setLinkUrl(folderUrl).build());
+  });
+  return matchingRows.length;
 }
 
 function metrogestionNotaSinTrabajo_(note) {
