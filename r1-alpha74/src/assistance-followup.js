@@ -90,6 +90,14 @@ function openFollowup(row, card) {
   const [arrivalLabel, arrival] = field('Hora real de llegada', String(row.hora_llegada || '').slice(0, 5), 'time');
   const [diagnosisCheckLabel, diagnosisCheck] = check('Diagnóstico confirmado', row.diagnostico_confirmado);
   const [diagnosisLabel, diagnosis] = field('Diagnóstico', row.diagnostico || '', 'textarea');
+  const [currentStateLabel, currentState] = select('Situación actual', [
+    ['en_curso', 'En curso'],
+    ['pendiente_diagnostico', 'Pendiente de diagnóstico'],
+    ['pendiente_presupuesto', 'Pendiente de presupuesto'],
+    ['pendiente_autorizacion', 'Pendiente de autorización'],
+    ['pendiente_repuestos', 'Pendiente de repuestos'],
+    ['en_reparacion', 'En reparación'],
+  ], row.estado_seguimiento || 'en_curso');
   const [resultLabel, result] = select('Resultado', [
     ['seguimiento_abierto', 'Seguimiento abierto'],
     ['operativo_reparado', 'Reparado en carretera / operativo'],
@@ -99,10 +107,12 @@ function openFollowup(row, card) {
   const [workshopLabel, workshop] = field('Taller de traslado', row.taller_traslado || row.proveedor || '');
   const [operationalLabel, operational] = check('Vehículo operativo y reparación finalizada', row.estado_operativo_confirmado);
   const [finishLabel, finish] = field('Hora de fin de reparación', String(row.hora_fin_reparacion || '').slice(0, 5), 'time');
+  const [substituteDfmLabel, substituteDfm] = field('DFM del vehículo sustituto', row.vehiculo_sustituto || '');
+  const [substitutePlateLabel, substitutePlate] = field('Matrícula del vehículo sustituto', row.matricula_sustituto || '');
   const [reasonLabel, reason] = field('Anotación del seguimiento', '', 'textarea');
   diagnosisLabel.classList.add('a74-follow-wide');
   reasonLabel.classList.add('a74-follow-wide');
-  grid.append(activationDateLabel, activationTimeLabel, arrivedLabel, arrivalLabel, diagnosisCheckLabel, diagnosisLabel, resultLabel, workshopLabel, operationalLabel, finishLabel, reasonLabel);
+  grid.append(activationDateLabel, activationTimeLabel, currentStateLabel, arrivedLabel, arrivalLabel, diagnosisCheckLabel, diagnosisLabel, resultLabel, workshopLabel, substituteDfmLabel, substitutePlateLabel, operationalLabel, finishLabel, reasonLabel);
 
   const error = document.createElement('div');
   error.className = 'h24-status danger';
@@ -126,6 +136,8 @@ function openFollowup(row, card) {
     const transfer = result.value === 'trasladado_taller';
     const repaired = result.value === 'operativo_reparado';
     workshopLabel.hidden = !transfer;
+    substituteDfmLabel.hidden = result.value !== 'necesita_sustitucion';
+    substitutePlateLabel.hidden = result.value !== 'necesita_sustitucion';
     operationalLabel.hidden = !repaired;
     finishLabel.hidden = !repaired;
     if (transfer) operational.checked = false;
@@ -148,6 +160,7 @@ function openFollowup(row, card) {
     if (arrived.checked && !arrival.value) return fail('Indica la hora real de llegada del técnico.');
     if (diagnosisCheck.checked && !diagnosis.value.trim()) return fail('Escribe el diagnóstico confirmado.');
     if (result.value === 'trasladado_taller' && !workshop.value.trim()) return fail('Indica el taller al que lo lleva la grúa.');
+    if (result.value === 'necesita_sustitucion' && !substituteDfm.value.trim() && !substitutePlate.value.trim()) return fail('Indica el DFM o la matrícula del vehículo sustituto.');
     if (result.value === 'operativo_reparado' && !operational.checked) return fail('Confirma que el vehículo está operativo y reparado.');
     if (result.value === 'operativo_reparado' && !finish.value) return fail('Indica la hora de fin de reparación.');
 
@@ -169,6 +182,9 @@ function openFollowup(row, card) {
       taller_traslado: result.value === 'trasladado_taller' ? workshop.value.trim() : '',
       estado_operativo_confirmado: String(result.value === 'operativo_reparado' && operational.checked),
       hora_fin_reparacion: result.value === 'operativo_reparado' ? finish.value : '',
+      estado_seguimiento: currentState.value,
+      vehiculo_sustituto: substituteDfm.value.trim(),
+      matricula_sustituto: substitutePlate.value.trim().toUpperCase(),
       resultado: result.value,
       seguimiento_nota: reason.value.trim(),
     };
@@ -212,7 +228,7 @@ async function patchIncidentCards() {
   patching = true;
   try {
     const { data, error } = await supabase.from('activaciones_24h').select(
-      'id,dfm,matricula,averia,numero_caso,fecha_activacion,hora_activacion,eta_tecnico,proveedor,tecnico_llegado,hora_llegada,diagnostico_confirmado,diagnostico,trasladado_taller,taller_traslado,estado_operativo_confirmado,hora_fin_reparacion,resultado,estado,creado_en'
+      'id,dfm,matricula,averia,numero_caso,fecha_activacion,hora_activacion,eta_tecnico,proveedor,tecnico_llegado,hora_llegada,diagnostico_confirmado,diagnostico,trasladado_taller,taller_traslado,estado_operativo_confirmado,hora_fin_reparacion,estado_seguimiento,vehiculo_sustituto,matricula_sustituto,resultado,estado,creado_en'
     ).eq('estado', 'abierta').order('creado_en', { ascending: false });
     if (error) return;
     cards.forEach(card => {
