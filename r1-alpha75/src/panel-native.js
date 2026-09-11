@@ -522,6 +522,7 @@ async function renderPanel({ automatic = false } = {}) {
     const procedures = hotelRows.filter(row => row.estado === 'tramite');
     const management = hotelRows.filter(row => row.estado === 'gestion');
     const assistance24h = hotelRows.filter(row => row.estado === 'asistencia_24h');
+    const momentarySubstitutions = hotelRows.filter(row => row.estado === 'sustitucion_momentanea');
     const inWorkshop = hotelRows.filter(row => workshopStates.has(row.estado));
     const pendingPickup = hotelRows.filter(row => row.estado === 'terminado_pendiente_recogida');
     const pendingRecover = hotelRows.filter(row => row.estado === 'recogido_pendiente_ruta');
@@ -679,6 +680,7 @@ async function renderPanel({ automatic = false } = {}) {
       { label: 'Trámites', value: procedures.length, tone: 'neutral', detail: { title: 'Trámites', items: procedures.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Gestiones', value: management.length, tone: 'neutral', detail: { title: 'Gestiones', items: management.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: '24H en curso', value: assistance24h.length, tone: 'main', detail: { title: '24H en curso', items: assistance24h.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
+      { label: 'Sustituciones momentáneas', value: momentarySubstitutions.length, tone: 'brown', detail: { title: 'Sustituciones momentáneas', items: momentarySubstitutions.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'En taller', value: inWorkshop.length, tone: 'lilac', detail: { title: 'En taller', items: inWorkshop.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Pendientes de recoger', value: pendingPickup.length, tone: 'blue', detail: { title: 'Pendientes de recoger', items: pendingPickup.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
       { label: 'Pendientes de recuperar', value: pendingRecover.length, tone: 'orange', detail: { title: 'Pendientes de recuperar', items: pendingRecover.map(toHotelItem), module: 'hotel', moduleLabel: 'Abrir Hotel' } },
