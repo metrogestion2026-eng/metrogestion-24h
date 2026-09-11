@@ -114,7 +114,18 @@ function savedMessage(saved) {
   const labels = [['estados','estado de ficha'],['estados_etapa','estado de T'],['tipos_etapa','tipo de T'],['talleres','taller'],['centros','centro'],['tipos_trabajo','tipo de trabajo']];
   const added = labels.map(([key,label]) => [Number(catalogues[key] || 0),label]).filter(([count]) => count > 0).map(([count,label]) => `${count} ${label}${count === 1 ? '' : 's'} nuevo${count === 1 ? '' : 's'}`);
   const parts = [auditEvents ? `${auditEvents} cambio${auditEvents === 1 ? '' : 's'} auditado${auditEvents === 1 ? '' : 's'}` : 'sin cambios adicionales que auditar'];
+  const impact = saved?.impacto_operativo || {};
+  const operationalEffects = [
+    [Number(impact.recogidas_anuladas || 0), 'recogida dependiente anulada', 'recogidas dependientes anuladas'],
+    [Number(impact.recogidas_restauradas || 0), 'recogida dependiente restaurada', 'recogidas dependientes restauradas'],
+    [Number(impact.recogidas_creadas || 0), 'recogida creada', 'recogidas creadas'],
+    [Number(impact.recuperaciones_creadas || 0), 'recuperación creada', 'recuperaciones creadas'],
+    [Number(impact.recuperaciones_anuladas || 0), 'recuperación anulada', 'recuperaciones anuladas'],
+    [Number(impact.fechas_manteniment_actualizadas || 0), 'fecha de MANTENIMENT recalculada', 'fechas de MANTENIMENT recalculadas']
+  ].filter(([count]) => count > 0).map(([count, singular, plural]) => `${count} ${count === 1 ? singular : plural}`);
   if (saved?.reactivacion_coherente) parts.unshift('reactivación completa: ficha, T final y reserva sincronizadas');
+  if (operationalEffects.length) parts.unshift(`efecto operativo aplicado: ${operationalEffects.join(', ')}`);
+  else if (impact.manteniment_encolado) parts.unshift('efecto operativo revisado y MANTENIMENT sincronizado');
   if (added.length) parts.push(`listados actualizados: ${added.join(', ')}`);
   return `✓ Ficha guardada: ${parts.join(' · ')}. Referencia ${saved?.request_id || '—'}.`;
 }
@@ -277,7 +288,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     discardButton.disabled = true;
     closeButton.disabled = true;
     status.className = 'hotel-editor-status';
-    status.textContent = 'Guardando la ficha y actualizando sus listados editables…';
+    status.textContent = 'Guardando y aplicando el efecto operativo de las T en Hotel, Panel y MANTENIMENT…';
 
     const saveRequestId = requestId();
     const { data: saved, error: saveError } = await supabase.rpc('guardar_ficha_hotel_edicion_alpha73', {
