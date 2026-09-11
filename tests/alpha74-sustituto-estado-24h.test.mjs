@@ -20,6 +20,14 @@ test('Mis incidencias permite completar la misma información', () => {
   assert.match(followup, /matricula_sustituto: substitutePlate\.value/);
 });
 
+test('el DFM exacto autocompleta la matrícula del sustituto en ambos formularios', () => {
+  assert.match(activation, /sd\.oninput=autofillSubstitute/);
+  assert.match(activation, /state\.matricula_sustituto=String\(found\.matricula/);
+  assert.match(followup, /substituteDfm\.addEventListener\('input', autofillSubstitute\)/);
+  assert.match(followup, /substitutePlate\.value = String\(vehicle\.matricula/);
+  assert.match(followup, /from\('vehiculos'\)\.select\('id,dfm,matricula,marca'\)/);
+});
+
 test('la ficha recibe el estado y el vehículo sustituto', () => {
   assert.match(migration, /estado = v_estado_hotel/);
   assert.match(migration, /vehiculo_reserva = case when v_resultado = 'necesita_sustitucion'/);
