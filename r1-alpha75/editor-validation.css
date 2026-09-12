@@ -3,6 +3,7 @@
 .editor-field-needs-attention input,.editor-field-needs-attention select,.editor-field-needs-attention textarea,.editor-field-needs-attention .a71-catalogue-trigger{border-color:#dc2626}
 .editor-field-error{display:block;margin-top:7px;color:#991b1b;font-size:12px;font-weight:800;line-height:1.35}
 .editor-stage-card.has-validation-error{border-color:#dc2626;background:#fff7f7}
+.a75-cancelled-stages-bar{align-items:center;justify-content:space-between;margin:0 0 12px;gap:10px}
 .editor-errors a{color:inherit;font-weight:850}
 .editor-identity-notice{display:grid;gap:5px;padding:14px 16px;border:2px solid #1d4ed8;border-radius:14px;background:#eff6ff;color:#172554;box-shadow:0 4px 14px rgba(29,78,216,.1)}
 .editor-identity-notice strong{font-size:18px;line-height:1.25}
