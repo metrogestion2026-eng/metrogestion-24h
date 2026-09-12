@@ -22,6 +22,6 @@ test('las T anuladas tienen una vista separada y pueden restaurarse', () => {
 
 test('el guardado conserva el conjunto completo de T y fuerza la caché nueva', () => {
   assert.match(stages, /stagesPayload\(stages\)/);
-  assert.match(html, /editor-validation\.css\?v=75\.11/);
-  assert.match(html, /hotel-native\.js\?v=75\.11/);
+  assert.match(html, /editor-validation\.css\?v=75\.12/);
+  assert.match(html, /hotel-native\.js\?v=75\.12/);
 });
