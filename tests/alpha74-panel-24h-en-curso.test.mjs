@@ -18,8 +18,8 @@ test('Panel confía en el estado general compartido con Hotel', () => {
   assert.doesNotMatch(panel, /enteredWorkshopHotelIds/);
 });
 
-test('la versión visible avanza a alpha 74.26', () => {
-  assert.match(app, /r1\.0\.0-alpha\.74\.26/);
-  assert.match(index, /panel-native\.js\?v=74\.26/);
-  assert.match(index, /hotel-native\.js\?v=74\.26/);
+test('la versión visible avanza a alpha 74.27', () => {
+  assert.match(app, /r1\.0\.0-alpha\.74\.27/);
+  assert.match(index, /panel-native\.js\?v=74\.27/);
+  assert.match(index, /hotel-native\.js\?v=74\.27/);
 });
