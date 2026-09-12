@@ -31,6 +31,7 @@ test('Alpha76 conserva Alpha75 y añade únicamente su experiencia de consulta',
     path.join('src', 'history-card.js'),
     path.join('src', 'panel-native.js'),
     path.join('src', 'hotel-editor-stages.js'),
+    path.join('src', 'pending-stages.js'),
     'editor-validation.css',
   ]);
   for (const file of files75) {
