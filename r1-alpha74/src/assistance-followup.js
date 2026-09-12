@@ -60,6 +60,14 @@ function normalize(value) {
   return String(value || '').trim().toLocaleUpperCase('es-ES');
 }
 
+function madridToday() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function identityFromCard(card) {
   const title = card.querySelector('.a50-title')?.textContent || '';
   return {
@@ -111,6 +119,7 @@ function openFollowup(row, card, fleet = []) {
   ], row.resultado);
   const [workshopLabel, workshop] = field('Taller de traslado', row.taller_traslado || row.proveedor || '');
   const [operationalLabel, operational] = check('Vehículo operativo y reparación finalizada', row.estado_operativo_confirmado);
+  const [finishDateLabel, finishDate] = field('Fecha de fin de reparación', String(row.fecha_fin_reparacion || madridToday()).slice(0, 10), 'date');
   const [finishLabel, finish] = field('Hora de fin de reparación', String(row.hora_fin_reparacion || '').slice(0, 5), 'time');
   const [substituteDfmLabel, substituteDfm] = field('DFM del vehículo sustituto', row.vehiculo_sustituto || '');
   const [substitutePlateLabel, substitutePlate] = field('Matrícula del vehículo sustituto', row.matricula_sustituto || '');
@@ -125,7 +134,7 @@ function openFollowup(row, card, fleet = []) {
   const [reasonLabel, reason] = field('Anotación del seguimiento', '', 'textarea');
   diagnosisLabel.classList.add('a74-follow-wide');
   reasonLabel.classList.add('a74-follow-wide');
-  grid.append(activationDateLabel, activationTimeLabel, currentStateLabel, arrivedLabel, arrivalLabel, diagnosisCheckLabel, diagnosisLabel, resultLabel, workshopLabel, substituteDfmLabel, substitutePlateLabel, operationalLabel, finishLabel, reasonLabel);
+  grid.append(activationDateLabel, activationTimeLabel, currentStateLabel, arrivedLabel, arrivalLabel, diagnosisCheckLabel, diagnosisLabel, resultLabel, workshopLabel, substituteDfmLabel, substitutePlateLabel, operationalLabel, finishDateLabel, finishLabel, reasonLabel);
 
   const error = document.createElement('div');
   error.className = 'h24-status danger';
@@ -152,6 +161,7 @@ function openFollowup(row, card, fleet = []) {
     substituteDfmLabel.hidden = result.value !== 'necesita_sustitucion';
     substitutePlateLabel.hidden = result.value !== 'necesita_sustitucion';
     operationalLabel.hidden = !repaired;
+    finishDateLabel.hidden = !repaired;
     finishLabel.hidden = !repaired;
     if (transfer) operational.checked = false;
   };
@@ -184,6 +194,7 @@ function openFollowup(row, card, fleet = []) {
     if (result.value === 'trasladado_taller' && !workshop.value.trim()) return fail('Indica el taller al que lo lleva la grúa.');
     if (result.value === 'necesita_sustitucion' && !substituteDfm.value.trim() && !substitutePlate.value.trim()) return fail('Indica el DFM o la matrícula del vehículo sustituto.');
     if (result.value === 'operativo_reparado' && !operational.checked) return fail('Confirma que el vehículo está operativo y reparado.');
+    if (result.value === 'operativo_reparado' && !finishDate.value) return fail('Indica la fecha de fin de reparación.');
     if (result.value === 'operativo_reparado' && !finish.value) return fail('Indica la hora de fin de reparación.');
 
     save.disabled = true;
@@ -203,6 +214,7 @@ function openFollowup(row, card, fleet = []) {
       trasladado_taller: String(result.value === 'trasladado_taller'),
       taller_traslado: result.value === 'trasladado_taller' ? workshop.value.trim() : '',
       estado_operativo_confirmado: String(result.value === 'operativo_reparado' && operational.checked),
+      fecha_fin_reparacion: result.value === 'operativo_reparado' ? finishDate.value : '',
       hora_fin_reparacion: result.value === 'operativo_reparado' ? finish.value : '',
       estado_seguimiento: currentState.value,
       vehiculo_sustituto: substituteDfm.value.trim(),
@@ -251,7 +263,7 @@ async function patchIncidentCards() {
   try {
     const [{ data, error }, { data: fleet, error: fleetError }] = await Promise.all([
       supabase.from('activaciones_24h').select(
-        'id,dfm,matricula,averia,numero_caso,fecha_activacion,hora_activacion,eta_tecnico,proveedor,tecnico_llegado,hora_llegada,diagnostico_confirmado,diagnostico,trasladado_taller,taller_traslado,estado_operativo_confirmado,hora_fin_reparacion,estado_seguimiento,vehiculo_sustituto,matricula_sustituto,resultado,estado,creado_en'
+        'id,dfm,matricula,averia,numero_caso,fecha_activacion,hora_activacion,eta_tecnico,proveedor,tecnico_llegado,hora_llegada,diagnostico_confirmado,diagnostico,trasladado_taller,taller_traslado,estado_operativo_confirmado,fecha_fin_reparacion,hora_fin_reparacion,estado_seguimiento,vehiculo_sustituto,matricula_sustituto,resultado,estado,creado_en'
       ).eq('estado', 'abierta').order('creado_en', { ascending: false }),
       supabase.from('vehiculos').select('id,dfm,matricula,marca').eq('activo', true).order('dfm'),
     ]);

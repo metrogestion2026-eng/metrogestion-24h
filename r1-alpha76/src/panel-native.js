@@ -1,6 +1,6 @@
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { createDetailPdf, downloadDetailPdf } from './panel-pdf.js';
-import { openHotelEditor } from './hotel-editor.js?v=76.1';
+import { openHotelEditor } from './hotel-editor.js?v=76.2';
 
 const nav = document.querySelector('#module-nav');
 const content = document.querySelector('#module-content');

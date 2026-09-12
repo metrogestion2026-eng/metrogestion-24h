@@ -1,5 +1,5 @@
 import { detail, element } from '../../r1-alpha17/src/dom.js';
-import { openHotelEditor } from './hotel-editor.js?v=75.12';
+import { openHotelEditor } from './hotel-editor.js?v=75.13';
 import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
 import { createOperationalDates, createSubstitutionBilling } from './card-operational.js';
