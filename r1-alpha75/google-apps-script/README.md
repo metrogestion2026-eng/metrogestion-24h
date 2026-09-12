@@ -12,8 +12,30 @@ Este script sustituye el contenido del proyecto de Google Apps Script vinculado 
 - Las fichas nuevas de Hotel solo crean o actualizan una fila `PARADA` cuando existe un sustituto real. TRÁMITE y GESTIÓN conservan su número de actuación sin crear esa fila.
 - Solo las filas `PARADA` creadas por Metrogestión pueden volver desde Google a su ficha. Las filas históricas sin identificador no se importan automáticamente.
 - En las filas `PARADA` vinculadas, **MANTENIMENT gobierna I, J, K, L y P**. En Q conserva lo ya escrito; si está vacío, Metrogestión añade automáticamente el período abierto como `TANCAMENT n`.
+- Cuando una plantilla histórica utiliza P como control desplegable `OK/KO`, el
+  sincronizador conserva ese estado y no intenta convertirlo en kilómetros.
+- Q puede conservar enlaces o referencias documentales como `FOTO` u `OR-…`.
+  Solo se envía como período de cierre cuando contiene exactamente `TANCAMENT n`.
 - **Metrogestión protege A-E, G y O**: DFM, matrícula, tipo, UPC, número de actuación, sustituto y marca. Los cambios de esas columnas se ignoran al importar y la orden siguiente restaura los valores de la ficha.
 - La columna E conserva su enlace de Drive cuando el número de actuación protegido no ha cambiado.
+- Las columnas auxiliares R y S quedan libres para sus `ARRAYFORMULA`: calculan
+  mes y año desde J y el sincronizador nunca copia valores sobre ellas. Ambas
+  columnas quedan protegidas contra escrituras manuales y la sincronización
+  incluye una función específica para restablecer la protección si faltara. La
+  comprobación no se repite en cada sincronización para no consumir tiempo.
+- Cada número de parada utiliza una sola carpeta en `A-FLOTA/<DFM>/PARADAS/<PA-número>`.
+  Si una fila ya tiene un enlace creado manualmente, se reutiliza. Al sincronizar,
+  el mismo enlace se aplica a todas las filas que contengan ese número de parada,
+  incluidas `PARADA`, `AV`, mantenimientos, recogidas y recuperaciones.
+- La carpeta de la parada se crea únicamente cuando no existe. Si un DFM ya tiene
+  varias carpetas `PARADAS` o varias carpetas con el mismo `PA-número`, se reutiliza
+  la que ya esté enlazada en MANTENIMENT. Si todavía no hay enlace, se elige la más
+  antigua. No se borra ni se mueve ninguna carpeta existente.
+  Los enlaces históricos de GP, ACT u otros trabajos no se consideran carpetas de
+  parada y se sustituyen en E por el archivo común; sus enlaces propios se conservan
+  en la columna donde figure el trabajo.
+- Durante cada ejecución se reutilizan las carpetas ya localizadas y no se
+  reescriben enlaces que ya sean correctos, reduciendo las llamadas a Drive.
 
 ## Taller F automático para R y DFM
 
