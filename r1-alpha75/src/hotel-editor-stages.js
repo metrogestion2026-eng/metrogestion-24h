@@ -15,8 +15,11 @@ export function stagesPayloadWithCatalogues(stages) {
 }
 
 function renumberStages(stages) {
-  stages.forEach((stage, index) => {
-    stage.posicion = index + 1;
+  let position = 0;
+  stages.forEach(stage => {
+    if (stage.cancelado) return;
+    position += 1;
+    stage.posicion = position;
   });
 }
 
@@ -180,31 +183,59 @@ export function renderStagesSection(detail, markDirty) {
   ]);
   const stagesHost = element('div', { className: 'editor-stages' });
   const addStageButton = element('button', { className: 'button secondary', type: 'button', text: '+ Añadir T' });
+  const cancelledButton = element('button', {
+    className: 'button secondary compact',
+    type: 'button',
+    text: 'Acceder a T anuladas'
+  });
+  const modeMessage = element('span', { className: 'muted' });
+  const modeBar = element('div', { className: 'editor-row-actions a75-cancelled-stages-bar' }, [
+    cancelledButton,
+    modeMessage
+  ]);
+  let showingCancelled = false;
 
   const renderStages = () => {
     stagesHost.replaceChildren();
+    const indexedStages = detail.etapas.map((stage, stageIndex) => ({ stage, stageIndex }));
+    const cancelledCount = indexedStages.filter(({ stage }) => stage.cancelado).length;
+    const visibleStages = indexedStages.filter(({ stage }) => stage.cancelado === showingCancelled);
 
-    if (!detail.etapas.length) {
-      stagesHost.append(element('p', { className: 'muted', text: 'No hay T en esta ficha.' }));
+    cancelledButton.hidden = cancelledCount === 0 && !showingCancelled;
+    cancelledButton.textContent = showingCancelled
+      ? '← Volver a T activas'
+      : `Acceder a T anuladas (${cancelledCount})`;
+    modeMessage.textContent = showingCancelled
+      ? 'Las T anuladas se conservan únicamente como histórico y pueden restaurarse.'
+      : `${visibleStages.length} T activa${visibleStages.length === 1 ? '' : 's'}`;
+    addStageButton.hidden = showingCancelled;
+
+    if (!visibleStages.length) {
+      stagesHost.append(element('p', {
+        className: 'muted',
+        text: showingCancelled ? 'Esta ficha no tiene T anuladas.' : 'No hay T activas en esta ficha.'
+      }));
     }
 
-    detail.etapas.forEach((stage, stageIndex) => {
+    visibleStages.forEach(({ stage, stageIndex }, visibleIndex) => {
       const stageCard = element('article', {
         className: `editor-stage-card${stage.cancelado ? ' cancelled' : ''}`
       });
 
       const up = element('button', { className: 'button secondary compact', type: 'button', text: '↑', title: 'Subir T' });
       const down = element('button', { className: 'button secondary compact', type: 'button', text: '↓', title: 'Bajar T' });
-      up.disabled = stageIndex === 0;
-      down.disabled = stageIndex === detail.etapas.length - 1;
+      up.disabled = showingCancelled || visibleIndex === 0;
+      down.disabled = showingCancelled || visibleIndex === visibleStages.length - 1;
       up.addEventListener('click', () => {
-        [detail.etapas[stageIndex - 1], detail.etapas[stageIndex]] = [detail.etapas[stageIndex], detail.etapas[stageIndex - 1]];
+        const previousIndex = visibleStages[visibleIndex - 1].stageIndex;
+        [detail.etapas[previousIndex], detail.etapas[stageIndex]] = [detail.etapas[stageIndex], detail.etapas[previousIndex]];
         renumberStages(detail.etapas);
         markDirty();
         renderStages();
       });
       down.addEventListener('click', () => {
-        [detail.etapas[stageIndex + 1], detail.etapas[stageIndex]] = [detail.etapas[stageIndex], detail.etapas[stageIndex + 1]];
+        const nextIndex = visibleStages[visibleIndex + 1].stageIndex;
+        [detail.etapas[nextIndex], detail.etapas[stageIndex]] = [detail.etapas[stageIndex], detail.etapas[nextIndex]];
         renumberStages(detail.etapas);
         markDirty();
         renderStages();
@@ -308,6 +339,13 @@ export function renderStagesSection(detail, markDirty) {
           stageState.value = 'Pendiente';
         }
         refreshStageCancellation();
+        if (!checked && showingCancelled) {
+          const [restoredStage] = detail.etapas.splice(stageIndex, 1);
+          detail.etapas.push(restoredStage);
+          renumberStages(detail.etapas);
+          showingCancelled = false;
+          renderStages();
+        }
       });
       refreshStageCancellation();
 
@@ -341,12 +379,17 @@ export function renderStagesSection(detail, markDirty) {
   };
 
   addStageButton.addEventListener('click', () => {
-    detail.etapas.push(makeNewStage(detail.etapas));
+    detail.etapas.push(makeNewStage(detail.etapas.filter(stage => !stage.cancelado)));
     markDirty();
     renderStages();
   });
 
+  cancelledButton.addEventListener('click', () => {
+    showingCancelled = !showingCancelled;
+    renderStages();
+  });
+
   renderStages();
-  section.append(stagesHost, addStageButton);
+  section.append(modeBar, stagesHost, addStageButton);
   return section;
 }
