@@ -29,9 +29,7 @@ function editionIdentity(ficha) {
     pizarra_id: normalizedIdentityValue(ficha?.pizarra_id),
     numero_parada: normalizedIdentityValue(ficha?.numero_parada),
     vehiculo_sustituido: normalizedIdentityValue(ficha?.vehiculo_sustituido, { upper: true }),
-    matricula_sustituido: normalizedIdentityValue(ficha?.matricula_sustituido, { upper: true }),
-    vehiculo_reserva: normalizedIdentityValue(ficha?.vehiculo_reserva, { upper: true }),
-    matricula_reserva: normalizedIdentityValue(ficha?.matricula_reserva, { upper: true })
+    matricula_sustituido: normalizedIdentityValue(ficha?.matricula_sustituido, { upper: true })
   };
 }
 
@@ -277,7 +275,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
       status.textContent = 'No se ha guardado: la identidad de la ficha cambió durante la edición. Cierra y vuelve a abrirla.';
       return;
     }
-    if (!window.confirm(identityConfirmation(loadedIdentity))) {
+    if (!window.confirm(identityConfirmation(detail.ficha))) {
       status.className = 'hotel-editor-status';
       status.textContent = 'Guardado cancelado. No se ha modificado ningún dato.';
       return;
