@@ -13,25 +13,28 @@ let readerProfile = null;
 let configuredUserId = '';
 let checking = false;
 
-function hasAnyEditPermission(profile) {
-  if (profile?.tipo_usuario === 'administrador_principal') return true;
-  return Object.values(profile?.permisos || {}).some(permission => permission?.editar === true);
-}
-
 function eligibleReader(profile) {
-  if (!profile?.activo || hasAnyEditPermission(profile)) return false;
-  return getModuleAccess(profile, 'hotel').view || getModuleAccess(profile, 'resumen').view;
+  if (!profile?.activo || profile.tipo_usuario === 'administrador_principal') return false;
+  const hotel = getModuleAccess(profile, 'hotel');
+  const panel = getModuleAccess(profile, 'resumen');
+  return (hotel.view || panel.view) && !hotel.edit && !panel.edit;
 }
 
 function readerAccess(profile) {
   return {
     hotel: getModuleAccess(profile, 'hotel').view,
     panel: getModuleAccess(profile, 'resumen').view,
+    assistance24h: getModuleAccess(profile, 'activar24h'),
   };
 }
 
 function openModule(moduleId) {
-  nav?.querySelector(`button[data-module="${moduleId}"]`)?.click();
+  const selectors = {
+    hotel: 'button[data-module="hotel"]',
+    resumen: 'button[data-module="resumen"]',
+    activar24h: '[data-alpha34-24h], [data-h47-24h]',
+  };
+  nav?.querySelector(selectors[moduleId] || '')?.click();
 }
 
 function saveHotelSearch(query) {
@@ -61,8 +64,8 @@ function renderConsulta(button) {
   page.className = 'a76-consulta';
   page.innerHTML = `
     <header class="a76-consulta-head">
-      <div><p class="eyebrow">Alpha76 · acceso simplificado</p><h2>Consulta de flota</h2><p>Busca un vehículo o entra en las vistas generales. Esta sesión no permite modificar datos.</p></div>
-      <span class="a76-readonly-badge">Solo lectura</span>
+      <div><p class="eyebrow">Alpha76 · acceso simplificado</p><h2>Consulta de flota</h2><p>Hotel y Panel están en lectura. Activar 24H conserva las herramientas autorizadas para gestionar incidencias.</p></div>
+      <span class="a76-readonly-badge">Consulta · 24H editable</span>
     </header>
     <section class="a76-search-card" aria-labelledby="a76-search-title">
       <div><h3 id="a76-search-title">Buscar un vehículo</h3><p>Introduce DFM, matrícula o número de actuación.</p></div>
@@ -73,6 +76,7 @@ function renderConsulta(button) {
       </form>
     </section>
     <section class="a76-entry-grid" aria-label="Vistas de consulta">
+      <button class="a76-entry-card" type="button" data-open="activar24h"><span class="a76-entry-icon" aria-hidden="true">🚨</span><span><strong>Activar 24H</strong><small>Crear o continuar una incidencia 24H.</small></span></button>
       <button class="a76-entry-card" type="button" data-open="hotel"><span class="a76-entry-icon" aria-hidden="true">🏨</span><span><strong>Abrir Hotel</strong><small>Consulta las fichas activas y su situación.</small></span></button>
       <button class="a76-entry-card" type="button" data-open="resumen"><span class="a76-entry-icon" aria-hidden="true">📊</span><span><strong>Abrir Panel</strong><small>Consulta el resumen y los avisos operativos.</small></span></button>
     </section>
@@ -111,7 +115,11 @@ function renderConsulta(button) {
   });
   page.querySelectorAll('[data-open]').forEach(entry => {
     const moduleId = entry.dataset.open;
-    const allowed = moduleId === 'hotel' ? access.hotel : access.panel;
+    const allowed = moduleId === 'hotel'
+      ? access.hotel
+      : moduleId === 'activar24h'
+        ? access.assistance24h.view
+        : access.panel;
     entry.disabled = !allowed;
     entry.addEventListener('click', () => openModule(moduleId));
   });
@@ -120,8 +128,12 @@ function renderConsulta(button) {
 
 function syncReaderNavigation() {
   if (!readerProfile || !nav) return;
+  const access = readerAccess(readerProfile);
+  const assistanceButton = nav.querySelector('[data-alpha34-24h]') || nav.querySelector('[data-h47-24h]');
   nav.querySelectorAll('button').forEach(button => {
-    const keep = button.dataset.alpha76Consulta === '1' || ['hotel', 'resumen'].includes(button.dataset.module);
+    const keep = button.dataset.alpha76Consulta === '1'
+      || ['hotel', 'resumen'].includes(button.dataset.module)
+      || (access.assistance24h.view && button === assistanceButton);
     button.classList.toggle(HIDDEN_CLASS, !keep);
     button.setAttribute('aria-hidden', keep ? 'false' : 'true');
     if (!keep) button.tabIndex = -1;
@@ -206,5 +218,12 @@ supabase.auth.onAuthStateChange(event => {
   if (event === 'SIGNED_OUT') disableReaderMode();
   else window.setTimeout(() => void checkSession(), 0);
 });
+
+document.addEventListener('click', event => {
+  const hiddenModule = event.target.closest?.(`button.${HIDDEN_CLASS}`);
+  if (!readerProfile || !hiddenModule) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}, true);
 
 void checkSession();
