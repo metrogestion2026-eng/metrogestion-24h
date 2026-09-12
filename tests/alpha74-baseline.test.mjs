@@ -23,6 +23,7 @@ const expectedExtra = [
   'annotation-management.css',
   path.join('src', 'assistance-followup.js'),
   path.join('src', 'pending-stages.js'),
+  path.join('src', 'redirect-alpha76.js'),
   path.join('src', 'stage-reopen.js'),
 ];
 assert.deepEqual(
@@ -60,10 +61,10 @@ for (const file of files73) {
   assert.deepEqual(content74, content73, `El archivo heredado ${file} debe permanecer idéntico`);
 }
 
-assert.equal((await readFile(path.join(alpha74, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.74.25');
+assert.equal((await readFile(path.join(alpha74, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.74.26');
 assert.match(
   await readFile(path.join(alpha74, 'src', 'app.js'), 'utf8'),
-  /const VERSION = 'r1\.0\.0-alpha\.74\.25';/
+  /const VERSION = 'r1\.0\.0-alpha\.74\.26';/
 );
 
 console.log('Alpha74: herencia protegida de Alpha73 e identidad de versión verificadas.');
