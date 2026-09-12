@@ -11,7 +11,7 @@ test('Alpha74 envía las cuentas normales a Alpha76 conservando la sesión', () 
   assert.match(redirect, /profile\.tipo_usuario === 'administrador_principal'/);
   assert.match(redirect, /new URL\('\.\.\/r1-alpha76\/'/);
   assert.match(redirect, /window\.location\.replace\(TARGET\.href\)/);
-  assert.match(html, /\.\/src\/redirect-alpha76\.js\?v=74\.26/);
+  assert.match(html, /\.\/src\/redirect-alpha76\.js\?v=74\.27/);
 });
 
 test('el puente no altera permisos ni escribe en Supabase', () => {

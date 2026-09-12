@@ -5,8 +5,8 @@ import './listados-export.js';
 import './reservas-create.js';
 import './activos.js';
 import './pending-stages.js';
-import './assistance-followup.js';
+import './assistance-followup.js?v=74.27';
 
-const VERSION = 'r1.0.0-alpha.74.26';
+const VERSION = 'r1.0.0-alpha.74.27';
 const versionNode = document.querySelector('#app-version');
 if (versionNode) versionNode.textContent = VERSION;
