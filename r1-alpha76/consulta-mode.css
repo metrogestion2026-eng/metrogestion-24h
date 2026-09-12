@@ -13,7 +13,7 @@
 .a76-search-form input{min-width:0;flex:1;min-height:46px;padding:10px 12px;border:2px solid #94a3b8;border-radius:10px;font:inherit}
 .a76-search-form input:focus{outline:3px solid rgba(14,165,233,.25);border-color:#0284c7}
 .a76-form-message{min-height:1.4em;margin:6px 0 0!important;color:#b45309!important;font-weight:700}
-.a76-entry-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.a76-entry-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .a76-entry-card{display:flex;align-items:center;gap:15px;min-height:96px;padding:18px;text-align:left;border:2px solid #7dd3fc;border-radius:16px;background:#f0f9ff;color:#0c4a6e;cursor:pointer}
 .a76-entry-card:hover{background:#e0f2fe;border-color:#0284c7;transform:translateY(-1px)}
 .a76-entry-card:focus-visible{outline:3px solid #f59e0b;outline-offset:3px}
