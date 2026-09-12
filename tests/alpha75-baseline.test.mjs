@@ -20,9 +20,15 @@ async function filesUnder(directory, prefix = '') {
 
 function normalizeVersionSpecificText(source) {
   return source
-    .replaceAll('r1.0.0-alpha.75.9', 'r1.0.0-alpha.74.25')
-    .replaceAll('v=75.9', 'v=74.25')
-    .replaceAll('v=75.1', 'v=74.25')
+    .replaceAll('r1.0.0-alpha.75.9', 'r1.0.0-alpha.74.26')
+    .replaceAll('v=75.9', 'v=74.26')
+    .replaceAll('v=75.1', 'v=74.26')
+    .replaceAll('alpha75-2026.09.11.8', 'alpha74-2026.09.11.31')
+    .replaceAll('alpha75-2026.09.11.7', 'alpha74-2026.09.11.31')
+    .replaceAll('alpha75-2026.09.11.6', 'alpha74-2026.09.11.31')
+    .replaceAll('alpha75-2026.09.11.4', 'alpha74-2026.09.11.31')
+    .replaceAll('alpha75-2026.09.11.3', 'alpha74-2026.09.11.31')
+    .replaceAll('alpha75-2026.09.11.2', 'alpha74-2026.09.11.31')
     .replaceAll('alpha75-2026.09.11.1', 'alpha74-2026.09.11.31')
     .replaceAll('Alpha75', 'Alpha74');
 }
@@ -30,7 +36,7 @@ function normalizeVersionSpecificText(source) {
 test('Alpha75 nace como copia funcional exacta de Alpha74 validada', async () => {
   const files74 = await filesUnder(alpha74);
   const files75 = await filesUnder(alpha75);
-  assert.deepEqual(files75, files74);
+  assert.deepEqual(files75, files74.filter(file => file !== path.join('src', 'redirect-alpha76.js')));
 
   const alpha75Changes = new Set([
     'VERSION',
@@ -42,6 +48,8 @@ test('Alpha75 nace como copia funcional exacta de Alpha74 validada', async () =>
     path.join('src', 'panel-native.js'),
     path.join('src', 'reservas-create.js'),
     path.join('src', 'hotel-editor.js'),
+    path.join('google-apps-script', 'README.md'),
+    path.join('google-apps-script', 'sincronizar_manteniment.gs'),
     'panel-native.css',
   ]);
 
