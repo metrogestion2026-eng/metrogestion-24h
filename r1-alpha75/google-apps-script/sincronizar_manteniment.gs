@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.13.2',
+  scriptVersion: 'alpha75-2026.09.13.3',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -875,10 +875,25 @@ function metrogestionIdentidadClaveTrabajo_(key) {
   return parts.length === 6 ? [parts[0], parts[1], parts[4], parts[5]].join('|') : '';
 }
 
-function metrogestionTrabajoActual_(assignment, currentWorks) {
+function metrogestionTrabajoActual_(assignment, currentWorks, usedRows) {
   const works = Array.isArray(currentWorks) ? currentWorks : [];
   const expectedKey = String(assignment?.clave_fila || '').trim();
-  return works.find(work => String(work?.clave_fila || '').trim() === expectedKey) || null;
+  const requested = Number(assignment?.fila || 0);
+  const occupied = usedRows instanceof Set ? usedRows : new Set();
+  const matches = works.filter(work => {
+    const rowNumber = Number(work?.fila || 0);
+    return String(work?.clave_fila || '').trim() === expectedKey
+      && rowNumber >= 2
+      && !occupied.has(rowNumber);
+  });
+  matches.sort((left, right) => {
+    const leftRow = Number(left?.fila || 0);
+    const rightRow = Number(right?.fila || 0);
+    return Number(rightRow === requested) - Number(leftRow === requested)
+      || Math.abs(leftRow - requested) - Math.abs(rightRow - requested)
+      || leftRow - rightRow;
+  });
+  return matches[0] || null;
 }
 
 function metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState) {
@@ -913,7 +928,7 @@ function metrogestionAplicarAsignacionesTrabajos_(
     const originalRequested = Number(assignment?.fila || 0);
     const originalExpectedKey = String(assignment?.clave_fila || '').trim();
     const linkedRows = metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState);
-    const currentWork = metrogestionTrabajoActual_(assignment, currentWorks);
+    const currentWork = metrogestionTrabajoActual_(assignment, currentWorks, usedRows);
     const linkedByStopRow = metrogestionBuscarFilaTrabajoPorActuacion_(
       sheet,
       assignment,
