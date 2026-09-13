@@ -4,12 +4,10 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.13.3',
+  scriptVersion: 'alpha75-2026.09.11.2',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
-
-const METROGESTION_EXECUTION_CACHE = new Map();
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -110,9 +108,6 @@ function metrogestionEjecutarSincronizacion_(modo) {
     // H (MANTENIMENT) es la referencia visual del estado de la necesidad:
     // blanco = pendiente; cualquier otro fondo = ya clasificada/no pendiente.
     const workBackgrounds = sheet.getRange(1, 8, lastRow, 1).getBackgrounds();
-    // G solo representa el tipo de trabajo cuando no está amarilla. Una G
-    // amarilla contiene un pedido (actual 2600…, heredado P-… o PEDIDO).
-    const orderBackgrounds = sheet.getRange(1, 7, lastRow, 1).getBackgrounds();
     metrogestionValidarCabeceras_(values[0]);
     const rows = [];
     for (let index = 1; index < values.length; index += 1) {
@@ -140,8 +135,7 @@ function metrogestionEjecutarSincronizacion_(modo) {
       workNotes,
       workBackgrounds,
       priorityBackgrounds,
-      metrogestionFechaCorteTrabajos_(),
-      orderBackgrounds
+      metrogestionFechaCorteTrabajos_()
     );
     const modifiedAt = DriveApp.getFileById(METROGESTION.spreadsheetId).getLastUpdated();
     const generatedAt = new Date();
@@ -261,21 +255,6 @@ function metrogestionLeerToken_() {
   return (PropertiesService.getScriptProperties().getProperty(METROGESTION.tokenProperty) || '').trim();
 }
 
-function metrogestionAsegurarProteccionColumnasAuxiliares_(sheet) {
-  const description = 'METROGESTION · R/S calculadas exclusivamente desde J';
-  const existing = sheet
-    .getProtections(SpreadsheetApp.ProtectionType.RANGE)
-    .find(protection => protection.getDescription() === description);
-  if (existing) {
-    if (existing.isWarningOnly()) existing.setWarningOnly(false);
-    return existing;
-  }
-  return sheet.getRange('R:S')
-    .protect()
-    .setDescription(description)
-    .setWarningOnly(false);
-}
-
 function metrogestionValidarCabeceras_(headers) {
   const expected = {
     0: 'DFM',
@@ -329,27 +308,6 @@ function metrogestionNumero_(value, label, ignorarNegativoDePeriodoAbierto) {
   return number;
 }
 
-function metrogestionKilometrosFacturables_(value, rowNumber, periodoAbierto) {
-  const status = metrogestionNormalizar_(value);
-  // Algunas plantillas históricas reservan P para el control validado OK/KO.
-  // Ese estado pertenece a MANTENIMENT: se conserva en la hoja y no se envía
-  // como kilometraje a Metrogestión.
-  if (status === 'OK' || status === 'KO') return '';
-  return metrogestionNumero_(value, `Los kilómetros de la fila ${rowNumber}`, periodoAbierto);
-}
-
-function metrogestionPeriodoTancament_(value, rowNumber) {
-  const text = metrogestionNormalizar_(value);
-  if (!text) return '';
-  // Q también contiene enlaces y referencias documentales como FOTO u OR-….
-  // Solo un valor que empiece por TANCAMENT pertenece al cierre facturable.
-  if (!text.startsWith('TANCAMENT')) return '';
-  if (!/^TANCAMENT \d+$/.test(text)) {
-    throw new Error(`TANCAMENT de la fila ${rowNumber} debe ir seguido del número de periodo.`);
-  }
-  return text;
-}
-
 function metrogestionLeerParadasVinculadas_(values, notes) {
   const result = [];
   for (let index = 1; index < values.length; index += 1) {
@@ -386,8 +344,8 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
       fecha_k: fechaK,
       dias_parada: metrogestionNumero_(row[11], `Los días de la fila ${index + 1}`, periodoAbierto),
       marca: row[14],
-      km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, periodoAbierto),
-      tancament: metrogestionPeriodoTancament_(row[16], index + 1),
+      km_facturables: metrogestionNumero_(row[15], `Los kilómetros de la fila ${index + 1}`, periodoAbierto),
+      tancament: metrogestionNormalizar_(row[16]),
     });
   }
   return result;
@@ -398,7 +356,7 @@ function metrogestionNotaTrabajoId_(note) {
   return match ? match[1] : '';
 }
 
-function metrogestionClaveFilaTrabajo_(row, pedidoEnG) {
+function metrogestionClaveFilaTrabajo_(row) {
   const designacion = metrogestionNormalizar_(row[7]);
   const noEsTrabajo = new Set([
     'ALTA', 'BAJA', 'PARADA', 'ANULADA', 'FIN', 'ARCHIVO', 'CARPETA', 'PRIMITIVA',
@@ -409,7 +367,7 @@ function metrogestionClaveFilaTrabajo_(row, pedidoEnG) {
     metrogestionNormalizar_(row[0]),
     metrogestionNormalizar_(row[1]),
     metrogestionNormalizar_(row[5]),
-    pedidoEnG ? '' : metrogestionNormalizar_(row[6]),
+    metrogestionNormalizar_(row[6]),
     designacion,
     metrogestionFechaIso_(row[8], 'de necesidad'),
   ].join('|');
@@ -433,18 +391,7 @@ function metrogestionEsFondoAmarillo_(value) {
   return new Set(['#ffff00', '#ff0', '#fff2cc', '#ffe599', '#ffd966']).has(color);
 }
 
-function metrogestionEsNumeroParada_(value) {
-  return /^PA-\d+$/.test(metrogestionNormalizar_(value));
-}
-
-function metrogestionLeerTrabajos_(
-  values,
-  workNotes,
-  workBackgrounds,
-  priorityBackgrounds,
-  fechaCorteIso,
-  orderBackgrounds
-) {
+function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityBackgrounds, fechaCorteIso) {
   // TANCAMENT, MITJANA y CANVI son líneas auxiliares de cálculo de MANTENIMENT.
   // Aunque contienen una fecha en I, sus columnas J/K/L son métricas y no
   // representan la realización o recogida de una T.
@@ -462,18 +409,7 @@ function metrogestionLeerTrabajos_(
     if (!dfm) continue;
     if (!designacion || ignored.has(designacion) || !String(row[8] || '').trim()) continue;
     const trabajoSyncId = metrogestionNotaTrabajoId_(workNotes[index]?.[0]);
-    const numeroParadaHoja = String(row[4] || '').trim();
-    // Las referencias antiguas de E (HD…, GP…, M…, etc.) no son paradas.
-    // Solo PA-… puede vincular una necesidad con una ficha de Hotel.
-    const numeroParadaValido = metrogestionEsNumeroParada_(numeroParadaHoja);
-    // Si E ya contiene una referencia histórica distinta de PA-…, la fila es
-    // anterior a Metrogestión y no debe incorporarse a Hotel ni recibir una
-    // actuación nueva, aunque A conserve el antiguo fondo amarillo.
-    if (numeroParadaHoja && !numeroParadaValido && !trabajoSyncId) continue;
-    const numeroParada = numeroParadaValido ? numeroParadaHoja : '';
-    const pedidoEnG = metrogestionEsFondoAmarillo_(orderBackgrounds?.[index]?.[0]);
-    const pedido = pedidoEnG ? String(row[6] || '').trim() : '';
-    const tipoTrabajo = pedidoEnG ? '' : row[6];
+    const numeroParada = String(row[4] || '').trim();
     const fechaNecesidad = metrogestionFechaIso_(row[8], `de necesidad de la fila ${index + 1}`);
     const fechaRealizada = metrogestionFechaIso_(row[9], `de realización de la fila ${index + 1}`);
     // Solo la nota técnica confirma que la necesidad ya está vinculada. Tener
@@ -495,14 +431,12 @@ function metrogestionLeerTrabajos_(
     result.push({
       fila: index + 1,
       trabajo_sync_id: trabajoSyncId,
-      clave_fila: metrogestionClaveFilaTrabajo_(row, pedidoEnG),
+      clave_fila: metrogestionClaveFilaTrabajo_(row),
       dfm: row[0],
       matricula: row[1],
       numero_parada: numeroParada,
       taller: row[5],
-      tipo_trabajo: tipoTrabajo,
-      pedido,
-      pedido_fondo_amarillo: pedidoEnG,
+      tipo_trabajo: row[6],
       designacion: row[7],
       marca_vehiculo: row[14],
       marca_equipo: row[16],
@@ -585,6 +519,12 @@ function metrogestionClaveNumeroParada_(value) {
   return metrogestionNormalizar_(value).replace(/^PA-/, '');
 }
 
+function metrogestionIdCarpetaDesdeUrl_(url) {
+  const text = String(url || '').trim();
+  const match = text.match(/\/folders\/([^/?#]+)/i);
+  return match ? match[1] : text;
+}
+
 function metrogestionBuscarCarpetaUnica_(parent, name) {
   const folders = parent.getFoldersByName(name);
   if (!folders.hasNext()) return null;
@@ -595,75 +535,19 @@ function metrogestionBuscarCarpetaUnica_(parent, name) {
   return folder;
 }
 
-function metrogestionCarpetasPorNombre_(parent, name) {
-  const result = [];
-  const folders = parent.getFoldersByName(name);
-  while (folders.hasNext()) result.push(folders.next());
-  return result;
-}
-
-function metrogestionFechaCarpeta_(folder) {
-  try {
-    const createdAt = folder.getDateCreated();
-    return createdAt instanceof Date ? createdAt.getTime() : new Date(createdAt).getTime();
-  } catch (_) {
-    return Number.MAX_SAFE_INTEGER;
-  }
-}
-
-function metrogestionIdCarpeta_(folder) {
-  try {
-    return String(folder.getId() || '');
-  } catch (_) {
-    const match = String(folder.getUrl?.() || '').match(/\/folders\/([^/?#]+)/i);
-    return match ? match[1] : '';
-  }
-}
-
-function metrogestionIdCarpetaDesdeUrl_(url) {
-  const match = String(url || '').match(/\/folders\/([^/?#]+)/i);
-  return match ? match[1] : '';
-}
-
-function metrogestionOrdenarCarpetas_(folders) {
-  return folders.slice().sort((left, right) => {
-    const dateDifference = metrogestionFechaCarpeta_(left) - metrogestionFechaCarpeta_(right);
-    if (dateDifference) return dateDifference;
-    return metrogestionIdCarpeta_(left).localeCompare(metrogestionIdCarpeta_(right));
-  });
-}
-
-function metrogestionObtenerCarpetaParada_(dfm, numeroParada, preferredUrls) {
+function metrogestionObtenerCarpetaParada_(dfm, numeroParada) {
   const codigoDfm = String(dfm || '').trim();
   if (!codigoDfm) throw new Error(`No se puede localizar el archivo de ${numeroParada}: falta el DFM.`);
-  const cacheKey = `${metrogestionNormalizar_(codigoDfm)}|${metrogestionNormalizar_(numeroParada)}`;
-  if (METROGESTION_EXECUTION_CACHE.has(cacheKey)) {
-    return METROGESTION_EXECUTION_CACHE.get(cacheKey);
-  }
   const archivoFlota = DriveApp.getFolderById(METROGESTION.archivoFlotaFolderId);
   const carpetaDfm = metrogestionBuscarCarpetaUnica_(archivoFlota, codigoDfm);
   if (!carpetaDfm) {
     throw new Error(`No existe la carpeta del DFM ${codigoDfm} dentro de A-FLOTA.`);
   }
-  let carpetasParadas = metrogestionCarpetasPorNombre_(carpetaDfm, 'PARADAS');
-  if (!carpetasParadas.length) carpetasParadas = [carpetaDfm.createFolder('PARADAS')];
-
-  const candidatas = [];
-  carpetasParadas.forEach(paradas => {
-    metrogestionCarpetasPorNombre_(paradas, numeroParada).forEach(parada => candidatas.push(parada));
-  });
-  if (candidatas.length) {
-    const preferredIds = new Set((preferredUrls || []).map(metrogestionIdCarpetaDesdeUrl_).filter(Boolean));
-    const preferred = candidatas.filter(folder => preferredIds.has(metrogestionIdCarpeta_(folder)));
-    const selected = metrogestionOrdenarCarpetas_(preferred.length ? preferred : candidatas)[0];
-    METROGESTION_EXECUTION_CACHE.set(cacheKey, selected);
-    return selected;
-  }
-
-  const paradas = metrogestionOrdenarCarpetas_(carpetasParadas)[0];
-  const selected = paradas.createFolder(numeroParada);
-  METROGESTION_EXECUTION_CACHE.set(cacheKey, selected);
-  return selected;
+  let paradas = metrogestionBuscarCarpetaUnica_(carpetaDfm, 'PARADAS');
+  if (!paradas) paradas = carpetaDfm.createFolder('PARADAS');
+  let parada = metrogestionBuscarCarpetaUnica_(paradas, numeroParada);
+  if (!parada) parada = paradas.createFolder(numeroParada);
+  return parada;
 }
 
 function metrogestionEnlazarArchivoParada_(sheet, numeroParada, dfm, sheetState) {
@@ -680,24 +564,25 @@ function metrogestionEnlazarArchivoParada_(sheet, numeroParada, dfm, sheetState)
   });
   if (!matchingRows.length) return 0;
 
-  // El enlace que hubiera en E puede pertenecer a GP, ACT u otro trabajo.
-  // La carpeta común se resuelve siempre por su ruta canónica; así los enlaces
-  // históricos de trabajos distintos no compiten entre sí.
-  const inferredDfm = String(dfm || values[matchingRows[0] - 1]?.[0] || '').trim();
-  const currentRichTexts = new Map();
-  const currentUrls = matchingRows.map(rowNumber => {
-    const richText = sheet.getRange(rowNumber, 5).getRichTextValue();
-    currentRichTexts.set(rowNumber, richText);
-    return richText ? richText.getLinkUrl() : '';
-  }).filter(Boolean);
-  const folderUrl = metrogestionObtenerCarpetaParada_(inferredDfm, canonicalStop, currentUrls).getUrl();
+  const richValues = sheet.getRange(2, 5, lastRow - 1, 1).getRichTextValues();
+  const linksByFolder = new Map();
+  matchingRows.forEach(rowNumber => {
+    const url = richValues[rowNumber - 2]?.[0]?.getLinkUrl?.() || '';
+    if (url) linksByFolder.set(metrogestionIdCarpetaDesdeUrl_(url), url);
+  });
+  if (linksByFolder.size > 1) {
+    throw new Error(`Las filas de ${canonicalStop} apuntan a carpetas distintas. No se han modificado.`);
+  }
+
+  let folderUrl = linksByFolder.size ? [...linksByFolder.values()][0] : '';
+  if (!folderUrl) {
+    const inferredDfm = String(dfm || values[matchingRows[0] - 1]?.[0] || '').trim();
+    folderUrl = metrogestionObtenerCarpetaParada_(inferredDfm, canonicalStop).getUrl();
+  }
 
   matchingRows.forEach(rowNumber => {
     const cell = sheet.getRange(rowNumber, 5);
-    const current = currentRichTexts.get(rowNumber) || null;
-    const currentFolderId = metrogestionIdCarpetaDesdeUrl_(current ? current.getLinkUrl() : '');
-    const expectedFolderId = metrogestionIdCarpetaDesdeUrl_(folderUrl);
-    if (currentFolderId && currentFolderId === expectedFolderId) return;
+    const current = cell.getRichTextValue();
     const text = String(values[rowNumber - 1]?.[4] || cell.getDisplayValue() || canonicalStop);
     const builder = current
       ? current.copy()
@@ -875,25 +760,10 @@ function metrogestionIdentidadClaveTrabajo_(key) {
   return parts.length === 6 ? [parts[0], parts[1], parts[4], parts[5]].join('|') : '';
 }
 
-function metrogestionTrabajoActual_(assignment, currentWorks, usedRows) {
+function metrogestionTrabajoActual_(assignment, currentWorks) {
   const works = Array.isArray(currentWorks) ? currentWorks : [];
   const expectedKey = String(assignment?.clave_fila || '').trim();
-  const requested = Number(assignment?.fila || 0);
-  const occupied = usedRows instanceof Set ? usedRows : new Set();
-  const matches = works.filter(work => {
-    const rowNumber = Number(work?.fila || 0);
-    return String(work?.clave_fila || '').trim() === expectedKey
-      && rowNumber >= 2
-      && !occupied.has(rowNumber);
-  });
-  matches.sort((left, right) => {
-    const leftRow = Number(left?.fila || 0);
-    const rightRow = Number(right?.fila || 0);
-    return Number(rightRow === requested) - Number(leftRow === requested)
-      || Math.abs(leftRow - requested) - Math.abs(rightRow - requested)
-      || leftRow - rightRow;
-  });
-  return matches[0] || null;
+  return works.find(work => String(work?.clave_fila || '').trim() === expectedKey) || null;
 }
 
 function metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState) {
@@ -928,7 +798,7 @@ function metrogestionAplicarAsignacionesTrabajos_(
     const originalRequested = Number(assignment?.fila || 0);
     const originalExpectedKey = String(assignment?.clave_fila || '').trim();
     const linkedRows = metrogestionFilasTrabajoVinculado_(sheet, syncId, sheetState);
-    const currentWork = metrogestionTrabajoActual_(assignment, currentWorks, usedRows);
+    const currentWork = metrogestionTrabajoActual_(assignment, currentWorks);
     const linkedByStopRow = metrogestionBuscarFilaTrabajoPorActuacion_(
       sheet,
       assignment,
@@ -1080,12 +950,6 @@ function metrogestionAplicarComandoAlta_(sheet, command, sheetState) {
   };
 }
 
-function metrogestionCopiarPlantillaOperativa_(sheet, sourceRow, targetRow) {
-  // R y S pertenecen a ARRAYFORMULA y deben quedar libres para que calculen
-  // mes y año desde J. Solo copiamos las columnas operativas A:Q.
-  sheet.getRange(sourceRow, 1, 1, 17).copyTo(sheet.getRange(targetRow, 1, 1, 17));
-}
-
 function metrogestionBuscarFilaAlta_(sheet, payload, sheetState) {
   const lastRow = sheetState?.values?.length || sheet.getLastRow();
   if (lastRow < 2) return 0;
@@ -1111,7 +975,8 @@ function metrogestionInsertarFilaAlta_(sheet, sheetState) {
   const exampleRow = exampleIndex + 2;
   sheet.insertRowAfter(lastRow);
   const targetRow = lastRow + 1;
-  metrogestionCopiarPlantillaOperativa_(sheet, exampleRow, targetRow);
+  const lastColumn = Math.max(sheet.getLastColumn(), 17);
+  sheet.getRange(exampleRow, 1, 1, lastColumn).copyTo(sheet.getRange(targetRow, 1, 1, lastColumn));
   sheet.getRange(targetRow, 1, 1, 17).clearContent().clearNote();
   sheet.setRowHeight(targetRow, sheet.getRowHeight(exampleRow));
   if (sheetState?.values) sheetState.values.push(Array(17).fill(''));
@@ -1244,7 +1109,8 @@ function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
   anchorRow = Math.max(anchorRow, altaRow);
   sheet.insertRowAfter(anchorRow);
   const targetRow = anchorRow + 1;
-  metrogestionCopiarPlantillaOperativa_(sheet, altaRow, targetRow);
+  const lastColumn = Math.max(sheet.getLastColumn(), 17);
+  sheet.getRange(altaRow, 1, 1, lastColumn).copyTo(sheet.getRange(targetRow, 1, 1, lastColumn));
   sheet.getRange(targetRow, 1, 1, 17).clearContent().clearNote();
   sheet.setRowHeight(targetRow, sheet.getRowHeight(altaRow));
   if (sheetState?.values) sheetState.values.splice(targetRow - 1, 0, Array(17).fill(''));

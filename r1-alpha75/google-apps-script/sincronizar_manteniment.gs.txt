@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.13.3',
+  scriptVersion: 'alpha75-2026.09.13.4',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -1283,7 +1283,8 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     range.setValues([row]);
   } else {
     // Metrogestión protege la identidad (A-E, G y O) y el marcador PARADA (H).
-    // MANTENIMENT sigue gobernando I, J, L y P. Q conserva cualquier valor
+    // MANTENIMENT sigue gobernando I y J. L y P reflejan el cálculo vigente
+    // devuelto por Metrogestión para evitar fórmulas antiguas con K vacía. Q conserva cualquier valor
     // informado y Metrogestión solo completa el periodo actual si está vacío.
     // Al realizar la T final de recuperación, también completa K si está vacía.
     sheet.getRange(rowNumber, 1, 1, 4).setValues([[
@@ -1298,6 +1299,8 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     if (paradaActual !== paradaEsperada) sheet.getRange(rowNumber, 5).setValue(paradaEsperada);
     sheet.getRange(rowNumber, 7, 1, 2).setValues([[payload.sustituto || '', estado]]);
     sheet.getRange(rowNumber, 15).setValue(payload.marca || '');
+    sheet.getRange(rowNumber, 12).setValue(payload.dias_parada ?? '');
+    sheet.getRange(rowNumber, 16).setValue(payload.km_facturables ?? '');
 
     const fechaKIso = String(payload.fecha_k || '').trim();
     const fechaKActual = String(
@@ -1344,7 +1347,9 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     cached[4] = payload.numero_parada || '';
     cached[6] = payload.sustituto || '';
     cached[7] = estado;
+    cached[11] = payload.dias_parada ?? '';
     cached[14] = payload.marca || '';
+    cached[15] = payload.km_facturables ?? '';
     if (nuevaFila) {
       cached[8] = payload.fecha_programada || '';
       cached[9] = payload.fecha_parada || '';
