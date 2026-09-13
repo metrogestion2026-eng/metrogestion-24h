@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.11.8',
+  scriptVersion: 'alpha75-2026.09.13.1',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -110,6 +110,9 @@ function metrogestionEjecutarSincronizacion_(modo) {
     // H (MANTENIMENT) es la referencia visual del estado de la necesidad:
     // blanco = pendiente; cualquier otro fondo = ya clasificada/no pendiente.
     const workBackgrounds = sheet.getRange(1, 8, lastRow, 1).getBackgrounds();
+    // G solo representa el tipo de trabajo cuando no está amarilla. Una G
+    // amarilla contiene un pedido (actual 2600…, heredado P-… o PEDIDO).
+    const orderBackgrounds = sheet.getRange(1, 7, lastRow, 1).getBackgrounds();
     metrogestionValidarCabeceras_(values[0]);
     const rows = [];
     for (let index = 1; index < values.length; index += 1) {
@@ -137,7 +140,8 @@ function metrogestionEjecutarSincronizacion_(modo) {
       workNotes,
       workBackgrounds,
       priorityBackgrounds,
-      metrogestionFechaCorteTrabajos_()
+      metrogestionFechaCorteTrabajos_(),
+      orderBackgrounds
     );
     const modifiedAt = DriveApp.getFileById(METROGESTION.spreadsheetId).getLastUpdated();
     const generatedAt = new Date();
@@ -394,7 +398,7 @@ function metrogestionNotaTrabajoId_(note) {
   return match ? match[1] : '';
 }
 
-function metrogestionClaveFilaTrabajo_(row) {
+function metrogestionClaveFilaTrabajo_(row, pedidoEnG) {
   const designacion = metrogestionNormalizar_(row[7]);
   const noEsTrabajo = new Set([
     'ALTA', 'BAJA', 'PARADA', 'ANULADA', 'FIN', 'ARCHIVO', 'CARPETA', 'PRIMITIVA',
@@ -405,7 +409,7 @@ function metrogestionClaveFilaTrabajo_(row) {
     metrogestionNormalizar_(row[0]),
     metrogestionNormalizar_(row[1]),
     metrogestionNormalizar_(row[5]),
-    metrogestionNormalizar_(row[6]),
+    pedidoEnG ? '' : metrogestionNormalizar_(row[6]),
     designacion,
     metrogestionFechaIso_(row[8], 'de necesidad'),
   ].join('|');
@@ -429,7 +433,18 @@ function metrogestionEsFondoAmarillo_(value) {
   return new Set(['#ffff00', '#ff0', '#fff2cc', '#ffe599', '#ffd966']).has(color);
 }
 
-function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityBackgrounds, fechaCorteIso) {
+function metrogestionEsNumeroParada_(value) {
+  return /^PA-\d+$/.test(metrogestionNormalizar_(value));
+}
+
+function metrogestionLeerTrabajos_(
+  values,
+  workNotes,
+  workBackgrounds,
+  priorityBackgrounds,
+  fechaCorteIso,
+  orderBackgrounds
+) {
   // TANCAMENT, MITJANA y CANVI son líneas auxiliares de cálculo de MANTENIMENT.
   // Aunque contienen una fecha en I, sus columnas J/K/L son métricas y no
   // representan la realización o recogida de una T.
@@ -447,7 +462,13 @@ function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityB
     if (!dfm) continue;
     if (!designacion || ignored.has(designacion) || !String(row[8] || '').trim()) continue;
     const trabajoSyncId = metrogestionNotaTrabajoId_(workNotes[index]?.[0]);
-    const numeroParada = String(row[4] || '').trim();
+    const numeroParadaHoja = String(row[4] || '').trim();
+    // Las referencias antiguas de E (HD…, GP…, M…, etc.) no son paradas.
+    // Solo PA-… puede vincular una necesidad con una ficha de Hotel.
+    const numeroParada = metrogestionEsNumeroParada_(numeroParadaHoja) ? numeroParadaHoja : '';
+    const pedidoEnG = metrogestionEsFondoAmarillo_(orderBackgrounds?.[index]?.[0]);
+    const pedido = pedidoEnG ? String(row[6] || '').trim() : '';
+    const tipoTrabajo = pedidoEnG ? '' : row[6];
     const fechaNecesidad = metrogestionFechaIso_(row[8], `de necesidad de la fila ${index + 1}`);
     const fechaRealizada = metrogestionFechaIso_(row[9], `de realización de la fila ${index + 1}`);
     // Solo la nota técnica confirma que la necesidad ya está vinculada. Tener
@@ -469,12 +490,14 @@ function metrogestionLeerTrabajos_(values, workNotes, workBackgrounds, priorityB
     result.push({
       fila: index + 1,
       trabajo_sync_id: trabajoSyncId,
-      clave_fila: metrogestionClaveFilaTrabajo_(row),
+      clave_fila: metrogestionClaveFilaTrabajo_(row, pedidoEnG),
       dfm: row[0],
       matricula: row[1],
       numero_parada: numeroParada,
       taller: row[5],
-      tipo_trabajo: row[6],
+      tipo_trabajo: tipoTrabajo,
+      pedido,
+      pedido_fondo_amarillo: pedidoEnG,
       designacion: row[7],
       marca_vehiculo: row[14],
       marca_equipo: row[16],
