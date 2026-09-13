@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.13.1',
+  scriptVersion: 'alpha75-2026.09.13.2',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -465,7 +465,12 @@ function metrogestionLeerTrabajos_(
     const numeroParadaHoja = String(row[4] || '').trim();
     // Las referencias antiguas de E (HD…, GP…, M…, etc.) no son paradas.
     // Solo PA-… puede vincular una necesidad con una ficha de Hotel.
-    const numeroParada = metrogestionEsNumeroParada_(numeroParadaHoja) ? numeroParadaHoja : '';
+    const numeroParadaValido = metrogestionEsNumeroParada_(numeroParadaHoja);
+    // Si E ya contiene una referencia histórica distinta de PA-…, la fila es
+    // anterior a Metrogestión y no debe incorporarse a Hotel ni recibir una
+    // actuación nueva, aunque A conserve el antiguo fondo amarillo.
+    if (numeroParadaHoja && !numeroParadaValido && !trabajoSyncId) continue;
+    const numeroParada = numeroParadaValido ? numeroParadaHoja : '';
     const pedidoEnG = metrogestionEsFondoAmarillo_(orderBackgrounds?.[index]?.[0]);
     const pedido = pedidoEnG ? String(row[6] || '').trim() : '';
     const tipoTrabajo = pedidoEnG ? '' : row[6];
