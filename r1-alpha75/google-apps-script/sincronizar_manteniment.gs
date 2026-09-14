@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.13.4',
+  scriptVersion: 'alpha75-2026.09.14.1',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -185,14 +185,17 @@ function metrogestionEjecutarSincronizacion_(modo) {
       values: values.map(row => row.slice()),
       notesA: notes.map(row => String(row?.[0] || '')),
       notesE: workNotes.map(row => String(row?.[0] || '')),
+      cierresAdministrativos: [],
     };
     // Google Sheets impide escribir o insertar sobre filas ocultas por un filtro
     // básico. Conservamos el filtro, lo retiramos solo durante las escrituras y
     // lo restauramos siempre, también si una orden produce un error.
-    const filterState = commands.length ? metrogestionSuspenderFiltro_(sheet) : null;
+    const filterState = metrogestionSuspenderFiltro_(sheet);
     let confirmations;
+    let administrativeResult;
     try {
       confirmations = metrogestionAplicarComandos_(sheet, commands, sheetState, trabajos);
+      administrativeResult = metrogestionAplicarReglaAdministrativa_(sheet, sheetState);
     } finally {
       metrogestionRestaurarFiltro_(sheet, filterState);
     }
@@ -200,7 +203,7 @@ function metrogestionEjecutarSincronizacion_(modo) {
     const assignedWorks = confirmations.reduce((total, item) => total + Number(item.trabajos_asignados || 0), 0);
     const message = [
       syncResult.mensaje || 'Sincronización correcta.',
-      `${paradas.length} parada(s) y ${trabajos.length} necesidad(es) leída(s); ${confirmations.length} comando(s) y ${assignedWorks} asignación(es) aplicados.`
+      `${paradas.length} parada(s) y ${trabajos.length} necesidad(es) leída(s); ${confirmations.length} comando(s) y ${assignedWorks} asignación(es) aplicados; ${administrativeResult.cierres} cierre(s) administrativo(s) y ${administrativeResult.renovacionesItv} renovación(es) ITV creadas.`
     ].join(' ');
     const props = PropertiesService.getScriptProperties();
     props.setProperty('METROGESTION_ULTIMA_EJECUCION', generatedAt.toISOString());
@@ -514,6 +517,143 @@ function metrogestionLeerTrabajos_(
     });
   }
   return result;
+}
+
+function metrogestionEsTipoAdministrativo_(value) {
+  const tipo = metrogestionNormalizar_(value);
+  return tipo === 'TRAMITE' || tipo === 'GESTION';
+}
+
+function metrogestionFechaIsoDesdeDate_(value) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function metrogestionMoverMeses_(fechaIso, months) {
+  const source = metrogestionDate_(fechaIso);
+  const day = source.getDate();
+  const result = new Date(source.getFullYear(), source.getMonth() + months, 1);
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(day, lastDay));
+  return metrogestionFechaIsoDesdeDate_(result);
+}
+
+function metrogestionMoverAnos_(fechaIso, years) {
+  const source = metrogestionDate_(fechaIso);
+  const result = new Date(source.getFullYear() + years, source.getMonth(), 1);
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(source.getDate(), lastDay));
+  return metrogestionFechaIsoDesdeDate_(result);
+}
+
+function metrogestionSiguienteCaducidadItv_(fechaCaducidadIso, fechaRealizadaIso) {
+  if (!fechaCaducidadIso || !fechaRealizadaIso) return '';
+  const inicioVentana = metrogestionMoverMeses_(fechaCaducidadIso, -1);
+  const conservaCaducidad = fechaRealizadaIso >= inicioVentana && fechaRealizadaIso <= fechaCaducidadIso;
+  return metrogestionMoverAnos_(conservaCaducidad ? fechaCaducidadIso : fechaRealizadaIso, 1);
+}
+
+function metrogestionNotaRenovacionItv_(row, fechaCaducidadIso, fechaRealizadaIso) {
+  return [
+    'METROGESTION_RENOVACION_ITV',
+    metrogestionNormalizar_(row[0]),
+    fechaCaducidadIso,
+    fechaRealizadaIso,
+  ].join(':');
+}
+
+function metrogestionTieneRenovacionItv_(values, notesI, sourceRow, nextDateIso, renewalNote) {
+  return values.some((row, index) => {
+    if (index + 1 === sourceRow) return false;
+    if (String(notesI[index] || '').split('\n').includes(renewalNote)) return true;
+    if (metrogestionNormalizar_(row[0]) !== metrogestionNormalizar_(values[sourceRow - 1][0])) return false;
+    if (metrogestionNormalizar_(row[6]) !== 'TRAMITE') return false;
+    if (metrogestionNormalizar_(row[7]) !== 'ITV') return false;
+    if (String(row[4] || '').trim() || String(row[9] || '').trim() || String(row[10] || '').trim()) return false;
+    return metrogestionFechaIso_(row[8], `de renovación ITV de la fila ${index + 1}`) === nextDateIso;
+  });
+}
+
+function metrogestionInsertarRenovacionItv_(sheet, sourceRow, nextDateIso, renewalNote, sheetState) {
+  const source = sheetState.values[sourceRow - 1];
+  sheet.insertRowAfter(sourceRow);
+  const targetRow = sourceRow + 1;
+  metrogestionCopiarPlantillaOperativa_(sheet, sourceRow, targetRow);
+  const next = Array(17).fill('');
+  next[0] = source[0];
+  next[1] = source[1];
+  next[2] = source[2];
+  next[3] = source[3];
+  next[5] = source[5];
+  next[6] = source[6];
+  next[7] = source[7];
+  next[8] = metrogestionDate_(nextDateIso);
+  next[14] = source[14];
+  const range = sheet.getRange(targetRow, 1, 1, 17);
+  range.setValues([next]).clearNote().setBackground('#ffffff');
+  sheet.getRange(targetRow, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
+  sheet.getRange(targetRow, 9).setNote(renewalNote);
+  sheet.setRowHeight(targetRow, sheet.getRowHeight(sourceRow));
+
+  const cached = next.map(value => String(value ?? ''));
+  cached[8] = nextDateIso;
+  sheetState.values.splice(targetRow - 1, 0, cached);
+  sheetState.notesA.splice(targetRow - 1, 0, '');
+  sheetState.notesE.splice(targetRow - 1, 0, '');
+  return targetRow;
+}
+
+function metrogestionAplicarReglaAdministrativa_(sheet, sheetState) {
+  const values = sheetState.values;
+  const lastRow = values.length;
+  if (lastRow < 2) return { cierres: 0, renovacionesItv: 0 };
+  const notesI = sheet.getRange(1, 9, lastRow, 1).getNotes().map(row => String(row?.[0] || ''));
+  const newClosures = new Set(sheetState.cierresAdministrativos || []);
+  const candidates = [];
+
+  for (let index = 1; index < values.length; index += 1) {
+    const row = values[index];
+    if (!metrogestionEsTipoAdministrativo_(row[6])) continue;
+    const fechaRealizadaIso = metrogestionFechaIso_(row[9], `de realización de la fila ${index + 1}`);
+    if (!fechaRealizadaIso) continue;
+    const fechaCierreIso = metrogestionFechaIso_(row[10], `de cierre administrativo de la fila ${index + 1}`);
+    if (fechaCierreIso !== fechaRealizadaIso || newClosures.has(index + 1)) {
+      candidates.push({ rowNumber: index + 1, fechaRealizadaIso });
+    }
+  }
+
+  let cierres = 0;
+  let renovacionesItv = 0;
+  candidates.sort((a, b) => b.rowNumber - a.rowNumber).forEach(candidate => {
+    const row = sheetState.values[candidate.rowNumber - 1];
+    const fechaCaducidadIso = metrogestionFechaIso_(
+      row[8],
+      `de caducidad administrativa de la fila ${candidate.rowNumber}`
+    );
+    const kCell = sheet.getRange(candidate.rowNumber, 11);
+    kCell.setValue(metrogestionDate_(candidate.fechaRealizadaIso)).setNumberFormat('dd/MM/yyyy');
+    sheet.getRange(candidate.rowNumber, 1, 1, 17).setBackground('#d9ead3');
+    row[10] = candidate.fechaRealizadaIso;
+    cierres += 1;
+
+    if (metrogestionNormalizar_(row[6]) !== 'TRAMITE' || metrogestionNormalizar_(row[7]) !== 'ITV') return;
+    const nextDateIso = metrogestionSiguienteCaducidadItv_(fechaCaducidadIso, candidate.fechaRealizadaIso);
+    const renewalNote = metrogestionNotaRenovacionItv_(row, fechaCaducidadIso, candidate.fechaRealizadaIso);
+    if (metrogestionTieneRenovacionItv_(sheetState.values, notesI, candidate.rowNumber, nextDateIso, renewalNote)) return;
+    const targetRow = metrogestionInsertarRenovacionItv_(
+      sheet,
+      candidate.rowNumber,
+      nextDateIso,
+      renewalNote,
+      sheetState
+    );
+    notesI.splice(targetRow - 1, 0, renewalNote);
+    renovacionesItv += 1;
+  });
+
+  return { cierres, renovacionesItv };
 }
 
 function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks) {
@@ -1057,6 +1197,13 @@ function metrogestionAplicarAsignacionesTrabajos_(
       if (!currentExit) sheet.getRange(item.rowNumber, 11).setValue(metrogestionDate_(fechaSalidaIso));
       sheet.getRange(item.rowNumber, 11).setNumberFormat('dd/MM/yyyy');
       sheet.getRange(item.rowNumber, 1, 1, 17).setBackground('#d9ead3');
+      if (
+        !currentExit
+        && metrogestionEsTipoAdministrativo_(cached?.[6])
+        && Array.isArray(sheetState?.cierresAdministrativos)
+      ) {
+        sheetState.cierresAdministrativos.push(item.rowNumber);
+      }
       if (cached) cached[10] = fechaSalidaIso;
     }
   });
