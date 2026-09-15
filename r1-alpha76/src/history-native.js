@@ -2,6 +2,7 @@ import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import { renderHistoricalCard } from './history-card.js';
+import { safeHistorySearch, searchHistoricalRecords } from '../../shared/history-query.mjs?v=20260915';
 
 function madridDate(date) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -26,16 +27,6 @@ const STAGE_SELECT = [
 ].join(',');
 const HISTORY_SEARCH_LIMIT = 500;
 const HISTORY_QUERY_CHUNK = 80;
-const RECORD_SEARCH_COLUMNS = [
-  'dfm', 'matricula', 'reserva', 'matricula_reserva', 'sustituto', 'matricula_sustituto',
-  'numero_parada', 'causa', 'incidencia', 'lugar', 'trabajos_reserva', 'observaciones',
-  'proximo', 'upc', 'marca', 'modelo', 'estado',
-];
-const STAGE_SEARCH_COLUMNS = [
-  'nombre', 'lugar', 'observaciones', 'motivo_cancelacion', 'estado_catalogo_codigo',
-  'tipo_etapa', 'estado',
-];
-const DOCUMENT_SEARCH_COLUMNS = ['nombre_original', 'nombre_mostrado', 'descripcion'];
 const NOTE_SELECT = 'id,seguimiento_id,texto,fecha_evento,origen,autor_nombre,modificador_nombre,version,creado_en,actualizado_en,cancelada';
 
 function chunks(values, size = HISTORY_QUERY_CHUNK) {
@@ -49,32 +40,6 @@ function chunks(values, size = HISTORY_QUERY_CHUNK) {
 function historyDateLabel(value) {
   if (!value) return 'Sin fecha';
   return new Date(`${value}T12:00:00`).toLocaleDateString('es-ES');
-}
-
-function safeHistorySearch(value) {
-  return String(value ?? '')
-    .trim()
-    .replace(/[,%_()]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .slice(0, 100);
-}
-
-function ilikeAny(columns, value) {
-  return columns.map(column => `${column}.ilike.%${value}%`).join(',');
-}
-
-function uniqueLatestRows(rows) {
-  const ordered = (rows || []).slice().sort((a, b) => {
-    const dateOrder = String(b.fecha_pizarra || '').localeCompare(String(a.fecha_pizarra || ''));
-    return dateOrder || Number(a.orden || 0) - Number(b.orden || 0);
-  });
-  const seen = new Set();
-  return ordered.filter(row => {
-    const key = row.seguimiento_id || row.id;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
 }
 
 async function getHistoryAccess() {
@@ -326,100 +291,14 @@ async function searchAllHistory(container, access, searchInput) {
     'warning'
   ));
 
-  const [recordResult, stageResult, documentResult, noteResult] = await Promise.all([
-    supabase
-      .from('hotel_por_dia')
-      .select('*', { count: 'exact' })
-      .or(ilikeAny(RECORD_SEARCH_COLUMNS, searchTerm))
-      .order('fecha_pizarra', { ascending: false })
-      .order('orden', { ascending: true })
-      .limit(HISTORY_SEARCH_LIMIT),
-    supabase
-      .from('etapas_hotel')
-      .select('id,registro_hotel_id,grupo_documental_id')
-      .or(ilikeAny(STAGE_SEARCH_COLUMNS, searchTerm))
-      .limit(HISTORY_SEARCH_LIMIT),
-    supabase
-      .from('documentos_gestion')
-      .select('registro_hotel_id,etapa_hotel_id,grupo_etapa_id')
-      .or(ilikeAny(DOCUMENT_SEARCH_COLUMNS, searchTerm))
-      .limit(HISTORY_SEARCH_LIMIT),
-    supabase
-      .from('anotaciones_manuales_hotel')
-      .select('seguimiento_id')
-      .eq('cancelada', false)
-      .ilike('texto', `%${searchTerm}%`)
-      .limit(HISTORY_SEARCH_LIMIT),
-  ]);
-
-  const searchError = recordResult.error || stageResult.error || documentResult.error || noteResult.error;
-  if (searchError) {
+  try {
+    const { rows, truncated } = await searchHistoricalRecords(supabase, searchTerm, HISTORY_SEARCH_LIMIT);
+    const reload = () => searchAllHistory(container, access, searchInput);
+    await showHistoryRows(container, rows, access, { searchTerm, truncated, reload });
+  } catch (error) {
     clear(resultHost);
-    resultHost.append(notice(`No se pudo buscar en todo el Histórico: ${searchError.message}`, 'danger'));
-    return;
+    resultHost.append(notice(`No se pudo buscar en todo el Histórico: ${error.message}`, 'danger'));
   }
-
-  const recordIds = new Set((stageResult.data || []).map(stage => stage.registro_hotel_id).filter(Boolean));
-  const trackingIds = new Set((noteResult.data || []).map(note => note.seguimiento_id).filter(Boolean));
-  const documentStageIds = new Set();
-  const documentGroupIds = new Set();
-  (documentResult.data || []).forEach(document => {
-    if (document.registro_hotel_id) recordIds.add(document.registro_hotel_id);
-    if (document.etapa_hotel_id) documentStageIds.add(document.etapa_hotel_id);
-    if (document.grupo_etapa_id) documentGroupIds.add(document.grupo_etapa_id);
-  });
-
-  const documentStageQueries = [
-    ...chunks([...documentStageIds]).map(ids => supabase
-      .from('etapas_hotel')
-      .select('registro_hotel_id')
-      .in('id', ids)),
-    ...chunks([...documentGroupIds]).map(ids => supabase
-      .from('etapas_hotel')
-      .select('registro_hotel_id')
-      .in('grupo_documental_id', ids)),
-  ];
-  const documentStageResults = await Promise.all(documentStageQueries);
-  const documentStageError = documentStageResults.find(result => result.error)?.error;
-  if (documentStageError) {
-    clear(resultHost);
-    resultHost.append(notice(`No se pudieron relacionar los documentos encontrados: ${documentStageError.message}`, 'danger'));
-    return;
-  }
-  documentStageResults.forEach(result => (result.data || []).forEach(stage => {
-    if (stage.registro_hotel_id) recordIds.add(stage.registro_hotel_id);
-  }));
-
-  const directRows = recordResult.data || [];
-  const directIds = new Set(directRows.map(row => row.id));
-  const additionalIds = [...recordIds].filter(id => !directIds.has(id));
-  const additionalResults = await Promise.all(chunks(additionalIds).map(ids => supabase
-    .from('hotel_por_dia')
-    .select('*')
-    .in('id', ids)));
-  const trackingResults = await Promise.all(chunks([...trackingIds]).map(ids => supabase
-    .from('hotel_por_dia')
-    .select('*')
-    .in('seguimiento_id', ids)
-    .order('fecha_pizarra', { ascending: false })));
-  const additionalError = additionalResults.find(result => result.error)?.error
-    || trackingResults.find(result => result.error)?.error;
-  if (additionalError) {
-    clear(resultHost);
-    resultHost.append(notice(`No se pudieron cargar las fichas encontradas: ${additionalError.message}`, 'danger'));
-    return;
-  }
-
-  const allRows = uniqueLatestRows([
-    ...directRows,
-    ...additionalResults.flatMap(result => result.data || []),
-    ...trackingResults.flatMap(result => result.data || []),
-  ]);
-  const truncated = Number(recordResult.count || 0) > HISTORY_SEARCH_LIMIT
-    || allRows.length > HISTORY_SEARCH_LIMIT;
-  const rows = allRows.slice(0, HISTORY_SEARCH_LIMIT);
-  const reload = () => searchAllHistory(container, access, searchInput);
-  await showHistoryRows(container, rows, access, { searchTerm, truncated, reload });
 }
 
 async function renderHistoryNative(container, access) {
@@ -457,15 +336,32 @@ async function renderHistoryNative(container, access) {
     dataset: { historyResults: '1' },
   });
 
-  dayButton.addEventListener('click', () => {
+  let loadingHistory = false;
+  const runHistoryLoad = async action => {
+    if (loadingHistory) return;
+    loadingHistory = true;
+    dayButton.disabled = true;
+    globalSearchButton.disabled = true;
+    try {
+      await action();
+    } catch (error) {
+      clear(resultHost);
+      resultHost.append(notice(`No se pudo cargar el Histórico: ${error.message}`, 'danger'));
+    } finally {
+      loadingHistory = false;
+      dayButton.disabled = false;
+      globalSearchButton.disabled = false;
+    }
+  };
+  dayButton.addEventListener('click', () => runHistoryLoad(async () => {
     searchInput.value = '';
-    if (dateInput.value) loadDay(container, dateInput.value, access, searchInput);
-  });
-  globalSearchButton.addEventListener('click', () => searchAllHistory(container, access, searchInput));
+    if (dateInput.value) await loadDay(container, dateInput.value, access, searchInput);
+  }));
+  globalSearchButton.addEventListener('click', () => runHistoryLoad(() => searchAllHistory(container, access, searchInput)));
   searchInput.addEventListener('keydown', event => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
-    searchAllHistory(container, access, searchInput);
+    runHistoryLoad(() => searchAllHistory(container, access, searchInput));
   });
 
   container.append(
@@ -493,7 +389,7 @@ async function renderHistoryNative(container, access) {
     resultHost
   );
 
-  await loadDay(container, dateInput.value, access, searchInput);
+  await runHistoryLoad(() => loadDay(container, dateInput.value, access, searchInput));
 }
 
 const nav = document.querySelector('#module-nav');
