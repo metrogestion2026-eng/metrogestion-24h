@@ -1,6 +1,20 @@
 # Próximas necesidades al cerrar trabajos
 
-Versión del Apps Script: `alpha75-2026.09.17.2`.
+Versión del Apps Script: `alpha75-2026.09.17.3`.
+
+## Corrección al recuperar el avance
+
+La versión `.2` reconstruía el archivo comprimido desde sus bytes sin indicar
+el tipo de contenido. Esto provocaba «El objeto blob no puede contener un tipo
+de contenido nulo» al leer la cola. La versión `.3` indica `application/gzip`
+al recuperar el blob y `application/json` al guardar el estado, con nombres
+explícitos. El formato de las propiedades no cambia: retoma las colas de `.2`
+sin borrarlas ni iniciar de nuevo el intercambio con el servidor.
+
+La prueba local reproduce ahora el rechazo del tipo nulo y comprueba la lectura
+y continuación de una cola guardada con el formato anterior. No se ha ejecutado
+esta versión desde las herramientas en el proyecto Apps Script del usuario.
+Referencia: [Utilities y creación de blobs](https://developers.google.com/apps-script/reference/utilities/utilities#newBlob(Byte[],String,String)).
 
 ## Corrección del tiempo máximo de ejecución
 
@@ -88,7 +102,7 @@ ni de la marca de la tractora. Si la marca no es reconocible se muestra un aviso
 1. En **MANTENIMIENTOS → Extensiones → Apps Script**, sustituir por completo
    `Código.gs` con `r1-alpha75/google-apps-script/sincronizar_manteniment.gs`.
    No añadirlo al final ni usar las antiguas copias `.txt` o numeradas.
-2. Guardar y comprobar `scriptVersion: 'alpha75-2026.09.17.2'`.
+2. Guardar y comprobar `scriptVersion: 'alpha75-2026.09.17.3'`.
 3. Recargar la hoja. Abrir **Metrogestión → Vista previa de próximas necesidades**.
    La vista previa no escribe nada; muestra las nuevas filas y todos los avisos.
 4. Ejecutar **Sincronizar ahora** y dejar la ventana abierta hasta que indique
