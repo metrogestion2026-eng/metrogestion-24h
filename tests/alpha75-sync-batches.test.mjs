@@ -17,10 +17,25 @@ function setup() {
     getProperties: () => Object.fromEntries(props),
     deleteProperty: key => props.delete(key),
   };
-  const blob = data => ({ getBytes: () => [...Buffer.from(data)], getDataAsString: () => Buffer.from(data).toString('utf8') });
+  const blob = (data, contentType = null, name = null) => ({
+    getBytes: () => [...Buffer.from(data)],
+    getDataAsString: () => Buffer.from(data).toString('utf8'),
+    getContentType: () => contentType,
+    getName: () => name,
+  });
+  const requireContentType = b => {
+    if (!b.getContentType()) throw new Error('El objeto blob no puede contener un tipo de contenido nulo en esta operación.');
+  };
   class Clock extends Date { static now() { return now; } }
   const c = vm.createContext({ console, Date: Clock, PropertiesService: { getScriptProperties: () => service },
-    Utilities: { getUuid: randomUUID, newBlob: data => blob(typeof data === 'string' ? Buffer.from(data) : data), gzip: b => blob(gzipSync(Buffer.from(b.getBytes()))), ungzip: b => blob(gunzipSync(Buffer.from(b.getBytes()))), base64Encode: b => Buffer.from(b).toString('base64'), base64Decode: s => [...Buffer.from(s, 'base64')] },
+    Utilities: {
+      getUuid: randomUUID,
+      newBlob: (data, contentType = typeof data === 'string' ? 'text/plain' : null, name = null) => blob(typeof data === 'string' ? Buffer.from(data) : data, contentType, name),
+      gzip(b, name) { requireContentType(b); return blob(gzipSync(Buffer.from(b.getBytes())), 'application/gzip', name); },
+      ungzip(b) { requireContentType(b); return blob(gunzipSync(Buffer.from(b.getBytes())), 'application/json'); },
+      base64Encode: b => Buffer.from(b).toString('base64'),
+      base64Decode: s => [...Buffer.from(s, 'base64')],
+    },
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) },
     SpreadsheetApp: { flush() {}, openById: () => ({ getName: () => 'MANTENIMIENTOS', getSheetByName: () => ({}) }) },
   });
@@ -48,6 +63,28 @@ test('guarda Unicode en partes menores de 9 KB y conserva la generación anterio
   assert.equal(env.c.metrogestionLeerCiclo_().id, 'third');
   const manifest = JSON.parse(env.props.get('METROGESTION_CICLO'));
   assert.equal([...env.props.keys()].filter(k => k.startsWith('METROGESTION_CICLO_')).length, manifest.partes);
+});
+
+test('lee y retoma una cola de .2 sin regenerarla ni volver a enviar el snapshot', () => {
+  const e = setup();
+  const previous = { id: 'cola-anterior', hoja: sheetId, fase: 'comandos', comandos: [{ id: 6 }], trabajos: [], totalComandos: 7, confirmados: 6, creadas: 4, cierres: 0, mensajeBase: 'Sincronización correcta · Trámite' };
+  // Formato persistido de .2: base64(gzip(JSON)), sin metadatos MIME.
+  // Se prepara fuera del escritor nuevo para comprobar compatibilidad real.
+  const packed = gzipSync(Buffer.from(JSON.stringify(previous))).toString('base64');
+  e.props.set('METROGESTION_CICLO_anterior_0', packed);
+  e.props.set('METROGESTION_CICLO', JSON.stringify({ generacion: 'anterior', partes: 1, sha: createHash('sha256').update(packed).digest('hex') }));
+  const read = e.c.metrogestionLeerCiclo_();
+  assert.deepEqual(JSON.parse(JSON.stringify(read)), previous);
+  assert.equal(e.props.get('METROGESTION_CICLO_anterior_0'), packed);
+  const r = e.c.metrogestionEjecutarSincronizacion_('manual');
+  assert.equal(r.ciclo, previous.id);
+  assert.equal(e.requests(), 0);
+  assert.deepEqual(e.acknowledgements, [6]);
+  const saved = e.c.metrogestionLeerCiclo_();
+  assert.equal(saved.confirmados, 7);
+  assert.equal(saved.creadas, 4);
+  assert.equal(saved.mensajeBase, previous.mensajeBase);
+  assert.equal(saved.fase, 'necesidades');
 });
 
 test('siete órdenes se confirman en 3/3/1, y la continuación no vuelve a enviar el snapshot', () => {

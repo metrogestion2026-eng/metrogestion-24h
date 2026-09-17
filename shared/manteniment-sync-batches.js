@@ -16,7 +16,10 @@ function metrogestionLeerCiclo_() {
     packed += part;
   }
   if (metrogestionSha256_(packed) !== manifest.sha) throw new Error('El avance guardado está incompleto.');
-  const state = JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(packed))).getDataAsString());
+  // Base64 conserva los bytes, pero no el tipo de contenido. Apps Script
+  // necesita un MIME explícito para descomprimir el blob reconstruido.
+  const compressed = Utilities.newBlob(Utilities.base64Decode(packed), 'application/gzip', 'metrogestion-ciclo.json.gz');
+  const state = JSON.parse(Utilities.ungzip(compressed).getDataAsString('UTF-8'));
   if (state.hoja !== METROGESTION.spreadsheetId) throw new Error('El avance corresponde a otro archivo.');
   return state;
 }
@@ -27,7 +30,8 @@ function metrogestionGuardarCiclo_(state) {
   // Retirar fragmentos huérfanos de una escritura interrumpida, conservando
   // intacta la generación que todavía señala el manifiesto.
   Object.keys(props.getProperties()).filter(key => key.startsWith(METROGESTION_PROGRESO + '_') && (!previous || !key.startsWith(`${METROGESTION_PROGRESO}_${previous.generacion}_`))).forEach(key => props.deleteProperty(key));
-  const packed = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(state))).getBytes());
+  const json = Utilities.newBlob(JSON.stringify(state), 'application/json', 'metrogestion-ciclo.json');
+  const packed = Utilities.base64Encode(Utilities.gzip(json, 'metrogestion-ciclo.json.gz').getBytes());
   const count = Math.ceil(packed.length / 8000);
   if (count > 24) throw new Error('La cola de sincronización es demasiado grande para guardar el avance.');
   const generation = Utilities.getUuid();
