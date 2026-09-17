@@ -122,6 +122,8 @@ function documentsForStages(stages, documentsByGroup) {
   return stages.flatMap(stage => documentsByGroup.get(stage.grupo_documental_id) || []);
 }
 
+let stagePanelSequence = 0;
+
 function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsChanged) {
   const ordered = stages.slice().sort((a, b) =>
     Number(Boolean(a.cancelado)) - Number(Boolean(b.cancelado))
@@ -131,9 +133,23 @@ function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsCha
   const cancelled = ordered.filter(stage => stage.cancelado === true || stage.estado === 'anulada');
 
   const section = element('section', { className: 'hotel-card-stages' });
+  const content = element('div', { id: `hotel-card-stages-${++stagePanelSequence}` });
+  content.hidden = true;
+  const toggle = element('button', {
+    className: 'button secondary compact a75-card-stages-toggle',
+    type: 'button',
+    text: `Desplegar T (${active.length})`,
+    'aria-expanded': 'false',
+    'aria-controls': content.id,
+  });
+  toggle.addEventListener('click', () => {
+    content.hidden = !content.hidden;
+    toggle.textContent = content.hidden ? `Desplegar T (${active.length})` : 'Ocultar T';
+    toggle.setAttribute('aria-expanded', String(!content.hidden));
+  });
   section.append(element('div', { className: 'hotel-stage-heading' }, [
     element('h4', { text: 'T de la actuación' }),
-    element('span', { className: 'badge', text: `${active.length} activa${active.length === 1 ? '' : 's'}` }),
+    toggle,
   ]));
 
   const list = element('div', { className: 'hotel-stage-list' });
@@ -147,7 +163,7 @@ function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsCha
       onDocumentsChanged
     )));
   }
-  section.append(list);
+  content.append(list);
 
   if (cancelled.length) {
     const history = element('div', { className: 'hotel-stage-list cancelled-list' });
@@ -157,12 +173,13 @@ function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsCha
       canEditDocuments,
       onDocumentsChanged
     )));
-    section.append(element('details', { className: 'hotel-stage-history' }, [
+    content.append(element('details', { className: 'hotel-stage-history' }, [
       element('summary', { text: `T anuladas / histórico · ${cancelled.length}` }),
       history,
     ]));
   }
 
+  section.append(content);
   return section;
 }
 
