@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.17.1',
+  scriptVersion: 'alpha75-2026.09.17.2',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -41,19 +41,8 @@ function metrogestionGuardarClave() {
   ui.alert('Clave guardada. Ya puedes ejecutar “Sincronizar ahora”.');
 }
 
-function metrogestionSincronizarAhora() {
-  const ui = SpreadsheetApp.getUi();
-  try {
-    const result = metrogestionEjecutarSincronizacion_('manual');
-    ui.alert(result.mensaje || 'Sincronización completada.');
-  } catch (error) {
-    ui.alert(`No se pudo sincronizar: ${error.message}`);
-    throw error;
-  }
-}
-
 function metrogestionSincronizarProgramada() {
-  metrogestionEjecutarSincronizacion_('programada');
+  metrogestionLanzarProgramada_();
 }
 
 function metrogestionInstalarActualizacion() {
@@ -89,140 +78,87 @@ function metrogestionVerEstadoLocal() {
   ].join('\n'));
 }
 
-function metrogestionEjecutarSincronizacion_(modo) {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(15000)) throw new Error('Ya hay otra sincronización en curso.');
-  try {
-    const token = metrogestionLeerToken_();
-    if (!token) throw new Error('No existe una clave de conexión en las Propiedades del script.');
-    const spreadsheet = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
-    if (spreadsheet.getName() !== METROGESTION.spreadsheetName) {
-      throw new Error('El script no está vinculado al archivo MANTENIMIENTOS esperado.');
-    }
-    const sheet = spreadsheet.getSheetByName(METROGESTION.sheetName);
-    if (!sheet) throw new Error('No existe la hoja MANTENIMENT.');
-    const lastRow = sheet.getLastRow();
-    if (lastRow < 2) throw new Error('MANTENIMENT no contiene filas de datos.');
-    const values = sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
-    const notes = sheet.getRange(1, 1, lastRow, 1).getNotes();
-    const workNotes = sheet.getRange(1, 5, lastRow, 1).getNotes();
-    // A (DFM/R) amarillo fuerza la inclusión de la necesidad aunque su fecha
-    // quede fuera de la ventana ordinaria de un mes.
-    const priorityBackgrounds = sheet.getRange(1, 1, lastRow, 1).getBackgrounds();
-    // H (MANTENIMENT) es la referencia visual del estado de la necesidad:
-    // blanco = pendiente; cualquier otro fondo = ya clasificada/no pendiente.
-    const workBackgrounds = sheet.getRange(1, 8, lastRow, 1).getBackgrounds();
-    // G solo representa el tipo de trabajo cuando no está amarilla. Una G
-    // amarilla contiene un pedido (actual 2600…, heredado P-… o PEDIDO).
-    const orderBackgrounds = sheet.getRange(1, 7, lastRow, 1).getBackgrounds();
-    metrogestionValidarCabeceras_(values[0]);
-    const rows = [];
-    for (let index = 1; index < values.length; index += 1) {
-      const row = values[index];
-      if (metrogestionNormalizar_(row[7]) !== 'ALTA') continue;
-      rows.push({
-        fila: index + 1,
-        dfm: row[0],
-        matricula: row[1],
-        tipo: row[2],
-        upc: row[3],
-        telefono: row[5],
-        contrato: row[6],
-        estado: row[7],
-        fecha_matriculacion: metrogestionFechaIso_(row[8], 'matriculación'),
-        fecha_alta: metrogestionFechaIso_(row[9], 'alta en delegación'),
-        asignacion: row[13],
-        marca: row[14],
-        bastidor: row[16],
-      });
-    }
-    const paradas = metrogestionLeerParadasVinculadas_(values, notes);
-    const trabajos = metrogestionLeerTrabajos_(
-      values,
-      workNotes,
-      workBackgrounds,
-      priorityBackgrounds,
-      metrogestionFechaCorteTrabajos_(),
-      orderBackgrounds
-    );
-    const modifiedAt = DriveApp.getFileById(METROGESTION.spreadsheetId).getLastUpdated();
-    const generatedAt = new Date();
-    const payload = {
-      spreadsheet_id: METROGESTION.spreadsheetId,
-      spreadsheet_name: METROGESTION.spreadsheetName,
-      hoja: METROGESTION.sheetName,
-      modo,
-      version_script: METROGESTION.scriptVersion,
-      generado_en: generatedAt.toISOString(),
-      archivo_modificado_en: modifiedAt.toISOString(),
-      filas: rows,
-      paradas,
-      trabajos,
-    };
-    payload.checksum = metrogestionSha256_(JSON.stringify({ filas: rows, paradas, trabajos }));
-    const response = UrlFetchApp.fetch(METROGESTION.syncUrl, {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify({ token, payload }),
-      muteHttpExceptions: true,
-      followRedirects: false,
-    });
-    const code = response.getResponseCode();
-    const body = response.getContentText();
-    let result;
-    try {
-      result = JSON.parse(body);
-    } catch (error) {
-      throw new Error(`Supabase devolvió una respuesta no válida (${code}).`);
-    }
-    if (code < 200 || code >= 300) {
-      throw new Error(result.message || result.error || `Error HTTP ${code}.`);
-    }
-    if (result?.ok !== true) throw new Error(result?.error || 'La base de datos rechazó la sincronización.');
-    const syncResult = result.resultado || {};
-    const commands = Array.isArray(syncResult.comandos_manteniment) ? syncResult.comandos_manteniment : [];
-    // Reutilizamos la fotografía ya leída. Así, cada orden no vuelve a recorrer
-    // las más de siete mil filas de MANTENIMENT.
-    const sheetState = {
-      values: values.map(row => row.slice()),
-      notesA: notes.map(row => String(row?.[0] || '')),
-      notesE: workNotes.map(row => String(row?.[0] || '')),
-      cierresAdministrativos: [],
-    };
-    // Google Sheets impide escribir o insertar sobre filas ocultas por un filtro
-    // básico. Conservamos el filtro, lo retiramos solo durante las escrituras y
-    // lo restauramos siempre, también si una orden produce un error.
-    const filterState = metrogestionSuspenderFiltro_(sheet);
-    let confirmations;
-    let administrativeResult;
-    try {
-      confirmations = metrogestionAplicarComandos_(sheet, commands, sheetState, trabajos);
-      administrativeResult = metrogestionAplicarReglaAdministrativa_(sheet, sheetState);
-    } finally {
-      metrogestionRestaurarFiltro_(sheet, filterState);
-    }
-    // Las inserciones predictivas desplazan las filas que acabamos de escribir.
-    confirmations.forEach(c => {
-      if (c.fila) c.fila += administrativeResult.inserciones.filter(after => after < c.fila).length;
-    });
-    if (confirmations.length) metrogestionConfirmarComandos_(token, confirmations);
-    const assignedWorks = confirmations.reduce((total, item) => total + Number(item.trabajos_asignados || 0), 0);
-    const message = [
-      syncResult.mensaje || 'Sincronización correcta.',
-      `${paradas.length} parada(s) y ${trabajos.length} necesidad(es) leída(s); ${confirmations.length} comando(s) y ${assignedWorks} asignación(es) aplicados; ${administrativeResult.cierres} cierre(s) administrativo(s) y ${administrativeResult.renovaciones} próxima(s) necesidad(es) creada(s), ${administrativeResult.reutilizadas} ya existente(s) y ${administrativeResult.avisos.length} aviso(s) para revisar en «Vista previa de próximas necesidades».${administrativeResult.pausadas ? " Reglas predictivas pausadas." : ""}`
-    ].join(' ');
-    const props = PropertiesService.getScriptProperties();
-    props.setProperty('METROGESTION_ULTIMA_EJECUCION', generatedAt.toISOString());
-    props.setProperty('METROGESTION_ULTIMO_RESULTADO', message);
-    return { ...syncResult, mensaje: message };
-  } catch (error) {
-    const props = PropertiesService.getScriptProperties();
-    props.setProperty('METROGESTION_ULTIMA_EJECUCION', new Date().toISOString());
-    props.setProperty('METROGESTION_ULTIMO_RESULTADO', `ERROR: ${error.message}`);
-    throw error;
-  } finally {
-    lock.releaseLock();
-  }
+function metrogestionSolicitarCiclo_(sheet, modo, token) {
+const lastRow = sheet.getLastRow();
+if (lastRow < 2) throw new Error('MANTENIMENT no contiene filas de datos.');
+const values = sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
+const notes = sheet.getRange(1, 1, lastRow, 1).getNotes();
+const workNotes = sheet.getRange(1, 5, lastRow, 1).getNotes();
+// A (DFM/R) amarillo fuerza la inclusión de la necesidad aunque su fecha
+// quede fuera de la ventana ordinaria de un mes.
+const priorityBackgrounds = sheet.getRange(1, 1, lastRow, 1).getBackgrounds();
+// H (MANTENIMENT) es la referencia visual del estado de la necesidad:
+// blanco = pendiente; cualquier otro fondo = ya clasificada/no pendiente.
+const workBackgrounds = sheet.getRange(1, 8, lastRow, 1).getBackgrounds();
+// G solo representa el tipo de trabajo cuando no está amarilla. Una G
+// amarilla contiene un pedido (actual 2600…, heredado P-… o PEDIDO).
+const orderBackgrounds = sheet.getRange(1, 7, lastRow, 1).getBackgrounds();
+metrogestionValidarCabeceras_(values[0]);
+const rows = [];
+for (let index = 1; index < values.length; index += 1) {
+  const row = values[index];
+  if (metrogestionNormalizar_(row[7]) !== 'ALTA') continue;
+  rows.push({
+    fila: index + 1,
+    dfm: row[0],
+    matricula: row[1],
+    tipo: row[2],
+    upc: row[3],
+    telefono: row[5],
+    contrato: row[6],
+    estado: row[7],
+    fecha_matriculacion: metrogestionFechaIso_(row[8], 'matriculación'),
+    fecha_alta: metrogestionFechaIso_(row[9], 'alta en delegación'),
+    asignacion: row[13],
+    marca: row[14],
+    bastidor: row[16],
+  });
+}
+const paradas = metrogestionLeerParadasVinculadas_(values, notes);
+const trabajos = metrogestionLeerTrabajos_(
+  values,
+  workNotes,
+  workBackgrounds,
+  priorityBackgrounds,
+  metrogestionFechaCorteTrabajos_(),
+  orderBackgrounds
+);
+const modifiedAt = DriveApp.getFileById(METROGESTION.spreadsheetId).getLastUpdated();
+const generatedAt = new Date();
+const payload = {
+  spreadsheet_id: METROGESTION.spreadsheetId,
+  spreadsheet_name: METROGESTION.spreadsheetName,
+  hoja: METROGESTION.sheetName,
+  modo,
+  version_script: METROGESTION.scriptVersion,
+  generado_en: generatedAt.toISOString(),
+  archivo_modificado_en: modifiedAt.toISOString(),
+  filas: rows,
+  paradas,
+  trabajos,
+};
+payload.checksum = metrogestionSha256_(JSON.stringify({ filas: rows, paradas, trabajos }));
+const response = UrlFetchApp.fetch(METROGESTION.syncUrl, {
+  method: 'post',
+  contentType: 'application/json',
+  payload: JSON.stringify({ token, payload }),
+  muteHttpExceptions: true,
+  followRedirects: false,
+});
+const code = response.getResponseCode();
+const body = response.getContentText();
+let result;
+try {
+  result = JSON.parse(body);
+} catch (error) {
+  throw new Error(`Supabase devolvió una respuesta no válida (${code}).`);
+}
+if (code < 200 || code >= 300) {
+  throw new Error(result.message || result.error || `Error HTTP ${code}.`);
+}
+if (result?.ok !== true) throw new Error(result?.error || 'La base de datos rechazó la sincronización.');
+const syncResult = result.resultado || {};
+return { syncResult, trabajos };
 }
 
 function metrogestionSuspenderFiltro_(sheet) {
@@ -736,8 +672,11 @@ function metrogestionEnlazarArchivoParada_(sheet, numeroParada, dfm, sheetState)
   // históricos de trabajos distintos no compiten entre sí.
   const inferredDfm = String(dfm || values[matchingRows[0] - 1]?.[0] || '').trim();
   const currentRichTexts = new Map();
+  // Una lectura de E evita una llamada remota por cada fila de la parada.
+  const firstMatchingRow = matchingRows[0];
+  const richTexts = sheet.getRange(firstMatchingRow, 5, matchingRows[matchingRows.length - 1] - firstMatchingRow + 1, 1).getRichTextValues();
   const currentUrls = matchingRows.map(rowNumber => {
-    const richText = sheet.getRange(rowNumber, 5).getRichTextValue();
+    const richText = richTexts[rowNumber - firstMatchingRow][0];
     currentRichTexts.set(rowNumber, richText);
     return richText ? richText.getLinkUrl() : '';
   }).filter(Boolean);
@@ -1754,10 +1693,14 @@ function metrogestionPintarCierre_(sheet, row) {
   if (metrogestionEsFondoAmarillo_(m)) sheet.getRange(row, 13).setBackground(m);
 }
 
-function metrogestionEjecutarPlanNecesidades_(sheet, plan) {
+function metrogestionEjecutarPlanNecesidades_(sheet, plan, options) {
+  const limits = options || { cambios: Infinity, nuevas: Infinity, deadline: Infinity };
+  const applied = new Set();
+  const changedParents = new Set(plan.cambios.map(c => c.fila));
   // Primero se actualizan las filas existentes; después se insertan las nuevas
   // de abajo arriba. Así ningún desplazamiento cambia la identidad del plan.
   plan.cambios.forEach(c => {
+    if (applied.size >= limits.cambios || Date.now() >= limits.deadline) return;
     const current = sheet.getRange(c.fila, 1, 1, 17).getDisplayValues()[0];
     if (metrogestionFirmaNecesidad_(current) !== metrogestionFirmaNecesidad_(c.original)) {
       throw new Error(`La fila ${c.fila} cambió durante la planificación. Vuelve a sincronizar.`);
@@ -1775,17 +1718,25 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan) {
     if (c.amarilloM) sheet.getRange(c.fila, 13).setBackground('#ffff00');
     const noteCell = sheet.getRange(c.fila, 9);
     if (noteCell.getNote() !== c.nota) noteCell.setNote(c.nota);
+    applied.add(c.fila);
   });
   const inserted = [];
   plan.nuevas.slice().sort((a, b) => b.despuesDe - a.despuesDe).forEach(n => {
+    if (inserted.length >= limits.nuevas || Date.now() >= limits.deadline) return;
+    // No crear una hija antes de guardar los cambios y la identidad del padre.
+    if (changedParents.has(n.despuesDe) && !applied.has(n.despuesDe)) return;
     const parent = sheet.getRange(n.despuesDe, 1, 1, 17).getDisplayValues()[0];
     if (metrogestionNormalizar_(parent[0]) !== metrogestionNormalizar_(n.values[0])) {
       throw new Error(`Cambió la unidad de la fila ${n.despuesDe}; no se ha creado su próxima necesidad.`);
     }
+    const parentId = metrogestionMetadatosNecesidad_(sheet.getRange(n.despuesDe, 9).getNote()).id;
+    if (parentId !== metrogestionMetadatosNecesidad_(n.nota).origen) throw new Error(`Cambió el origen de la fila ${n.despuesDe}; vuelve a sincronizar.`);
     sheet.insertRowAfter(n.despuesDe);
     const target = n.despuesDe + 1;
     // La plantilla solo afecta A:Q. R/S pertenecen a ARRAYFORMULA.
-    metrogestionCopiarPlantillaOperativa_(sheet, n.despuesDe, target);
+    // Solo formato: un corte aquí nunca deja una copia de la fila realizada
+    // ni de su identificador técnico en la fila recién insertada.
+    sheet.getRange(n.despuesDe, 1, 1, 17).copyTo(sheet.getRange(target, 1, 1, 17), { formatOnly: true });
     const values = n.values.slice();
     values[8] = metrogestionDate_(values[8]);
     const range = sheet.getRange(target, 1, 1, 17);
@@ -1795,16 +1746,198 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan) {
     sheet.setRowHeight(target, sheet.getRowHeight(n.despuesDe));
     inserted.push(n.despuesDe);
   });
-  return { cierres: plan.cambios.filter(c => c.cierre).length, renovacionesItv: plan.nuevas.filter(n => n.values[7] === 'ITV').length, renovaciones: plan.nuevas.length, reutilizadas: plan.reutilizadas, avisos: plan.avisos, inserciones: inserted };
+  const remaining = plan.cambios.length - applied.size + plan.nuevas.length - inserted.length;
+  return { cierres: plan.cambios.filter(c => c.cierre && applied.has(c.fila)).length, renovacionesItv: plan.nuevas.filter(n => n.values[7] === 'ITV' && inserted.includes(n.despuesDe)).length, renovaciones: inserted.length, reutilizadas: plan.reutilizadas, avisos: plan.avisos, inserciones: inserted, cambiosAplicados: applied.size, restantes: remaining, pendiente: remaining > 0 };
 }
 
-function metrogestionAplicarReglaAdministrativa_(sheet) {
+function metrogestionAplicarReglaAdministrativa_(sheet, options) {
   if (PropertiesService.getScriptProperties().getProperty('METROGESTION_NECESIDADES_PAUSADAS') === 'true') {
     return { cierres: 0, renovaciones: 0, renovacionesItv: 0, reutilizadas: 0, avisos: [], inserciones: [], pausadas: true };
   }
   const plan = metrogestionLeerPlanNecesidades_(sheet);
-  const result = metrogestionEjecutarPlanNecesidades_(sheet, plan);
+  const result = metrogestionEjecutarPlanNecesidades_(sheet, plan, { cambios: METROGESTION_LOTES.cambios, nuevas: METROGESTION_LOTES.nuevas, deadline: options?.deadline || Date.now() + METROGESTION_LOTES.margenMs });
   if (plan.avisos.length) console.warn(JSON.stringify({ necesidades_por_revisar: plan.avisos }));
   return result;
+}
+
+// Cada llamada termina entre unidades de trabajo. No se conserva una fotografía
+// de filas entre tandas: solo las órdenes originales y su confirmación pendiente.
+const METROGESTION_LOTES = Object.freeze({ comandos: 3, cambios: 12, nuevas: 4, margenMs: 120000 });
+const METROGESTION_PROGRESO = 'METROGESTION_CICLO';
+
+function metrogestionLeerCiclo_() {
+  const props = PropertiesService.getScriptProperties();
+  const header = props.getProperty(METROGESTION_PROGRESO);
+  if (!header) return null;
+  const manifest = JSON.parse(header);
+  if (!Number.isInteger(manifest.partes) || manifest.partes < 1 || manifest.partes > 24 || !/^[a-zA-Z0-9_-]+$/.test(manifest.generacion)) throw new Error('El avance guardado no es válido. No se ha reiniciado la sincronización.');
+  let packed = '';
+  for (let i = 0; i < manifest.partes; i++) {
+    const part = props.getProperty(`${METROGESTION_PROGRESO}_${manifest.generacion}_${i}`);
+    if (part === null) throw new Error('Falta una parte del avance guardado. No se ha reiniciado la sincronización.');
+    packed += part;
+  }
+  if (metrogestionSha256_(packed) !== manifest.sha) throw new Error('El avance guardado está incompleto.');
+  const state = JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(packed))).getDataAsString());
+  if (state.hoja !== METROGESTION.spreadsheetId) throw new Error('El avance corresponde a otro archivo.');
+  return state;
+}
+
+function metrogestionGuardarCiclo_(state) {
+  const props = PropertiesService.getScriptProperties();
+  const previous = JSON.parse(props.getProperty(METROGESTION_PROGRESO) || 'null');
+  // Retirar fragmentos huérfanos de una escritura interrumpida, conservando
+  // intacta la generación que todavía señala el manifiesto.
+  Object.keys(props.getProperties()).filter(key => key.startsWith(METROGESTION_PROGRESO + '_') && (!previous || !key.startsWith(`${METROGESTION_PROGRESO}_${previous.generacion}_`))).forEach(key => props.deleteProperty(key));
+  const packed = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(state))).getBytes());
+  const count = Math.ceil(packed.length / 8000);
+  if (count > 24) throw new Error('La cola de sincronización es demasiado grande para guardar el avance.');
+  const generation = Utilities.getUuid();
+  const parts = {};
+  for (let i = 0; i < count; i++) parts[`${METROGESTION_PROGRESO}_${generation}_${i}`] = packed.slice(i * 8000, (i + 1) * 8000);
+  // El manifiesto cambia DESPUÉS de guardar todas las partes. Si hay un corte,
+  // sigue disponible la última cola completa. Cada propiedad queda bajo 9 KB.
+  props.setProperties(parts, false);
+  props.setProperty(METROGESTION_PROGRESO, JSON.stringify({ generacion: generation, partes: count, sha: metrogestionSha256_(packed) }));
+  Object.keys(props.getProperties()).filter(key => key.startsWith(METROGESTION_PROGRESO + '_') && !key.startsWith(`${METROGESTION_PROGRESO}_${generation}_`)).forEach(key => props.deleteProperty(key));
+}
+
+function metrogestionRespuestaCiclo_(state) {
+  const pending = state.fase !== 'terminado';
+  const message = pending
+    ? (state.fase === 'comandos'
+      ? `Sincronización en curso: ${state.confirmados} de ${state.totalComandos} órdenes guardadas. La siguiente tanda continuará automáticamente.`
+      : `Próximas necesidades: ${state.creadas} creadas en este ciclo; ${state.restantes ?? 'pendientes de comprobar'} cambios por procesar. Continuando…`)
+    : `${state.mensajeBase} ${state.confirmados} orden(es) confirmadas; ${state.cierres} cierre(s) y ${state.creadas} próxima(s) necesidad(es) creadas en este ciclo; ${state.avisos || 0} aviso(s) para revisar en «Vista previa de próximas necesidades».${state.pausadas ? ' Reglas predictivas pausadas.' : ''}`;
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('METROGESTION_ULTIMA_EJECUCION', new Date().toISOString());
+  props.setProperty('METROGESTION_ULTIMO_RESULTADO', message);
+  return { ciclo: state.id, pendiente: pending, mensaje: message };
+}
+
+function metrogestionEstadoHojaLote_(sheet) {
+  const lastRow = sheet.getLastRow();
+  return {
+    values: sheet.getRange(1, 1, lastRow, 17).getDisplayValues(),
+    notesA: sheet.getRange(1, 1, lastRow, 1).getNotes().map(r => String(r[0] || '')),
+    notesE: sheet.getRange(1, 5, lastRow, 1).getNotes().map(r => String(r[0] || '')),
+    cierresAdministrativos: [],
+  };
+}
+
+function metrogestionProcesarOrdenesLote_(sheet, state, token, deadline) {
+  const sheetState = metrogestionEstadoHojaLote_(sheet);
+  const filterState = metrogestionSuspenderFiltro_(sheet);
+  try {
+    let processed = 0;
+    while (state.comandos.length && processed < METROGESTION_LOTES.comandos && Date.now() < deadline) {
+      const command = state.comandos[0];
+      const confirmation = metrogestionAplicarComandos_(sheet, [command], sheetState, state.trabajos)[0];
+      SpreadsheetApp.flush();
+      // Confirmar antes de pasar a la siguiente orden evita repetir toda la
+      // cola si se interrumpe después la generación predictiva. Los enlaces
+      // se siguen resolviendo por UUID/clave, incluso si se insertan filas.
+      metrogestionConfirmarComandos_(token, [confirmation]);
+      state.comandos.shift();
+      state.confirmados += 1;
+      metrogestionGuardarCiclo_(state);
+      processed += 1;
+    }
+    if (!state.comandos.length) { state.fase = 'necesidades'; state.trabajos = []; }
+  } finally { metrogestionRestaurarFiltro_(sheet, filterState); }
+}
+
+function metrogestionEjecutarSincronizacion_(modo, expectedCycle) {
+  const deadline = Date.now() + METROGESTION_LOTES.margenMs;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) throw new Error('Ya hay otra tanda de sincronización en curso.');
+  let state;
+  try {
+    state = metrogestionLeerCiclo_();
+    if (expectedCycle && state?.id !== expectedCycle) throw new Error('Hay otro ciclo de sincronización. Cierra esta ventana y vuelve a abrir Sincronizar ahora.');
+    if (expectedCycle && state?.fase === 'terminado') return metrogestionRespuestaCiclo_(state);
+    const token = metrogestionLeerToken_();
+    if (!token) throw new Error('No existe una clave de conexión en las Propiedades del script.');
+    const book = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
+    if (book.getName() !== METROGESTION.spreadsheetName) throw new Error('No es el archivo MANTENIMIENTOS esperado.');
+    const sheet = book.getSheetByName(METROGESTION.sheetName);
+    if (!sheet) throw new Error('No existe la hoja MANTENIMENT.');
+    if (!state || state.fase === 'terminado') {
+      const { syncResult, trabajos } = metrogestionSolicitarCiclo_(sheet, modo, token);
+      const commands = Array.isArray(syncResult.comandos_manteniment) ? syncResult.comandos_manteniment : [];
+      state = { id: Utilities.getUuid(), hoja: METROGESTION.spreadsheetId, fase: commands.length ? 'comandos' : 'necesidades', comandos: commands, trabajos, totalComandos: commands.length, confirmados: 0, creadas: 0, cierres: 0, mensajeBase: syncResult.mensaje || 'Sincronización correcta.' };
+      metrogestionGuardarCiclo_(state);
+      // La lectura y el intercambio con Supabase tienen su propia ejecución.
+      return metrogestionRespuestaCiclo_(state);
+    }
+    if (state.fase === 'comandos') {
+      metrogestionProcesarOrdenesLote_(sheet, state, token, deadline);
+    } else if (state.fase === 'necesidades') {
+      const filterState = metrogestionSuspenderFiltro_(sheet);
+      try {
+        const result = metrogestionAplicarReglaAdministrativa_(sheet, { deadline });
+        SpreadsheetApp.flush();
+        state.creadas += result.renovaciones;
+        state.cierres += result.cierres;
+        state.avisos = result.avisos.length;
+        state.pausadas = result.pausadas || false;
+        state.restantes = result.restantes || 0;
+        if (!result.pendiente) state.fase = 'terminado';
+      } finally { metrogestionRestaurarFiltro_(sheet, filterState); }
+    } else throw new Error('Fase de sincronización desconocida.');
+    metrogestionGuardarCiclo_(state);
+    return metrogestionRespuestaCiclo_(state);
+  } catch (error) {
+    const message = `ERROR${state ? ' en ' + state.fase : ''}: ${error.message}. El avance confirmado se conserva; puedes retomar con Sincronizar ahora.`;
+    PropertiesService.getScriptProperties().setProperty('METROGESTION_ULTIMO_RESULTADO', message);
+    throw error;
+  } finally { lock.releaseLock(); }
+}
+
+function metrogestionContinuarSincronizacion(ciclo) {
+  return metrogestionEjecutarSincronizacion_('manual', String(ciclo || ''));
+}
+
+function metrogestionReanudarProgramada() {
+  const ciclo = PropertiesService.getScriptProperties().getProperty('METROGESTION_PROGRAMADA_CICLO');
+  if (!ciclo) return;
+  return metrogestionLanzarProgramada_(ciclo);
+}
+
+function metrogestionLanzarProgramada_(ciclo) {
+  // Solo se usa cuando ya se está ejecutando la modalidad programada. No añade
+  // una periodicidad nueva al abrir el menú manual.
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'metrogestionReanudarProgramada').forEach(t => ScriptApp.deleteTrigger(t));
+  const result = metrogestionEjecutarSincronizacion_('programada', ciclo);
+  const props = PropertiesService.getScriptProperties();
+  if (result.pendiente) {
+    props.setProperty('METROGESTION_PROGRAMADA_CICLO', result.ciclo);
+    ScriptApp.newTrigger('metrogestionReanudarProgramada').timeBased().after(60000).create();
+  } else props.deleteProperty('METROGESTION_PROGRAMADA_CICLO');
+  return result;
+}
+
+function metrogestionSincronizarAhora() {
+  const html = `<html lang="es"><meta charset="utf-8"><style>body{font:15px sans-serif;color:#17354a;padding:20px;line-height:1.6}button{padding:9px 18px;margin-top:12px}</style>
+    <h2>Sincronizando MANTENIMENT</h2><p id="estado" role="status" aria-live="polite">Leyendo la hoja…</p>
+    <p>Deja esta ventana abierta para continuar automáticamente. Si la cierras, podrás retomar desde <b>Sincronizar ahora</b>.</p>
+    <button id="retomar" hidden>Reintentar</button><button onclick="google.script.host.close()">Cerrar</button>
+    <script>
+      let ciclo = '', ejecutando = false;
+      const estado = document.getElementById('estado'), retomar = document.getElementById('retomar');
+      function siguiente() {
+        if (ejecutando) return;
+        ejecutando = true; retomar.hidden = true;
+        google.script.run.withSuccessHandler(function(r) {
+          ejecutando = false; ciclo = r.ciclo; estado.textContent = r.mensaje;
+          if (r.pendiente) setTimeout(siguiente, 300);
+          else document.querySelector('h2').textContent = 'Sincronización terminada';
+        }).withFailureHandler(function(e) {
+          ejecutando = false; estado.textContent = e.message + ' El avance guardado se conserva.'; retomar.hidden = false;
+        }).metrogestionContinuarSincronizacion(ciclo);
+      }
+      retomar.onclick = siguiente; siguiente();
+    </script></html>`;
+  SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(570).setHeight(350), 'Sincronizar MANTENIMENT');
 }
 // END MOTOR NECESIDADES

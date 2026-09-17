@@ -35,10 +35,14 @@ function metrogestionPintarCierre_(sheet, row) {
   if (metrogestionEsFondoAmarillo_(m)) sheet.getRange(row, 13).setBackground(m);
 }
 
-function metrogestionEjecutarPlanNecesidades_(sheet, plan) {
+function metrogestionEjecutarPlanNecesidades_(sheet, plan, options) {
+  const limits = options || { cambios: Infinity, nuevas: Infinity, deadline: Infinity };
+  const applied = new Set();
+  const changedParents = new Set(plan.cambios.map(c => c.fila));
   // Primero se actualizan las filas existentes; después se insertan las nuevas
   // de abajo arriba. Así ningún desplazamiento cambia la identidad del plan.
   plan.cambios.forEach(c => {
+    if (applied.size >= limits.cambios || Date.now() >= limits.deadline) return;
     const current = sheet.getRange(c.fila, 1, 1, 17).getDisplayValues()[0];
     if (metrogestionFirmaNecesidad_(current) !== metrogestionFirmaNecesidad_(c.original)) {
       throw new Error(`La fila ${c.fila} cambió durante la planificación. Vuelve a sincronizar.`);
@@ -56,17 +60,25 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan) {
     if (c.amarilloM) sheet.getRange(c.fila, 13).setBackground('#ffff00');
     const noteCell = sheet.getRange(c.fila, 9);
     if (noteCell.getNote() !== c.nota) noteCell.setNote(c.nota);
+    applied.add(c.fila);
   });
   const inserted = [];
   plan.nuevas.slice().sort((a, b) => b.despuesDe - a.despuesDe).forEach(n => {
+    if (inserted.length >= limits.nuevas || Date.now() >= limits.deadline) return;
+    // No crear una hija antes de guardar los cambios y la identidad del padre.
+    if (changedParents.has(n.despuesDe) && !applied.has(n.despuesDe)) return;
     const parent = sheet.getRange(n.despuesDe, 1, 1, 17).getDisplayValues()[0];
     if (metrogestionNormalizar_(parent[0]) !== metrogestionNormalizar_(n.values[0])) {
       throw new Error(`Cambió la unidad de la fila ${n.despuesDe}; no se ha creado su próxima necesidad.`);
     }
+    const parentId = metrogestionMetadatosNecesidad_(sheet.getRange(n.despuesDe, 9).getNote()).id;
+    if (parentId !== metrogestionMetadatosNecesidad_(n.nota).origen) throw new Error(`Cambió el origen de la fila ${n.despuesDe}; vuelve a sincronizar.`);
     sheet.insertRowAfter(n.despuesDe);
     const target = n.despuesDe + 1;
     // La plantilla solo afecta A:Q. R/S pertenecen a ARRAYFORMULA.
-    metrogestionCopiarPlantillaOperativa_(sheet, n.despuesDe, target);
+    // Solo formato: un corte aquí nunca deja una copia de la fila realizada
+    // ni de su identificador técnico en la fila recién insertada.
+    sheet.getRange(n.despuesDe, 1, 1, 17).copyTo(sheet.getRange(target, 1, 1, 17), { formatOnly: true });
     const values = n.values.slice();
     values[8] = metrogestionDate_(values[8]);
     const range = sheet.getRange(target, 1, 1, 17);
@@ -76,15 +88,16 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan) {
     sheet.setRowHeight(target, sheet.getRowHeight(n.despuesDe));
     inserted.push(n.despuesDe);
   });
-  return { cierres: plan.cambios.filter(c => c.cierre).length, renovacionesItv: plan.nuevas.filter(n => n.values[7] === 'ITV').length, renovaciones: plan.nuevas.length, reutilizadas: plan.reutilizadas, avisos: plan.avisos, inserciones: inserted };
+  const remaining = plan.cambios.length - applied.size + plan.nuevas.length - inserted.length;
+  return { cierres: plan.cambios.filter(c => c.cierre && applied.has(c.fila)).length, renovacionesItv: plan.nuevas.filter(n => n.values[7] === 'ITV' && inserted.includes(n.despuesDe)).length, renovaciones: inserted.length, reutilizadas: plan.reutilizadas, avisos: plan.avisos, inserciones: inserted, cambiosAplicados: applied.size, restantes: remaining, pendiente: remaining > 0 };
 }
 
-function metrogestionAplicarReglaAdministrativa_(sheet) {
+function metrogestionAplicarReglaAdministrativa_(sheet, options) {
   if (PropertiesService.getScriptProperties().getProperty('METROGESTION_NECESIDADES_PAUSADAS') === 'true') {
     return { cierres: 0, renovaciones: 0, renovacionesItv: 0, reutilizadas: 0, avisos: [], inserciones: [], pausadas: true };
   }
   const plan = metrogestionLeerPlanNecesidades_(sheet);
-  const result = metrogestionEjecutarPlanNecesidades_(sheet, plan);
+  const result = metrogestionEjecutarPlanNecesidades_(sheet, plan, { cambios: METROGESTION_LOTES.cambios, nuevas: METROGESTION_LOTES.nuevas, deadline: options?.deadline || Date.now() + METROGESTION_LOTES.margenMs });
   if (plan.avisos.length) console.warn(JSON.stringify({ necesidades_por_revisar: plan.avisos }));
   return result;
 }
