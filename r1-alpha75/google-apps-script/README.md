@@ -85,6 +85,12 @@ albarán, no se usa como marca del equipo. REPARACIÓN no infiere taller.
 
 ## Instalación
 
+Versión actual: **`alpha75-2026.09.17.2`**. Corrige el tiempo máximo de ejecución
+dividiendo la sincronización en tandas con avance guardado. **Sincronizar ahora**
+abre una ventana: dejarla abierta hasta «Sincronización terminada». Si se cierra,
+el mismo menú permite retomar. No borrar las filas creadas durante el intento
+anterior.
+
 1. Abrir **Extensiones → Apps Script** desde el archivo madre.
 2. Sustituir el código anterior por `sincronizar_manteniment.gs`.
 3. Guardar el proyecto.

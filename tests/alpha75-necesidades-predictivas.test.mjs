@@ -39,7 +39,7 @@ class Sheet {
       clearNote() { each((r, i) => { r.notes[i] = ''; }); return range; },
       clearDataValidations() { return range; },
       setNumberFormat() { return range; },
-      copyTo(target) { target.setValues(range.getDisplayValues()); },
+      copyTo(target, options) { if (!options?.formatOnly) target.setValues(range.getDisplayValues()); },
     };
     return range;
   }
@@ -170,7 +170,35 @@ test('interrupción tras insertar valores: el reintento reconoce la fila sin dup
 });
 
 test('la copia distribuida incluye exactamente el motor y adaptador revisados', () => {
-  for (const file of ['manteniment-necesidades.js', 'manteniment-necesidades-adapter.js']) {
+  for (const file of ['manteniment-necesidades.js', 'manteniment-necesidades-adapter.js', 'manteniment-sync-batches.js']) {
     assert.ok(script.includes(fs.readFileSync(new URL(`../shared/${file}`, import.meta.url), 'utf8').trim()));
   }
+});
+
+test('94 renovaciones se completan en tandas, sin superar 12 cambios/4 nuevas ni duplicarse', () => {
+  const inputs = [];
+  for (let i = 0; i < 94; i++) {
+    const a = alta(); a.values[0] = String(1000 + i);
+    const r = make('RT', { 0: a.values[0], 8: '2026-01-01', 9: '2026-09-01' });
+    inputs.push(a, r);
+  }
+  const sheet = new Sheet(inputs);
+  let created = 0, calls = 0;
+  for (; calls < 100; calls++) {
+    const p = sheet.plan();
+    const result = c.metrogestionEjecutarPlanNecesidades_(sheet, p, { cambios: 12, nuevas: 4, deadline: Infinity });
+    assert.ok(result.cambiosAplicados <= 12); assert.ok(result.renovaciones <= 4);
+    created += result.renovaciones;
+    if (!result.pendiente) break;
+  }
+  assert.ok(calls > 1 && calls < 100); assert.equal(created, 94);
+  assert.equal(sheet.rows.length, 1 + 188 + 94); assert.equal(sheet.plan().nuevas.length, 0);
+});
+
+test('si vence el presupuesto de tiempo, no empieza escrituras ni pierde lo pendiente', () => {
+  const sheet = new Sheet([alta(), make('RT', { 8: '2026-01-01', 9: '2026-09-01' })]);
+  const p = sheet.plan();
+  const result = c.metrogestionEjecutarPlanNecesidades_(sheet, p, { cambios: 12, nuevas: 4, deadline: 0 });
+  assert.equal(result.renovaciones, 0); assert.equal(result.cambiosAplicados, 0); assert.equal(result.pendiente, true);
+  assert.equal(sheet.rows.length, 3);
 });

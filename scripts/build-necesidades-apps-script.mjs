@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 const root = new URL('../', import.meta.url);
-const engine = ['shared/manteniment-necesidades.js', 'shared/manteniment-necesidades-adapter.js'].map(path => fs.readFileSync(new URL(path, root), 'utf8').trim()).join('\n\n');
+const engine = ['shared/manteniment-necesidades.js', 'shared/manteniment-necesidades-adapter.js', 'shared/manteniment-sync-batches.js'].map(path => fs.readFileSync(new URL(path, root), 'utf8').trim()).join('\n\n');
 for (const version of ['75']) {
   const path = new URL(`r1-alpha${version}/google-apps-script/sincronizar_manteniment.gs`, root);
   const source = fs.readFileSync(path, 'utf8');

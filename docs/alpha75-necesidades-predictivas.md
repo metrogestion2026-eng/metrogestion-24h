@@ -1,6 +1,35 @@
 # Próximas necesidades al cerrar trabajos
 
-Versión del Apps Script: `alpha75-2026.09.17.1`.
+Versión del Apps Script: `alpha75-2026.09.17.2`.
+
+## Corrección del tiempo máximo de ejecución
+
+La primera ejecución real de `.1` alcanzó a guardar 94 referencias de ciclo y a
+crear 4 necesidades antes de agotar el tiempo. Las pruebas locales anteriores
+validaban las reglas, pero no reproducían la latencia de las escrituras de Google.
+
+La versión `.2` separa lectura, órdenes y necesidades en llamadas independientes.
+Cada tanda procesa hasta 3 órdenes, 12 cambios o 4 inserciones. Comprueba un
+presupuesto de 120 segundos antes de iniciar el siguiente trabajo, dejando margen
+para guardar el avance, confirmar y restaurar el filtro. Una llamada individual
+de Google puede durar más de lo previsto; no se presenta este margen como una
+garantía de duración. [Límites de Apps Script](https://developers.google.com/apps-script/guides/services/quotas).
+
+**Sincronizar ahora** abre una ventana de progreso que continúa automáticamente
+con llamadas sucesivas. Cerrarla detiene la continuación del navegador; la tanda
+en curso puede terminar. Al volver a abrir el menú se retoma la cola guardada.
+Se guardan las órdenes en propiedades comprimidas, con partes inferiores a 9 KB
+y un manifiesto que solo cambia tras completar su escritura. Cada orden se
+confirma antes de retirarla de la cola; un error no se presenta como finalización.
+
+La siguiente tanda vuelve a leer la hoja. Las notas de origen y las filas ya
+creadas evitan duplicados aunque hayan cambiado los números de fila. La consulta
+de enlaces de cada parada se hace en bloque y las filas nuevas copian solo el
+formato, sin copiar el contenido ni la identidad de la fila realizada.
+
+Si se usa la modalidad programada existente, se añade únicamente una continuación
+temporal para terminar ese ciclo; se retira al finalizar. El menú manual no instala
+disparadores ni modifica la periodicidad configurada.
 
 La generación se ejecuta en el sincronizador de MANTENIMENT, después de recibir
 los cierres del Hotel. También reconoce cierres introducidos manualmente. Solo
@@ -59,11 +88,11 @@ ni de la marca de la tractora. Si la marca no es reconocible se muestra un aviso
 1. En **MANTENIMIENTOS → Extensiones → Apps Script**, sustituir por completo
    `Código.gs` con `r1-alpha75/google-apps-script/sincronizar_manteniment.gs`.
    No añadirlo al final ni usar las antiguas copias `.txt` o numeradas.
-2. Guardar y comprobar `scriptVersion: 'alpha75-2026.09.17.1'`.
+2. Guardar y comprobar `scriptVersion: 'alpha75-2026.09.17.2'`.
 3. Recargar la hoja. Abrir **Metrogestión → Vista previa de próximas necesidades**.
    La vista previa no escribe nada; muestra las nuevas filas y todos los avisos.
-4. Ejecutar **Sincronizar ahora**. Consultar el resumen y repetir para comprobar
-   que no vuelve a crear las mismas filas.
+4. Ejecutar **Sincronizar ahora** y dejar la ventana abierta hasta que indique
+   **Sincronización terminada**. Si se cierra, volver al mismo menú para retomar.
 
 La migración `alpha75_necesidades_cierre_por_tipo` se aplicó el 17/09/2026. Solo
 ajusta la interpretación de las fechas y la clasificación; no contiene un arreglo
@@ -77,8 +106,8 @@ una fila futura no crea por sí mismo una parada. La pestaña independiente de
 gestiones/trámites y los avisos de Hotel son otra fase del plan.
 
 El menú **Pausar / reanudar próximas necesidades** permite detener estas reglas
-sin borrar las necesidades ni detener la sincronización habitual. No se instala
-ningún disparador nuevo ni se envían pedidos automáticamente.
+sin borrar las necesidades ni detener la sincronización habitual. No se añade
+ninguna periodicidad nueva ni se envían pedidos automáticamente.
 
 ## Verificación
 
@@ -93,6 +122,11 @@ ningún disparador nuevo ni se envían pedidos automáticamente.
   inválidas/futuras y posibles duplicados. No se han corregido automáticamente.
 - La simulación no equivale a una ejecución del proyecto Apps Script instalado:
   la instalación y primera sincronización real deben comprobarse en la hoja.
+- Corrección `.2`: simulación sobre las 6.996 filas leídas después del error.
+  Conserva las 4 necesidades existentes y completa las 90 restantes en 23 tandas,
+  con un máximo de 4 inserciones por llamada. Al repetir: 0 nuevas y 0 cambios.
+- Pruebas de cola persistida, confirmación fallida, reloj agotado, ventana cerrada,
+  propiedades fragmentadas, enlaces por bloque y continuación programada.
 
 Desarrollo: editar `shared/manteniment-necesidades.js` y su adaptador, ejecutar
 `node scripts/build-necesidades-apps-script.mjs` y

@@ -1,0 +1,120 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import { gzipSync, gunzipSync } from 'node:zlib';
+import { createHash, randomUUID, randomBytes } from 'node:crypto';
+
+const source = fs.readFileSync(new URL('../r1-alpha75/google-apps-script/sincronizar_manteniment.gs', import.meta.url), 'utf8');
+const sheetId = '1PQE5VsjTvDFvQZcqedyQKIs3RbSySHFK4JPQXBD0XyU';
+function setup() {
+  const props = new Map(), writes = [], acknowledgements = [];
+  let failSaving = false, now = 0, requests = 0, failAck = false, restores = 0;
+  const service = {
+    getProperty: key => props.get(key) ?? null,
+    setProperty(key, value) { assert.ok(Buffer.byteLength(value) <= 9000); props.set(key, value); },
+    setProperties(values) { let i = 0; for (const [k, v] of Object.entries(values)) { this.setProperty(k, v); if (failSaving && ++i === 1) throw new Error('Corte al guardar partes'); } },
+    getProperties: () => Object.fromEntries(props),
+    deleteProperty: key => props.delete(key),
+  };
+  const blob = data => ({ getBytes: () => [...Buffer.from(data)], getDataAsString: () => Buffer.from(data).toString('utf8') });
+  class Clock extends Date { static now() { return now; } }
+  const c = vm.createContext({ console, Date: Clock, PropertiesService: { getScriptProperties: () => service },
+    Utilities: { getUuid: randomUUID, newBlob: data => blob(typeof data === 'string' ? Buffer.from(data) : data), gzip: b => blob(gzipSync(Buffer.from(b.getBytes()))), ungzip: b => blob(gunzipSync(Buffer.from(b.getBytes()))), base64Encode: b => Buffer.from(b).toString('base64'), base64Decode: s => [...Buffer.from(s, 'base64')] },
+    LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) },
+    SpreadsheetApp: { flush() {}, openById: () => ({ getName: () => 'MANTENIMIENTOS', getSheetByName: () => ({}) }) },
+  });
+  vm.runInContext(source, c);
+  c.metrogestionSha256_ = value => createHash('sha256').update(value).digest('hex');
+  c.metrogestionLeerToken_ = () => 'TEST';
+  c.metrogestionSolicitarCiclo_ = () => { requests++; return { syncResult: { mensaje: 'Sincronización correcta.', comandos_manteniment: Array.from({ length: 7 }, (_, i) => ({ id: i })) }, trabajos: [] }; };
+  c.metrogestionEstadoHojaLote_ = () => ({});
+  c.metrogestionSuspenderFiltro_ = () => ({ saved: true });
+  c.metrogestionRestaurarFiltro_ = () => { restores++; };
+  c.metrogestionAplicarComandos_ = (sheet, commands) => { writes.push(commands[0].id); return [{ id: commands[0].id }]; };
+  c.metrogestionConfirmarComandos_ = (token, confirmations) => { if (failAck) throw new Error('ACK falló'); acknowledgements.push(confirmations[0].id); };
+  c.metrogestionAplicarReglaAdministrativa_ = () => ({ renovaciones: 4, cierres: 1, avisos: [], pendiente: false, restantes: 0 });
+  return { c, props, service, writes, acknowledgements, setFailure: b => { failSaving = b; }, setAckFailure: b => { failAck = b; }, advance: ms => { now += ms; }, requests: () => requests, restores: () => restores };
+}
+
+test('guarda Unicode en partes menores de 9 KB y conserva la generación anterior tras un corte', () => {
+  const env = setup(), state = { hoja: sheetId, id: 'first', fase: 'comandos', texto: 'Trámite · día · ' + randomBytes(30000).toString('base64') };
+  env.c.metrogestionGuardarCiclo_(state);
+  assert.equal(env.c.metrogestionLeerCiclo_().texto, state.texto);
+  env.setFailure(true);
+  assert.throws(() => env.c.metrogestionGuardarCiclo_({ ...state, id: 'second' }), /Corte/);
+  assert.equal(env.c.metrogestionLeerCiclo_().id, 'first');
+  env.setFailure(false); env.c.metrogestionGuardarCiclo_({ ...state, id: 'third' });
+  assert.equal(env.c.metrogestionLeerCiclo_().id, 'third');
+  const manifest = JSON.parse(env.props.get('METROGESTION_CICLO'));
+  assert.equal([...env.props.keys()].filter(k => k.startsWith('METROGESTION_CICLO_')).length, manifest.partes);
+});
+
+test('siete órdenes se confirman en 3/3/1, y la continuación no vuelve a enviar el snapshot', () => {
+  const e = setup(); let r = e.c.metrogestionEjecutarSincronizacion_('manual');
+  assert.equal(r.pendiente, true); assert.deepEqual(e.writes, []); const id = r.ciclo;
+  e.c.metrogestionEjecutarSincronizacion_('manual', id); assert.equal(e.writes.length, 3);
+  e.c.metrogestionEjecutarSincronizacion_('manual', id); assert.equal(e.writes.length, 6);
+  e.c.metrogestionEjecutarSincronizacion_('manual', id); assert.equal(e.writes.length, 7);
+  r = e.c.metrogestionEjecutarSincronizacion_('manual', id); assert.equal(r.pendiente, false);
+  assert.deepEqual(e.acknowledgements, [0, 1, 2, 3, 4, 5, 6]); assert.equal(e.requests(), 1);
+  assert.equal(e.c.metrogestionEjecutarSincronizacion_('manual', id).pendiente, false);
+  assert.equal(e.requests(), 1, 'Reintentar la respuesta final no inicia otro ciclo');
+});
+
+test('si falla la confirmación, conserva la orden para reintentar y restaura el filtro', () => {
+  const e = setup(); const r = e.c.metrogestionEjecutarSincronizacion_('manual');
+  e.setAckFailure(true); assert.throws(() => e.c.metrogestionEjecutarSincronizacion_('manual', r.ciclo), /ACK/);
+  assert.equal(e.c.metrogestionLeerCiclo_().comandos[0].id, 0); assert.equal(e.restores(), 1);
+  e.setAckFailure(false); e.c.metrogestionEjecutarSincronizacion_('manual', r.ciclo);
+  assert.deepEqual(e.acknowledgements, [0, 1, 2]); assert.equal(e.requests(), 1);
+});
+
+test('cerrar la ventana y abrirla de nuevo retoma la cola guardada', () => {
+  const e = setup(); const r = e.c.metrogestionEjecutarSincronizacion_('manual');
+  e.c.metrogestionEjecutarSincronizacion_('manual', r.ciclo);
+  const resumed = e.c.metrogestionEjecutarSincronizacion_('manual');
+  assert.equal(resumed.ciclo, r.ciclo); assert.equal(e.requests(), 1);
+  assert.deepEqual(e.acknowledgements, [0, 1, 2, 3, 4, 5]);
+});
+
+test('un comando lento cede antes de comenzar otro; no se marca terminado', () => {
+  const e = setup(); const r = e.c.metrogestionEjecutarSincronizacion_('manual');
+  const apply = e.c.metrogestionAplicarComandos_;
+  e.c.metrogestionAplicarComandos_ = (...args) => { e.advance(125000); return apply(...args); };
+  const result = e.c.metrogestionEjecutarSincronizacion_('manual', r.ciclo);
+  assert.deepEqual(e.acknowledgements, [0]); assert.equal(result.pendiente, true);
+  assert.equal(e.c.metrogestionLeerCiclo_().comandos.length, 6);
+});
+
+test('un identificador de ventana antiguo no puede iniciar ni modificar otro ciclo', () => {
+  const e = setup(); e.c.metrogestionEjecutarSincronizacion_('manual');
+  assert.throws(() => e.c.metrogestionEjecutarSincronizacion_('manual', 'antiguo'), /otro ciclo/);
+  assert.equal(e.writes.length, 0); assert.equal(e.requests(), 1);
+});
+
+test('lectura de enlaces de una parada usa una llamada a Sheets para todo el bloque', () => {
+  const e = setup(); let reads = 0;
+  const link = 'https://drive.google.com/drive/folders/existing';
+  const rich = { getLinkUrl: () => link };
+  const sheet = { getRange: () => ({ getRichTextValues: () => { reads++; return Array.from({ length: 100 }, () => [rich]); } }) };
+  e.c.metrogestionObtenerCarpetaParada_ = () => ({ getUrl: () => link });
+  const values = [Array(17).fill(''), ...Array.from({ length: 100 }, () => { const r = Array(17).fill(''); r[0] = '9000'; r[4] = 'PA-1'; return r; })];
+  assert.equal(e.c.metrogestionEnlazarArchivoParada_(sheet, 'PA-1', '9000', { values }), 100);
+  assert.equal(reads, 1);
+});
+
+test('modalidad programada mantiene una sola continuación y no reinicia un ciclo ya terminado', () => {
+  const e = setup(); const triggers = [];
+  e.c.ScriptApp = {
+    getProjectTriggers: () => triggers.slice(),
+    deleteTrigger: t => triggers.splice(triggers.indexOf(t), 1),
+    newTrigger(name) { return { timeBased() { return this; }, after(ms) { assert.equal(ms, 60000); return this; }, create() { const t = { getHandlerFunction: () => name }; triggers.push(t); return t; } }; },
+  };
+  const r = e.c.metrogestionLanzarProgramada_(); assert.equal(triggers.length, 1);
+  e.c.metrogestionReanudarProgramada(); assert.equal(triggers.length, 1);
+  while (e.c.metrogestionEjecutarSincronizacion_('manual', r.ciclo).pendiente) { /* completar en el menú */ }
+  const before = e.requests();
+  e.c.metrogestionReanudarProgramada();
+  assert.equal(triggers.length, 0); assert.equal(e.requests(), before);
+});
