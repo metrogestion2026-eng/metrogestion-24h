@@ -43,8 +43,8 @@ Si F está vacío, Metrogestión lo completa al importar sin modificar la hoja:
 
 - GESTIÓN → `UPC`.
 - MANTENIMIENTO + H=`BPW` → `DIRECAUTO`.
-- MANTENIMIENTO + H=`MCD` + Q=`THERMO KING` → `FRIGICOLL`.
-- MANTENIMIENTO + H=`MCD` + Q=`CARRIER` → `FRIDIEL`.
+- MANTENIMIENTO + H=`MCD` + O=`THERMO KING` → `FRIGICOLL`.
+- MANTENIMIENTO + H=`MCD` + O=`CARRIER` → `FRIDIEL`.
 - TRÁMITE + H=`ITV` → `APPLUS (RED DE ITV)`.
 - TRÁMITE + H=`RT` → `AUTODIS`.
 - TRÁMITE + H=`TMG` o `ATP` → `INVERYCA`.
@@ -61,7 +61,9 @@ Si O no permite identificar exactamente una de estas cuatro marcas, el taller
 queda vacío para revisión manual.
 
 Un valor escrito en F tiene prioridad salvo en `TRÁMITE` y `GESTIÓN`, donde manda G.
-`LKT` y `EXTINTOR` se consideran siempre `TRÁMITE`. REPARACIÓN no infiere taller.
+`EXTINTOR` es `TRÁMITE`. LKT es trámite con Carrier y gestión con otra marca de
+frío comprobada en O; una marca desconocida queda para revisión. Q contiene el
+albarán, no se usa como marca del equipo. REPARACIÓN no infiere taller.
 - `TANCAMENT n` utiliza la fecha K como corte de facturación y no como recuperación operativa.
 - La celda Q permanece rosa pastel mientras el cierre no esté supervisado.
 - En las necesidades predictivas, el fondo de la columna H es autoritativo:
@@ -74,8 +76,12 @@ Un valor escrito en F tiene prioridad salvo en `TRÁMITE` y `GESTIÓN`, donde ma
 - `TM` crea una entrada con sus trabajos, pero no crea T de recogida.
 - `LKT`, `EXTINTOR` y los demás `TRÁMITE` crean una sola T propia y nunca recogida.
 - `TRÁMITE` y `GESTIÓN` no generan entrada, recogida ni recuperación de ruta.
-- Al realizar una T administrativa, su fecha se escribe en J y K y la línea completa
-  queda verde, sin crear por ello una fila `PARADA`.
+- El cierre J=K solo se completa para los tipos con fecha única. REPUESTOS, ACT,
+  CV y LINDEP conservan pedido/entrada J y colocación/salida K independientes.
+- Desde `alpha75-2026.09.17.1` se generan las próximas necesidades de ITV, RT,
+  TMG, LKT, SG, EXTINTOR, ATP y LINDEP al cerrar el ciclo. El menú incluye una
+  vista previa y la posibilidad de pausar las reglas. Ver
+  [reglas, excepciones e instalación](../../docs/alpha75-necesidades-predictivas.md).
 
 ## Instalación
 
