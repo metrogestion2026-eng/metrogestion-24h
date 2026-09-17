@@ -1,0 +1,99 @@
+# Próximas necesidades al cerrar trabajos
+
+Versión del Apps Script: `alpha75-2026.09.17.1`.
+
+La generación se ejecuta en el sincronizador de MANTENIMENT, después de recibir
+los cierres del Hotel. También reconoce cierres introducidos manualmente. Solo
+este motor genera las próximas filas; sustituye la antigua función exclusiva de
+ITV. No cambia los períodos ni los cálculos de facturación.
+
+## Reglas
+
+| Tipo | Cierre | Próxima necesidad |
+|---|---|---|
+| ITV | J realizada; completa K si está vacía | Conserva I + 1 año si J está entre I menos un mes e I; fuera de esa ventana, J + 1 año |
+| RT, TMG | J realizada; completa K vacía | J + 2 años |
+| LKT | J realizada; completa K vacía | J + 1 año; Carrier es trámite, otras marcas de frío comprobadas son gestión |
+| SG | J realizada; completa K vacía | I + 1 año; no desplaza el vencimiento por gestionar antes o después |
+| EXTINTOR | J sustitución; completa K vacía | Caducidad exacta de la etiqueta en M amarilla, sin sumar otro año |
+| ATP / ALTA ATP | J realizada; completa K vacía | Caducidad exacta del certificado en M amarilla |
+| LINDEP | J entrada nave; K salida nave independiente | Primera: matriculación + 5 años. Siguientes: K + 3 años. TM, trámite, sin recogida exterior nueva |
+| 44TN, OTA | J realizada; completa K vacía | Ninguna |
+| REPUESTOS | I rotura; J pedido; K colocación | Ninguna; el pedido no cierra el trabajo |
+| ACT, CV | I referencia; J entrada; K salida independiente | Ninguna |
+| LV / LAVADO | Conserva las tres fechas; verde con J/K cumplimentadas | Ninguna; envío de pedidos pendiente de otra entrega |
+| PLATAFORMA, TELEMÁTICA, REFORMA | Sin intervención de este motor | Excluidas |
+
+La regla de ITV ya instalada se mantiene, incluida la realización posterior al
+vencimiento. Los años y meses son de calendario, con ajuste del 29 de febrero.
+Se reconocen también ALTA RT, ALTA TMG y ALTA LKT como primeros ciclos.
+
+La hoja consultada tiene MARCA en **O** y KM / HORES en **P**. Q contiene
+ALBARÀ / ENTRADA. No se deduce una marca de frío a partir de kilómetros, albaranes
+ni de la marca de la tractora. Si la marca no es reconocible se muestra un aviso.
+
+## Protección de los datos existentes
+
+- Reutiliza una próxima necesidad manual si unidad, tipo y fecha coinciden sin
+  ambigüedad. Si hay otra pendiente con fecha distinta, avisa y no añade otra.
+- Solo renueva el último ciclo realizado de cada unidad/tipo. No recorre el
+  histórico creando todas las renovaciones antiguas que falten.
+- Respeta una M manual incompatible con la regla y la presenta para revisión.
+- Guarda origen y ciclo en una nota de I, conservando la nota humana. Las filas
+  pueden cambiar de posición sin cambiar su identidad.
+- Una corrección actualiza su hija automática pendiente únicamente si sigue
+  intacta. Si tiene cambios, una parada asignada o realización, se conserva y avisa.
+- Al anular/reabrir el origen o dar de baja la unidad, suspende su hija automática
+  intacta como ANULADA. Conserva las hijas manuales o iniciadas para revisión.
+- La nueva fila contiene unidad, tipo y fecha I; no copia PA, pedido, reserva,
+  fechas J/K, documentos ni notas de enlaces anteriores.
+- El cierre verde conserva el amarillo de G (pedido) y M (próxima fecha).
+- Las fórmulas R/S quedan intactas. Las inserciones se hacen junto al origen, de
+  abajo arriba; se corrigen los números de fila antes de confirmar comandos.
+- Una sincronización repetida no vuelve a generar las mismas necesidades. Si una
+  escritura se interrumpe después de crear la fila, el reintento reconoce la fila
+  exacta y no la duplica.
+
+## Instalación y comprobación
+
+1. En **MANTENIMIENTOS → Extensiones → Apps Script**, sustituir por completo
+   `Código.gs` con `r1-alpha75/google-apps-script/sincronizar_manteniment.gs`.
+   No añadirlo al final ni usar las antiguas copias `.txt` o numeradas.
+2. Guardar y comprobar `scriptVersion: 'alpha75-2026.09.17.1'`.
+3. Recargar la hoja. Abrir **Metrogestión → Vista previa de próximas necesidades**.
+   La vista previa no escribe nada; muestra las nuevas filas y todos los avisos.
+4. Ejecutar **Sincronizar ahora**. Consultar el resumen y repetir para comprobar
+   que no vuelve a crear las mismas filas.
+
+La migración `alpha75_necesidades_cierre_por_tipo` se aplicó el 17/09/2026. Solo
+ajusta la interpretación de las fechas y la clasificación; no contiene un arreglo
+masivo de datos. Mantiene los controles de acceso existentes. Un LKT/LINDEP ya
+integrado en una visita conserva su visita y documentos; no se traslada al
+aplicar la clasificación nueva.
+
+Las necesidades creadas se incorporan al envío en la siguiente sincronización.
+La ventana existente de Hotel sigue siendo de un mes o prioridad amarilla; crear
+una fila futura no crea por sí mismo una parada. La pestaña independiente de
+gestiones/trámites y los avisos de Hotel son otra fase del plan.
+
+El menú **Pausar / reanudar próximas necesidades** permite detener estas reglas
+sin borrar las necesidades ni detener la sincronización habitual. No se instala
+ningún disparador nuevo ni se envían pedidos automáticamente.
+
+## Verificación
+
+- 19 pruebas específicas: calendario, todas las recurrencias, excepciones,
+  reutilización, anulación, corrección, identidad e interrupción de escritura.
+- Pruebas existentes de Alpha75 superadas junto al nuevo motor.
+- Simulación local del 17/09/2026 sobre 6.992 filas de datos, sin escribir en la
+  hoja: 94 nuevas (69 LINDEP, 10 RT, 6 SG, 5 EXTINTOR, 2 LKT, 1 ITV, 1 TMG),
+  420 próximas ya existentes reutilizadas y 120 avisos. Segunda y tercera
+  pasadas: **0 nuevas y 0 cambios**.
+- Los avisos incluyen fechas M incompatibles, marcas sin confirmar, fechas
+  inválidas/futuras y posibles duplicados. No se han corregido automáticamente.
+- La simulación no equivale a una ejecución del proyecto Apps Script instalado:
+  la instalación y primera sincronización real deben comprobarse en la hoja.
+
+Desarrollo: editar `shared/manteniment-necesidades.js` y su adaptador, ejecutar
+`node scripts/build-necesidades-apps-script.mjs` y
+`node --test tests/alpha75-necesidades-predictivas.test.mjs`.
