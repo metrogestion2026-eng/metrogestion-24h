@@ -41,10 +41,12 @@ test('Alpha76 conserva Alpha75 y añade únicamente su experiencia de consulta',
 });
 
 test('Alpha76 muestra y carga su identificador independiente', async () => {
-  assert.equal((await readFile(path.join(alpha76, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.76.3');
+  assert.equal((await readFile(path.join(alpha76, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.76.4');
   const app = await readFile(path.join(alpha76, 'src', 'app.js'), 'utf8');
   const html = await readFile(path.join(alpha76, 'index.html'), 'utf8');
-  assert.match(app, /r1\.0\.0-alpha\.76\.3/);
+  assert.match(app, /r1\.0\.0-alpha\.76\.4/);
+  assert.match(html, /\.\/src\/app\.js\?v=76\.4/);
+  assert.match(html, /\.\/src\/hotel-native\.js\?v=76\.4/);
   assert.match(html, /\.\/src\/read-only-mode\.js\?v=76\.2/);
   assert.match(html, /\.\/consulta-mode\.css/);
 });
