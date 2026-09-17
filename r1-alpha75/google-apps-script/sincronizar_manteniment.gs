@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.17.3',
+  scriptVersion: 'alpha75-2026.09.17.4',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -69,12 +69,14 @@ function metrogestionVerEstadoLocal() {
     .filter(trigger => trigger.getHandlerFunction() === METROGESTION.triggerHandler).length;
   const lastAt = props.getProperty('METROGESTION_ULTIMA_EJECUCION') || 'sin ejecución';
   const lastResult = props.getProperty('METROGESTION_ULTIMO_RESULTADO') || 'sin resultado';
+  const diagnostic = metrogestionDiagnosticoSincronizacion();
   SpreadsheetApp.getUi().alert([
     `Versión del script: ${METROGESTION.scriptVersion}`,
     `Clave: ${token ? 'guardada' : 'no guardada'}`,
     `Disparador activo: ${triggers ? 'sí' : 'no'}`,
     `Última ejecución: ${lastAt}`,
     `Resultado: ${lastResult}`,
+    `Último paso: ${diagnostic.paso} (${diagnostic.fecha || 'sin fecha'})`,
   ].join('\n'));
 }
 
@@ -1657,13 +1659,17 @@ function metrogestionPlanificarNecesidades_(records, today) {
 }
 
 function metrogestionLeerPlanNecesidades_(sheet) {
+  metrogestionRegistrarPaso_('Leyendo el tamaño de MANTENIMENT');
   const count = sheet.getLastRow();
   if (count < 2) return { cambios: [], nuevas: [], avisos: [], reutilizadas: 0 };
   const range = sheet.getRange(1, 1, count, 17);
+  metrogestionRegistrarPaso_('Leyendo los datos de necesidades');
   const values = range.getDisplayValues();
-  const colors = range.getBackgrounds();
+  metrogestionRegistrarPaso_('Leyendo los colores de G a M');
+  const colors = sheet.getRange(1, 7, count, 7).getBackgrounds();
+  metrogestionRegistrarPaso_('Leyendo los ciclos de necesidades');
   const notes = sheet.getRange(1, 9, count, 1).getNotes();
-  const records = values.slice(1).map((row, i) => ({ row: i + 2, values: row, note: notes[i + 1][0], colorH: colors[i + 1][7], colorM: colors[i + 1][12], colorG: colors[i + 1][6] }));
+  const records = values.slice(1).map((row, i) => ({ row: i + 2, values: row, note: notes[i + 1][0], colorH: colors[i + 1][1], colorM: colors[i + 1][6], colorG: colors[i + 1][0] }));
   const today = Utilities.formatDate(new Date(), 'Europe/Madrid', 'yyyy-MM-dd');
   return metrogestionPlanificarNecesidades_(records, today);
 }
@@ -1701,6 +1707,7 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan, options) {
   // de abajo arriba. Así ningún desplazamiento cambia la identidad del plan.
   plan.cambios.forEach(c => {
     if (applied.size >= limits.cambios || Date.now() >= limits.deadline) return;
+    metrogestionRegistrarPaso_(`Actualizando necesidad de la fila ${c.fila}`);
     const current = sheet.getRange(c.fila, 1, 1, 17).getDisplayValues()[0];
     if (metrogestionFirmaNecesidad_(current) !== metrogestionFirmaNecesidad_(c.original)) {
       throw new Error(`La fila ${c.fila} cambió durante la planificación. Vuelve a sincronizar.`);
@@ -1725,25 +1732,30 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan, options) {
     if (inserted.length >= limits.nuevas || Date.now() >= limits.deadline) return;
     // No crear una hija antes de guardar los cambios y la identidad del padre.
     if (changedParents.has(n.despuesDe) && !applied.has(n.despuesDe)) return;
+    metrogestionRegistrarPaso_(`Comprobando origen de ${n.values[0]} · ${n.values[7]} · fila ${n.despuesDe}`);
     const parent = sheet.getRange(n.despuesDe, 1, 1, 17).getDisplayValues()[0];
     if (metrogestionNormalizar_(parent[0]) !== metrogestionNormalizar_(n.values[0])) {
       throw new Error(`Cambió la unidad de la fila ${n.despuesDe}; no se ha creado su próxima necesidad.`);
     }
     const parentId = metrogestionMetadatosNecesidad_(sheet.getRange(n.despuesDe, 9).getNote()).id;
     if (parentId !== metrogestionMetadatosNecesidad_(n.nota).origen) throw new Error(`Cambió el origen de la fila ${n.despuesDe}; vuelve a sincronizar.`);
+    const rowHeight = sheet.getRowHeight(n.despuesDe);
+    if (Date.now() >= limits.deadline) return;
+    metrogestionRegistrarPaso_(`Insertando próxima ${n.values[7]} de ${n.values[0]} · después de fila ${n.despuesDe}`);
     sheet.insertRowAfter(n.despuesDe);
     const target = n.despuesDe + 1;
     // La plantilla solo afecta A:Q. R/S pertenecen a ARRAYFORMULA.
     // Solo formato: un corte aquí nunca deja una copia de la fila realizada
     // ni de su identificador técnico en la fila recién insertada.
+    metrogestionRegistrarPaso_(`Rellenando próxima ${n.values[7]} de ${n.values[0]} · fila ${target}`);
     sheet.getRange(n.despuesDe, 1, 1, 17).copyTo(sheet.getRange(target, 1, 1, 17), { formatOnly: true });
     const values = n.values.slice();
     values[8] = metrogestionDate_(values[8]);
     const range = sheet.getRange(target, 1, 1, 17);
-    range.clearContent().clearNote().clearDataValidations().setValues([values]).setBackground('#ffffff');
+    range.clearNote().clearDataValidations().setValues([values]).setBackground('#ffffff');
     sheet.getRange(target, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
     sheet.getRange(target, 9).setNote(n.nota);
-    sheet.setRowHeight(target, sheet.getRowHeight(n.despuesDe));
+    sheet.setRowHeight(target, rowHeight);
     inserted.push(n.despuesDe);
   });
   const remaining = plan.cambios.length - applied.size + plan.nuevas.length - inserted.length;
@@ -1755,15 +1767,28 @@ function metrogestionAplicarReglaAdministrativa_(sheet, options) {
     return { cierres: 0, renovaciones: 0, renovacionesItv: 0, reutilizadas: 0, avisos: [], inserciones: [], pausadas: true };
   }
   const plan = metrogestionLeerPlanNecesidades_(sheet);
-  const result = metrogestionEjecutarPlanNecesidades_(sheet, plan, { cambios: METROGESTION_LOTES.cambios, nuevas: METROGESTION_LOTES.nuevas, deadline: options?.deadline || Date.now() + METROGESTION_LOTES.margenMs });
-  if (plan.avisos.length) console.warn(JSON.stringify({ necesidades_por_revisar: plan.avisos }));
+  // Las correcciones y las inserciones usan llamadas distintas: nunca se
+  // añade una fila después de haber consumido el tiempo editando sus padres.
+  const result = metrogestionEjecutarPlanNecesidades_(sheet, plan, { cambios: METROGESTION_LOTES.cambios, nuevas: plan.cambios.length ? 0 : METROGESTION_LOTES.nuevas, deadline: options?.deadline || Date.now() + METROGESTION_LOTES.margenMs });
+  if (plan.avisos.length) console.warn(JSON.stringify({ necesidades_por_revisar: plan.avisos.length, detalle: 'Vista previa de próximas necesidades' }));
   return result;
 }
 
 // Cada llamada termina entre unidades de trabajo. No se conserva una fotografía
 // de filas entre tandas: solo las órdenes originales y su confirmación pendiente.
-const METROGESTION_LOTES = Object.freeze({ comandos: 3, cambios: 12, nuevas: 4, margenMs: 120000 });
+const METROGESTION_LOTES = Object.freeze({ comandos: 1, cambios: 3, nuevas: 1, margenMs: 60000 });
 const METROGESTION_PROGRESO = 'METROGESTION_CICLO';
+
+function metrogestionRegistrarPaso_(paso) {
+  PropertiesService.getScriptProperties().setProperty('METROGESTION_PASO', JSON.stringify({
+    paso, fecha: new Date().toISOString(), version: METROGESTION.scriptVersion,
+  }));
+}
+
+function metrogestionDiagnosticoSincronizacion() {
+  const saved = PropertiesService.getScriptProperties().getProperty('METROGESTION_PASO');
+  return saved ? JSON.parse(saved) : { paso: 'Sin paso registrado', version: METROGESTION.scriptVersion };
+}
 
 function metrogestionLeerCiclo_() {
   const props = PropertiesService.getScriptProperties();
@@ -1787,6 +1812,7 @@ function metrogestionLeerCiclo_() {
 }
 
 function metrogestionGuardarCiclo_(state) {
+  metrogestionRegistrarPaso_('Guardando el avance de ' + state.fase);
   const props = PropertiesService.getScriptProperties();
   const previous = JSON.parse(props.getProperty(METROGESTION_PROGRESO) || 'null');
   // Retirar fragmentos huérfanos de una escritura interrumpida, conservando
@@ -1830,13 +1856,17 @@ function metrogestionEstadoHojaLote_(sheet) {
 }
 
 function metrogestionProcesarOrdenesLote_(sheet, state, token, deadline) {
+  metrogestionRegistrarPaso_('Leyendo las filas para aplicar órdenes');
   const sheetState = metrogestionEstadoHojaLote_(sheet);
+  metrogestionRegistrarPaso_('Preparando el filtro para las órdenes');
   const filterState = metrogestionSuspenderFiltro_(sheet);
   try {
     let processed = 0;
     while (state.comandos.length && processed < METROGESTION_LOTES.comandos && Date.now() < deadline) {
       const command = state.comandos[0];
+      metrogestionRegistrarPaso_(`Aplicando orden ${state.confirmados + 1} de ${state.totalComandos}`);
       const confirmation = metrogestionAplicarComandos_(sheet, [command], sheetState, state.trabajos)[0];
+      metrogestionRegistrarPaso_('Confirmando en la hoja la orden aplicada');
       SpreadsheetApp.flush();
       // Confirmar antes de pasar a la siguiente orden evita repetir toda la
       // cola si se interrumpe después la generación predictiva. Los enlaces
@@ -1848,7 +1878,10 @@ function metrogestionProcesarOrdenesLote_(sheet, state, token, deadline) {
       processed += 1;
     }
     if (!state.comandos.length) { state.fase = 'necesidades'; state.trabajos = []; }
-  } finally { metrogestionRestaurarFiltro_(sheet, filterState); }
+  } finally {
+    metrogestionRegistrarPaso_('Restaurando el filtro después de las órdenes');
+    metrogestionRestaurarFiltro_(sheet, filterState);
+  }
 }
 
 function metrogestionEjecutarSincronizacion_(modo, expectedCycle) {
@@ -1857,16 +1890,19 @@ function metrogestionEjecutarSincronizacion_(modo, expectedCycle) {
   if (!lock.tryLock(15000)) throw new Error('Ya hay otra tanda de sincronización en curso.');
   let state;
   try {
+    metrogestionRegistrarPaso_('Recuperando el avance guardado');
     state = metrogestionLeerCiclo_();
     if (expectedCycle && state?.id !== expectedCycle) throw new Error('Hay otro ciclo de sincronización. Cierra esta ventana y vuelve a abrir Sincronizar ahora.');
     if (expectedCycle && state?.fase === 'terminado') return metrogestionRespuestaCiclo_(state);
     const token = metrogestionLeerToken_();
     if (!token) throw new Error('No existe una clave de conexión en las Propiedades del script.');
+    metrogestionRegistrarPaso_('Abriendo MANTENIMENT');
     const book = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
     if (book.getName() !== METROGESTION.spreadsheetName) throw new Error('No es el archivo MANTENIMIENTOS esperado.');
     const sheet = book.getSheetByName(METROGESTION.sheetName);
     if (!sheet) throw new Error('No existe la hoja MANTENIMENT.');
     if (!state || state.fase === 'terminado') {
+      metrogestionRegistrarPaso_('Leyendo la hoja y sincronizando con el servidor');
       const { syncResult, trabajos } = metrogestionSolicitarCiclo_(sheet, modo, token);
       const commands = Array.isArray(syncResult.comandos_manteniment) ? syncResult.comandos_manteniment : [];
       state = { id: Utilities.getUuid(), hoja: METROGESTION.spreadsheetId, fase: commands.length ? 'comandos' : 'necesidades', comandos: commands, trabajos, totalComandos: commands.length, confirmados: 0, creadas: 0, cierres: 0, mensajeBase: syncResult.mensaje || 'Sincronización correcta.' };
@@ -1877,17 +1913,18 @@ function metrogestionEjecutarSincronizacion_(modo, expectedCycle) {
     if (state.fase === 'comandos') {
       metrogestionProcesarOrdenesLote_(sheet, state, token, deadline);
     } else if (state.fase === 'necesidades') {
-      const filterState = metrogestionSuspenderFiltro_(sheet);
-      try {
-        const result = metrogestionAplicarReglaAdministrativa_(sheet, { deadline });
-        SpreadsheetApp.flush();
-        state.creadas += result.renovaciones;
-        state.cierres += result.cierres;
-        state.avisos = result.avisos.length;
-        state.pausadas = result.pausadas || false;
-        state.restantes = result.restantes || 0;
-        if (!result.pendiente) state.fase = 'terminado';
-      } finally { metrogestionRestaurarFiltro_(sheet, filterState); }
+      // Se trabaja con filas absolutas, aunque estén ocultas por el filtro.
+      // Mantener el filtro evita eliminarlo/reconstruirlo y recalcularlo
+      // dos veces por cada tanda de próximas necesidades.
+      const result = metrogestionAplicarReglaAdministrativa_(sheet, { deadline });
+      metrogestionRegistrarPaso_('Confirmando los cambios de necesidades en la hoja');
+      SpreadsheetApp.flush();
+      state.creadas += result.renovaciones;
+      state.cierres += result.cierres;
+      state.avisos = result.avisos.length;
+      state.pausadas = result.pausadas || false;
+      state.restantes = result.restantes || 0;
+      if (!result.pendiente) state.fase = 'terminado';
     } else throw new Error('Fase de sincronización desconocida.');
     metrogestionGuardarCiclo_(state);
     return metrogestionRespuestaCiclo_(state);
@@ -1924,20 +1961,29 @@ function metrogestionLanzarProgramada_(ciclo) {
 function metrogestionSincronizarAhora() {
   const html = `<html lang="es"><meta charset="utf-8"><style>body{font:15px sans-serif;color:#17354a;padding:20px;line-height:1.6}button{padding:9px 18px;margin-top:12px}</style>
     <h2>Sincronizando MANTENIMENT</h2><p id="estado" role="status" aria-live="polite">Leyendo la hoja…</p>
-    <p>Deja esta ventana abierta para continuar automáticamente. Si la cierras, podrás retomar desde <b>Sincronizar ahora</b>.</p>
+    <p id="continuacion">Deja esta ventana abierta para continuar automáticamente. Si la cierras, podrás retomar desde <b>Sincronizar ahora</b>.</p>
     <button id="retomar" hidden>Reintentar</button><button onclick="google.script.host.close()">Cerrar</button>
     <script>
-      let ciclo = '', ejecutando = false;
-      const estado = document.getElementById('estado'), retomar = document.getElementById('retomar');
+      let ciclo = '', ejecutando = false, intentos = 0;
+      const estado = document.getElementById('estado'), retomar = document.getElementById('retomar'), continuacion = document.getElementById('continuacion');
       function siguiente() {
         if (ejecutando) return;
+        const intento = ++intentos;
         ejecutando = true; retomar.hidden = true;
+        continuacion.hidden = false;
+        document.querySelector('h2').textContent = 'Sincronizando MANTENIMENT';
         google.script.run.withSuccessHandler(function(r) {
           ejecutando = false; ciclo = r.ciclo; estado.textContent = r.mensaje;
           if (r.pendiente) setTimeout(siguiente, 300);
-          else document.querySelector('h2').textContent = 'Sincronización terminada';
+          else { document.querySelector('h2').textContent = 'Sincronización terminada'; continuacion.hidden = true; }
         }).withFailureHandler(function(e) {
-          ejecutando = false; estado.textContent = e.message + ' El avance guardado se conserva.'; retomar.hidden = false;
+          ejecutando = false; continuacion.hidden = true;
+          document.querySelector('h2').textContent = 'Sincronización detenida';
+          const message = e.message + ' El avance guardado se conserva. Pulsa Reintentar para retomar.';
+          estado.textContent = message; retomar.hidden = false;
+          google.script.run.withSuccessHandler(function(d) {
+            if (!ejecutando && intento === intentos) estado.textContent = message + ' Último paso: ' + d.paso + ' (' + d.version + ').';
+          }).withFailureHandler(function() {}).metrogestionDiagnosticoSincronizacion();
         }).metrogestionContinuarSincronizacion(ciclo);
       }
       retomar.onclick = siguiente; siguiente();

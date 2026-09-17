@@ -85,13 +85,14 @@ albarán, no se usa como marca del equipo. REPARACIÓN no infiere taller.
 
 ## Instalación
 
-Versión actual: **`alpha75-2026.09.17.3`**. Corrige el tipo de contenido nulo al
-recuperar el avance de `.2`, conservando la cola guardada. Evita reiniciar el
-proceso por este error y mantiene la corrección del tiempo máximo de ejecución,
-dividiendo la sincronización en tandas con avance guardado. **Sincronizar ahora**
+Versión actual: **`alpha75-2026.09.17.4`**. Conserva el avance de `.2` y `.3` y
+su corrección del tipo de contenido. Tras el nuevo corte de tiempo reduce cada
+llamada a una orden, tres cambios o una inserción; mantiene el filtro durante
+las necesidades y registra el paso que se está realizando. **Sincronizar ahora**
 abre una ventana: dejarla abierta hasta «Sincronización terminada». Si se cierra,
 el mismo menú permite retomar. No borrar las filas creadas durante el intento
-anterior.
+anterior. Si aparece «Sincronización detenida», el mensaje indica el último paso
+y permite retomar con «Reintentar»; no continúa automáticamente después del error.
 
 1. Abrir **Extensiones → Apps Script** desde el archivo madre.
 2. Sustituir el código anterior por `sincronizar_manteniment.gs`.

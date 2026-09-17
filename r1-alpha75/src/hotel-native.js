@@ -11,7 +11,7 @@ import {
   metric,
   formatBoardDate,
 } from '../../r1-alpha53/src/hotel-utils.js?v=75.2';
-import { renderHotelCard } from './hotel-card.js';
+import { renderHotelCard } from './hotel-card.js?v=75.17';
 
 ensureNativeHotelStyle();
 
