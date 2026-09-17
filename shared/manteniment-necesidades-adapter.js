@@ -1,11 +1,15 @@
 function metrogestionLeerPlanNecesidades_(sheet) {
+  metrogestionRegistrarPaso_('Leyendo el tamaño de MANTENIMENT');
   const count = sheet.getLastRow();
   if (count < 2) return { cambios: [], nuevas: [], avisos: [], reutilizadas: 0 };
   const range = sheet.getRange(1, 1, count, 17);
+  metrogestionRegistrarPaso_('Leyendo los datos de necesidades');
   const values = range.getDisplayValues();
-  const colors = range.getBackgrounds();
+  metrogestionRegistrarPaso_('Leyendo los colores de G a M');
+  const colors = sheet.getRange(1, 7, count, 7).getBackgrounds();
+  metrogestionRegistrarPaso_('Leyendo los ciclos de necesidades');
   const notes = sheet.getRange(1, 9, count, 1).getNotes();
-  const records = values.slice(1).map((row, i) => ({ row: i + 2, values: row, note: notes[i + 1][0], colorH: colors[i + 1][7], colorM: colors[i + 1][12], colorG: colors[i + 1][6] }));
+  const records = values.slice(1).map((row, i) => ({ row: i + 2, values: row, note: notes[i + 1][0], colorH: colors[i + 1][1], colorM: colors[i + 1][6], colorG: colors[i + 1][0] }));
   const today = Utilities.formatDate(new Date(), 'Europe/Madrid', 'yyyy-MM-dd');
   return metrogestionPlanificarNecesidades_(records, today);
 }
@@ -43,6 +47,7 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan, options) {
   // de abajo arriba. Así ningún desplazamiento cambia la identidad del plan.
   plan.cambios.forEach(c => {
     if (applied.size >= limits.cambios || Date.now() >= limits.deadline) return;
+    metrogestionRegistrarPaso_(`Actualizando necesidad de la fila ${c.fila}`);
     const current = sheet.getRange(c.fila, 1, 1, 17).getDisplayValues()[0];
     if (metrogestionFirmaNecesidad_(current) !== metrogestionFirmaNecesidad_(c.original)) {
       throw new Error(`La fila ${c.fila} cambió durante la planificación. Vuelve a sincronizar.`);
@@ -67,25 +72,30 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan, options) {
     if (inserted.length >= limits.nuevas || Date.now() >= limits.deadline) return;
     // No crear una hija antes de guardar los cambios y la identidad del padre.
     if (changedParents.has(n.despuesDe) && !applied.has(n.despuesDe)) return;
+    metrogestionRegistrarPaso_(`Comprobando origen de ${n.values[0]} · ${n.values[7]} · fila ${n.despuesDe}`);
     const parent = sheet.getRange(n.despuesDe, 1, 1, 17).getDisplayValues()[0];
     if (metrogestionNormalizar_(parent[0]) !== metrogestionNormalizar_(n.values[0])) {
       throw new Error(`Cambió la unidad de la fila ${n.despuesDe}; no se ha creado su próxima necesidad.`);
     }
     const parentId = metrogestionMetadatosNecesidad_(sheet.getRange(n.despuesDe, 9).getNote()).id;
     if (parentId !== metrogestionMetadatosNecesidad_(n.nota).origen) throw new Error(`Cambió el origen de la fila ${n.despuesDe}; vuelve a sincronizar.`);
+    const rowHeight = sheet.getRowHeight(n.despuesDe);
+    if (Date.now() >= limits.deadline) return;
+    metrogestionRegistrarPaso_(`Insertando próxima ${n.values[7]} de ${n.values[0]} · después de fila ${n.despuesDe}`);
     sheet.insertRowAfter(n.despuesDe);
     const target = n.despuesDe + 1;
     // La plantilla solo afecta A:Q. R/S pertenecen a ARRAYFORMULA.
     // Solo formato: un corte aquí nunca deja una copia de la fila realizada
     // ni de su identificador técnico en la fila recién insertada.
+    metrogestionRegistrarPaso_(`Rellenando próxima ${n.values[7]} de ${n.values[0]} · fila ${target}`);
     sheet.getRange(n.despuesDe, 1, 1, 17).copyTo(sheet.getRange(target, 1, 1, 17), { formatOnly: true });
     const values = n.values.slice();
     values[8] = metrogestionDate_(values[8]);
     const range = sheet.getRange(target, 1, 1, 17);
-    range.clearContent().clearNote().clearDataValidations().setValues([values]).setBackground('#ffffff');
+    range.clearNote().clearDataValidations().setValues([values]).setBackground('#ffffff');
     sheet.getRange(target, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
     sheet.getRange(target, 9).setNote(n.nota);
-    sheet.setRowHeight(target, sheet.getRowHeight(n.despuesDe));
+    sheet.setRowHeight(target, rowHeight);
     inserted.push(n.despuesDe);
   });
   const remaining = plan.cambios.length - applied.size + plan.nuevas.length - inserted.length;
@@ -97,7 +107,9 @@ function metrogestionAplicarReglaAdministrativa_(sheet, options) {
     return { cierres: 0, renovaciones: 0, renovacionesItv: 0, reutilizadas: 0, avisos: [], inserciones: [], pausadas: true };
   }
   const plan = metrogestionLeerPlanNecesidades_(sheet);
-  const result = metrogestionEjecutarPlanNecesidades_(sheet, plan, { cambios: METROGESTION_LOTES.cambios, nuevas: METROGESTION_LOTES.nuevas, deadline: options?.deadline || Date.now() + METROGESTION_LOTES.margenMs });
-  if (plan.avisos.length) console.warn(JSON.stringify({ necesidades_por_revisar: plan.avisos }));
+  // Las correcciones y las inserciones usan llamadas distintas: nunca se
+  // añade una fila después de haber consumido el tiempo editando sus padres.
+  const result = metrogestionEjecutarPlanNecesidades_(sheet, plan, { cambios: METROGESTION_LOTES.cambios, nuevas: plan.cambios.length ? 0 : METROGESTION_LOTES.nuevas, deadline: options?.deadline || Date.now() + METROGESTION_LOTES.margenMs });
+  if (plan.avisos.length) console.warn(JSON.stringify({ necesidades_por_revisar: plan.avisos.length, detalle: 'Vista previa de próximas necesidades' }));
   return result;
 }

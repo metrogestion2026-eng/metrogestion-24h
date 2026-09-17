@@ -1,6 +1,34 @@
 # Próximas necesidades al cerrar trabajos
 
-Versión del Apps Script: `alpha75-2026.09.17.3`.
+Versión del Apps Script: `alpha75-2026.09.17.4`.
+
+## Reducción de carga tras el segundo corte
+
+Después de instalar `.3`, la hoja llegó a 28 próximas necesidades creadas, pero
+volvió a alcanzar el tiempo máximo. No se dispone de la traza de aquella ejecución
+para atribuirlo a una única llamada. Se han reducido dos costes del recorrido:
+reconstruir el filtro y encadenar varias inserciones antes de devolver el control.
+
+La versión `.4` aplica como máximo una orden, o tres cambios en filas existentes,
+o una inserción por llamada. Nunca mezcla correcciones e inserciones de
+necesidades en la misma llamada. Comprueba un presupuesto de 60 segundos antes
+de comenzar otro trabajo y de nuevo después de validar el origen de una inserción.
+Mantiene el filtro de la hoja durante las necesidades, que se procesan por número
+absoluto de fila, y reduce la lectura de colores de A:Q a G:M. La altura de la
+fila se lee antes de insertar/escribir para evitar forzar otro envío intermedio.
+
+Registra el paso antes de las operaciones principales. Si se corta, la ventana
+muestra «Sincronización detenida», recupera el último paso sin abrir Sheets y
+ofrece «Reintentar». Deja de mostrar la instrucción de continuación automática
+cuando no hay ninguna llamada programada. «Ver estado local» incluye ese paso.
+Se conserva el formato del avance de `.2` y `.3` y su lectura MIME corregida.
+
+Validación de `.4`: 64 pruebas superadas. Simulación local de las 7.020 filas
+leídas después del segundo corte: conserva 28 hijas y completa las 66 restantes
+en 66 llamadas de una inserción; al repetir, cero nuevas y cero cambios. No se
+han escrito datos de la hoja desde las herramientas. La duración real y el
+comportamiento del filtro nativo deberán verificarse en el proyecto instalado;
+el presupuesto no puede interrumpir una llamada individual lenta de Google.
 
 ## Corrección al recuperar el avance
 
@@ -102,7 +130,7 @@ ni de la marca de la tractora. Si la marca no es reconocible se muestra un aviso
 1. En **MANTENIMIENTOS → Extensiones → Apps Script**, sustituir por completo
    `Código.gs` con `r1-alpha75/google-apps-script/sincronizar_manteniment.gs`.
    No añadirlo al final ni usar las antiguas copias `.txt` o numeradas.
-2. Guardar y comprobar `scriptVersion: 'alpha75-2026.09.17.3'`.
+2. Guardar y comprobar `scriptVersion: 'alpha75-2026.09.17.4'`.
 3. Recargar la hoja. Abrir **Metrogestión → Vista previa de próximas necesidades**.
    La vista previa no escribe nada; muestra las nuevas filas y todos los avisos.
 4. Ejecutar **Sincronizar ahora** y dejar la ventana abierta hasta que indique

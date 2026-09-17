@@ -87,12 +87,12 @@ test('lee y retoma una cola de .2 sin regenerarla ni volver a enviar el snapshot
   assert.equal(saved.fase, 'necesidades');
 });
 
-test('siete órdenes se confirman en 3/3/1, y la continuación no vuelve a enviar el snapshot', () => {
+test('siete órdenes se confirman una por llamada, sin volver a enviar el snapshot', () => {
   const e = setup(); let r = e.c.metrogestionEjecutarSincronizacion_('manual');
   assert.equal(r.pendiente, true); assert.deepEqual(e.writes, []); const id = r.ciclo;
-  e.c.metrogestionEjecutarSincronizacion_('manual', id); assert.equal(e.writes.length, 3);
-  e.c.metrogestionEjecutarSincronizacion_('manual', id); assert.equal(e.writes.length, 6);
-  e.c.metrogestionEjecutarSincronizacion_('manual', id); assert.equal(e.writes.length, 7);
+  for (let i = 1; i <= 7; i++) {
+    e.c.metrogestionEjecutarSincronizacion_('manual', id); assert.equal(e.writes.length, i);
+  }
   r = e.c.metrogestionEjecutarSincronizacion_('manual', id); assert.equal(r.pendiente, false);
   assert.deepEqual(e.acknowledgements, [0, 1, 2, 3, 4, 5, 6]); assert.equal(e.requests(), 1);
   assert.equal(e.c.metrogestionEjecutarSincronizacion_('manual', id).pendiente, false);
@@ -104,7 +104,7 @@ test('si falla la confirmación, conserva la orden para reintentar y restaura el
   e.setAckFailure(true); assert.throws(() => e.c.metrogestionEjecutarSincronizacion_('manual', r.ciclo), /ACK/);
   assert.equal(e.c.metrogestionLeerCiclo_().comandos[0].id, 0); assert.equal(e.restores(), 1);
   e.setAckFailure(false); e.c.metrogestionEjecutarSincronizacion_('manual', r.ciclo);
-  assert.deepEqual(e.acknowledgements, [0, 1, 2]); assert.equal(e.requests(), 1);
+  assert.deepEqual(e.acknowledgements, [0]); assert.equal(e.requests(), 1);
 });
 
 test('cerrar la ventana y abrirla de nuevo retoma la cola guardada', () => {
@@ -112,7 +112,31 @@ test('cerrar la ventana y abrirla de nuevo retoma la cola guardada', () => {
   e.c.metrogestionEjecutarSincronizacion_('manual', r.ciclo);
   const resumed = e.c.metrogestionEjecutarSincronizacion_('manual');
   assert.equal(resumed.ciclo, r.ciclo); assert.equal(e.requests(), 1);
-  assert.deepEqual(e.acknowledgements, [0, 1, 2, 3, 4, 5]);
+  assert.deepEqual(e.acknowledgements, [0, 1]);
+});
+
+test('la fase de necesidades mantiene el filtro existente y confirma el avance', () => {
+  const e = setup();
+  e.c.metrogestionSolicitarCiclo_ = () => ({ syncResult: {}, trabajos: [] });
+  const r = e.c.metrogestionEjecutarSincronizacion_('manual');
+  e.c.metrogestionSuspenderFiltro_ = () => { throw new Error('No retirar el filtro para crear necesidades'); };
+  e.c.metrogestionRestaurarFiltro_ = () => { throw new Error('No reconstruir el filtro para crear necesidades'); };
+  assert.equal(e.c.metrogestionEjecutarSincronizacion_('manual', r.ciclo).pendiente, false);
+  assert.equal(e.c.metrogestionLeerCiclo_().creadas, 4);
+});
+
+test('el diagnóstico conserva el último paso fallido y no lee la hoja ni la clave', () => {
+  const e = setup();
+  const r = e.c.metrogestionEjecutarSincronizacion_('manual');
+  e.c.metrogestionAplicarComandos_ = () => { throw new Error('Tiempo máximo'); };
+  assert.throws(() => e.c.metrogestionEjecutarSincronizacion_('manual', r.ciclo), /Tiempo máximo/);
+  e.c.metrogestionRegistrarPaso_('Insertando próxima LINDEP de 9000 · después de fila 500');
+  e.c.SpreadsheetApp.openById = () => { throw new Error('Diagnóstico no debe abrir Sheets'); };
+  e.c.metrogestionLeerToken_ = () => { throw new Error('Diagnóstico no debe leer clave'); };
+  const diag = e.c.metrogestionDiagnosticoSincronizacion();
+  assert.match(diag.paso, /Insertando próxima LINDEP/);
+  assert.equal(diag.version, 'alpha75-2026.09.17.4');
+  assert.equal(e.c.metrogestionLeerCiclo_().comandos.length, 7);
 });
 
 test('un comando lento cede antes de comenzar otro; no se marca terminado', () => {

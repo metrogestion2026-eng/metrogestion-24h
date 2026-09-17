@@ -6,6 +6,9 @@ import vm from 'node:vm';
 const c = vm.createContext({ console, Date });
 const script = fs.readFileSync(new URL('../r1-alpha75/google-apps-script/sincronizar_manteniment.gs', import.meta.url), 'utf8');
 vm.runInContext(script, c);
+c.metrogestionRegistrarPaso_ = () => {};
+c.PropertiesService = { getScriptProperties: () => ({ getProperty: () => null }) };
+c.Utilities = { formatDate: () => '2026-09-17' };
 const json = x => JSON.parse(JSON.stringify(x));
 const make = (type, fields = {}, extra = {}) => {
   const values = Array(17).fill('');
@@ -30,7 +33,9 @@ class Sheet {
     const range = {
       getDisplayValues() { return Array.from({ length: height }, (_, y) => sheet.rows[row + y - 1].values.slice(col - 1, col - 1 + width).map(v => v instanceof Date ? c.metrogestionFechaIsoDesdeDate_(v) : String(v || ''))); },
       getBackground: () => sheet.rows[row - 1].colors[col - 1],
+      getBackgrounds: () => Array.from({ length: height }, (_, y) => sheet.rows[row + y - 1].colors.slice(col - 1, col - 1 + width)),
       getNote: () => sheet.rows[row - 1].notes[col - 1],
+      getNotes: () => Array.from({ length: height }, (_, y) => sheet.rows[row + y - 1].notes.slice(col - 1, col - 1 + width)),
       setValue(v) { each((r, i) => { r.values[i] = v; }); return range; },
       setValues(v) { each((r, i, y, x) => { r.values[i] = v[y][x]; }); return range; },
       setNote(v) { if (sheet.failNextNote && row === sheet.failureRow) { sheet.failNextNote = false; throw new Error('Interrupción'); } each((r, i) => { r.notes[i] = v; }); return range; },
@@ -44,6 +49,7 @@ class Sheet {
     return range;
   }
   insertRowAfter(row) { const empty = make(''); empty.notes = Array(17).fill(''); empty.colors = Array(17).fill('#ffffff'); this.rows.splice(row, 0, empty); }
+  getLastRow() { return this.rows.length; }
   getRowHeight() { return 21; }
   setRowHeight() {}
   records() { return this.rows.slice(1).map((r, i) => ({ row: i + 2, values: this.getRange(i + 2, 1, 1, 17).getDisplayValues()[0], note: r.notes[8], colorH: r.colors[7], colorM: r.colors[12], colorG: r.colors[6] })); }
@@ -175,7 +181,7 @@ test('la copia distribuida incluye exactamente el motor y adaptador revisados', 
   }
 });
 
-test('94 renovaciones se completan en tandas, sin superar 12 cambios/4 nuevas ni duplicarse', () => {
+test('94 renovaciones se completan con 3 cambios o 1 nueva por llamada, sin mezclarlos ni duplicarse', () => {
   const inputs = [];
   for (let i = 0; i < 94; i++) {
     const a = alta(); a.values[0] = String(1000 + i);
@@ -184,15 +190,27 @@ test('94 renovaciones se completan en tandas, sin superar 12 cambios/4 nuevas ni
   }
   const sheet = new Sheet(inputs);
   let created = 0, calls = 0;
-  for (; calls < 100; calls++) {
-    const p = sheet.plan();
-    const result = c.metrogestionEjecutarPlanNecesidades_(sheet, p, { cambios: 12, nuevas: 4, deadline: Infinity });
-    assert.ok(result.cambiosAplicados <= 12); assert.ok(result.renovaciones <= 4);
+  for (; calls < 160; calls++) {
+    const result = c.metrogestionAplicarReglaAdministrativa_(sheet, { deadline: Infinity });
+    assert.ok(result.cambiosAplicados <= 3); assert.ok(result.renovaciones <= 1);
+    assert.ok(!result.cambiosAplicados || !result.renovaciones, 'No editar e insertar en la misma llamada');
     created += result.renovaciones;
     if (!result.pendiente) break;
   }
-  assert.ok(calls > 1 && calls < 100); assert.equal(created, 94);
+  assert.ok(calls > 94 && calls < 160); assert.equal(created, 94);
   assert.equal(sheet.rows.length, 1 + 188 + 94); assert.equal(sheet.plan().nuevas.length, 0);
+});
+
+test('si la comprobación del padre agota el tiempo no empieza la inserción', () => {
+  const sheet = new Sheet([alta(), make('RT', { 8: '2026-01-01', 9: '2026-09-01' })]);
+  c.metrogestionEjecutarPlanNecesidades_(sheet, sheet.plan(), { cambios: 3, nuevas: 0, deadline: Infinity });
+  const p = sheet.plan(); let now = 0;
+  c.Date = class extends Date { static now() { return now; } };
+  sheet.getRowHeight = () => { now = 2000; return 21; };
+  try {
+    const result = c.metrogestionEjecutarPlanNecesidades_(sheet, p, { cambios: 3, nuevas: 1, deadline: 1000 });
+    assert.equal(result.renovaciones, 0); assert.equal(result.pendiente, true); assert.equal(sheet.rows.length, 3);
+  } finally { c.Date = Date; }
 });
 
 test('si vence el presupuesto de tiempo, no empieza escrituras ni pierde lo pendiente', () => {
