@@ -1,5 +1,6 @@
 import { detail, element } from '../../r1-alpha17/src/dom.js';
-import { openHotelEditor } from './hotel-editor.js?v=75.13';
+import { createStagesToggle } from './stages-collapse.js?v=75.18';
+import { openHotelEditor } from './hotel-editor.js?v=75.18';
 import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
 import { createOperationalDates, createSubstitutionBilling } from './card-operational.js';
@@ -187,7 +188,11 @@ export function renderHistoricalCard(
         updateDocumentSummary
       )));
   }
-  card.append(stageList);
+  const { button: toggle } = createStagesToggle(stageList, () => stages.filter(stage => !stage.cancelado && stage.estado !== 'anulada').length);
+  card.append(element('div', { className: 'hotel-stage-heading' }, [
+    element('h4', { text: 'T de la actuación' }),
+    toggle
+  ]), stageList);
 
   if (access.editFicha) {
     const button = element('button', {
