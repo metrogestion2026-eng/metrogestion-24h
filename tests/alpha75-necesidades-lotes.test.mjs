@@ -40,6 +40,8 @@ function harness(source = source75) {
 function sheet(h, input) {
   const s = { values: input.map(r => r.slice()), notes: input.map(() => Array(17).fill('')), colors: input.map(() => Array(17).fill('#ffffff')) };
   s.getLastRow = () => s.values.length;
+  s.getMaxRows = () => s.values.length;
+  s.getFilter = () => null;
   s.getRowHeight = () => 21;
   s.setRowHeight = () => {};
   s.insertRowAfter = row => {
@@ -134,9 +136,9 @@ test('una lectura que consume el límite global se detiene sin insertar ni anunc
 
 test('tres planes idénticos sin avance detienen también la programación automática', () => {
   const h = harness(), s = sgSheet(h); startCycle(h); h.readMs = 25000;
-  const hash = h.c.metrogestionSha256_;
-  // Simula agotar el minuto entre planificar y entrar en el escritor.
-  h.c.metrogestionSha256_ = value => { h.advance(61000); return hash(value); };
+  const execute = h.c.metrogestionEjecutarPlanNecesidades_;
+  // Simula un servicio lento justo antes de empezar la unidad de escritura.
+  h.c.metrogestionEjecutarPlanNecesidades_ = (...args) => { h.advance(61000); return execute(...args); };
   for (let i = 0; i < 2; i++) assert.equal(h.c.metrogestionLanzarProgramada_('ciclo-conservado').pendiente, true);
   assert.throws(() => h.c.metrogestionLanzarProgramada_('ciclo-conservado'), /detenido la continuación automática.*2724.*2746/);
   assert.equal(h.scheduled, 2); assert.equal(s.values.length, 5);
@@ -150,7 +152,7 @@ test('actualizar el ciclo .5 conserva identificador, órdenes confirmadas y cont
     planNecesidadesAnterior: 'antiguo', tandasNecesidadesRepetidas: 2 });
   assert.equal(h.c.metrogestionContinuarSincronizacion('ciclo-conservado').pendiente, true);
   assert.equal(h.state().creadas, 4); assert.equal(h.state().cierres, 6); assert.equal(h.state().confirmados, 33);
-  assert.equal(h.state().version, 'alpha75-2026.09.18.1'); assert.equal(h.state().planNecesidadesAnterior, undefined);
+  assert.equal(h.state().version, 'alpha75-2026.09.18.2'); assert.equal(h.state().planNecesidadesAnterior, undefined);
   assert.equal(s.values.length, 5);
 });
 
@@ -159,4 +161,61 @@ test('la pausa conserva la hoja y permite terminar la sincronización', () => {
   h.props.set('METROGESTION_NECESIDADES_PAUSADAS', 'true');
   const r = h.c.metrogestionContinuarSincronizacion('ciclo-conservado');
   assert.equal(r.pendiente, false); assert.equal(h.state().pausadas, true); assert.equal(s.values.length, 5);
+});
+
+function filteredSheet(s) {
+  const originalRange = s.getRange;
+  const state = { criteria: new Map([[1, { hiddenValues: ['2724', '2746'] }]]), removed: 0, restored: 0 };
+  const makeFilter = range => ({
+    getRange: () => range,
+    getColumnFilterCriteria: column => state.criteria.get(column) || null,
+    setColumnFilterCriteria: (column, criterion) => { state.criteria.set(column, criterion); },
+    remove: () => { state.filter = null; state.removed++; },
+  });
+  s.getRange = (row, column, height = 1, width = 1) => {
+    const range = originalRange(row, column, height, width);
+    Object.assign(range, { getRow: () => row, getColumn: () => column,
+      getLastColumn: () => column + width - 1, getNumRows: () => height, getNumColumns: () => width,
+      createFilter: () => { state.restored++; state.filter = makeFilter(range); return state.filter; } });
+    const copy = range.copyTo;
+    range.copyTo = target => {
+      if (state.filter) throw new Error('Esta operación no se admite en un intervalo con una fila filtrada');
+      return copy(target);
+    };
+    return range;
+  };
+  state.filter = makeFilter(s.getRange(1, 1, s.values.length, 17));
+  s.getFilter = () => state.filter;
+  return state;
+}
+
+test('crea ambas SG ocultas por el filtro y restaura criterios sin ordenar las filas', () => {
+  const h = harness(), s = sgSheet(h); startCycle(h); const f = filteredSheet(s);
+  const criteria = clone([...f.criteria]);
+  h.c.metrogestionContinuarSincronizacion('ciclo-conservado');
+  h.c.metrogestionContinuarSincronizacion('ciclo-conservado');
+  assert.equal(h.state().creadas, 2); assert.equal(h.state().fase, 'terminado');
+  assert.equal(f.removed, 2); assert.equal(f.restored, 2); assert.deepEqual([...f.criteria], criteria);
+  assert.deepEqual(s.values.slice(1).map(r => r[0]), ['2724', '2724', '2724', '2746', '2746', '2746']);
+  assert.equal(s.getFilter().getRange().getNumRows(), 7);
+});
+
+test('el filtro vuelve a su estado aunque falle la copia y el diagnóstico conserva el error', () => {
+  const h = harness(), s = sgSheet(h); startCycle(h); const f = filteredSheet(s);
+  const get = s.getRange;
+  s.getRange = (...args) => { const r = get(...args); r.copyTo = () => { throw new Error('Fallo de copia de prueba'); }; return r; };
+  assert.throws(() => h.c.metrogestionContinuarSincronizacion('ciclo-conservado'), /Fallo de copia de prueba/);
+  assert.ok(s.getFilter()); assert.equal(f.restored, 1);
+  assert.deepEqual(f.criteria.get(1).hiddenValues, ['2724', '2746']);
+  assert.equal(h.state().creadas, 0);
+  assert.match(h.c.metrogestionDiagnosticoSincronizacion().paso, /Rellenando próxima SG/);
+});
+
+test('una escritura descartada se detecta en la misma tanda sin contar el cambio', () => {
+  const h = harness(), s = sgSheet(h, false); startCycle(h); const f = filteredSheet(s);
+  const get = s.getRange;
+  s.getRange = (...args) => { const r = get(...args); if (args[1] === 13) r.setValue = () => r; return r; };
+  assert.throws(() => h.c.metrogestionContinuarSincronizacion('ciclo-conservado'), /No se ha confirmado la escritura.*2724.*SG/);
+  assert.equal(h.state().creadas, 0); assert.equal(h.state().confirmados, 33);
+  assert.ok(s.getFilter()); assert.equal(f.restored, 1);
 });
