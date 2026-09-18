@@ -1,7 +1,8 @@
 import { element } from '../../r1-alpha17/src/dom.js';
+import { revealStagesFor } from '../../r1-alpha75/src/stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=76.5';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import { fichaPayload, requestId, validate } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 
@@ -155,7 +156,10 @@ export async function openHotelCreate({ onSaved } = {}) {
     if (saving) return;
     const errors = validate(detail);
     renderErrors(errorsHost, errors);
-    if (errors.length) return;
+    if (errors.length) {
+      revealStagesFor(form.querySelector('.editor-stages'));
+      return;
+    }
 
     saving = true;
     createButton.disabled = true;
