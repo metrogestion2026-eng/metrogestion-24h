@@ -3,7 +3,8 @@ import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const source = fs.readFileSync(new URL('../r1-alpha76/google-apps-script/sincronizar_manteniment.gs', import.meta.url), 'utf8');
+const variant = process.env.METROGESTION_SCRIPT_TEST_VERSION || 'r1-alpha76';
+const source = fs.readFileSync(new URL(`../${variant}/google-apps-script/sincronizar_manteniment.gs`, import.meta.url), 'utf8');
 const id = '11111111-1111-4111-8111-111111111111';
 const otherId = '22222222-2222-4222-8222-222222222222';
 const key = 'R1320|TEST123|FRIDIEL|TRAMITE|EXTINTOR|2026-09-15';

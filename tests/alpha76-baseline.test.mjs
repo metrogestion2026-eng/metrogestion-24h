@@ -33,6 +33,8 @@ test('Alpha76 conserva Alpha75 y añade únicamente su experiencia de consulta',
     path.join('src', 'hotel-editor-stages.js'),
     path.join('src', 'pending-stages.js'),
     'editor-validation.css',
+    // Alpha75 prueba el motor de sincronización antes de promoverlo a Alpha76.
+    path.join('google-apps-script', 'sincronizar_manteniment.gs'),
   ]);
   for (const file of files75) {
     if (allowedChanges.has(file)) continue;
