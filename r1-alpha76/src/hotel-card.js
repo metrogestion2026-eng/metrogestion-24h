@@ -1,4 +1,5 @@
 import { detail, element } from '../../r1-alpha17/src/dom.js';
+import { createStagesToggle } from '../../r1-alpha75/src/stages-collapse.js?v=75.18';
 import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
 import { createOperationalDates, createSubstitutionBilling } from './card-operational.js';
@@ -122,8 +123,6 @@ function documentsForStages(stages, documentsByGroup) {
   return stages.flatMap(stage => documentsByGroup.get(stage.grupo_documental_id) || []);
 }
 
-let stagePanelSequence = 0;
-
 function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsChanged) {
   const ordered = stages.slice().sort((a, b) =>
     Number(Boolean(a.cancelado)) - Number(Boolean(b.cancelado))
@@ -133,20 +132,8 @@ function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsCha
   const cancelled = ordered.filter(stage => stage.cancelado === true || stage.estado === 'anulada');
 
   const section = element('section', { className: 'hotel-card-stages' });
-  const content = element('div', { id: `hotel-card-stages-${++stagePanelSequence}` });
-  content.hidden = true;
-  const toggle = element('button', {
-    className: 'button secondary compact a75-card-stages-toggle',
-    type: 'button',
-    text: `Desplegar T (${active.length})`,
-    'aria-expanded': 'false',
-    'aria-controls': content.id,
-  });
-  toggle.addEventListener('click', () => {
-    content.hidden = !content.hidden;
-    toggle.textContent = content.hidden ? `Desplegar T (${active.length})` : 'Ocultar T';
-    toggle.setAttribute('aria-expanded', String(!content.hidden));
-  });
+  const content = element('div');
+  const { button: toggle } = createStagesToggle(content, () => active.length);
   section.append(element('div', { className: 'hotel-stage-heading' }, [
     element('h4', { text: 'T de la actuación' }),
     toggle,

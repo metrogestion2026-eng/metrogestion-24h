@@ -1,7 +1,8 @@
 import { element } from '../../r1-alpha17/src/dom.js';
+import { revealStagesFor } from '../../r1-alpha75/src/stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js?v=75.1';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=76.5';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import { saveErrorIssues, stageStateMismatchIssues } from './hotel-editor-validation.js';
 import {
@@ -91,6 +92,7 @@ function showValidationIssues(form, issues) {
     firstField ||= field;
   });
   if (!firstField) return false;
+  revealStagesFor(firstField);
   firstField.scrollIntoView({ behavior: 'smooth', block: 'center' });
   window.setTimeout(() => firstField.querySelector('input,select,textarea,button')?.focus({ preventScroll: true }), 350);
   return true;
@@ -261,6 +263,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     const errors = [...validate(detail), ...fieldIssues];
     renderErrors(errorsHost, errors);
     if (errors.length) {
+      revealStagesFor(form.querySelector('.editor-stages'));
       const focused = showValidationIssues(form, fieldIssues);
       status.className = 'hotel-editor-status error';
       status.textContent = focused

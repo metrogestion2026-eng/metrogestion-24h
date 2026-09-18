@@ -1,4 +1,5 @@
 import { element } from '../../r1-alpha17/src/dom.js';
+import { createStagesToggle } from './stages-collapse.js?v=75.18';
 import {
   bindCheckbox, bindText, createCheckbox, createInput, createTextarea,
   fieldLabel, makeNewStage, makeNewWork, stagesPayload
@@ -182,6 +183,8 @@ export function renderStagesSection(detail, markDirty) {
     ])
   ]);
   const stagesHost = element('div', { className: 'editor-stages' });
+  const disclosure = createStagesToggle(stagesHost, () => detail.etapas.filter(stage => !stage.cancelado && stage.estado !== 'anulada').length);
+  section.querySelector('.editor-section-heading').append(disclosure.button);
   const addStageButton = element('button', { className: 'button secondary', type: 'button', text: '+ Añadir T' });
   const cancelledButton = element('button', {
     className: 'button secondary compact',
@@ -196,6 +199,7 @@ export function renderStagesSection(detail, markDirty) {
   let showingCancelled = false;
 
   const renderStages = () => {
+    disclosure.refresh();
     stagesHost.replaceChildren();
     const indexedStages = detail.etapas.map((stage, stageIndex) => ({ stage, stageIndex }));
     const cancelledCount = indexedStages.filter(({ stage }) => stage.cancelado).length;
@@ -379,12 +383,14 @@ export function renderStagesSection(detail, markDirty) {
   };
 
   addStageButton.addEventListener('click', () => {
+    disclosure.setExpanded(true);
     detail.etapas.push(makeNewStage(detail.etapas.filter(stage => !stage.cancelado)));
     markDirty();
     renderStages();
   });
 
   cancelledButton.addEventListener('click', () => {
+    disclosure.setExpanded(true);
     showingCancelled = !showingCancelled;
     renderStages();
   });
