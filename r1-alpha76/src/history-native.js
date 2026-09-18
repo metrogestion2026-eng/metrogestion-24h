@@ -1,7 +1,7 @@
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
-import { renderHistoricalCard } from './history-card.js';
+import { renderHistoricalCard } from './history-card.js?v=76.5';
 import { safeHistorySearch, searchHistoricalRecords } from '../../shared/history-query.mjs?v=20260915';
 
 function madridDate(date) {
