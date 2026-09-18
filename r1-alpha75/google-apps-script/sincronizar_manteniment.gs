@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.14.1',
+  scriptVersion: 'alpha75-2026.09.15.1',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -102,6 +102,9 @@ function metrogestionEjecutarSincronizacion_(modo) {
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) throw new Error('MANTENIMENT no contiene filas de datos.');
     const values = sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
+    // L/P son cantidades. Leer su valor numérico evita convertir 14.490 km
+    // (formato de miles de la hoja) en 14,49 km al sincronizar.
+    const billingValues = sheet.getRange(1, 12, lastRow, 5).getValues();
     const notes = sheet.getRange(1, 1, lastRow, 1).getNotes();
     const workNotes = sheet.getRange(1, 5, lastRow, 1).getNotes();
     // A (DFM/R) amarillo fuerza la inclusión de la necesidad aunque su fecha
@@ -134,7 +137,7 @@ function metrogestionEjecutarSincronizacion_(modo) {
         bastidor: row[16],
       });
     }
-    const paradas = metrogestionLeerParadasVinculadas_(values, notes);
+    const paradas = metrogestionLeerParadasVinculadas_(values, notes, billingValues);
     const trabajos = metrogestionLeerTrabajos_(
       values,
       workNotes,
@@ -321,7 +324,7 @@ function metrogestionFechaIso_(value, label) {
 }
 
 function metrogestionNumero_(value, label, ignorarNegativoDePeriodoAbierto) {
-  let text = String(value || '').replace(/\s/g, '');
+  let text = String(value ?? '').replace(/\s/g, '');
   if (!text) return '';
   if (text.includes(',') && text.includes('.')) text = text.replaceAll('.', '').replace(',', '.');
   else text = text.replace(',', '.');
@@ -353,7 +356,7 @@ function metrogestionPeriodoTancament_(value, rowNumber) {
   return text;
 }
 
-function metrogestionLeerParadasVinculadas_(values, notes) {
+function metrogestionLeerParadasVinculadas_(values, notes, billingValues) {
   const result = [];
   for (let index = 1; index < values.length; index += 1) {
     const note = String(notes[index]?.[0] || '').trim();
@@ -387,9 +390,9 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
       fecha_programada: metrogestionFechaIso_(row[8], `programada de la fila ${index + 1}`),
       fecha_parada: metrogestionFechaIso_(row[9], `de parada de la fila ${index + 1}`),
       fecha_k: fechaK,
-      dias_parada: metrogestionNumero_(row[11], `Los días de la fila ${index + 1}`, periodoAbierto),
+      dias_parada: metrogestionNumero_(billingValues?.[index]?.[0] ?? row[11], `Los días de la fila ${index + 1}`, periodoAbierto),
       marca: row[14],
-      km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, periodoAbierto),
+      km_facturables: metrogestionKilometrosFacturables_(billingValues?.[index]?.[4] ?? row[15], index + 1, periodoAbierto),
       tancament: metrogestionPeriodoTancament_(row[16], index + 1),
     });
   }
