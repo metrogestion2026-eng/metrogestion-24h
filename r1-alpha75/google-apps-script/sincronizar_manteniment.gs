@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.18.1',
+  scriptVersion: 'alpha75-2026.09.18.2',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -1591,6 +1591,10 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan, options) {
     if (c.amarilloM) sheet.getRange(c.fila, 13).setBackground('#ffff00');
     const noteCell = sheet.getRange(c.fila, 9);
     if (noteCell.getNote() !== c.nota) noteCell.setNote(c.nota);
+    metrogestionVerificarFilaNecesidad_(sheet, c.fila, c.values, c.nota);
+    if (c.amarilloM && !metrogestionEsFondoAmarillo_(sheet.getRange(c.fila, 13).getBackground())) {
+      throw new Error(`No se ha confirmado el amarillo de M en la fila ${c.fila}`);
+    }
     applied.add(c.fila);
   });
   const inserted = [];
@@ -1622,12 +1626,22 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan, options) {
     sheet.getRange(target, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
     sheet.getRange(target, 9).setNote(n.nota);
     sheet.setRowHeight(target, rowHeight);
+    metrogestionVerificarFilaNecesidad_(sheet, target, n.values, n.nota);
     inserted.push(n.despuesDe);
   });
   const cambiosPendientes = plan.cambios.length - applied.size;
   const nuevasPendientes = plan.nuevas.length - inserted.length;
   const remaining = cambiosPendientes + nuevasPendientes;
   return { cierres: plan.cambios.filter(c => c.cierre && applied.has(c.fila)).length, renovacionesItv: plan.nuevas.filter(n => n.values[7] === 'ITV' && inserted.includes(n.despuesDe)).length, renovaciones: inserted.length, reutilizadas: plan.reutilizadas, avisos: plan.avisos, inserciones: inserted, cambiosAplicados: applied.size, cambiosPendientes, nuevasPendientes, restantes: remaining, pendiente: remaining > 0 };
+}
+
+function metrogestionVerificarFilaNecesidad_(sheet, row, values, note) {
+  SpreadsheetApp.flush();
+  const actual = sheet.getRange(row, 1, 1, 17).getDisplayValues()[0];
+  if (metrogestionFirmaNecesidad_(actual) !== metrogestionFirmaNecesidad_(values)
+      || sheet.getRange(row, 9).getNote() !== note) {
+    throw new Error(`No se ha confirmado la escritura de la fila ${row} (${values[0]} · ${values[7]}). Revisa esa fila antes de reintentar`);
+  }
 }
 
 function metrogestionAplicarReglaAdministrativa_(sheet, options) {
@@ -1638,16 +1652,39 @@ function metrogestionAplicarReglaAdministrativa_(sheet, options) {
   const limiteEjecucion = options?.limiteEjecucion ?? inicioLectura + METROGESTION_LOTES.maxNecesidadesMs;
   const plan = metrogestionLeerPlanNecesidades_(sheet);
   const lecturaMs = Date.now() - inicioLectura;
-  // El minuto de escritura empieza después de leer y planificar toda la hoja.
-  // El límite global deja margen para flush/guardar antes del límite de Apps Script.
-  const deadline = Math.min(Date.now() + METROGESTION_LOTES.margenMs, limiteEjecucion);
-  if ((plan.cambios.length || plan.nuevas.length) && Date.now() >= deadline) {
-    throw new Error(`La lectura de necesidades ha agotado el tiempo de esta tanda (${Math.ceil(lecturaMs / 1000)} s). Quedan ${plan.cambios.length} filas por actualizar y ${plan.nuevas.length} próximas necesidades por crear; no se ha iniciado otra escritura`);
-  }
   const firmaPlan = metrogestionSha256_(JSON.stringify({ cambios: plan.cambios, nuevas: plan.nuevas }));
-  // Las correcciones y las inserciones usan llamadas distintas: nunca se
-  // añade una fila después de haber consumido el tiempo editando sus padres.
-  const result = metrogestionEjecutarPlanNecesidades_(sheet, plan, { cambios: METROGESTION_LOTES.cambios, nuevas: plan.cambios.length ? 0 : METROGESTION_LOTES.nuevas, deadline });
+  let filterState = null;
+  let failure = null;
+  let failedStep = '';
+  let result;
+  try {
+    if (plan.cambios.length || plan.nuevas.length) {
+      // Sheets puede rechazar copyTo/copyPaste cuando el origen está filtrado.
+      // Quitar el filtro no ordena las filas; al restaurarlo se conservan criterios.
+      metrogestionRegistrarPaso_('Preparando el filtro para próximas necesidades');
+      filterState = metrogestionSuspenderFiltro_(sheet);
+    }
+    // El minuto de escritura empieza después de leer y preparar el filtro.
+    const deadline = Math.min(Date.now() + METROGESTION_LOTES.margenMs, limiteEjecucion);
+    if ((plan.cambios.length || plan.nuevas.length) && Date.now() >= deadline) {
+      throw new Error(`La lectura de necesidades y la preparación del filtro han agotado el tiempo de esta tanda (${Math.ceil((Date.now() - inicioLectura) / 1000)} s). Quedan ${plan.cambios.length} filas por actualizar y ${plan.nuevas.length} próximas necesidades por crear; no se ha iniciado otra escritura`);
+    }
+    // Guardar primero el padre; insertar la hija en otra tanda.
+    result = metrogestionEjecutarPlanNecesidades_(sheet, plan, { cambios: METROGESTION_LOTES.cambios, nuevas: plan.cambios.length ? 0 : METROGESTION_LOTES.nuevas, deadline });
+  } catch (error) {
+    failure = error;
+    failedStep = metrogestionDiagnosticoSincronizacion().paso;
+    throw error;
+  } finally {
+    try {
+      if (filterState && !failure) metrogestionRegistrarPaso_('Restaurando el filtro después de próximas necesidades');
+      metrogestionRestaurarFiltro_(sheet, filterState);
+    } catch (filterError) {
+      if (!failure) throw filterError;
+      failure.message += ` Además, no se pudo restaurar el filtro: ${filterError.message}`;
+    }
+    if (failure) metrogestionRegistrarPaso_(failedStep);
+  }
   result.firmaPlan = firmaPlan;
   result.lecturaMs = lecturaMs;
   result.detallePendientes = [
@@ -1845,9 +1882,8 @@ function metrogestionEjecutarSincronizacion_(modo, expectedCycle) {
     if (state.fase === 'comandos') {
       metrogestionProcesarOrdenesLote_(sheet, state, token, deadline);
     } else if (state.fase === 'necesidades') {
-      // Se trabaja con filas absolutas, aunque estén ocultas por el filtro.
-      // Mantener el filtro evita eliminarlo/reconstruirlo y recalcularlo
-      // dos veces por cada tanda de próximas necesidades.
+      // El adaptador suspende el filtro al escribir y verifica cada fila antes
+      // de contabilizarla; después restaura los criterios sin reordenar.
       const result = metrogestionAplicarReglaAdministrativa_(sheet, { limiteEjecucion: inicioEjecucion + METROGESTION_LOTES.maxNecesidadesMs });
       metrogestionRegistrarPaso_('Confirmando los cambios de necesidades en la hoja');
       SpreadsheetApp.flush();
