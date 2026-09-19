@@ -1,0 +1,478 @@
+{
+  "date": "2026-09-18",
+  "spreadsheet_id": "1PQE5VsjTvDFvQZcqedyQKIs3RbSySHFK4JPQXBD0XyU",
+  "sheet": "MANTENIMENT",
+  "sheet_id": 1211148219,
+  "scope": "Read-only verification after initial 2723 repair and general DB migration",
+  "rows": [
+    {
+      "row": 1410,
+      "dfm": "2548",
+      "matricula": "5023MMC",
+      "necesidad": "AV",
+      "programada": "30/07/2026",
+      "K": "17/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 1413,
+      "dfm": "2548",
+      "matricula": "5023MMC",
+      "necesidad": "MCD",
+      "programada": "01/09/2026",
+      "K": "17/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": false,
+      "sameDate": false,
+      "action": "unchanged",
+      "reason": "designation_changed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 1414,
+      "dfm": "2548",
+      "matricula": "5023MMC",
+      "necesidad": "EXTINTOR",
+      "programada": "01/09/2026",
+      "K": "10/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 1417,
+      "dfm": "2548",
+      "matricula": "5023MMC",
+      "necesidad": "LV",
+      "programada": "10/09/2026",
+      "K": "10/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": false,
+      "action": "unchanged",
+      "reason": "programmed_date_changed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 3394,
+      "dfm": "2721",
+      "matricula": "6131NGV",
+      "necesidad": "44TN",
+      "programada": "23/10/2026",
+      "K": "27/08/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 3418,
+      "dfm": "2723",
+      "matricula": "3476NGS",
+      "necesidad": "GP",
+      "programada": "21/01/2026",
+      "K": "17/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 3421,
+      "dfm": "2723",
+      "matricula": "3476NGS",
+      "necesidad": "REPUESTOS",
+      "programada": "06/03/2026",
+      "K": "17/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 3423,
+      "dfm": "2723",
+      "matricula": "3476NGS",
+      "necesidad": "MCD",
+      "programada": "01/06/2026",
+      "K": "17/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 3424,
+      "dfm": "2723",
+      "matricula": "3476NGS",
+      "necesidad": "GP",
+      "programada": "02/06/2026",
+      "K": "17/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 4112,
+      "dfm": "R1187",
+      "matricula": "R8596BDC",
+      "necesidad": "EXTINTOR",
+      "programada": "01/06/2026",
+      "K": "10/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 4208,
+      "dfm": "R1194",
+      "matricula": "R0562BDF",
+      "necesidad": "EXTINTOR",
+      "programada": "01/06/2026",
+      "K": "09/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 4213,
+      "dfm": "R1194",
+      "matricula": "R0562BDF",
+      "necesidad": "LKT",
+      "programada": "17/09/2026",
+      "K": "09/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 4597,
+      "dfm": "R1243",
+      "matricula": "R3964BDJ",
+      "necesidad": "GP",
+      "programada": "04/08/2026",
+      "K": "08/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.7647059,
+        "green": 0.9647059,
+        "blue": 0.6784314
+      }
+    },
+    {
+      "row": 4599,
+      "dfm": "R1243",
+      "matricula": "R3964BDJ",
+      "necesidad": "EXTINTOR",
+      "programada": "01/09/2026",
+      "K": "09/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 4600,
+      "dfm": "R1243",
+      "matricula": "R3964BDJ",
+      "necesidad": "AV",
+      "programada": "08/09/2026",
+      "K": "09/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": false,
+      "action": "unchanged",
+      "reason": "programmed_date_changed",
+      "colorK": {
+        "red": 0.7647059,
+        "green": 0.9647059,
+        "blue": 0.6784314
+      }
+    },
+    {
+      "row": 4675,
+      "dfm": "R1246",
+      "matricula": "R4547BDJ",
+      "necesidad": "BPW",
+      "programada": "19/11/2025",
+      "K": "30/01/2026",
+      "sameVehicle": false,
+      "sameDesignation": false,
+      "sameDate": false,
+      "action": "unchanged",
+      "reason": "copied_note_other_vehicle",
+      "colorK": {
+        "red": 0.7647059,
+        "green": 0.9647059,
+        "blue": 0.6784314
+      }
+    },
+    {
+      "row": 4677,
+      "dfm": "R1246",
+      "matricula": "R4547BDJ",
+      "necesidad": "44TN",
+      "programada": "29/11/2025",
+      "K": "28/01/2026",
+      "sameVehicle": false,
+      "sameDesignation": false,
+      "sameDate": false,
+      "action": "unchanged",
+      "reason": "copied_note_other_vehicle",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 4802,
+      "dfm": "R1251",
+      "matricula": "R6036BDJ",
+      "necesidad": "AV",
+      "programada": "08/09/2026",
+      "K": "10/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 5838,
+      "dfm": "R1320",
+      "matricula": "R5893BDL",
+      "necesidad": "MCD",
+      "programada": "11/02/2026",
+      "K": "17/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 6474,
+      "dfm": "R1443",
+      "matricula": "R8949BDP",
+      "necesidad": "AV",
+      "programada": "04/09/2026",
+      "K": "08/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 6478,
+      "dfm": "R1443",
+      "matricula": "R8949BDP",
+      "necesidad": "LKT",
+      "programada": "08/10/2026",
+      "K": "07/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 6479,
+      "dfm": "R1443",
+      "matricula": "R8949BDP",
+      "necesidad": "MCD",
+      "programada": "08/10/2026",
+      "K": "08/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 6569,
+      "dfm": "R1454",
+      "matricula": "R4654BDS",
+      "necesidad": "GM",
+      "programada": "04/07/2025",
+      "K": "09/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 6584,
+      "dfm": "R1454",
+      "matricula": "R4654BDS",
+      "necesidad": "GM",
+      "programada": "08/07/2026",
+      "K": "09/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    },
+    {
+      "row": 6585,
+      "dfm": "R1454",
+      "matricula": "R4654BDS",
+      "necesidad": "AV",
+      "programada": "06/09/2026",
+      "K": "09/09/2026",
+      "sameVehicle": true,
+      "sameDesignation": true,
+      "sameDate": true,
+      "action": "unchanged",
+      "reason": "already_closed",
+      "colorK": {
+        "red": 0.8509804,
+        "green": 0.91764706,
+        "blue": 0.827451
+      }
+    }
+  ],
+  "unresolved_sources": [
+    {
+      "dfm": "2552",
+      "need": "EDT",
+      "reason": "No current row identified; unchanged"
+    },
+    {
+      "dfm": "R1320",
+      "need": "MCD B+LKT",
+      "reason": "Old source not identified; future row 5851 dated 2027-09-17 left pending"
+    }
+  ],
+  "missing_actual_date": {
+    "dfm": "R1243",
+    "row": 4595,
+    "need": "LKT",
+    "sync_id": "dcfe3d6f-67d1-4876-be1f-55604748fe9a",
+    "action": "unchanged"
+  }
+}

@@ -1,6 +1,31 @@
-# MANTENIMENT ↔ Metrogestión · Alpha75
+# MANTENIMENT ↔ Metrogestión · Alpha75 / Alpha76
 
 Este script sustituye el contenido del proyecto de Google Apps Script vinculado al archivo madre **MANTENIMIENTOS**.
+
+## Actualización del 17/09/2026 · script `alpha75-2026.09.17.5`
+
+Parte del código activo `alpha75-2026.09.17.4` facilitado por el usuario, incluidas
+la ejecución por tandas, la vista previa, la pausa y las reglas de próximas necesidades.
+
+- Actualiza una cola guardada de la versión anterior con las órdenes vigentes del
+  servidor, conservando el identificador del ciclo y los contadores de avance.
+- Localiza trabajos por UUID, unidad, matrícula, necesidad y fecha, con lectura
+  actual de las filas y del color de G. Una nota copiada a otra necesidad no basta.
+- Si la confirmación al servidor falla después de escribir, guarda su acuse y
+  reintenta solo esa confirmación.
+- Conserva el paso del error aunque después tenga que restaurar el filtro.
+- Replanifica próximas necesidades tras cada tanda; reutiliza las ya existentes y
+  señala las coincidencias ambiguas sin crear otra copia.
+
+Sustituir **todo** el código del mismo proyecto de Apps Script, guardar, recargar
+la hoja y pulsar **Metrogestión → Sincronizar ahora**. No borrar las propiedades
+ni cambiar la clave: el avance se recupera automáticamente. Comprobar la versión
+en **Ver estado local**. El identificador del script es distinto de la versión
+`r1.0.0-alpha.76.4` de la interfaz web.
+
+Validado con simulaciones locales de filas desplazadas, notas copiadas, fallos de
+confirmación e interrupciones de creación. La ejecución real en Google queda
+pendiente de instalar este código en el proyecto vinculado.
 
 ## Qué sincroniza
 
