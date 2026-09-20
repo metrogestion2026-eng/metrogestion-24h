@@ -1,5 +1,6 @@
+import { BodyError, readJsonObject } from "../_shared/http-security.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 
 const ALLOWED_ORIGIN = "https://metrogestion2026-eng.github.io";
 const EVENTS = new Set(["vista_login", "credenciales_rechazadas", "comprobar_bloqueo"]);
@@ -57,9 +58,9 @@ Deno.serve(async (request: Request) => {
 
   let body: Record<string, unknown>;
   try {
-    body = await request.json();
-  } catch {
-    return reply(400, { ok: false, error: "JSON no válido." }, origin);
+    body = await readJsonObject(request, 16_384);
+  } catch (error) {
+    return reply(error instanceof BodyError ? error.status : 400, { ok: false, error: error instanceof BodyError ? error.message : "JSON no válido." }, origin);
   }
 
   const fingerprint = String(body.huella || "").trim().toLowerCase();
@@ -107,6 +108,11 @@ Deno.serve(async (request: Request) => {
 
   if (error) {
     return reply(400, { ok: false, error: "No se pudo comprobar el acceso." }, origin);
+  }
+  if (data?.rate_limited === true) {
+    const response = reply(429, { ok: false, error: "Demasiadas comprobaciones. Espera un minuto." }, origin);
+    response.headers.set("Retry-After", "60");
+    return response;
   }
   return reply(200, {
     ok: true,

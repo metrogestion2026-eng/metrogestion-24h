@@ -1,4 +1,5 @@
 import { supabase } from '../../r1-alpha17/src/supabase.js';
+import { ensureMfaButton } from '../../shared/mfa.js';
 
 const appView = document.querySelector('#app-view');
 const pendingView = document.querySelector('#pending-device-view');
@@ -185,7 +186,7 @@ function openPasswordDialog(profile, { forced = false } = {}) {
       current.input.focus();
       return;
     }
-    if (nextValue.length < 8 || nextValue.length > 72 || !/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(nextValue) || !/\d/.test(nextValue)) {
+    if (nextValue.length < 8 || new TextEncoder().encode(nextValue).byteLength > 72 || !/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(nextValue) || !/\d/.test(nextValue)) {
       status.className = 'a65-status danger';
       status.textContent = 'La nueva contraseña debe tener entre 8 y 72 caracteres, al menos una letra y un número.';
       next.input.focus();
@@ -271,7 +272,7 @@ function showTemporaryPassword(result) {
     }
   });
   copyMessage.addEventListener('click', async () => {
-    const link = new URL('../r1-alpha65/', window.location.href).href;
+    const link = new URL('../r1-alpha76/', window.location.href).href;
     const message = `Acceso temporal a Metrogestión\n\nEnlace: ${link}\nUsuario: ${result.correo}\nContraseña temporal: ${result.clave_temporal}\n\nAl entrar tendrás que crear una contraseña propia antes de continuar.`;
     try {
       await copyText(message);
@@ -429,6 +430,7 @@ async function syncSecurity() {
     if (!sessionData?.session) {
       profileCache = null;
       document.querySelector('#alpha65-password-button')?.remove();
+      document.querySelector('#mfa-settings-button')?.remove();
       removeForcedDialog();
       return;
     }
@@ -436,6 +438,7 @@ async function syncSecurity() {
     const profile = await currentProfile(true);
     if (!profile) return;
     ensurePasswordButton(profile);
+    ensureMfaButton(profile);
 
     if (profile.debe_cambiar_clave === true) {
       openPasswordDialog(profile, { forced: true });
