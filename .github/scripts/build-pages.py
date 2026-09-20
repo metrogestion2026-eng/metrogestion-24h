@@ -20,6 +20,18 @@ ROOT_FILES = {
 APP_ROOT = re.compile(r'(?:r1-(?:alpha\d+|preview)|v39-(?:login|mobile|preview)|shared)')
 STATIC_SUFFIXES = {'.html', '.js', '.css', '.webmanifest', '.png', '.svg', '.ico', '.jpg', '.jpeg', '.webp', '.gif', '.woff', '.woff2', '.ttf'}
 EXCLUDED_PARTS = {'google-apps-script', 'docs', 'tests', 'supabase', 'validaciones', 'node_modules'}
+CURRENT_APPS = {'r1-alpha75', 'r1-alpha76'}
+
+
+def retired_page(relative):
+    link = '../' * (len(relative.parts) - 1) + 'r1-alpha76/'
+    return ('<!doctype html><html lang="es"><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; base-uri \'none\'; form-action \'none\'">'
+            '<meta name="referrer" content="no-referrer"><meta name="robots" content="noindex">'
+            '<title>Metrogestión · Versión retirada</title>'
+            '<h1>Esta versión ha sido retirada</h1>'
+            f'<p><a href="{link}">Abrir Metrogestión actualizada</a></p></html>')
 
 
 def publishable(relative):
@@ -49,7 +61,12 @@ def build(root, destination):
             continue
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
+        # Historical modules remain dependencies of the current app. Historical
+        # entry points must never republish embedded data or obsolete login flows.
+        if relative.suffix == '.html' and relative.parts[0] not in CURRENT_APPS:
+            target.write_text(retired_page(relative), encoding='utf-8')
+        else:
+            shutil.copy2(source, target)
         count += 1
     if not (destination / 'index.html').is_file():
         raise ValueError('The public index is missing')

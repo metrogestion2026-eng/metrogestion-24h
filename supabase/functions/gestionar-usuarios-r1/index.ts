@@ -1,5 +1,6 @@
+import { BodyError, readJsonObject, validPassword } from "../_shared/http-security.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +12,7 @@ const corsHeaders = {
 function respond(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" },
+    headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" },
   });
 }
 
@@ -92,6 +93,13 @@ Deno.serve(async (request: Request) => {
     return respond(401, { error: "Sesión caducada o no válida." });
   }
 
+  // getUser validates the JWT; also require its session to remain active.
+  const { data: currentCredential, error: credentialError } =
+    await callerClient.rpc("credencial_vigente");
+  if (credentialError || currentCredential !== true) {
+    return respond(401, { error: "Sesión caducada o revocada. Inicia sesión de nuevo." });
+  }
+
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -123,9 +131,9 @@ Deno.serve(async (request: Request) => {
 
   let payload: Record<string, unknown>;
   try {
-    payload = await request.json();
-  } catch {
-    return respond(400, { error: "Datos no válidos." });
+    payload = await readJsonObject(request, 16_384);
+  } catch (error) {
+    return respond(error instanceof BodyError ? error.status : 400, { error: error instanceof BodyError ? error.message : "Datos no válidos." });
   }
 
   const action = String(payload.accion || "").trim();
@@ -143,9 +151,9 @@ Deno.serve(async (request: Request) => {
     const firstName = parts.shift() || "";
     const lastName = parts.join(" ");
 
-    if (!firstName || phoneDigits.length < 9 || !validEmail(email) || password.length < 6 || password.length > 72) {
+    if (!firstName || phoneDigits.length < 9 || !validEmail(email) || !validPassword(password)) {
       return respond(400, {
-        error: "Nombre, teléfono, correo y contraseña deben tener un formato válido. La contraseña necesita al menos 6 caracteres.",
+        error: "Nombre, teléfono, correo y contraseña deben tener un formato válido. La contraseña necesita al menos 8 caracteres, una letra y un número (máximo 72 bytes).",
       });
     }
 
@@ -189,6 +197,7 @@ Deno.serve(async (request: Request) => {
         telefono: phone,
         tipo_usuario: role,
         permisos: initialPermissions(role),
+        debe_cambiar_clave: true,
         activo: true,
       }, { onConflict: "id" })
       .select("id,nombre,apellidos,correo,telefono,tipo_usuario,permisos,activo,creado_en,actualizado_en")
