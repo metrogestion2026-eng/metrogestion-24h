@@ -15,6 +15,10 @@ hasta completar K. Los trámites de cierre único conservan su regla anterior.
   manualmente se conserva. Una fila histórica realizada sin vínculo PA no se
   vuelve a importar.
 - El listado de pendientes aplica también este criterio hasta la recogida.
+- El servidor rechaza individualmente las notas técnicas que pertenecen a otro
+  vehículo, sin trasladar su T ni bloquear las filas válidas. El aviso aparece
+  en el resultado y las filas afectadas quedan en el detalle de sincronización.
+  Esta protección se activa en el servidor y no requiere reinstalar el script.
 
 Publicar la app o este archivo en GitHub no instala el script en Google.
 Para activar la lectura corregida hay que actualizar el proyecto vinculado con
