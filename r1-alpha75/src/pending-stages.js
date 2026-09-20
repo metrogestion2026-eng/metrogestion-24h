@@ -2,6 +2,7 @@ import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
 import { buildListadosSpec, buildSpreadsheetXlsx } from './listados-export.js';
 import { createDetailPdf, downloadDetailPdf } from './panel-pdf.js';
+import { matchesPendingScope } from './pending-filters.js';
 
 const nav = document.querySelector('#module-nav');
 const content = document.querySelector('#module-content');
@@ -204,13 +205,13 @@ async function renderPendingStages(button) {
   try {
     const [hotelResult, maintenanceResult] = await Promise.all([
       supabase.rpc('listar_t_pendientes_30d_alpha74'),
-      supabase.rpc('listar_necesidades_manteniment_pendientes_alpha74'),
+      supabase.rpc('listar_pendientes_manteniment_alpha75'),
     ]);
     if (hotelResult.error) throw hotelResult.error;
     if (maintenanceResult.error) throw maintenanceResult.error;
     if (sequence !== renderSequence || content.dataset[MODULE_FLAG] !== '1') return;
     const hotelRows = [...new Map((hotelResult.data || []).filter(row => row.etapa_id && PENDING_STATES.has(row.estado)).map(row => [row.etapa_id, { ...row, source: 'hotel' }])).values()];
-    const maintenanceRows = [...new Map((maintenanceResult.data || []).filter(row => row.necesidad_id).map(row => [row.necesidad_id, { ...row, source: 'manteniment' }])).values()];
+    const maintenanceRows = [...new Map((maintenanceResult.data?.filas || []).filter(row => row.necesidad_id).map(row => [row.necesidad_id, { ...row, source: 'manteniment' }])).values()];
     const allRows = [...hotelRows, ...maintenanceRows];
     const today = localDateKey();
     const horizon = addDays(today, 30);
@@ -254,14 +255,7 @@ async function renderPendingStages(button) {
       stageState ? `Estado: ${stateLabel(stageState)}` : '', workshop ? `Taller: ${workshop}` : '', dateFrom ? `Desde: ${formatDate(dateFrom)}` : '',
       dateTo ? `Hasta: ${formatDate(dateTo)}` : '', search ? `Buscar: ${search}` : '',
     ].filter(Boolean);
-    const matchesScope = row => {
-      const date = String(row.fecha_referencia || '').slice(0, 10);
-      if (scope === 'next30') return isRUnit(row) && date && date >= today && date <= horizon;
-      if (scope === 'overdue') return date && date < today;
-      if (scope === 'undated') return !date;
-      if (scope === 'inProgress') return row.estado === 'en_curso';
-      return true;
-    };
+    const matchesScope = row => matchesPendingScope(row, scope, today, horizon);
     function persistView() {
       localStorage.setItem(SAVED_VIEW_KEY, JSON.stringify({ source, scope, family, search, unit, stageState, workshop, dateFrom, dateTo }));
     }
@@ -281,13 +275,16 @@ async function renderPendingStages(button) {
       list.replaceChildren();
       if (!visibleRows.length) list.append(el('div', `No hay ${sourceLabel(source)} con estos filtros.`, 'a74-pending-empty'));
       else visibleRows.forEach(row => list.append(stageCard(row, today)));
-      status.textContent = `${visibleRows.length} de ${sourceRows().length} · ${sourceLabel(source)}`;
+      const scopeNote = scope === 'next30' ? ` · Vencidas y previstas hasta ${formatDate(horizon)}` : '';
+      const feedNote = source === 'manteniment' && !maintenanceResult.data?.completo
+        ? ' · La sincronización actual envía vencidas, próximas y prioritarias' : '';
+      status.textContent = `${visibleRows.length} de ${sourceRows().length} · ${sourceLabel(source)}${scopeNote}${feedNote}`;
     }
     function redrawMetrics() {
       const rows = sourceRows();
       const counts = {
         all: rows.length,
-        next30: rows.filter(row => { const date = String(row.fecha_referencia || '').slice(0, 10); return isRUnit(row) && date && date >= today && date <= horizon; }).length,
+        next30: rows.filter(row => matchesPendingScope(row, 'next30', today, horizon)).length,
         overdue: rows.filter(row => row.fecha_referencia && String(row.fecha_referencia).slice(0, 10) < today).length,
         undated: rows.filter(row => !row.fecha_referencia).length,
         inProgress: rows.filter(row => row.estado === 'en_curso').length,
