@@ -28,10 +28,12 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Preparar solo archivos públicos de la app
+        run: python3 .github/scripts/build-pages.py _site
       - name: Preparar sitio
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "."
+          path: "_site"
       - name: Publicar
         id: deployment
         uses: actions/deploy-pages@v4
