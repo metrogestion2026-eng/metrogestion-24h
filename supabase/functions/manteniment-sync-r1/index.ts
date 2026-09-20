@@ -1,5 +1,6 @@
+import { BodyError, readJsonObject } from "../_shared/http-security.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
@@ -29,15 +30,16 @@ Deno.serve(async (request: Request) => {
 
   let body: Record<string, unknown>;
   try {
-    body = await request.json();
-  } catch {
-    return reply(400, { ok: false, error: "El contenido no es un JSON válido." });
+    body = await readJsonObject(request, 4_000_000);
+  } catch (error) {
+    return reply(error instanceof BodyError ? error.status : 400, { ok: false, error: error instanceof BodyError ? error.message : "JSON no válido." });
   }
 
   const token = String(body.token || "").trim();
   const action = String(body.action || "sync").trim().toLowerCase();
   const payload = body.payload as Record<string, unknown> | undefined;
   const rows = Array.isArray(payload?.filas) ? payload.filas : null;
+  const works = Array.isArray(payload?.trabajos) ? payload.trabajos : [];
 
   if (!/^mg_[0-9a-f]{64}$/i.test(token)) {
     return reply(401, { ok: false, error: "Clave de conexión no válida." });
@@ -51,6 +53,7 @@ Deno.serve(async (request: Request) => {
   if (action === "sync" && rows && rows.length > 2500) {
     return reply(400, { ok: false, error: "La fotografía contiene demasiadas filas." });
   }
+  if (works.length > 10000) return reply(400, { ok: false, error: "Demasiadas necesidades de mantenimiento." });
   const confirmations = Array.isArray(body.confirmaciones) ? body.confirmaciones : null;
   if (action === "ack" && (!confirmations || confirmations.length > 500)) {
     return reply(400, { ok: false, error: "Las confirmaciones no tienen un formato válido." });

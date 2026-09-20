@@ -33,6 +33,22 @@ class PublicBuildTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 MODULE.build(root, Path(temp) / 'site')
 
+    def test_legacy_pages_are_replaced_but_imported_modules_remain(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root, destination = Path(temp) / 'repo', Path(temp) / 'site'
+            pages = ['index.html', 'beta-1-8-prueba.html', 'r1-alpha17/index.html', 'v39-preview/metrogestion-2-0.html']
+            for name in pages + ['r1-alpha17/src/supabase.js', 'r1-alpha76/index.html']:
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text('sensitive legacy fixture')
+            MODULE.build(root, destination)
+            for name in pages:
+                content = (destination / name).read_text()
+                self.assertNotIn('sensitive legacy fixture', content)
+                self.assertIn('r1-alpha76/', content)
+            self.assertEqual((destination / 'r1-alpha17/src/supabase.js').read_text(), 'sensitive legacy fixture')
+            self.assertEqual((destination / 'r1-alpha76/index.html').read_text(), 'sensitive legacy fixture')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,5 +1,6 @@
+import { BodyError, readJsonObject, validPassword } from "../_shared/http-security.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,16 +12,10 @@ const corsHeaders = {
 function respond(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" },
+    headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" },
   });
 }
 
-function validNewPassword(value: string) {
-  return value.length >= 8
-    && value.length <= 72
-    && /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(value)
-    && /\d/.test(value);
-}
 
 function randomTemporaryPassword() {
   const letters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -98,6 +93,13 @@ Deno.serve(async (request: Request) => {
     return respond(401, { error: "Sesión caducada o no válida." });
   }
 
+  // This also supports a current temporary password, whose change is required.
+  const { data: currentCredential, error: credentialError } =
+    await caller.rpc("credencial_vigente");
+  if (credentialError || currentCredential !== true) {
+    return respond(401, { error: "Sesión caducada o revocada. Inicia sesión de nuevo." });
+  }
+
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -120,9 +122,9 @@ Deno.serve(async (request: Request) => {
 
   let payload: Record<string, unknown>;
   try {
-    payload = await request.json();
-  } catch {
-    return respond(400, { error: "Datos no válidos." });
+    payload = await readJsonObject(request, 16_384);
+  } catch (error) {
+    return respond(error instanceof BodyError ? error.status : 400, { error: error instanceof BodyError ? error.message : "Datos no válidos." });
   }
 
   const action = String(payload.accion || "").trim();
@@ -137,7 +139,7 @@ Deno.serve(async (request: Request) => {
     if (!currentPassword) {
       return respond(400, { error: "Introduce la contraseña actual." });
     }
-    if (!validNewPassword(newPassword)) {
+    if (!validPassword(newPassword)) {
       return respond(400, {
         error: "La nueva contraseña necesita entre 8 y 72 caracteres, al menos una letra y un número.",
       });
