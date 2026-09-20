@@ -1,5 +1,6 @@
 import { getDeviceLabel } from './device.js';
 import { deviceToken, supabase } from './supabase.js';
+import { ensureSecondFactor } from '../../shared/mfa.js';
 
 function normalizeDeviceResult(data) {
   const row = Array.isArray(data) ? data[0] : data;
@@ -24,6 +25,8 @@ export async function getSecurityContext(session) {
   if (profile.activo !== true) {
     return { allowed: false, reason: 'usuario_bloqueado', profile, device: null };
   }
+
+  await ensureSecondFactor();
 
   const { data: deviceData, error: deviceError } = await supabase.rpc('comprobar_dispositivo', {
     token_recibido: deviceToken

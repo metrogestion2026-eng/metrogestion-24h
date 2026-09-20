@@ -253,9 +253,9 @@ function renderCreateSection(profile, status) {
   const password = document.createElement('input');
   password.type = 'password';
   password.autocomplete = 'new-password';
-  password.minLength = 6;
+  password.minLength = 8;
   password.maxLength = 72;
-  password.placeholder = 'Mínimo 6 caracteres';
+  password.placeholder = 'Mínimo 8 caracteres, letra y número';
 
   const role = document.createElement('select');
   role.append(
@@ -285,8 +285,8 @@ function renderCreateSection(profile, status) {
     const phoneValue = phone.value.trim();
     const emailValue = email.value.trim().toLowerCase();
     const passwordValue = password.value;
-    if (!fullName || phoneValue.replace(/\D/g, '').length < 9 || !emailValue || !email.validity.valid || passwordValue.length < 6) {
-      setStatus(status, 'Completa nombre, teléfono, correo válido y una contraseña de al menos 6 caracteres.', 'danger');
+    if (!fullName || phoneValue.replace(/\D/g, '').length < 9 || !emailValue || !email.validity.valid || passwordValue.length < 8 || !/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(passwordValue) || !/\d/.test(passwordValue) || new TextEncoder().encode(passwordValue).byteLength > 72) {
+      setStatus(status, 'Completa nombre, teléfono, correo válido y una contraseña de al menos 8 caracteres, con letra y número.', 'danger');
       return;
     }
 
