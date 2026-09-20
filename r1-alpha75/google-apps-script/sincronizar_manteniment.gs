@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.20.1',
+  scriptVersion: 'alpha75-2026.09.20.2',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -526,23 +526,25 @@ function metrogestionLeerTrabajos_(
     // un número en E no convierte una línea histórica realizada en pendiente.
     const vinculada = Boolean(trabajoSyncId);
     const fechaRecogida = metrogestionFechaIso_(row[10], `de recogida de la fila ${index + 1}`);
-    const cierreFisicoPendiente = metrogestionCierreFisico_(designacion) && !fechaRecogida;
+    const cierreFisicoPendiente = !fechaRecogida && (
+      metrogestionCierreFisico_(designacion)
+      || ((vinculada || numeroParada) && metrogestionRequiereRecogida_(designacion, tipoTrabajo, row[5]))
+    );
     const pendienteFondoBlanco = metrogestionEsFondoBlanco_(workBackgrounds?.[index]?.[0]);
     const prioridadFondoAmarillo = metrogestionEsFondoAmarillo_(priorityBackgrounds?.[index]?.[0]);
 
-    // H manda sobre cualquier otra señal visual: si tiene color, la necesidad
-    // ya está clasificada o realizada y no vuelve a entrar. El amarillo de A
-    // solo elimina el límite de fecha para una H que continúa blanca.
-    // Una H coloreada puede corresponder a una necesidad pendiente que ya está
-    // en Hotel. Si conserva número de actuación en E y J sigue vacío, también
-    // se envía para completar o reparar su enlace técnico.
-    const pendienteYaEnHotel = !vinculada && Boolean(numeroParada) && !fechaRealizada;
-    if (!pendienteFondoBlanco && !pendienteYaEnHotel) continue;
+    // J es entrada para una visita de taller: el color no sustituye a K.
+    // Las notas técnicas siguen enviando las fechas de los cierres manuales.
+    const pendienteYaEnHotel = Boolean(numeroParada) && !fechaRecogida
+      && (!fechaRealizada || cierreFisicoPendiente);
+    if (!pendienteFondoBlanco && !pendienteYaEnHotel && !vinculada) continue;
+    if (!vinculada && fechaRecogida) continue;
     if (!vinculada && fechaRealizada && !cierreFisicoPendiente) continue;
     if (!vinculada && !prioridadFondoAmarillo && fechaCorteIso && fechaNecesidad > fechaCorteIso) continue;
     const filaParaRegla = row.slice();
     filaParaRegla[6] = tipoTrabajo;
-    const destino = pendienteFondoBlanco && !pedidoEnG ? metrogestionReglaTallerPendiente_(filaParaRegla, referenciasKm) : null;
+    const destino = pendienteFondoBlanco && !pedidoEnG && !fechaRealizada && !fechaRecogida
+      ? metrogestionReglaTallerPendiente_(filaParaRegla, referenciasKm) : null;
     result.push({
       fila: index + 1,
       trabajo_sync_id: trabajoSyncId,
@@ -580,10 +582,13 @@ function metrogestionLeerPendientesListado_(values, workNotes, workBackgrounds, 
     if (!dfm || !designacion || ignored.has(designacion)) continue;
     const white = metrogestionEsFondoBlanco_(workBackgrounds?.[index]?.[0]);
     const stop = metrogestionEsNumeroParada_(row[4]) ? String(row[4]).trim() : '';
-    if (!white && !(stop && !String(row[9] || '').trim())) continue;
-    if (String(row[10] || '').trim()) continue;
-    if (String(row[9] || '').trim() && !metrogestionCierreFisico_(designacion)) continue;
+    const linked = metrogestionNotaTrabajoId_(workNotes?.[index]?.[0]);
     const order = metrogestionEsFondoAmarillo_(orderBackgrounds?.[index]?.[0]);
+    const waitingPickup = metrogestionCierreFisico_(designacion)
+      || ((stop || linked) && metrogestionRequiereRecogida_(designacion, order ? '' : row[6], row[5]));
+    if (!white && !((stop || linked) && (!String(row[9] || '').trim() || waitingPickup))) continue;
+    if (String(row[10] || '').trim()) continue;
+    if (String(row[9] || '').trim() && !waitingPickup) continue;
     result.push({
       fila: index + 1, dfm: row[0], matricula: row[1],
       trabajo_sync_id: metrogestionNotaTrabajoId_(workNotes?.[index]?.[0]),
@@ -1410,6 +1415,17 @@ function metrogestionCierreUnico_(type) {
 
 function metrogestionCierreFisico_(type) {
   return ['REPUESTOS', 'ACT', 'LINDEP', 'CV'].includes(metrogestionTipoNecesidad_(type));
+}
+
+// Misma clasificación que manteniment_requiere_recogida_alpha75 en Supabase.
+// No altera las reglas de periodicidad ni reabre trabajos históricos sin PA.
+function metrogestionRequiereRecogida_(designation, tipo, taller) {
+  if (metrogestionCierreFisico_(designation)) return true;
+  const lugar = metrogestionNormalizar_(taller);
+  const clase = metrogestionNormalizar_(tipo);
+  return Boolean(lugar) && lugar !== 'TM'
+    && !metrogestionCierreUnico_(designation)
+    && !clase.includes('TRAMITE') && !clase.includes('GESTION');
 }
 
 function metrogestionMetadatosNecesidad_(note) {
