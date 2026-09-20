@@ -8,7 +8,7 @@ function fixture() {
     { id: id(1), pizarra_id: id(101), seguimiento_id: id(201), vehiculo_sustituido: 'R1320', numero_parada: '2600121', orden: 5, marca: 'CARRIER', actualizado_en: '2026-09-14T09:00:00Z' },
     { id: id(2), pizarra_id: id(102), seguimiento_id: id(201), vehiculo_sustituido: 'R1320', numero_parada: '2600121', orden: 5, marca: 'CARRIER', actualizado_en: '2026-09-15T09:00:00Z' },
     { id: id(3), pizarra_id: id(102), seguimiento_id: id(202), vehiculo_sustituido: 'R1487', numero_parada: '2600152', orden: 3, marca: 'CARRIER', cancelado: true },
-    { id: id(4), pizarra_id: id(102), seguimiento_id: id(203), vehiculo_sustituido: '2489', matricula_sustituido: '6779MJM', numero_parada: '2600133', orden: 1, marca: 'IVECO' },
+    { id: id(4), pizarra_id: id(102), seguimiento_id: id(203), vehiculo_sustituido: '2489', matricula_sustituido: 'TEST-d793df72', numero_parada: '2600133', orden: 1, marca: 'IVECO' },
   ];
   return {
     registros_hotel: records,
@@ -95,7 +95,7 @@ test('admite PA- y mantiene recuperables las paradas anuladas', async () => {
 });
 
 test('busca matrícula, trabajos, expedientes, documentos por grupo y anotaciones', async () => {
-  for (const [term, expected] of [['6779MJM', 4], ['EXP-999888', 4], ['bomba hidraulica', 4], ['Certificado fugas.pdf', 2], ['plataforma', 4]]) {
+  for (const [term, expected] of [['TEST-d793df72', 4], ['EXP-999888', 4], ['bomba hidraulica', 4], ['Certificado fugas.pdf', 2], ['plataforma', 4]]) {
     const result = await searchHistoricalRecords(fakeClient(fixture()), term);
     assert.deepEqual(result.rows.map(row => row.id), [id(expected)], term);
   }

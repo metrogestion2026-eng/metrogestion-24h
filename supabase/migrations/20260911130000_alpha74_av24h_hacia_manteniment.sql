@@ -157,24 +157,8 @@ $function$;
 revoke all on function app_private.manteniment_encolar_parada(uuid)
   from public, anon, authenticated;
 
-do $do$
-declare
-  v_seguimiento_id uuid;
-begin
-  select r.seguimiento_id into v_seguimiento_id
-  from public.activaciones_24h a
-  join public.registros_hotel r on r.id = a.registro_hotel_id
-  where regexp_replace(upper(btrim(a.dfm)), '[[:space:]]+', '', 'g') = '2625'
-    and upper(btrim(coalesce(r.tipo_movimiento, ''))) = '24H'
-    and coalesce(a.estado, '') <> 'anulada'
-  order by a.actualizado_en desc, a.creado_en desc
-  limit 1;
+-- Correccion puntual de datos excluida del repositorio publico.
 
-  if v_seguimiento_id is not null then
-    perform app_private.manteniment_encolar_parada(v_seguimiento_id);
-  end if;
-end;
-$do$;
 
 comment on function app_private.manteniment_ajuste_24h(uuid) is
   'Genera la fila AV24H y permite desvincular de esa parada las necesidades ordinarias de MANTENIMENT.';

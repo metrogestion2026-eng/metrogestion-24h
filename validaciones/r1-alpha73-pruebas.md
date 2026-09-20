@@ -31,8 +31,8 @@ Enlace oficial: https://metrogestion2026-eng.github.io/metrogestion-24h/r1-alpha
 - Antes de guardar muestra y pide confirmar explícitamente el vehículo, la parada y la reserva; se advierte que una reserva reutilizada no identifica una ficha.
 - La base de datos vuelve a comparar esa identidad con la fila bloqueada y rechaza cualquier discrepancia antes de modificar datos.
 - Cada T existente debe pertenecer al registro abierto y cada trabajo existente debe pertenecer a esa T y a ese registro.
-- Las dos anotaciones ajenas importadas en R1443 se cancelan mediante una corrección exacta y auditada; no se borran físicamente.
-- La anotación correcta de R1443, «parado pendiente de Fridiel», permanece visible.
+- Las dos anotaciones ajenas importadas en RESERVA-DE-EJEMPLO se cancelan mediante una corrección exacta y auditada; no se borran físicamente.
+- La anotación correcta de RESERVA-DE-EJEMPLO, «parado pendiente de Fridiel», permanece visible.
 - La acción rápida para añadir una anotación conserva su operación independiente y no abre ni guarda la ficha completa.
 - Alpha72 permanece cerrada e inmutable; Alpha73 es la versión de usuarios.
 

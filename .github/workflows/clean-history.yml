@@ -1,0 +1,68 @@
+name: Limpieza historica autorizada
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main:
+        description: 'SHA completo de main revisado antes de ejecutar'
+        required: true
+        type: string
+      apply:
+        description: 'Aplicar sustitucion del historial (sin marcar: solo simulacion)'
+        required: true
+        default: false
+        type: boolean
+
+permissions: {}
+concurrency:
+  group: limpieza-historial
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.repository == 'metrogestion2026-eng/metrogestion-24h' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Instalar herramienta verificada
+        shell: bash
+        run: |
+          printf '%s\n' 'git-filter-repo==2.47.0 --hash=sha256:2cd04929b9024e83e65db571cbe36aec65ead0cb5f9ec5abe42158654af5ad83' > "$RUNNER_TEMP/history-requirements.txt"
+          python3 -m pip install --require-hashes -r "$RUNNER_TEMP/history-requirements.txt"
+      - name: Validar y ejecutar operacion solicitada
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_MAIN: ${{ inputs.expected_main }}
+          APPLY: ${{ inputs.apply }}
+        shell: bash
+        run: |
+          args=(--expected-main "$EXPECTED_MAIN")
+          if [ "$APPLY" = 'true' ]; then args+=(--apply); fi
+          python3 .github/scripts/clean-history.py "${args[@]}"
+      - name: Preparar publicacion comprobada
+        if: inputs.apply
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+        with:
+          path: _site
+  deploy:
+    if: inputs.apply
+    needs: cleanup
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar contenido validado
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e

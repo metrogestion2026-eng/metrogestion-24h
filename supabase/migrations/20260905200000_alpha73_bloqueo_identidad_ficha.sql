@@ -136,34 +136,4 @@ revoke all on function public.guardar_ficha_hotel_edicion_alpha73(uuid, integer,
 grant execute on function public.guardar_ficha_hotel_edicion_alpha73(uuid, integer, jsonb, jsonb, jsonb, text)
   to authenticated, service_role;
 
--- Corrección de datos localizada y auditable. Las dos líneas procedentes de
--- la intervención anterior de R1304 se conservan canceladas, nunca se borran.
-select set_config('app.request_id', 'repair-r1443-notes-20260905', true);
-select set_config('app.audit_origin', 'metrogestion-alpha73-reparacion-integridad', true);
-select set_config(
-  'app.audit_reason',
-  'Datos de R1304 mezclados accidentalmente en la ficha R1443; corrección exacta y reversible',
-  true
-);
-
-update public.anotaciones_manuales_hotel n
-set cancelada = true,
-    motivo_cancelacion = 'Anotación perteneciente a R1304, incorporada por error a R1443',
-    cancelada_en = clock_timestamp(),
-    cancelada_por = n.autor_id,
-    modificado_por = n.autor_id,
-    modificador_nombre = n.autor_nombre,
-    version = n.version + 1,
-    actualizado_en = clock_timestamp()
-from public.registros_hotel r
-where r.id = n.registro_origen_id
-  and upper(btrim(coalesce(r.vehiculo_sustituido, ''))) = 'R1443'
-  and btrim(coalesce(r.numero_parada, '')) = '2600151'
-  and upper(btrim(coalesce(r.vehiculo_reserva, ''))) = 'R1269'
-  and n.origen = 'importada'
-  and n.autor_id is not null
-  and not n.cancelada
-  and n.texto in (
-    '-04/09/26 reparado tapa de filtro suelta.',
-    '-04/09/26 recuperado.'
-  );
+-- Correccion puntual de datos excluida del repositorio publico.

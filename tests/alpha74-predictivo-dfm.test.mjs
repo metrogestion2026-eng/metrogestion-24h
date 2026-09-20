@@ -29,7 +29,7 @@ function dfmRow(dfm, matricula, marca, designacion = 'MCD', tipo = 'MANTENIMIENT
 test('MANTENIMENT lee necesidades DFM y transmite la marca de O', () => {
   const values = [
     Array(17).fill(''),
-    dfmRow('2710', '7038NGM', 'MERCEDES-BENZ'),
+    dfmRow('2710', 'TEST-fb2e85be', 'MERCEDES-BENZ'),
     dfmRow('2604', '1234ABC', 'IVECO'),
     dfmRow('2745', '5678DEF', 'VOLVO'),
   ];

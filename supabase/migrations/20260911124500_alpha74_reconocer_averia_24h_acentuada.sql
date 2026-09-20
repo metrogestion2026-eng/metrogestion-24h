@@ -22,23 +22,7 @@ begin
 end;
 $do$;
 
-do $do$
-declare
-  v_registro_id uuid;
-begin
-  select r.id into v_registro_id
-  from public.activaciones_24h a
-  join public.registros_hotel r on r.id = a.registro_hotel_id
-  where regexp_replace(upper(btrim(a.dfm)), '[[:space:]]+', '', 'g') = '2625'
-    and upper(btrim(coalesce(r.tipo_movimiento, ''))) = '24H'
-    and coalesce(a.estado, '') <> 'anulada'
-  order by a.actualizado_en desc, a.creado_en desc
-  limit 1;
+-- Correccion puntual de datos excluida del repositorio publico.
 
-  if v_registro_id is not null then
-    perform app_private.manteniment_reconciliar_asistencia_alpha74(v_registro_id);
-  end if;
-end;
-$do$;
 
 commit;

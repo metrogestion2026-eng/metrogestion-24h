@@ -22,7 +22,7 @@ assert.equal(context.metrogestionNumero_('5.200,50', 'km'), 5200.5);
 
 const values = [
   ['DFM','MATRI','TIPO','UPC/INC','','LUGAR/TALLER/TEL','PEDIDO/NOTA/FIN CONTRA','MANTENIMENT','PROGRAMAT','FET','RECOLLIT','R / CON','','ASSIGNAT','MARCA','KM / HORES','ALBARÀ / ENTRADA'],
-  ['2726','2741NHC','TR','JEYSON','','','2804','PARADA','02/09/2026','01/09/2026','23/09/2026','23','','','IVECO','5200','TANCAMENT 9'],
+  ['2726','TEST-f2c50110','TR','JEYSON','','','2804','PARADA','02/09/2026','01/09/2026','23/09/2026','23','','','IVECO','5200','TANCAMENT 9'],
 ];
 const notes = [[''], ['METROGESTION_PARADA:11111111-1111-4111-8111-111111111111']];
 const rows = context.metrogestionLeerParadasVinculadas_(values, notes);
@@ -31,7 +31,7 @@ assert.deepEqual(JSON.parse(JSON.stringify(rows[0])), {
   fila: 2,
   sync_id: '11111111-1111-4111-8111-111111111111',
   dfm: '2726',
-  matricula: '2741NHC',
+  matricula: 'TEST-f2c50110',
   tipo: 'TR',
   upc: 'JEYSON',
   sustituto: '2804',

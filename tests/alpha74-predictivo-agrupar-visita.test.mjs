@@ -148,7 +148,7 @@ test('una asignación antigua ya vinculada se omite y no bloquea las pendientes 
     necesidad: '17/06/2026',
     realizada: '17/06/2026',
   });
-  linked[1] = '7038NGM';
+  linked[1] = 'TEST-fb2e85be';
   const pending = row({
     dfm: '2710',
     taller: 'APPLUS VILAFRANCA',
@@ -156,7 +156,7 @@ test('una asignación antigua ya vinculada se omite y no bloquea las pendientes 
     designacion: '44TN',
     necesidad: '09/10/2026',
   });
-  pending[1] = '7038NGM';
+  pending[1] = 'TEST-fb2e85be';
   const values = [Array(17).fill(''), linked, pending];
   const notesE = ['', `METROGESTION_T:${linkedSyncId}`, ''];
   const writes = [];
@@ -176,7 +176,7 @@ test('una asignación antigua ya vinculada se omite y no bloquea las pendientes 
   const applied = context.metrogestionAplicarAsignacionesTrabajos_(sheet, [
     {
       fila: 3299,
-      clave_fila: '2710|7038NGM|AUTODIS PDF6|ELECTRONICA|AV|2026-06-17',
+      clave_fila: '2710|TEST-fb2e85be|AUTODIS PDF6|ELECTRONICA|AV|2026-06-17',
       trabajo_sync_id: linkedSyncId,
     },
     {
@@ -205,7 +205,7 @@ test('varios bloques del mismo trabajo pueden compartir vínculo dentro de la mi
     designacion: 'MCD',
     necesidad: '25/08/2026',
   });
-  first[1] = '2741NHC';
+  first[1] = 'TEST-f2c50110';
   const second = row({
     dfm: '2726',
     parada: 'PA-2600127',
@@ -214,7 +214,7 @@ test('varios bloques del mismo trabajo pueden compartir vínculo dentro de la mi
     designacion: 'MCD',
     necesidad: '25/08/2026',
   });
-  second[1] = '2741NHC';
+  second[1] = 'TEST-f2c50110';
   const values = [Array(17).fill(''), first, second];
   const notesE = ['', `METROGESTION_T:${sharedSyncId}`, `METROGESTION_T:${sharedSyncId}`];
   const sheet = {

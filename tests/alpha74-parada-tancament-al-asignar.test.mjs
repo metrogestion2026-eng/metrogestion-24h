@@ -11,7 +11,7 @@ vm.runInContext(script, context, { filename: 'sincronizar_manteniment.gs' });
 const headers = ['DFM','MATRI','TIPO','UPC/INC','','LUGAR/TALLER/TEL','PEDIDO/NOTA/FIN CONTRA','MANTENIMENT','PROGRAMAT','FET','RECOLLIT','R / CON','','ASSIGNAT','MARCA','KM / HORES','ALBARÀ / ENTRADA'];
 const values = [
   headers,
-  ['2489','6779MJM','TR','JUAN','PA-2600200','','2600','PARADA','07/09/2026','','','','','','IVECO','',''],
+  ['2489','TEST-d793df72','TR','JUAN','PA-2600200','','2600','PARADA','07/09/2026','','','','','','IVECO','',''],
   ['2490','1234ABC','TR','JUAN','PA-2600201','','2601','ANULADA','','','','','','','IVECO','',''],
 ];
 const notes = [
@@ -53,7 +53,7 @@ const fakeSheet = {
 
 const operationalBefore = [8, 9, 10, 11, 15, 16].map(index => sheetData[1][index]);
 context.metrogestionEscribirFilaParada_(fakeSheet, 2, {
-  dfm: '2489', matricula: '6779MJM', tipo: 'TR', upc: 'JUAN', numero_parada: 'PA-2600200',
+  dfm: '2489', matricula: 'TEST-d793df72', tipo: 'TR', upc: 'JUAN', numero_parada: 'PA-2600200',
   sustituto: '2600', marca: 'IVECO', estado: 'ANULADA'
 }, '11111111-1111-4111-8111-111111111111', false);
 assert.equal(sheetData[1][7], 'ANULADA');
