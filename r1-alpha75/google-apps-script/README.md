@@ -2,7 +2,23 @@
 
 Este script sustituye el contenido del proyecto de Google Apps Script vinculado al archivo madre **MANTENIMIENTOS**.
 
-## Actualización del 20/09/2026 · script `alpha75-2026.09.20.1`
+## Actualización del 20/09/2026 · script `alpha75-2026.09.20.2`
+
+En las reparaciones y mantenimientos de taller vinculados a una PA, J es la
+entrada y K la recogida. Una J informada y una fila coloreada siguen pendientes
+hasta completar K. Los trámites de cierre único conservan su regla anterior.
+
+- El servidor reutiliza la entrada del mismo taller cuya fecha real coincide con
+  J; si hay varias coincidencias o falta una entrada compatible, avisa sin crear
+  otra T. Solo procesa las visitas incluidas en el lote recibido.
+- La recogida confirmada completa K y pinta la línea de verde. Una K introducida
+  manualmente se conserva. Una fila histórica realizada sin vínculo PA no se
+  vuelve a importar.
+- El listado de pendientes aplica también este criterio hasta la recogida.
+
+Publicar la app o este archivo en GitHub no instala el script en Google.
+Para activar la lectura corregida hay que actualizar el proyecto vinculado con
+este archivo completo y comprobar `alpha75-2026.09.20.2` en **Ver estado local**.
 
 El listado de pendientes recibe todas las necesidades de la hoja, incluidas las
 que aún no tienen una T, las lejanas y las que no tienen fecha. Este bloque de
