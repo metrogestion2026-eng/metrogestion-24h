@@ -21,6 +21,8 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
+      - name: Evitar datos operativos en el repositorio publico
+        run: python3 .github/scripts/check-public-privacy.py
       - name: Comprobar sintaxis JavaScript
         shell: bash
         run: |
