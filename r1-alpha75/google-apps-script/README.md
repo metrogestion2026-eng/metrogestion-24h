@@ -1,6 +1,41 @@
-# MANTENIMENT ↔ Metrogestión · Alpha75
+# MANTENIMENT ↔ Metrogestión · Alpha75 / Alpha76
 
 Este script sustituye el contenido del proyecto de Google Apps Script vinculado al archivo madre **MANTENIMIENTOS**.
+
+## Actualización del 20/09/2026 · script `alpha75-2026.09.20.1`
+
+El listado de pendientes recibe todas las necesidades de la hoja, incluidas las
+que aún no tienen una T, las lejanas y las que no tienen fecha. Este bloque de
+lectura es independiente del bloque que crea órdenes y no genera T nuevas.
+La sincronización anterior sigue enviando vencidas, próximas y prioritarias;
+instalar este script amplía el listado completo y añade el detalle de Q.
+La interfaz Alpha75.19 incluye vencidas y fechas hasta hoy + 30 días y aplica
+el selector de unidad de forma explícita, sin limitarlo internamente a R.
+
+Parte del código activo `alpha75-2026.09.17.4` facilitado por el usuario, incluidas
+la ejecución por tandas, la vista previa, la pausa y las reglas de próximas necesidades.
+
+- Actualiza una cola guardada de la versión anterior con las órdenes vigentes del
+  servidor, conservando el identificador del ciclo y los contadores de avance.
+- Localiza trabajos por UUID, unidad, matrícula, necesidad y fecha, con lectura
+  actual de las filas y del color de G. Una nota copiada a otra necesidad no basta.
+- Si la confirmación al servidor falla después de escribir, guarda su acuse y
+  reintenta solo esa confirmación.
+- Conserva el paso del error aunque después tenga que restaurar el filtro.
+- Replanifica próximas necesidades tras cada tanda; reutiliza las ya existentes y
+  señala las coincidencias ambiguas sin crear otra copia.
+- Completa F según las normas confirmadas de Mercedes, Iveco, gestión y extintores,
+  únicamente en necesidades pendientes; conserva los talleres históricos.
+
+Sustituir **todo** el código del mismo proyecto de Apps Script, guardar, recargar
+la hoja y pulsar **Metrogestión → Sincronizar ahora**. No borrar las propiedades
+ni cambiar la clave: el avance se recupera automáticamente. Comprobar la versión
+en **Ver estado local**. El identificador del script es distinto de la versión
+`r1.0.0-alpha.76.4` de la interfaz web.
+
+Validado con simulaciones locales de filas desplazadas, notas copiadas, fallos de
+confirmación e interrupciones de creación. La ejecución real en Google queda
+pendiente de instalar este código en el proyecto vinculado.
 
 ## Qué sincroniza
 
@@ -37,31 +72,63 @@ Este script sustituye el contenido del proyecto de Google Apps Script vinculado 
 - Durante cada ejecución se reutilizan las carpetas ya localizadas y no se
   reescriben enlaces que ya sean correctos, reduciendo las llamadas a Drive.
 
-## Taller F automático para R y DFM
+## Taller F de las necesidades pendientes
 
-Si F está vacío, Metrogestión lo completa al importar sin modificar la hoja:
+El script completa o normaliza F con estas normas confirmadas:
 
-- GESTIÓN → `UPC`.
-- MANTENIMIENTO + H=`BPW` → `DIRECAUTO`.
-- MANTENIMIENTO + H=`MCD` + Q=`THERMO KING` → `FRIGICOLL`.
-- MANTENIMIENTO + H=`MCD` + Q=`CARRIER` → `FRIDIEL`.
-- TRÁMITE + H=`ITV` → `APPLUS (RED DE ITV)`.
-- TRÁMITE + H=`RT` → `AUTODIS`.
-- TRÁMITE + H=`TMG` o `ATP` → `INVERYCA`.
-- TRÁMITE + H=`EXTINTOR` → `UPC`.
+| Marca / necesidad | F | G, si cambia |
+| --- | --- | --- |
+| Mercedes · MCD o AV | STERN MOTOR | |
+| Todas · RT | AUTODIS | |
+| Iveco · MCD o AV | AUTODIS | |
+| MAN · MCD o AV | MAN | |
+| Volvo · MCD o AV | VOLVO | |
+| Carrier · MCD o AV | FRIDIEL | |
+| Thermo King · MCD o AV | FRIGICOLL | |
+| Hwasung / HW · MCD o AV | DIESEL PENEDÈS | |
+| Iveco · GP o GC, incluidas marcas mixtas con equipo de frío | AUTODIS | |
+| Frigorífico · GP o GC | DIRECAUTO | |
+| N = FRAGADIS · Iveco · AV | SIDECO | |
+| N = FRAGADIS · Volvo · AV | REUS FLEMING | |
+| Todas · BPW | DIRECAUTO | |
+| Todas · ATP o TMG | INVERYCA | |
+| Todas · GESTIÓN | UPC | |
+| Todas · EXTINTOR | TM | TRÁMITE |
 
-Para los DFM, si F está vacío y H=`MCD` o H=`AV`, la marca de O asigna el taller:
+La regla requiere J y K vacías, H blanca y G sin pedido amarillo. Se aplica a la
+hoja al procesar próximas necesidades y al envío de pendientes a la app. Las
+renovaciones nuevas reciben la misma norma. Las necesidades realizadas conservan
+su taller, modalidad y datos; la clave de origen enviada al servidor sigue siendo
+la de la fila leída, aunque se normalice el taller del envío.
 
-- `MERCEDES` → `STERN MOTOR`.
-- `IVECO` → `AUTO DISTRIBUCIÓN`.
-- `MAN` → `MAN`.
-- `VOLVO` → `VOLVO`.
+En marcas mixtas (por ejemplo, `IVECO/CAR` o `MER/CARR`), Q distingue el
+mantenimiento del vehículo del frigorífico. A/B, horas H y MHW se asignan al
+equipo de frío; los códigos de motor, tiempo, frenos, EO o FF van al vehículo.
+Los trabajos sin detalle suficiente conservan F para consulta. Los tipos sin
+una norma no se completan en la hoja.
 
-Si O no permite identificar exactamente una de estas cuatro marcas, el taller
-queda vacío para revisión manual.
+Para GP/GC, la regla de Iveco tiene prioridad sobre la del equipo de frío y se
+aplica tanto a tractoras como a rígidos. La distinción de destino entre tractoras
+y rígidos de otras marcas sigue pendiente de confirmación.
 
-Un valor escrito en F tiene prioridad salvo en `TRÁMITE` y `GESTIÓN`, donde manda G.
-`LKT` y `EXTINTOR` se consideran siempre `TRÁMITE`. REPARACIÓN no infiere taller.
+Si Q no identifica el mantenimiento, P se contrasta con el kilometraje de la
+misma unidad. Se priorizan lecturas de TRUCKPOINT, IVECO ON o GESINFLOT; después,
+kilómetros de trabajos realizados en talleres del vehículo y previsiones cuyo
+tipo es conocido. Se excluyen los kilómetros facturables de PARADA. Se admiten
+unidades explícitas H/HORAS/KM y separadores de millares de la hoja.
+
+Como margen conservador, un P igual o inferior a la décima parte de la referencia se
+interpreta como horas del frigorífico; desde la mitad de la referencia se
+interpreta como kilómetros. Los valores intermedios o sin referencia conservan
+F para revisión. No se modifica P. La excepción FRAGADIS afecta únicamente a AV;
+los MCD del camión conservan el taller de su marca.
+
+En el servidor, F explícita conserva prioridad. Cuando llega vacía, el helper
+privado aplica estas normas y conserva las inferencias anteriores para BPW,
+frigoríficos R, MAN, Volvo, ITV, RT y TMG/ATP. No modifica históricos almacenados.
+
+## Visitas y cierre
+
 - `TANCAMENT n` utiliza la fecha K como corte de facturación y no como recuperación operativa.
 - La celda Q permanece rosa pastel mientras el cierre no esté supervisado.
 - En las necesidades predictivas, el fondo de la columna H es autoritativo:
@@ -70,10 +137,10 @@ Un valor escrito en F tiene prioridad salvo en `TRÁMITE` y `GESTIÓN`, donde ma
 - Los trabajos que comparten taller en F se agrupan dentro de una sola visita:
   una T de entrada, todos sus trabajos y una T de recogida.
 - Una H diferente en el mismo taller crea otro trabajo dentro de la visita,
-  no otra T. `GESTIÓN` y `TRÁMITE` sí conservan una T propia.
+  no otra T. La agrupación por lugar también incluye `GESTIÓN` y `TRÁMITE`.
 - `TM` crea una entrada con sus trabajos, pero no crea T de recogida.
-- `LKT`, `EXTINTOR` y los demás `TRÁMITE` crean una sola T propia y nunca recogida.
-- `TRÁMITE` y `GESTIÓN` no generan entrada, recogida ni recuperación de ruta.
+- Una visita exclusivamente de `TRÁMITE` o `GESTIÓN` no genera entrada, recogida
+  ni recuperación de ruta. Si comparte F con trabajos físicos, se integra en su visita.
 - Al realizar una T administrativa, su fecha se escribe en J y K y la línea completa
   queda verde, sin crear por ello una fila `PARADA`.
 

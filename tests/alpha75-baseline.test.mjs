@@ -40,7 +40,8 @@ function normalizeVersionSpecificText(source) {
 test('Alpha75 nace como copia funcional exacta de Alpha74 validada', async () => {
   const files74 = await filesUnder(alpha74);
   const files75 = await filesUnder(alpha75);
-  assert.deepEqual(files75, files74.filter(file => file !== path.join('src', 'redirect-alpha76.js')));
+  const added75 = new Set(['src/stages-collapse.js', 'src/pending-filters.js']);
+  assert.deepEqual(files75.filter(file => !added75.has(file)), files74.filter(file => file !== path.join('src', 'redirect-alpha76.js')));
 
   const alpha75Changes = new Set([
     'VERSION',
@@ -55,6 +56,9 @@ test('Alpha75 nace como copia funcional exacta de Alpha74 validada', async () =>
     path.join('src', 'hotel-editor.js'),
     path.join('src', 'hotel-editor-stages.js'),
     path.join('src', 'pending-stages.js'),
+    path.join('src', 'pending-filters.js'),
+    path.join('src', 'stages-collapse.js'),
+    path.join('src', 'hotel-create.js'),
     path.join('google-apps-script', 'README.md'),
     path.join('google-apps-script', 'sincronizar_manteniment.gs'),
     'panel-native.css',
@@ -77,10 +81,10 @@ test('Alpha75 nace como copia funcional exacta de Alpha74 validada', async () =>
 });
 
 test('Alpha75 muestra y carga su identificador independiente', async () => {
-  assert.equal((await readFile(path.join(alpha75, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.75.17');
+  assert.equal((await readFile(path.join(alpha75, 'VERSION'), 'utf8')).trim(), 'r1.0.0-alpha.75.19');
   const app = await readFile(path.join(alpha75, 'src', 'app.js'), 'utf8');
   const html = await readFile(path.join(alpha75, 'index.html'), 'utf8');
-  assert.match(app, /r1\.0\.0-alpha\.75\.17/);
-  assert.match(html, /\.\/src\/app\.js\?v=75\.17/);
+  assert.match(app, /r1\.0\.0-alpha\.75\.19/);
+  assert.match(html, /\.\/src\/app\.js\?v=75\.19/);
   assert.doesNotMatch(html, /r1-alpha74/);
 });
