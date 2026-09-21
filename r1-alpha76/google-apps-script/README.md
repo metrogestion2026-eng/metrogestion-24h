@@ -2,6 +2,21 @@
 
 Este script sustituye el contenido del proyecto de Google Apps Script vinculado al archivo madre **MANTENIMIENTOS**.
 
+## Actualización del 21/09/2026 · script `alpha76-2026.09.21.2`
+
+Las paradas de vehículos externos pueden crearse sin una fila ALTA. Su archivo
+documental se busca primero en `A-FLOTA/<DFM>` y, si no existe allí, en
+`A-FLOTA/7A INTERCAMBIO/<DFM>`. Dentro de la carpeta existente se crea o reutiliza
+`PARADAS/<PA-número>`, conservando su ubicación y documentación anterior.
+No se crea una carpeta DFM duplicada ni se da de alta el vehículo en la flota.
+Si la carpeta falta en ambas ubicaciones o hay nombres duplicados que impiden
+elegir con seguridad, se conserva el avance y se informa del problema.
+
+Actualizar el código completo dentro del mismo proyecto de Apps Script y
+guardar. Conservar las propiedades del proyecto y usar **Reintentar** o
+**Metrogestión → Sincronizar ahora** para retomar el avance guardado.
+La versión equivalente de Alpha75 es `alpha75-2026.09.21.2`.
+
 ## Qué sincroniza
 
 - Solo usa la hoja `MANTENIMENT` del archivo madre configurado.
@@ -23,7 +38,8 @@ Este script sustituye el contenido del proyecto de Google Apps Script vinculado 
   columnas quedan protegidas contra escrituras manuales y la sincronización
   incluye una función específica para restablecer la protección si faltara. La
   comprobación no se repite en cada sincronización para no consumir tiempo.
-- Cada número de parada utiliza una sola carpeta en `A-FLOTA/<DFM>/PARADAS/<PA-número>`.
+- Cada número de parada utiliza una sola carpeta en `A-FLOTA/<DFM>/PARADAS/<PA-número>`
+  o, para los archivos de intercambio, en `A-FLOTA/7A INTERCAMBIO/<DFM>/PARADAS/<PA-número>`.
   Si una fila ya tiene un enlace creado manualmente, se reutiliza. Al sincronizar,
   el mismo enlace se aplica a todas las filas que contengan ese número de parada,
   incluidas `PARADA`, `AV`, mantenimientos, recogidas y recuperaciones.
