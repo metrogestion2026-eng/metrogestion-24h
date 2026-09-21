@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.21.1',
+  scriptVersion: 'alpha75-2026.09.21.2',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -763,9 +763,15 @@ function metrogestionObtenerCarpetaParada_(dfm, numeroParada, preferredUrls) {
     return METROGESTION_EXECUTION_CACHE.get(cacheKey);
   }
   const archivoFlota = DriveApp.getFolderById(METROGESTION.archivoFlotaFolderId);
-  const carpetaDfm = metrogestionBuscarCarpetaUnica_(archivoFlota, codigoDfm);
+  let carpetaDfm = metrogestionBuscarCarpetaUnica_(archivoFlota, codigoDfm);
+  // Los vehículos de intercambio conservan su archivo en esta subcarpeta,
+  // aunque no tengan una fila ALTA. Reutilizarlo evita duplicar su documentación.
   if (!carpetaDfm) {
-    throw new Error(`No existe la carpeta del DFM ${codigoDfm} dentro de A-FLOTA.`);
+    const intercambio = metrogestionBuscarCarpetaUnica_(archivoFlota, '7A INTERCAMBIO');
+    if (intercambio) carpetaDfm = metrogestionBuscarCarpetaUnica_(intercambio, codigoDfm);
+  }
+  if (!carpetaDfm) {
+    throw new Error(`No existe la carpeta del DFM ${codigoDfm} en A-FLOTA ni en A-FLOTA/7A INTERCAMBIO.`);
   }
   let carpetasParadas = metrogestionCarpetasPorNombre_(carpetaDfm, 'PARADAS');
   if (!carpetasParadas.length) carpetasParadas = [carpetaDfm.createFolder('PARADAS')];
