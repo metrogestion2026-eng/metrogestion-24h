@@ -30,6 +30,8 @@ jobs:
           find r1-alpha* shared -type f -name '*.js' -print0 | xargs -0 -n1 node --check
       - name: Comprobar sesiones, entradas y segundo factor
         run: node --test tests/security-*.test.mjs
+      - name: Comprobar paradas de vehículos externos y reintentos
+        run: node --test tests/alpha75-paradas-externas.test.mjs
       - name: Comprobar exclusión de archivos internos y páginas antiguas
         run: python3 tests/pages-public-files.test.py
       - name: Verificar compilación pública

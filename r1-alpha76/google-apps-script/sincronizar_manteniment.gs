@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.11.8',
+  scriptVersion: 'alpha76-2026.09.21.1',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -1188,22 +1188,33 @@ function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
   const values = sheetState?.values?.slice(1).map(row => row.slice(0, 8))
     || sheet.getRange(2, 1, Math.max(lastRow - 1, 1), 8).getDisplayValues();
   const dfm = metrogestionNormalizar_(payload.dfm);
+  if (!dfm || !metrogestionNormalizar_(payload.numero_parada)) {
+    throw new Error('No se puede crear una fila operativa sin DFM y número de actuación válidos.');
+  }
   let altaRow = 0;
+  let paradaRow = 0;
+  let exampleRow = 0;
   let anchorRow = 0;
   values.forEach((row, index) => {
     const number = index + 2;
+    const estado = metrogestionNormalizar_(row[7]);
+    if (!exampleRow && ['ALTA', 'PARADA'].includes(estado)) exampleRow = number;
     if (metrogestionNormalizar_(row[0]) === dfm) {
       anchorRow = number;
-      if (metrogestionNormalizar_(row[7]) === 'ALTA') altaRow = number;
+      if (estado === 'ALTA') altaRow = number;
+      if (estado === 'PARADA') paradaRow = number;
     }
   });
-  if (!altaRow) throw new Error(`No se encuentra la fila ALTA del DFM ${payload.dfm || 'sin código'}.`);
-  anchorRow = Math.max(anchorRow, altaRow);
+  // Las sustituciones de vehículos externos también generan PARADA o AV24H.
+  // La plantilla aporta formato, nunca un alta ni datos de otro vehículo.
+  const templateRow = altaRow || paradaRow || anchorRow || exampleRow;
+  if (!templateRow) throw new Error('No existe una fila operativa que pueda utilizarse como plantilla.');
+  anchorRow = anchorRow || lastRow;
   sheet.insertRowAfter(anchorRow);
   const targetRow = anchorRow + 1;
-  metrogestionCopiarPlantillaOperativa_(sheet, altaRow, targetRow);
+  metrogestionCopiarPlantillaOperativa_(sheet, templateRow, targetRow);
   sheet.getRange(targetRow, 1, 1, 17).clearContent().clearNote();
-  sheet.setRowHeight(targetRow, sheet.getRowHeight(altaRow));
+  sheet.setRowHeight(targetRow, sheet.getRowHeight(templateRow));
   if (sheetState?.values) sheetState.values.splice(targetRow - 1, 0, Array(17).fill(''));
   if (sheetState?.notesA) sheetState.notesA.splice(targetRow - 1, 0, '');
   if (sheetState?.notesE) sheetState.notesE.splice(targetRow - 1, 0, '');
