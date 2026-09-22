@@ -13,7 +13,7 @@ test('la página 7 permite cerrar como vehículo operativo/reparado y pide la ho
   assert.match(app, /Hora de fin de reparación/);
   assert.match(app, /state\.resultado==='operativo_reparado'&&!state\.hora_fin_reparacion/);
   assert.match(app, /Guardar vehículo operativo\/reparado/);
-  assert.match(app, /hora_fin_reparacion:state\.hora_fin_reparacion/);
+  assert.match(app, /hora_fin_reparacion:state\.resultado==='operativo_reparado'/);
   assert.match(app, /estado:state\.resultado==='operativo_reparado'\?'cerrada':'abierta'/);
   assert.match(app, /const openIncidences=/);
   assert.match(app, /if\(current===6\)\{await saveActivation\(\);openIncidences\(\);return;\}/);
