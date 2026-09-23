@@ -32,6 +32,10 @@ jobs:
         run: node --test tests/security-*.test.mjs
       - name: Comprobar paradas de vehículos externos y reintentos
         run: node --test tests/alpha75-paradas-externas.test.mjs
+      - name: Instalar PostgreSQL local para pruebas de sincronización
+        run: npm ci --prefix tests/sql-runtime --ignore-scripts
+      - name: Comprobar necesidades y trabajos en ambos sentidos
+        run: node --test tests/alpha75-bidireccional-*.test.mjs
       - name: Comprobar fechas y navegación del asistente 24H
         run: node --test tests/alpha75-24h-wizard-close.test.mjs
       - name: Comprobar exclusión de archivos internos y páginas antiguas
