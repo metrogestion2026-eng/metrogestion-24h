@@ -32,6 +32,8 @@ jobs:
         run: node --test tests/security-*.test.mjs
       - name: Comprobar paradas de vehículos externos y reintentos
         run: node --test tests/alpha75-paradas-externas.test.mjs
+      - name: Comprobar prioridad del taller manual y averías de semirremolques
+        run: node --test tests/alpha75-taller-manual.test.mjs
       - name: Comprobar fechas y navegación del asistente 24H
         run: node --test tests/alpha75-24h-wizard-close.test.mjs
       - name: Comprobar exclusión de archivos internos y páginas antiguas
