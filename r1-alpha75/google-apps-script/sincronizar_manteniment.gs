@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.21.2',
+  scriptVersion: 'alpha75-2026.09.25.1',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -638,6 +638,106 @@ function metrogestionSiguienteCaducidadItv_(fechaCaducidadIso, fechaRealizadaIso
   return metrogestionMoverAnos_(conservaCaducidad ? fechaCaducidadIso : fechaRealizadaIso, 1);
 }
 
+
+function metrogestionCrearTrabajosDesdeHotel_(sheet, works, sheetState) {
+  if (!Array.isArray(works) || !works.length) return [];
+  const created = [];
+  const used = new Set();
+
+  works.forEach(work => {
+    const syncId = String(work?.trabajo_sync_id || '').trim().toLowerCase();
+    if (!/^[0-9a-f-]{36}$/i.test(syncId)) {
+      throw new Error('Supabase devolvió una necesidad nueva sin identificador válido.');
+    }
+    if (used.has(syncId)) return;
+    used.add(syncId);
+
+    const values = sheetState?.values || sheet.getRange(1, 1, sheet.getLastRow(), 17).getDisplayValues();
+    const notesE = sheetState?.notesE || sheet.getRange(1, 5, sheet.getLastRow(), 1).getNotes().map(r => String(r[0] || ''));
+
+    let rowNumber = 0;
+    for (let index = 1; index < values.length; index += 1) {
+      if (metrogestionNotaTrabajoId_(notesE[index])?.toLowerCase() === syncId) {
+        rowNumber = index + 1;
+        break;
+      }
+    }
+
+    if (!rowNumber) {
+      if (!metrogestionNormalizar_(work.dfm) || !metrogestionEsNumeroParada_(work.numero_parada)) {
+        throw new Error('No se puede crear una necesidad de Hotel sin DFM y PA válidos.');
+      }
+
+      rowNumber = metrogestionInsertarFilaParada_(sheet, {
+        dfm: work.dfm,
+        numero_parada: work.numero_parada
+      }, sheetState);
+
+      const range = sheet.getRange(rowNumber, 1, 1, 17);
+      const row = range.getValues()[0];
+      row[0] = work.dfm || '';
+      row[1] = work.matricula || '';
+      row[2] = work.tipo || '';
+      row[3] = work.upc || '';
+      row[4] = work.numero_parada || '';
+      row[5] = work.taller || '';
+      row[6] = work.tipo_trabajo || '';
+      row[7] = work.designacion || '';
+      row[8] = metrogestionDate_(work.fecha_necesidad);
+      row[9] = metrogestionDate_(work.fecha_entrada);
+      row[10] = metrogestionDate_(work.fecha_salida);
+      row[14] = work.marca || '';
+      row[15] = work.km_averia ?? '';
+      row[16] = work.expediente || '';
+      range.setValues([row]);
+      range.setBackground(work.fecha_salida ? '#d9ead3' : '#ffffff');
+      sheet.getRange(rowNumber, 5).setBackground('#cfe2f3');
+      sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
+      sheet.getRange(rowNumber, 16).setNumberFormat('#,##0');
+
+      const noteE = metrogestionNotaConTrabajo_('', syncId);
+      sheet.getRange(rowNumber, 5).setNote(noteE);
+
+      const detail = [
+        work.motivo_entrada || '',
+        work.diagnostico_real || '',
+        work.detalle || ''
+      ].filter(Boolean).join('\n');
+      if (detail) sheet.getRange(rowNumber, 8).setNote(detail);
+
+      if (sheetState?.values?.[rowNumber - 1]) {
+        const cached = sheetState.values[rowNumber - 1];
+        cached[0] = work.dfm || '';
+        cached[1] = work.matricula || '';
+        cached[2] = work.tipo || '';
+        cached[3] = work.upc || '';
+        cached[4] = work.numero_parada || '';
+        cached[5] = work.taller || '';
+        cached[6] = work.tipo_trabajo || '';
+        cached[7] = work.designacion || '';
+        cached[8] = work.fecha_necesidad || '';
+        cached[9] = work.fecha_entrada || '';
+        cached[10] = work.fecha_salida || '';
+        cached[14] = work.marca || '';
+        cached[15] = work.km_averia ?? '';
+        cached[16] = work.expediente || '';
+      }
+      if (sheetState?.notesE) sheetState.notesE[rowNumber - 1] = noteE;
+    }
+
+    const rowValues = sheetState?.values?.[rowNumber - 1]
+      || sheet.getRange(rowNumber, 1, 1, 17).getDisplayValues()[0];
+
+    created.push({
+      trabajo_sync_id: syncId,
+      fila: rowNumber,
+      clave_fila: metrogestionClaveFilaTrabajo_(rowValues, false),
+    });
+  });
+
+  return created;
+}
+
 function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks) {
   return commands.map(command => {
     if (command?.tipo === 'alta') return metrogestionAplicarComandoAlta_(sheet, command, sheetState);
@@ -645,6 +745,11 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
     const syncId = String(command?.sync_id || payload.sync_id || '').trim();
     if (!/^[0-9a-f-]{36}$/i.test(syncId)) throw new Error('Supabase devolvió una fila PARADA sin identificador válido.');
     if (payload.solo_trabajos === true) {
+      const createdWorks = metrogestionCrearTrabajosDesdeHotel_(
+        sheet,
+        Array.isArray(payload.trabajos_crear) ? payload.trabajos_crear : [],
+        sheetState
+      );
       const adjustment24h = metrogestionAplicarAjuste24h_(sheet, payload.ajuste_24h, sheetState);
       const assignedWorks = metrogestionAplicarAsignacionesTrabajos_(
         sheet,
@@ -668,6 +773,7 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
         trabajos_asignados: assignedWorks,
         ajustes_24h: adjustment24h,
         filas_archivo_enlazadas: linkedArchiveRows,
+        trabajos_creados: createdWorks,
       };
     }
     let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, sheetState);
@@ -675,6 +781,11 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
     const nuevaFila = !rowNumber;
     if (nuevaFila) rowNumber = metrogestionInsertarFilaParada_(sheet, payload, sheetState);
     metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuevaFila, sheetState);
+    const createdWorks = metrogestionCrearTrabajosDesdeHotel_(
+      sheet,
+      Array.isArray(payload.trabajos_crear) ? payload.trabajos_crear : [],
+      sheetState
+    );
     const adjustment24h = metrogestionAplicarAjuste24h_(sheet, payload.ajuste_24h, sheetState);
     const assignedWorks = metrogestionAplicarAsignacionesTrabajos_(
       sheet,
@@ -699,6 +810,7 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
       trabajos_asignados: assignedWorks,
       ajustes_24h: adjustment24h,
       filas_archivo_enlazadas: linkedArchiveRows,
+      trabajos_creados: createdWorks,
     };
   });
 }
