@@ -3,7 +3,7 @@ import { createStagesToggle } from '../../r1-alpha75/src/stages-collapse.js?v=75
 import {
   bindCheckbox, bindText, createCheckbox, createInput, createTextarea,
   fieldLabel, makeNewStage, makeNewWork, stagesPayload
-} from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
+} from '../../r1-alpha17/src/modules/hotel-editor-utils.js?v=76.9';
 import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js';
 
 export function stagesPayloadWithCatalogues(stages) {
@@ -319,7 +319,7 @@ export function renderStagesSection(detail, markDirty) {
       renderWorks(detail, stage, worksHost, markDirty);
       const addWorkButton = element('button', { className: 'button secondary compact', type: 'button', text: '+ Añadir trabajo' });
       addWorkButton.addEventListener('click', () => {
-        stage.trabajos.push(makeNewWork(detail.catalogos.tipos_trabajo[0]?.codigo || 'AV'));
+        stage.trabajos.push(makeNewWork(''));
         markDirty();
         renderWorks(detail, stage, worksHost, markDirty);
       });
