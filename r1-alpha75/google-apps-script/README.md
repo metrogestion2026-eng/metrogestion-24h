@@ -2,6 +2,22 @@
 
 Este script sustituye el contenido del proyecto de Google Apps Script vinculado al archivo madre **MANTENIMIENTOS**.
 
+## Actualización del 24/09/2026 · script `alpha75-2026.09.24.1`
+
+El taller escrito en F tiene prioridad para todos los vehículos y trabajos.
+La sincronización conserva ese valor tanto en la hoja como al enviarlo a la app;
+las reglas automáticas solo completan F cuando está vacía. Una AV de un
+semirremolque R sin taller se deja pendiente de indicar: la marca del equipo
+de frío no permite decidir el taller de todas sus averías. Dos AV del mismo R
+pueden conservar talleres distintos.
+
+Actualizar el archivo completo en el mismo proyecto de Apps Script, guardar y
+conservar sus propiedades. Comprobar la versión en **Ver estado local** antes de
+**Sincronizar ahora**. Publicar o fusionar este cambio en GitHub no instala el
+script en Google. Esta corrección no reconstruye valores de F sobrescritos en
+ejecuciones anteriores; deben revisarse con el taller confirmado de cada trabajo.
+Alpha76 ya conserva F y no necesita un cambio de script para esta regla.
+
 ## Actualización del 21/09/2026 · script `alpha75-2026.09.21.2`
 
 Las paradas de vehículos externos pueden crearse sin una fila ALTA. Su archivo
@@ -110,7 +126,9 @@ pendiente de instalar este código en el proyecto vinculado.
 
 ## Taller F de las necesidades pendientes
 
-El script completa o normaliza F con estas normas confirmadas:
+**Si F está escrita, prevalece siempre el taller de esa fila.** El script solo
+completa una F vacía con estas normas. Una AV de un R con F vacía no recibe un
+taller automático, aunque O indique la marca del equipo de frío.
 
 | Marca / necesidad | F | G, si cambia |
 | --- | --- | --- |
@@ -119,9 +137,9 @@ El script completa o normaliza F con estas normas confirmadas:
 | Iveco · MCD o AV | AUTODIS | |
 | MAN · MCD o AV | MAN | |
 | Volvo · MCD o AV | VOLVO | |
-| Carrier · MCD o AV | FRIDIEL | |
-| Thermo King · MCD o AV | FRIGICOLL | |
-| Hwasung / HW · MCD o AV | DIESEL PENEDÈS | |
+| Carrier · MCD; AV excepto R | FRIDIEL | |
+| Thermo King · MCD; AV excepto R | FRIGICOLL | |
+| Hwasung / HW · MCD; AV excepto R | DIESEL PENEDÈS | |
 | Iveco · GP o GC, incluidas marcas mixtas con equipo de frío | AUTODIS | |
 | Frigorífico · GP o GC | DIRECAUTO | |
 | N = FRAGADIS · Iveco · AV | SIDECO | |
@@ -133,9 +151,10 @@ El script completa o normaliza F con estas normas confirmadas:
 
 La regla requiere J y K vacías, H blanca y G sin pedido amarillo. Se aplica a la
 hoja al procesar próximas necesidades y al envío de pendientes a la app. Las
-renovaciones nuevas reciben la misma norma. Las necesidades realizadas conservan
-su taller, modalidad y datos; la clave de origen enviada al servidor sigue siendo
-la de la fila leída, aunque se normalice el taller del envío.
+propuestas de taller para renovaciones tampoco sustituyen una F ya informada.
+La clasificación EXTINTOR como TRÁMITE se mantiene sin sustituir
+su taller escrito. Las necesidades realizadas conservan su taller, modalidad y
+datos; la clave de origen enviada al servidor sigue siendo la de la fila leída.
 
 En marcas mixtas (por ejemplo, `IVECO/CAR` o `MER/CARR`), Q distingue el
 mantenimiento del vehículo del frigorífico. A/B, horas H y MHW se asignan al

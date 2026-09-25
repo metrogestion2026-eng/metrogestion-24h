@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.21.2',
+  scriptVersion: 'alpha75-2026.09.24.1',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -426,7 +426,8 @@ function metrogestionReferenciasKilometros_(values) {
   return new Map([...refs].map(([dfm, ref]) => [dfm, ref.cantidad]));
 }
 
-// Normas de pendientes. Q y la escala de P distinguen vehículo y frigorífico.
+// F escrita es autoritativa. Solo se propone taller cuando F está vacía.
+// Q y la escala de P distinguen vehículo y frigorífico.
 // Sin referencia o ante una escala intermedia no se inventa el tipo de unidad.
 function metrogestionReglaTallerPendiente_(row, referenciasKm = new Map()) {
   if (!String(row[0] || '').trim()
@@ -434,9 +435,13 @@ function metrogestionReglaTallerPendiente_(row, referenciasKm = new Map()) {
   const tipo = metrogestionNormalizar_(row[6]);
   const designacion = metrogestionTipoNecesidad_(row[7]);
   const marca = metrogestionNormalizar_(row[14]);
-  const taller = metrogestionNormalizar_(row[5]);
+  const taller = String(row[5] || '').trim();
   const detalle = metrogestionNormalizar_(row[16]);
-  if (designacion === 'EXTINTOR') return { taller: 'TM', tipo: 'TRÁMITE' };
+  if (designacion === 'EXTINTOR') return { taller: taller ? row[5] : 'TM', tipo: 'TRÁMITE' };
+  if (taller) return null;
+  // Un R puede tener averías de chasis y de frío en talleres diferentes.
+  // Su marca O no identifica el destino de una AV sin taller confirmado.
+  if (designacion === 'AV' && /^R\d+$/.test(metrogestionNormalizar_(row[0]))) return null;
   if (tipo === 'GESTION') return { taller: 'UPC' };
   if (designacion === 'RT') return { taller: 'AUTODIS' };
   if (designacion === 'BPW') return { taller: 'DIRECAUTO' };
@@ -474,7 +479,6 @@ function metrogestionReglaTallerPendiente_(row, referenciasKm = new Map()) {
       if (cantidad >= km / 2) return { taller: vehiculo };
     }
   }
-  if (designacion === 'AV' && taller === vehiculo) return { taller: vehiculo };
   return null;
 }
 
