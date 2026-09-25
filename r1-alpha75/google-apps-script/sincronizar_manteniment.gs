@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.21.2',
+  scriptVersion: 'alpha75-2026.09.23.1',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -638,12 +638,81 @@ function metrogestionSiguienteCaducidadItv_(fechaCaducidadIso, fechaRealizadaIso
   return metrogestionMoverAnos_(conservaCaducidad ? fechaCaducidadIso : fechaRealizadaIso, 1);
 }
 
+// Stable job IDs make the Hotel -> sheet path resumable after any partial write.
+function metrogestionCrearNecesidadesHotel_(sheet, assignments, numeroParada, sheetState) {
+  const proofs = [];
+  for (const assignment of assignments) {
+    const need = assignment?.crear_necesidad;
+    if (!need) continue;
+    const syncId = String(assignment.trabajo_sync_id || '').toLowerCase();
+    if (!/^[0-9a-f-]{36}$/.test(syncId)) throw new Error('La necesidad de Hotel no tiene identificador válido.');
+    const values = sheetState?.values || sheet.getRange(1, 1, sheet.getLastRow(), 17).getDisplayValues();
+    const notesE = sheetState?.notesE || sheet.getRange(1, 5, values.length, 1).getNotes().map(r => r[0]);
+    const notesA = sheetState?.notesA || sheet.getRange(1, 1, values.length, 1).getNotes().map(r => r[0]);
+    const marker = `METROGESTION_NECESIDAD:${syncId}`;
+    const expectedStop = metrogestionNormalizar_(numeroParada);
+    if (!need.dfm || !need.designacion || !need.fecha_necesidad
+        || metrogestionNormalizar_(need.numero_parada) !== expectedStop) {
+      throw new Error('La necesidad de Hotel no conserva vehículo, tipo, fecha o parada.');
+    }
+    const row = [need.dfm, need.matricula || '', need.tipo || '', need.upc || '', numeroParada,
+      need.taller || '', need.tipo_trabajo || '', need.designacion, need.fecha_necesidad,
+      assignment.fecha_entrada || '', assignment.fecha_salida || '', '', '',
+      need.asignacion || '', need.marca || '', need.km ?? '', ''];
+    const expectedKey = metrogestionClaveFilaTrabajo_(row, false);
+    if (expectedKey !== assignment.clave_fila) throw new Error('La identidad de la necesidad de Hotel no coincide.');
+    const linked = values.map((v, i) => ({ v, i })).filter(({ i }) =>
+      metrogestionNotaTrabajoId_(notesE[i]).toLowerCase() === syncId || notesA[i] === marker);
+    if (linked.length > 1) throw new Error('El identificador de la necesidad está repetido en la hoja.');
+    let rowNumber = linked.length ? linked[0].i + 1 : 0;
+    if (rowNumber) {
+      const existingId = metrogestionNotaTrabajoId_(notesE[rowNumber - 1]).toLowerCase();
+      if (existingId && existingId !== syncId) throw new Error('La fila ya está vinculada a otra necesidad.');
+      const current = values[rowNumber - 1];
+      if (current.some(v => String(v || '').trim())) {
+        if (metrogestionClaveFilaTrabajo_(current, false) !== expectedKey
+            || metrogestionNormalizar_(current[4]) !== expectedStop) {
+          throw new Error('La fila vinculada a la necesidad cambió; no se ha sobrescrito.');
+        }
+        // Keep user notes, documents, mileage and edits after the first write.
+        sheet.getRange(rowNumber, 5).setNote(metrogestionNotaConTrabajo_(notesE[rowNumber - 1], syncId));
+        if (sheetState?.notesE) sheetState.notesE[rowNumber - 1] = metrogestionNotaConTrabajo_(notesE[rowNumber - 1], syncId);
+        proofs.push({ trabajo_sync_id: syncId, fila: rowNumber, clave_fila: expectedKey });
+        continue;
+      }
+    } else {
+      // Do not manufacture a second row if a matching manual need already exists.
+      const candidates = values.map((v, i) => ({ v, i })).filter(({ v, i }) => i > 0
+        && !metrogestionNotaTrabajoId_(notesE[i])
+        && metrogestionClaveFilaTrabajo_(v, false) === expectedKey
+        && (!v[4] || metrogestionNormalizar_(v[4]) === expectedStop));
+      if (candidates.length) throw new Error('Ya existe una necesidad sin enlace que coincide. Revísala antes de crear otra.');
+      rowNumber = metrogestionInsertarFilaParada_(sheet, need, sheetState);
+      sheet.getRange(rowNumber, 1).setNote(marker);
+      if (sheetState?.notesA) sheetState.notesA[rowNumber - 1] = marker;
+    }
+    const written = row.map((v, i) => i >= 8 && i <= 10 ? metrogestionDate_(v)
+      : typeof v === 'string' && v.startsWith('=') ? `'${v}` : v);
+    sheet.getRange(rowNumber, 1, 1, 17).setBackground('#ffffff');
+    sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
+    sheet.getRange(rowNumber, 5).setNote(`METROGESTION_T:${syncId}`).setBackground('#cfe2f3');
+    if (need.detalle) sheet.getRange(rowNumber, 8).setNote(String(need.detalle));
+    // Write values last: an interruption before this point leaves a marked blank row.
+    sheet.getRange(rowNumber, 1, 1, 17).setValues([written]);
+    if (sheetState?.values) sheetState.values[rowNumber - 1] = row.slice();
+    if (sheetState?.notesE) sheetState.notesE[rowNumber - 1] = `METROGESTION_T:${syncId}`;
+    proofs.push({ trabajo_sync_id: syncId, fila: rowNumber, clave_fila: expectedKey });
+  }
+  return proofs;
+}
+
 function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks) {
   return commands.map(command => {
     if (command?.tipo === 'alta') return metrogestionAplicarComandoAlta_(sheet, command, sheetState);
     const payload = command?.payload || {};
     const syncId = String(command?.sync_id || payload.sync_id || '').trim();
     if (!/^[0-9a-f-]{36}$/i.test(syncId)) throw new Error('Supabase devolvió una fila PARADA sin identificador válido.');
+    const necesidadesHotel = metrogestionCrearNecesidadesHotel_(sheet, payload.trabajos_asignados || [], payload.numero_parada, sheetState);
     if (payload.solo_trabajos === true) {
       const adjustment24h = metrogestionAplicarAjuste24h_(sheet, payload.ajuste_24h, sheetState);
       const assignedWorks = metrogestionAplicarAsignacionesTrabajos_(
@@ -662,6 +731,7 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
       );
       return {
         tipo: 'trabajos',
+        necesidades_hotel: necesidadesHotel,
         sync_id: syncId,
         revision: Number(command.revision),
         estado: 'aplicado',
@@ -692,6 +762,7 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
     );
     return {
       tipo: 'parada',
+      necesidades_hotel: necesidadesHotel,
       sync_id: syncId,
       revision: Number(command.revision),
       estado: 'aplicado',

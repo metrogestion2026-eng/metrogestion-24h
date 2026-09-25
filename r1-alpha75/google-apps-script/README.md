@@ -2,6 +2,31 @@
 
 Este script sustituye el contenido del proyecto de Google Apps Script vinculado al archivo madre **MANTENIMIENTOS**.
 
+## Actualización del 23/09/2026 · sincronización por trabajo
+
+Cada trabajo nuevo añadido manualmente en una T genera su propia necesidad.
+Cada necesidad nueva se incorpora como trabajo a la visita abierta del mismo
+taller, incluso si la entrada ya está realizada. Dos campañas distintas siguen
+siendo dos necesidades dentro de una única T. CV requiere parada; OTA se mantiene
+como gestión remota, sin generar una entrada o recogida de taller.
+
+La escritura usa el identificador del trabajo y conserva documentos, notas y
+kilometraje en los reintentos. Las copias diarias de la pizarra y las importaciones
+no exportan necesidades nuevas. Las T históricas no se rellenan retroactivamente.
+
+Orden de instalación:
+
+1. Copiar el script completo `alpha75-2026.09.23.1` en el mismo proyecto
+   vinculado a MANTENIMIENTOS y guardar. Conservar sus propiedades y el avance.
+2. Aplicar en Supabase la migración
+   `20260923142949_alpha75_trabajos_necesidades_bidireccionales.sql`.
+3. Ejecutar **Sincronizar ahora** y comprobar la necesidad y su vínculo en E.
+   Repetir la sincronización: debe conservar la misma fila y la misma T.
+
+Fusionar este cambio en GitHub no realiza ninguno de los dos primeros pasos.
+El servidor conserva pendiente una orden si un script antiguo intenta confirmarla
+sin haber creado su necesidad. Ante identidades ambiguas informa sin sobrescribir.
+
 ## Actualización del 21/09/2026 · script `alpha75-2026.09.21.2`
 
 Las paradas de vehículos externos pueden crearse sin una fila ALTA. Su archivo
