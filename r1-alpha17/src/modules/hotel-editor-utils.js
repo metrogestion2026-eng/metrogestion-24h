@@ -140,7 +140,7 @@ export function makeNewStage(stages) {
   };
 }
 
-export function makeNewWork(defaultType = 'AV') {
+export function makeNewWork(defaultType = '') {
   return {
     id: null,
     client_key: `new-work-${crypto.randomUUID()}`,
