@@ -3,7 +3,7 @@ import { createStagesToggle } from './stages-collapse.js?v=75.18';
 import { openHotelEditor } from './hotel-editor.js?v=75.18';
 import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
-import { createOperationalDates, createSubstitutionBilling } from './card-operational.js';
+import { createOperationalDates, createSubstitutionBilling } from './card-operational.js?v=75.23-hf2';
 import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
 import { createStageReopenControl } from './stage-reopen.js';
 import { renderAnnotationsChronology } from './annotations.js';

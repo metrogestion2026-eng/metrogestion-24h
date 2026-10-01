@@ -1,7 +1,8 @@
+import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js';
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
-import { renderHistoricalCard } from './history-card.js?v=75.18';
+import { renderHistoricalCard } from './history-card.js?v=75.23-hf2';
 import { safeHistorySearch, searchHistoricalRecords } from '../../shared/history-query.mjs?v=20260921';
 
 function madridDate(date) {
@@ -234,6 +235,7 @@ async function showHistoryRows(container, rows, access, {
 }
 
 async function loadDay(container, dateValue, access, searchInput) {
+  invalidateSubstitutionBilling();
   const resultHost = container.querySelector('[data-history-results]');
   clear(resultHost);
   const shownDate = new Date(`${dateValue}T12:00:00`).toLocaleDateString('es-ES');
@@ -276,6 +278,7 @@ async function loadDay(container, dateValue, access, searchInput) {
 }
 
 async function searchAllHistory(container, access, searchInput) {
+  invalidateSubstitutionBilling();
   const resultHost = container.querySelector('[data-history-results]');
   const searchTerm = safeHistorySearch(searchInput.value);
   if (!searchTerm) {
@@ -302,6 +305,7 @@ async function searchAllHistory(container, access, searchInput) {
 }
 
 async function renderHistoryNative(container, access) {
+  invalidateSubstitutionBilling();
   clear(container);
   container.dataset.alpha55HistoryNative = '1';
 

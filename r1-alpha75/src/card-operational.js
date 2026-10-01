@@ -1,4 +1,4 @@
-import { createSubstitutionBilling } from '../../r1-alpha67/src/card-operational.js';
+import { createSubstitutionBilling } from './substitution-billing-hf2.js';
 
 function el(tag, text = null, className = '') {
   const node = document.createElement(tag);
