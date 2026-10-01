@@ -1,3 +1,4 @@
+import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js';
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { openHotelCreate } from './hotel-create.js?v=75.18';
@@ -11,7 +12,7 @@ import {
   metric,
   formatBoardDate,
 } from '../../r1-alpha53/src/hotel-utils.js?v=75.2';
-import { renderHotelCard } from './hotel-card.js?v=75.18';
+import { renderHotelCard } from './hotel-card.js?v=75.23-hf2';
 
 ensureNativeHotelStyle();
 
@@ -433,6 +434,7 @@ async function openCancelledCardsDialog(boardId, access, container) {
 }
 
 async function renderHotelNative(container, access) {
+  invalidateSubstitutionBilling();
   clear(container);
   container.dataset.alpha56HotelNative = 'loading';
   let editMode = access.editFicha && hotelViewState.editMode;
