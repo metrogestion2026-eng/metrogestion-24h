@@ -38,6 +38,35 @@ export async function getSecurityContext(session) {
 
   let device = normalizeDeviceResult(deviceData);
 
+  const h73DeviceRegistration = new URLSearchParams(window.location.search).get('h73') === '1';
+
+  // H73 candidate: only the explicit ?h73=1 test mode registers the principal
+  // administrator's real browser/device identity. Normal 75.23-hf2 behavior is unchanged.
+  if (
+    h73DeviceRegistration &&
+    profile.tipo_usuario === 'administrador_principal' &&
+    !device.dispositivo_id
+  ) {
+    const { data: adminRequestData, error: adminRequestError } = await supabase.rpc('solicitar_dispositivo', {
+      token_recibido: deviceToken,
+      nombre_recibido: getDeviceLabel(),
+      agente_recibido: navigator.userAgent
+    });
+
+    if (adminRequestError) {
+      throw new Error('No se pudo registrar este dispositivo para la prueba H73.');
+    }
+
+    const requested = Array.isArray(adminRequestData) ? adminRequestData[0] : adminRequestData;
+    device = {
+      ...device,
+      dispositivo_id: requested?.dispositivo_id || device.dispositivo_id || null,
+      estado: requested?.estado || device.estado || 'pendiente',
+      permitido: true,
+      es_administrador_principal: true
+    };
+  }
+
   if (!device.permitido && device.estado === 'no_registrado') {
     const { data: requestData, error: requestError } = await supabase.rpc('solicitar_dispositivo', {
       token_recibido: deviceToken,
