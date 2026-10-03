@@ -464,3 +464,389 @@ body{
     padding:14px 10px 28px!important;
   }
 }
+
+
+/* H82 · cabecera Alpha80 preparada */
+.app-header.mg80-prepared-header{
+  height:84px!important;
+  min-height:84px!important;
+  position:sticky!important;
+  top:0!important;
+  z-index:60!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:20px!important;
+  padding:12px 24px 12px 22px!important;
+  border:0!important;
+  border-bottom:1px solid #126488!important;
+  border-radius:0!important;
+  background:linear-gradient(105deg,#032844,#063559 58%,#01233e)!important;
+  box-shadow:0 3px 15px #0002!important;
+}
+
+.mg80-mobile-menu,
+.mg80-mobile-search{
+  display:none;
+  border:0;
+  background:transparent;
+  color:#e7f7ff;
+  padding:8px;
+  border-radius:8px;
+}
+
+.mg80-mobile-menu svg,
+.mg80-mobile-search svg,
+.mg80-icon-button svg{
+  width:21px;
+  height:21px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+.mg80-brand{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  flex-shrink:0;
+  min-width:410px;
+}
+
+.mg80-brand-button{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:#fff;
+  cursor:pointer;
+}
+
+.mg80-brand-button:hover{
+  background:transparent;
+  border-color:transparent;
+}
+
+.mg80-brand-mark{
+  width:54px;
+  height:54px;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  background:#fff;
+  padding:4px;
+}
+
+.mg80-brand-mark img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
+
+.mg80-brand-copy{
+  display:grid;
+  line-height:1;
+  text-align:left;
+}
+
+.mg80-brand-copy small{
+  color:#8eddf9;
+  font-size:.67rem;
+  font-weight:800;
+  letter-spacing:1.25px;
+  margin-bottom:5px;
+}
+
+.mg80-brand-copy strong{
+  color:#fff;
+  font-size:1.8rem;
+  font-weight:780;
+  letter-spacing:-.4px;
+}
+
+.mg80-slogan{
+  color:#14baf5;
+  border-left:1px solid #1391bd;
+  padding-left:17px;
+  font-size:.78rem;
+  font-weight:700;
+  letter-spacing:.7px;
+  white-space:nowrap;
+}
+
+#mg80-global-search{
+  position:relative;
+  flex:1;
+  max-width:480px;
+  margin-left:auto;
+  margin-right:4px;
+}
+
+#mg80-global-search .mg80-search-glyph{
+  position:absolute;
+  left:15px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#fff;
+  pointer-events:none;
+}
+
+#mg80-global-search .mg80-search-glyph svg{
+  width:18px;
+  height:18px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+#mg80-global-search input{
+  width:100%;
+  min-height:44px;
+  background:#084f80!important;
+  border:1px solid #0a699f!important;
+  padding:11px 14px 11px 44px!important;
+  border-radius:25px!important;
+  color:#fff!important;
+  outline:none;
+}
+
+#mg80-global-search input::placeholder{
+  color:#ccdfed!important;
+}
+
+.mg80-header-controls{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-shrink:0;
+}
+
+.mg80-icon-button{
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  position:relative;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:#d8eef9;
+  padding:0;
+}
+
+.mg80-icon-button:hover,
+.mg80-mobile-menu:hover,
+.mg80-mobile-search:hover{
+  background:#0a4162;
+  border-color:transparent;
+}
+
+.mg80-alert-dot{
+  position:absolute;
+  top:7px;
+  right:7px;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#e05252;
+  border:2px solid #063054;
+}
+
+.mg80-user-button{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  border:0;
+  background:transparent;
+  color:#fff;
+  padding:4px 8px 4px 4px;
+  border-radius:22px;
+}
+
+.mg80-user-button:hover{
+  background:#0a4162;
+  border-color:transparent;
+}
+
+.mg80-avatar{
+  width:37px;
+  height:37px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  background:#009cde;
+  color:#fff;
+  font-weight:800;
+}
+
+.mg80-username{
+  font-size:.82rem;
+  font-weight:650;
+  color:#dceef8;
+  max-width:120px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.mg80-version-popover{
+  position:absolute;
+  right:18px;
+  top:72px;
+  width:min(390px,calc(100vw - 36px));
+  display:grid;
+  gap:7px;
+  padding:14px 15px;
+  background:#072b43;
+  border:1px solid #25749a;
+  border-radius:12px;
+  box-shadow:0 14px 40px #0007;
+  color:#dceef8;
+  z-index:90;
+}
+
+.mg80-version-popover[hidden]{
+  display:none!important;
+}
+
+.mg80-version-popover strong{
+  color:#fff;
+}
+
+.mg80-version-popover span{
+  font-size:.76rem;
+  overflow-wrap:anywhere;
+  color:#7bd7ff;
+}
+
+.mg80-version-popover small{
+  color:#9bbbd1;
+  line-height:1.45;
+}
+
+/* La barra de sesión de Alpha75 se conserva funcional, pero como menú de usuario. */
+#app-view > .session-bar{
+  display:none!important;
+  position:fixed!important;
+  top:78px!important;
+  right:18px!important;
+  left:auto!important;
+  width:min(520px,calc(100vw - 36px))!important;
+  margin:0!important;
+  padding:14px!important;
+  z-index:85!important;
+  border:1px solid #25749a!important;
+  border-radius:13px!important;
+  background:#072b43!important;
+  box-shadow:0 14px 40px #0007!important;
+}
+
+#app-view > .session-bar.mg80-open{
+  display:flex!important;
+}
+
+#app-view > .session-bar .session-actions{
+  justify-content:flex-end!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+}
+
+/* H82 · contraste de tarjetas claras heredadas de Alpha75 */
+.module-content .a52-metric,
+.module-content .a52-alert,
+.module-content .a52-detail,
+.module-content .a52-detail-item,
+.module-content .a52-permission-note{
+  color:#172033!important;
+}
+
+.module-content .a52-metric strong,
+.module-content .a52-metric span,
+.module-content .a52-alert strong,
+.module-content .a52-detail strong,
+.module-content .a52-detail-item strong{
+  color:#172033!important;
+}
+
+.module-content .a52-metric small,
+.module-content .a52-alert small,
+.module-content .a52-detail span,
+.module-content .a52-detail-item span,
+.module-content .a52-detail-item p,
+.module-content .a52-permission-note{
+  color:#526273!important;
+}
+
+.module-content .a52-metric.tone-main{background:#e8f5ff!important;border-color:#38bdf8!important}
+.module-content .a52-metric.tone-yellow{background:#fff8cf!important;border-color:#d8b82c!important}
+.module-content .a52-metric.tone-neutral{background:#fff!important;border-color:#94a3b8!important}
+.module-content .a52-metric.tone-lilac{background:#f2e8fb!important;border-color:#a78bfa!important}
+.module-content .a52-metric.tone-blue{background:#e8f3ff!important;border-color:#60a5fa!important}
+.module-content .a52-metric.tone-orange{background:#ffedd9!important;border-color:#fb923c!important}
+.module-content .a52-metric.tone-brown{background:#e5c8b2!important;border-color:#8b5e3c!important}
+.module-content .a52-metric.tone-green{background:#ecfdf3!important;border-color:#4ade80!important}
+.module-content .a52-metric.tone-red{background:#fff1f2!important;border-color:#fb7185!important}
+.module-content .a52-metric.tone-amber{background:#fffbeb!important;border-color:#f59e0b!important}
+
+@media(max-width:1260px){
+  .mg80-brand{min-width:auto}
+  .mg80-slogan{display:none}
+  .mg80-brand-copy strong{font-size:1.6rem}
+  #mg80-global-search{max-width:380px}
+}
+
+@media(max-width:1000px){
+  .mg80-username{display:none}
+  .mg80-brand-copy strong{font-size:1.45rem}
+  .mg80-brand-copy small{font-size:.58rem}
+}
+
+@media(max-width:740px){
+  .app-header.mg80-prepared-header{
+    height:72px!important;
+    min-height:72px!important;
+    padding:10px 12px!important;
+    gap:8px!important;
+  }
+  .mg80-mobile-menu,
+  .mg80-mobile-search{display:inline-grid}
+  .mg80-brand-mark{width:46px;height:46px}
+  .mg80-brand-copy strong{font-size:1.25rem}
+  .mg80-brand-copy small{font-size:.52rem}
+  #mg80-global-search{
+    display:none;
+    position:fixed;
+    top:82px;
+    left:14px;
+    right:14px;
+    max-width:none;
+    z-index:95;
+    margin:0;
+  }
+  #mg80-global-search.mg80-mobile-open{display:block}
+  .mg80-header-controls{margin-left:auto;gap:3px}
+  .mg80-icon-button{width:38px;height:38px}
+  #module-nav{
+    transform:translateX(-100%);
+    transition:transform .2s;
+    width:205px!important;
+    position:fixed!important;
+    top:72px!important;
+    bottom:0!important;
+    flex-direction:column!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+  }
+  #module-nav.mg80-mobile-open{transform:translateX(0)}
+  #module-content{margin-left:0!important}
+  #app-view > .session-bar{
+    top:72px!important;
+    right:10px!important;
+    width:calc(100vw - 20px)!important;
+  }
+}
