@@ -17,7 +17,7 @@ ROOT_FILES = {
     'sw-24h-beta-1-9.js', 'sw-metrogestion-2-0.js', 'sw-metrogestion-core.js',
     'icono-gestion-24h-192.png', 'icono-gestion-24h-512.png', 'icono-gestion-24h.svg',
 }
-APP_ROOT = re.compile(r'(?:r1-(?:alpha\d+|preview)|v39-(?:login|mobile|preview)|shared)')
+APP_ROOT = re.compile(r'(?:r1-(?:alpha\\d+|alpha80test|preview)|v39-(?:login|mobile|preview)|shared)')
 STATIC_SUFFIXES = {'.html', '.js', '.mjs', '.css', '.webmanifest', '.png', '.svg', '.ico', '.jpg', '.jpeg', '.webp', '.gif', '.woff', '.woff2', '.ttf'}
 EXCLUDED_PARTS = {'google-apps-script', 'docs', 'tests', 'supabase', 'validaciones', 'node_modules'}
 CURRENT_APPS = {'r1-alpha75', 'r1-alpha76', 'r1-alpha80test'}
