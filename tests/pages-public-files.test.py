@@ -16,6 +16,7 @@ class PublicBuildTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root, destination = Path(temp) / 'repo', Path(temp) / 'site'
             included = ['index.html', 'r1-alpha75/src/app.js', 'r1-alpha76/index.html',
+                        'r1-alpha80test/index.html', 'r1-alpha80test/src/ui80.js',
                         'shared/icon.svg', 'shared/history-query.mjs']
             excluded = ['docs/repair.json', 'tests/fixture.js', 'supabase/functions/handler.js',
                         'r1-alpha75/google-apps-script/private.js', 'r1-alpha76/.env',
