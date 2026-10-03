@@ -20,7 +20,7 @@ ROOT_FILES = {
 APP_ROOT = re.compile(r'(?:r1-(?:alpha\d+|preview)|v39-(?:login|mobile|preview)|shared)')
 STATIC_SUFFIXES = {'.html', '.js', '.mjs', '.css', '.webmanifest', '.png', '.svg', '.ico', '.jpg', '.jpeg', '.webp', '.gif', '.woff', '.woff2', '.ttf'}
 EXCLUDED_PARTS = {'google-apps-script', 'docs', 'tests', 'supabase', 'validaciones', 'node_modules'}
-CURRENT_APPS = {'r1-alpha75', 'r1-alpha76'}
+CURRENT_APPS = {'r1-alpha75', 'r1-alpha76', 'r1-alpha80test'}
 
 
 def retired_page(relative):
