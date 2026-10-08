@@ -1,0 +1,49 @@
+name: H94 - PostgreSQL 17 toolchain only
+
+# Test branch only. No checkout, application deployment, remote DB or secrets.
+on:
+  push:
+    branches: [test/h94-panel-pg17-toolchain]
+    paths: [.github/workflows/h94-pg17-toolchain.yml]
+
+permissions: {}
+
+jobs:
+  toolchain:
+    if: github.repository == 'metrogestion2026-eng/metrogestion-24h' && github.ref == 'refs/heads/test/h94-panel-pg17-toolchain'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Obtain and verify official PostgreSQL source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --location --proto '=https' --tlsv1.2 --max-time 120 \
+            https://ftp.postgresql.org/pub/source/v17.6/postgresql-17.6.tar.bz2 -o postgresql-17.6.tar.bz2
+          echo 'e0630a3600aea27511715563259ec2111cd5f4353a4b040e0be827f94cd7a8b0  postgresql-17.6.tar.bz2' | sha256sum --check --strict
+          tar -xjf postgresql-17.6.tar.bz2
+      - name: Build database and pgcrypto for offline local testing
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/postgresql-17.6"
+          ./configure --prefix=/opt/mg-h94-pg17 --without-icu --without-readline --without-zlib --with-ssl=openssl CFLAGS='-O2'
+          make -j4
+          make -C contrib/pgcrypto -j4
+          make DESTDIR="$RUNNER_TEMP/package" install
+          make -C contrib/pgcrypto DESTDIR="$RUNNER_TEMP/package" install
+          cp COPYRIGHT "$RUNNER_TEMP/package/opt/mg-h94-pg17/POSTGRESQL_COPYRIGHT"
+          "$RUNNER_TEMP/package/opt/mg-h94-pg17/bin/postgres" --version
+          mkdir -p "$RUNNER_TEMP/transfer"
+          tar -C "$RUNNER_TEMP/package" -czf "$RUNNER_TEMP/transfer/pg17-toolchain.tar.gz" opt/mg-h94-pg17
+          cd "$RUNNER_TEMP/transfer"
+          sha256sum pg17-toolchain.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+      - name: Temporary toolchain artifact - no operational data
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: h94-pg17-offline-toolchain
+          path: ${{ runner.temp }}/transfer/
+          retention-days: 1
+          if-no-files-found: error
