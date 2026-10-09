@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.25.2',
+  scriptVersion: 'alpha75-2026.09.25.3',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -167,65 +167,109 @@ return { syncResult, trabajos };
 }
 
 
-function metrogestionReferenciaImportacionInterna_(formula, note) {
+function metrogestionReferenciaImportacion_(formula, note) {
   const marker = String(note || '').split(/\r?\n/)
-    .find(line => /^METROGESTION_IMPORT_INTERNO:/i.test(line));
+    .find(line => /^METROGESTION_IMPORT:/i.test(line));
   if (marker) {
-    const source = marker.replace(/^METROGESTION_IMPORT_INTERNO:/i, '').trim();
-    const match = source.match(/^([^!]+)!(A\d+:Q\d+)$/i);
-    if (match) return { sheetName: match[1], a1: match[2] };
+    const source = marker.replace(/^METROGESTION_IMPORT:/i, '').trim();
+    const split = source.indexOf('|');
+    if (split > 0) {
+      const spreadsheetId = source.slice(0, split).trim();
+      const sourceRange = source.slice(split + 1).trim();
+      const range = sourceRange.match(/^([^!]+)!(A\d+:Q\d+)$/i);
+      if (spreadsheetId && range) {
+        return { spreadsheetId, sheetName: range[1], a1: range[2] };
+      }
+    }
+  }
+
+  const legacy = String(note || '').split(/\r?\n/)
+    .find(line => /^METROGESTION_IMPORT_INTERNO:/i.test(line));
+  if (legacy) {
+    const source = legacy.replace(/^METROGESTION_IMPORT_INTERNO:/i, '').trim();
+    const range = source.match(/^([^!]+)!(A\d+:Q\d+)$/i);
+    if (range) return {
+      spreadsheetId: METROGESTION.spreadsheetId,
+      sheetName: range[1],
+      a1: range[2]
+    };
   }
 
   const text = String(formula || '').trim();
   if (!text) return null;
   const match = text.match(/^=IMPORTRANGE\("([^"]+)"\s*[;,]\s*"([^"]+)"\)$/i);
-  if (!match || match[1] !== METROGESTION.spreadsheetId) return null;
+  if (!match) return null;
   const source = match[2].replace(/^'|'$/g, '');
   const range = source.match(/^([^!]+)!(A\d+:Q\d+)$/i);
-  return range ? { sheetName: range[1], a1: range[2] } : null;
+  return range ? {
+    spreadsheetId: match[1],
+    sheetName: range[1],
+    a1: range[2]
+  } : null;
 }
 
-function metrogestionNotaImportacionInterna_(note, reference) {
+function metrogestionNotaImportacion_(note, reference) {
   const lines = String(note || '').split(/\r?\n/)
-    .filter(line => line && !/^METROGESTION_IMPORT_INTERNO:/i.test(line));
-  lines.push(`METROGESTION_IMPORT_INTERNO:${reference.sheetName}!${reference.a1}`);
+    .filter(line => line
+      && !/^METROGESTION_IMPORT:/i.test(line)
+      && !/^METROGESTION_IMPORT_INTERNO:/i.test(line));
+  lines.push(`METROGESTION_IMPORT:${reference.spreadsheetId}|${reference.sheetName}!${reference.a1}`);
   return lines.join('\n');
 }
 
-function metrogestionMaterializarImportacionesInternas_(sheet) {
+function metrogestionNormalizarDfmImportado_(value) {
+  const text = String(value ?? '').trim();
+  return /^\d+$/.test(text) ? Number(text) : value;
+}
+
+function metrogestionMaterializarImportaciones_(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return 0;
   const formulaRows = sheet.getRange(2, 1, lastRow - 1, 1).getFormulas();
   const notes = sheet.getRange(2, 1, lastRow - 1, 1).getNotes();
-  const book = sheet.getParent();
+  const books = new Map([[METROGESTION.spreadsheetId, sheet.getParent()]]);
   let updated = 0;
 
   for (let index = 0; index < formulaRows.length; index += 1) {
-    const reference = metrogestionReferenciaImportacionInterna_(
-      formulaRows[index][0],
-      notes[index][0]
-    );
+    const reference = metrogestionReferenciaImportacion_(formulaRows[index][0], notes[index][0]);
     if (!reference) continue;
 
-    const sourceSheet = book.getSheetByName(reference.sheetName);
+    let sourceBook = books.get(reference.spreadsheetId);
+    if (!sourceBook) {
+      sourceBook = SpreadsheetApp.openById(reference.spreadsheetId);
+      books.set(reference.spreadsheetId, sourceBook);
+    }
+    const sourceSheet = sourceBook.getSheetByName(reference.sheetName);
     if (!sourceSheet) {
-      throw new Error(`No existe la hoja interna ${reference.sheetName} indicada en una importación de MANTENIMENT.`);
+      throw new Error(`No existe la hoja ${reference.sheetName} de la importación de MANTENIMENT.`);
     }
     const sourceRange = sourceSheet.getRange(reference.a1);
     if (sourceRange.getNumRows() !== 1 || sourceRange.getNumColumns() !== 17) {
-      throw new Error(`La importación interna ${reference.sheetName}!${reference.a1} debe contener exactamente A:Q de una fila.`);
+      throw new Error(`La importación ${reference.sheetName}!${reference.a1} debe contener exactamente A:Q de una fila.`);
     }
 
     const rowNumber = index + 2;
     const values = sourceRange.getValues();
-    // Borrar el origen de la matriz antes de escribir A:Q evita que la fila
-    // siga comportándose como un bloque IMPORTRANGE durante la ordenación.
+    values[0][0] = metrogestionNormalizarDfmImportado_(values[0][0]);
     sheet.getRange(rowNumber, 1).clearContent();
     sheet.getRange(rowNumber, 1, 1, 17).setValues(values);
-    const nextNote = metrogestionNotaImportacionInterna_(notes[index][0], reference);
-    sheet.getRange(rowNumber, 1).setNote(nextNote);
+    sheet.getRange(rowNumber, 1).setNote(metrogestionNotaImportacion_(notes[index][0], reference));
     updated += 1;
   }
+
+  // Todas las filas deben usar el mismo tipo en DFM: número para DFM numéricos
+  // y texto para R. Si se mezclan "2746" y 2746, Sheets los separa al ordenar.
+  const dfmRange = sheet.getRange(2, 1, lastRow - 1, 1);
+  const dfmValues = dfmRange.getValues();
+  let normalized = false;
+  for (let index = 0; index < dfmValues.length; index += 1) {
+    const value = dfmValues[index][0];
+    if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+      dfmValues[index][0] = Number(value.trim());
+      normalized = true;
+    }
+  }
+  if (normalized) dfmRange.setValues(dfmValues);
   return updated;
 }
 
@@ -234,7 +278,7 @@ function metrogestionPrepararHoja_(sheet) {
   // y se restaura después ampliándolo hasta la última fila con datos.
   const filterState = metrogestionSuspenderFiltro_(sheet);
   try {
-    const updated = metrogestionMaterializarImportacionesInternas_(sheet);
+    const updated = metrogestionMaterializarImportaciones_(sheet);
     if (updated) SpreadsheetApp.flush();
   } finally {
     metrogestionRestaurarFiltro_(sheet, filterState);
