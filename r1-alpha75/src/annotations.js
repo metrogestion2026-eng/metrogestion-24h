@@ -94,9 +94,9 @@ function renderAnnotationActions(note, { onEdit, onDelete }) {
     className: 'a74-note-manage-text',
     rows: 3,
     maxLength: 4000,
-    value: originalText,
     'aria-label': 'Modificar anotación',
   });
+  textarea.value = originalText;
   const status = element('small', { className: 'a74-note-manage-status', text: '' });
   status.setAttribute('aria-live', 'polite');
 
@@ -373,7 +373,10 @@ function normaliseEditorNotes(detail) {
 }
 
 export function manualAnnotationsPayload(detail) {
-  return normaliseEditorNotes(detail)
+  // Serializar no debe reemplazar los objetos enlazados a los controles.
+  // Tras un error, el siguiente intento debe recoger las nuevas ediciones.
+  const notes = Array.isArray(detail?.anotaciones_manuales) ? detail.anotaciones_manuales : [];
+  return notes
     .filter(note => note.id || String(note.texto || '').trim())
     .map(note => ({
       id: note.id || '',
@@ -405,10 +408,10 @@ export function renderManualAnnotationsEditor(detail, markDirty) {
         className: 'a72-manual-note-text',
         rows: 3,
         maxLength: 4000,
-        value: note.texto,
         placeholder: 'Escribe una anotación…',
         'aria-label': `Anotación manual ${index + 1}`,
       });
+      textarea.value = note.texto;
       // `disabled` es un atributo booleano: disabled="false" también bloquea
       // el control. Solo se activa cuando la anotación está marcada para quitar.
       textarea.disabled = note.eliminar;
