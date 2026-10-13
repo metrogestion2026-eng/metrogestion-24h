@@ -1,65 +1,78 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deriveHotelOperationalState } from '../r1-alpha75/src/hotel-operational-state.js';
+import { deriveHotelOperationalState, hasStageDrivenSituation } from '../r1-alpha75/src/hotel-operational-state.js';
 
-test('entrada programada => Entrada taller programada', () => {
+test('legacy conserva el esquema anterior con T de recogida', () => {
   assert.equal(deriveHotelOperationalState(
-    { estado: 'pendiente_taller' },
-    [
-      { tipo_etapa: 'entrada_taller', fecha_prevista: '2026-10-14T18:36' },
-      { tipo_etapa: 'recogida_taller', estado: 'pendiente' },
-      { tipo_etapa: 'otro', accion_sistema: 'recuperar_y_liberar', estado: 'pendiente' },
-    ]
-  ), 'entrada_taller_programada');
-});
-
-test('entrada iniciada o realizada => En taller', () => {
-  assert.equal(deriveHotelOperationalState(
-    { estado: 'pendiente_taller' },
-    [{ tipo_etapa: 'entrada_taller', fecha_inicio_real: '2026-10-14T18:40' }]
-  ), 'en_taller');
-  assert.equal(deriveHotelOperationalState(
-    { estado: 'pendiente_taller' },
-    [{ tipo_etapa: 'entrada_taller', fecha_real: '2026-10-14T18:40' }]
-  ), 'en_taller');
-});
-
-test('recogida programada => pendiente de recoger; realizada => pendiente de recuperar', () => {
-  assert.equal(deriveHotelOperationalState(
-    { estado: 'en_taller' },
+    { estado: 'en_taller', modelo_flujo_taller: 'legacy' },
     [
       { tipo_etapa: 'entrada_taller', estado: 'realizada' },
       { tipo_etapa: 'recogida_taller', fecha_prevista: '2026-10-15T09:00' },
     ]
   ), 'terminado_pendiente_recogida');
+});
+
+test('nuevo flujo: antes de programar Entrada conserva las dos fases previas', () => {
+  const stages = [{ posicion: 1, tipo_etapa: 'entrada_taller', estado: 'pendiente' }];
   assert.equal(deriveHotelOperationalState(
-    { estado: 'en_taller' },
-    [
-      { tipo_etapa: 'entrada_taller', estado: 'realizada' },
-      { tipo_etapa: 'recogida_taller', fecha_real: '2026-10-15T09:00' },
-    ]
+    { estado: 'planificado', modelo_flujo_taller: 'entrada_hitos_v1' }, stages
+  ), 'planificado');
+  assert.equal(deriveHotelOperationalState(
+    { estado: 'pendiente_taller', modelo_flujo_taller: 'entrada_hitos_v1' }, stages
+  ), 'pendiente_taller');
+  assert.equal(hasStageDrivenSituation({ modelo_flujo_taller: 'entrada_hitos_v1' }, stages), false);
+});
+
+test('nuevo flujo: Entrada programada inicia dependencia automática', () => {
+  const stages = [{ posicion: 1, tipo_etapa: 'entrada_taller', fecha_prevista: '2026-10-14T18:36' }];
+  assert.equal(deriveHotelOperationalState(
+    { estado: 'pendiente_taller', modelo_flujo_taller: 'entrada_hitos_v1' }, stages
+  ), 'entrada_taller_programada');
+  assert.equal(hasStageDrivenSituation({ modelo_flujo_taller: 'entrada_hitos_v1' }, stages), true);
+});
+
+test('nuevo flujo: Fecha entrada => taller; Acabado => pendiente de recoger', () => {
+  assert.equal(deriveHotelOperationalState(
+    { estado: 'entrada_taller_programada', modelo_flujo_taller: 'entrada_hitos_v1' },
+    [{ posicion: 1, tipo_etapa: 'entrada_taller', fecha_inicio_real: '2026-10-14T18:40' }]
+  ), 'en_taller');
+
+  assert.equal(deriveHotelOperationalState(
+    { estado: 'en_taller', modelo_flujo_taller: 'entrada_hitos_v1' },
+    [{
+      posicion: 1, tipo_etapa: 'entrada_taller',
+      fecha_inicio_real: '2026-10-14T18:40',
+      fecha_fin_real: '2026-10-14T21:00'
+    }]
+  ), 'terminado_pendiente_recogida');
+});
+
+test('nuevo flujo: Recogido sin más T => pendiente de recuperar', () => {
+  assert.equal(deriveHotelOperationalState(
+    { estado: 'terminado_pendiente_recogida', modelo_flujo_taller: 'entrada_hitos_v1' },
+    [{ posicion: 1, tipo_etapa: 'entrada_taller', fecha_real: '2026-10-14T21:30' }]
   ), 'recogido_pendiente_ruta');
 });
 
-test('recuperación realizada => Recuperado', () => {
+test('nuevo flujo: Recogido toma la situación de la siguiente T', () => {
   assert.equal(deriveHotelOperationalState(
-    { estado: 'recogido_pendiente_ruta' },
-    [{ tipo_etapa: 'otro', accion_sistema: 'recuperar_y_liberar', fecha_real: '2026-10-15T10:00' }]
+    { estado: 'terminado_pendiente_recogida', modelo_flujo_taller: 'entrada_hitos_v1' },
+    [
+      { posicion: 1, tipo_etapa: 'entrada_taller', fecha_real: '2026-10-14T21:30' },
+      { posicion: 2, tipo_etapa: 'entrada_taller', fecha_prevista: '2026-10-15T08:00' },
+    ]
+  ), 'entrada_taller_programada');
+});
+
+test('nuevo flujo: recuperación realizada => Recuperado', () => {
+  assert.equal(deriveHotelOperationalState(
+    { estado: 'recogido_pendiente_ruta', modelo_flujo_taller: 'entrada_hitos_v1' },
+    [
+      { posicion: 1, tipo_etapa: 'entrada_taller', fecha_real: '2026-10-14T21:30' },
+      {
+        posicion: 2, tipo_etapa: 'otro', accion_sistema: 'recuperar_y_liberar',
+        estado: 'realizada', fecha_real: '2026-10-15T09:00'
+      },
+    ]
   ), 'recuperado');
-});
-
-test('conserva diagnóstico/autorización/repuestos mientras el vehículo sigue en taller', () => {
-  for (const estado of ['pendiente_diagnostico', 'pendiente_autorizacion', 'pendiente_repuestos']) {
-    assert.equal(deriveHotelOperationalState(
-      { estado },
-      [{ tipo_etapa: 'entrada_taller', estado: 'realizada' }]
-    ), estado);
-  }
-});
-
-
-test('antes de programar la entrada conserva la situación previa independiente de las T', () => {
-  const stages = [{ tipo_etapa: 'entrada_taller', estado: 'pendiente' }];
-  assert.equal(deriveHotelOperationalState({ estado: 'planificado' }, stages), 'planificado');
-  assert.equal(deriveHotelOperationalState({ estado: 'pendiente_taller' }, stages), 'pendiente_taller');
 });
