@@ -4,6 +4,7 @@ import {
   createTextarea, fieldLabel
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { createEditableCatalogueField } from './editable-catalogue.js';
+import { deriveHotelOperationalState } from './hotel-operational-state.js?v=75.23-hf6';
 
 function exactVehicle(catalog, value) {
   const code = String(value || '').trim().toUpperCase();
@@ -121,14 +122,23 @@ export function renderMainSections(detail, markDirty) {
     detail.ficha.sustitucion_temporal ? [momentaryState, ...stateOptions] : stateOptions,
     detail.ficha.sustitucion_temporal ? 'sustitucion_momentanea' : baseState(),
     {
-      placeholder: 'Elige un estado o escribe uno nuevo',
-      hint: 'El estado nuevo quedará disponible en este listado al guardar.',
+      placeholder: 'La situación se calcula desde las T',
+      hint: 'La situación normal se calcula automáticamente desde las T. Diagnóstico, autorización y repuestos se conservan como excepciones operativas.',
       onChange: (item, typed) => {
         detail.ficha.estado = item?.codigo || typed;
         markDirty();
       }
     }
   );
+  const syncOperationalState = () => {
+    if (detail.ficha.sustitucion_temporal || detail.ficha.cancelado) return;
+    const nextState = deriveHotelOperationalState(detail.ficha, detail.etapas);
+    if (!nextState || nextState === detail.ficha.estado) return;
+    detail.ficha.estado = nextState;
+    stateEditor.rebuild(stateOptions, nextState, true);
+    markDirty();
+  };
+  syncOperationalState();
   const simpleFields = [
     ['Lugar', 'lugar', 'text'], ['Fecha programada de parada', 'fecha_programada_parada', 'date'],
     ['Fecha real de parada', 'fecha_parada', 'date'],
@@ -213,5 +223,5 @@ export function renderMainSections(detail, markDirty) {
   });
   editorControls.append(temp.label, tempBox, retired.label, cancelled.label, cancellationBox, syncTitle, syncGrid, supervised.label, syncHelp, historyHelp);
   refresh();
-  return [identification, operation, editorControls];
+  return [identification, operation, editorControls, syncOperationalState];
 }
