@@ -4,7 +4,7 @@ import {
   createTextarea, fieldLabel
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { createEditableCatalogueField } from './editable-catalogue.js';
-import { deriveHotelOperationalState } from './hotel-operational-state.js?v=75.23-hf8';
+import { deriveHotelOperationalState, hasStageDrivenSituation } from './hotel-operational-state.js?v=75.23-hf9';
 
 function exactVehicle(catalog, value) {
   const code = String(value || '').trim().toUpperCase();
@@ -117,13 +117,14 @@ export function renderMainSections(detail, markDirty) {
   const baseState = () => detail.ficha.estado === 'anulado' ? 'pendiente_taller' : detail.ficha.estado;
   const momentaryState = { codigo: 'sustitucion_momentanea', nombre: 'Sustitución momentánea', orden: -1 };
   const stateOptions = detail.catalogos.estados.filter(item => !['anulado', 'reserva_liberada', 'sustitucion_momentanea'].includes(item.codigo));
+  const preEntryStateOptions = stateOptions.filter(item => ['planificado', 'pendiente_taller'].includes(item.codigo));
   const stateEditor = createEditableCatalogueField(
     'Situación operativa',
     detail.ficha.sustitucion_temporal ? [momentaryState, ...stateOptions] : stateOptions,
     detail.ficha.sustitucion_temporal ? 'sustitucion_momentanea' : baseState(),
     {
       placeholder: 'La situación se calcula desde las T',
-      hint: 'Antes de programar la entrada, Pendiente de parar y Parado en espera de taller son independientes de las T. Desde Entrada taller programada, la situación se calcula automáticamente con las T.',
+      hint: 'Antes de programar la Entrada puedes elegir Pendiente de parar o Parado en espera de taller. En fichas nuevas, desde que programas la Entrada la situación se calcula con sus fechas y con la T siguiente.',
       onChange: (item, typed) => {
         detail.ficha.estado = item?.codigo || typed;
         markDirty();
@@ -132,11 +133,14 @@ export function renderMainSections(detail, markDirty) {
   );
   const syncOperationalState = () => {
     if (detail.ficha.sustitucion_temporal || detail.ficha.cancelado) return;
+    const stageDriven = hasStageDrivenSituation(detail.ficha, detail.etapas);
     const nextState = deriveHotelOperationalState(detail.ficha, detail.etapas);
-    if (!nextState || nextState === detail.ficha.estado) return;
-    detail.ficha.estado = nextState;
-    stateEditor.rebuild(stateOptions, nextState, true);
-    markDirty();
+    if (nextState && nextState !== detail.ficha.estado) {
+      detail.ficha.estado = nextState;
+      markDirty();
+    }
+    stateEditor.rebuild(stageDriven ? stateOptions : preEntryStateOptions, nextState || baseState(), true);
+    stateEditor.setDisabled(stageDriven);
   };
   syncOperationalState();
   const simpleFields = [
@@ -188,7 +192,7 @@ export function renderMainSections(detail, markDirty) {
       detail.ficha.sustitucion_temporal ? 'sustitucion_momentanea' : baseState(),
       true
     );
-    stateEditor.setDisabled(detail.ficha.cancelado || detail.ficha.sustitucion_temporal);
+    stateEditor.setDisabled(detail.ficha.cancelado || detail.ficha.sustitucion_temporal || hasStageDrivenSituation(detail.ficha, detail.etapas));
   };
   bindCheckbox(temp.input, detail.ficha, 'sustitucion_temporal', markDirty, refresh);
   bindCheckbox(cancelled.input, detail.ficha, 'cancelado', markDirty, checked => {
