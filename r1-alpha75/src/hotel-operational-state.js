@@ -45,7 +45,9 @@ export function deriveHotelOperationalState(ficha = {}, stages = []) {
     const current = normalized(ficha.estado);
     return EXCEPTION_STATES.has(current) ? current : 'en_taller';
   }
-  if (entries.some(stage => stateOf(stage) === 'programada')) return 'planificado';
+  // En Metrogestión, programar una T de Entrada significa que el vehículo ya está parado
+  // y pendiente de entrar al taller; no está pendiente de parar.
+  if (entries.some(stage => stateOf(stage) === 'programada')) return 'pendiente_taller';
   if (entries.length) return 'pendiente_taller';
 
   const assistance = active.find(stage => typeOf(stage) === '24h');
