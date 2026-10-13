@@ -4,7 +4,7 @@ import {
   createTextarea, fieldLabel
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { createEditableCatalogueField } from './editable-catalogue.js';
-import { deriveHotelOperationalState } from './hotel-operational-state.js?v=75.23-hf7';
+import { deriveHotelOperationalState } from './hotel-operational-state.js?v=75.23-hf8';
 
 function exactVehicle(catalog, value) {
   const code = String(value || '').trim().toUpperCase();
@@ -118,12 +118,12 @@ export function renderMainSections(detail, markDirty) {
   const momentaryState = { codigo: 'sustitucion_momentanea', nombre: 'Sustitución momentánea', orden: -1 };
   const stateOptions = detail.catalogos.estados.filter(item => !['anulado', 'reserva_liberada', 'sustitucion_momentanea'].includes(item.codigo));
   const stateEditor = createEditableCatalogueField(
-    'Estado',
+    'Situación operativa',
     detail.ficha.sustitucion_temporal ? [momentaryState, ...stateOptions] : stateOptions,
     detail.ficha.sustitucion_temporal ? 'sustitucion_momentanea' : baseState(),
     {
       placeholder: 'La situación se calcula desde las T',
-      hint: 'La situación normal se calcula automáticamente desde las T. Diagnóstico, autorización y repuestos se conservan como excepciones operativas.',
+      hint: 'Antes de programar la entrada, Pendiente de parar y Parado en espera de taller son independientes de las T. Desde Entrada taller programada, la situación se calcula automáticamente con las T.',
       onChange: (item, typed) => {
         detail.ficha.estado = item?.codigo || typed;
         markDirty();

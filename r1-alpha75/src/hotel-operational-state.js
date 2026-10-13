@@ -4,6 +4,11 @@ const EXCEPTION_STATES = new Set([
   'pendiente_repuestos',
 ]);
 
+const PRE_ENTRY_STATES = new Set([
+  'planificado',
+  'pendiente_taller',
+]);
+
 function normalized(value) {
   return String(value || '').trim().toLocaleLowerCase('es-ES');
 }
@@ -45,10 +50,14 @@ export function deriveHotelOperationalState(ficha = {}, stages = []) {
     const current = normalized(ficha.estado);
     return EXCEPTION_STATES.has(current) ? current : 'en_taller';
   }
-  // En Metrogestión, programar una T de Entrada significa que el vehículo ya está parado
-  // y pendiente de entrar al taller; no está pendiente de parar.
-  if (entries.some(stage => stateOf(stage) === 'programada')) return 'pendiente_taller';
-  if (entries.length) return 'pendiente_taller';
+  if (entries.some(stage => stateOf(stage) === 'programada')) {
+    return 'entrada_taller_programada';
+  }
+  if (entries.length) {
+    const current = normalized(ficha.estado);
+    if (PRE_ENTRY_STATES.has(current) || EXCEPTION_STATES.has(current)) return current;
+    return 'pendiente_taller';
+  }
 
   const assistance = active.find(stage => typeOf(stage) === '24h');
   if (assistance && stateOf(assistance) !== 'realizada') return 'asistencia_24h';
