@@ -314,6 +314,10 @@ export function renderStagesSection(detail, markDirty) {
         control.addEventListener('input', refreshOperationalState);
         control.addEventListener('change', refreshOperationalState);
       });
+      // Una T existente puede abrirse con hitos ya informados y un estado heredado.
+      // Recalcular al renderizar mantiene la vista alineada con los hechos sin esperar
+      // a que el usuario toque de nuevo la fecha.
+      refreshOperationalState();
 
       const grid = element('div', { className: 'editor-grid' }, [
         fieldLabel('Nombre de la T', name),
