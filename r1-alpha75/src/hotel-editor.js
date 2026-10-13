@@ -2,7 +2,7 @@ import { element } from '../../r1-alpha17/src/dom.js';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js?v=75.1';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.18';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf4';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import { saveErrorIssues, stageStateMismatchIssues } from './hotel-editor-validation.js';
 import {
