@@ -4,7 +4,7 @@ import {
   createTextarea, fieldLabel
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { createEditableCatalogueField } from './editable-catalogue.js';
-import { deriveHotelOperationalState } from './hotel-operational-state.js?v=75.23-hf6';
+import { deriveHotelOperationalState } from './hotel-operational-state.js?v=75.23-hf7';
 
 function exactVehicle(catalog, value) {
   const code = String(value || '').trim().toUpperCase();
