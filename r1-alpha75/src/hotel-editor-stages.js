@@ -5,7 +5,7 @@ import {
   fieldLabel, makeNewStage, makeNewWork, stagesPayload
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js';
-import { catalogueCodeForOperationalState, deriveStageOperationalState } from './stage-operational-state.js?v=75.23-hf4';
+import { catalogueCodeForOperationalState, deriveStageOperationalState } from './stage-operational-state.js?v=75.23-hf9';
 
 export function stagesPayloadWithCatalogues(stages) {
   return stagesPayload(stages).map((payload, index) => ({
@@ -303,7 +303,7 @@ export function renderStagesSection(detail, markDirty, onOperationalChange) {
 
       const refreshOperationalState = () => {
         if (stage.cancelado) return;
-        const nextState = deriveStageOperationalState(stage);
+        const nextState = deriveStageOperationalState(stage, detail.ficha.modelo_flujo_taller || 'legacy');
         const nextCode = catalogueCodeForOperationalState(detail.catalogos.estados_etapa || [], nextState);
         const changed = stage.estado !== nextState || stage.estado_catalogo_codigo !== nextCode;
         stage.estado = nextState;
@@ -321,6 +321,8 @@ export function renderStagesSection(detail, markDirty, onOperationalChange) {
       // a que el usuario toque de nuevo la fecha.
       refreshOperationalState();
 
+      const isNewFlowEntry = detail.ficha.modelo_flujo_taller === 'entrada_hitos_v1'
+        && String(stage.tipo_etapa || '').trim().toLocaleLowerCase('es-ES') === 'entrada_taller';
       const grid = element('div', { className: 'editor-grid' }, [
         fieldLabel('Nombre de la T', name),
         fieldLabel('Posición', position),
@@ -330,9 +332,9 @@ export function renderStagesSection(detail, markDirty, onOperationalChange) {
         centerEditor.field,
         fieldLabel('Lugar / referencia', stagePlace),
         fieldLabel('Fecha programada', planned),
-        fieldLabel('Inicio real', started),
-        fieldLabel('Fin real', finished),
-        fieldLabel('Fecha realizada', realized)
+        fieldLabel(isNewFlowEntry ? 'Fecha entrada' : 'Inicio real', started),
+        fieldLabel(isNewFlowEntry ? 'Acabado' : 'Fin real', finished),
+        fieldLabel(isNewFlowEntry ? 'Recogido' : 'Fecha realizada', realized)
       ]);
 
       const stageObservations = createTextarea(stage.observaciones || '');
@@ -349,7 +351,7 @@ export function renderStagesSection(detail, markDirty, onOperationalChange) {
       ]);
       const refreshStageCancellation = () => {
         stageCancelBox.classList.toggle('hidden', !stage.cancelado || !stage.id);
-        stageStateEditor.setDisabled(stage.cancelado);
+        stageStateEditor.setDisabled(detail.ficha.modelo_flujo_taller === 'entrada_hitos_v1' || stage.cancelado);
         stageCard.classList.toggle('cancelled', stage.cancelado);
       };
       bindCheckbox(stageCancelled.input, stage, 'cancelado', markDirty, checked => {

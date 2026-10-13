@@ -45,3 +45,24 @@ test('usa el código de catálogo asociado al estado operativo', () => {
   ];
   assert.equal(catalogueCodeForOperationalState(catalogue, 'programada'), 'programada');
 });
+
+
+test('nuevo flujo: Acabado mantiene la T en curso hasta Recogido', () => {
+  assert.equal(
+    deriveStageOperationalState({
+      tipo_etapa: 'entrada_taller',
+      fecha_inicio_real: '2026-10-14T18:40',
+      fecha_fin_real: '2026-10-14T21:00',
+    }, 'entrada_hitos_v1'),
+    'en_curso'
+  );
+  assert.equal(
+    deriveStageOperationalState({
+      tipo_etapa: 'entrada_taller',
+      fecha_inicio_real: '2026-10-14T18:40',
+      fecha_fin_real: '2026-10-14T21:00',
+      fecha_real: '2026-10-14T21:30',
+    }, 'entrada_hitos_v1'),
+    'realizada'
+  );
+});
