@@ -171,7 +171,7 @@ function renderWorks(detail, stage, worksHost, markDirty) {
   });
 }
 
-export function renderStagesSection(detail, markDirty) {
+export function renderStagesSection(detail, markDirty, onOperationalChange) {
   const section = element('section', { className: 'editor-section editor-stages-section' }, [
     element('div', { className: 'editor-section-heading' }, [
       element('div', {}, [
@@ -283,6 +283,7 @@ export function renderStagesSection(detail, markDirty) {
         onChange: (item, typed) => {
           stage.tipo_etapa = item?.codigo || typed || 'otro';
           markDirty();
+          onOperationalChange?.();
         }
       });
       let centerEditor;
@@ -309,6 +310,7 @@ export function renderStagesSection(detail, markDirty) {
         stage.estado_catalogo_codigo = nextCode;
         stageStateEditor.rebuild(detail.catalogos.estados_etapa || [], nextCode, true);
         if (changed) markDirty();
+        onOperationalChange?.();
       };
       [planned, started, finished, realized].forEach(control => {
         control.addEventListener('input', refreshOperationalState);
@@ -363,6 +365,7 @@ export function renderStagesSection(detail, markDirty) {
           stageState.value = 'Pendiente';
         }
         refreshStageCancellation();
+        onOperationalChange?.();
         if (!checked && showingCancelled) {
           const [restoredStage] = detail.etapas.splice(stageIndex, 1);
           detail.etapas.push(restoredStage);
@@ -407,6 +410,7 @@ export function renderStagesSection(detail, markDirty) {
     detail.etapas.push(makeNewStage(detail.etapas.filter(stage => !stage.cancelado)));
     markDirty();
     renderStages();
+    onOperationalChange?.();
   });
 
   cancelledButton.addEventListener('click', () => {
