@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { deriveHotelOperationalState } from '../r1-alpha75/src/hotel-operational-state.js';
 
-test('entrada programada => Pendiente de taller', () => {
+test('entrada programada => Entrada taller programada', () => {
   assert.equal(deriveHotelOperationalState(
     { estado: 'pendiente_taller' },
     [
@@ -10,7 +10,7 @@ test('entrada programada => Pendiente de taller', () => {
       { tipo_etapa: 'recogida_taller', estado: 'pendiente' },
       { tipo_etapa: 'otro', accion_sistema: 'recuperar_y_liberar', estado: 'pendiente' },
     ]
-  ), 'pendiente_taller');
+  ), 'entrada_taller_programada');
 });
 
 test('entrada iniciada o realizada => En taller', () => {
@@ -55,4 +55,11 @@ test('conserva diagnóstico/autorización/repuestos mientras el vehículo sigue 
       [{ tipo_etapa: 'entrada_taller', estado: 'realizada' }]
     ), estado);
   }
+});
+
+
+test('antes de programar la entrada conserva la situación previa independiente de las T', () => {
+  const stages = [{ tipo_etapa: 'entrada_taller', estado: 'pendiente' }];
+  assert.equal(deriveHotelOperationalState({ estado: 'planificado' }, stages), 'planificado');
+  assert.equal(deriveHotelOperationalState({ estado: 'pendiente_taller' }, stages), 'pendiente_taller');
 });
