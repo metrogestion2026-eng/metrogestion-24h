@@ -5,6 +5,7 @@ import {
   fieldLabel, makeNewStage, makeNewWork, stagesPayload
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js';
+import { catalogueCodeForOperationalState, deriveStageOperationalState } from './stage-operational-state.js?v=75.23-hf4';
 
 export function stagesPayloadWithCatalogues(stages) {
   return stagesPayload(stages).map((payload, index) => ({
@@ -298,6 +299,21 @@ export function renderStagesSection(detail, markDirty) {
       bindText(finished, stage, 'fecha_fin_real', markDirty);
       const realized = createInput({ type: 'datetime-local', value: stage.fecha_real || '' });
       bindText(realized, stage, 'fecha_real', markDirty);
+
+      const refreshOperationalState = () => {
+        if (stage.cancelado) return;
+        const nextState = deriveStageOperationalState(stage);
+        const nextCode = catalogueCodeForOperationalState(detail.catalogos.estados_etapa || [], nextState);
+        const changed = stage.estado !== nextState || stage.estado_catalogo_codigo !== nextCode;
+        stage.estado = nextState;
+        stage.estado_catalogo_codigo = nextCode;
+        stageStateEditor.rebuild(detail.catalogos.estados_etapa || [], nextCode, true);
+        if (changed) markDirty();
+      };
+      [planned, started, finished, realized].forEach(control => {
+        control.addEventListener('input', refreshOperationalState);
+        control.addEventListener('change', refreshOperationalState);
+      });
 
       const grid = element('div', { className: 'editor-grid' }, [
         fieldLabel('Nombre de la T', name),
