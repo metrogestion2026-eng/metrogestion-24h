@@ -118,9 +118,13 @@ export function renderMainSections(detail, markDirty) {
   const momentaryState = { codigo: 'sustitucion_momentanea', nombre: 'Sustitución momentánea', orden: -1 };
   const stateOptions = detail.catalogos.estados.filter(item => !['anulado', 'reserva_liberada', 'sustitucion_momentanea'].includes(item.codigo));
   const preEntryStateOptions = stateOptions.filter(item => ['planificado', 'pendiente_taller'].includes(item.codigo));
+  const isNewFlow = detail.ficha.modelo_flujo_taller === 'entrada_hitos_v1';
+  const initialStateOptions = isNewFlow && !hasStageDrivenSituation(detail.ficha, detail.etapas)
+    ? preEntryStateOptions
+    : stateOptions;
   const stateEditor = createEditableCatalogueField(
     'Situación operativa',
-    detail.ficha.sustitucion_temporal ? [momentaryState, ...stateOptions] : stateOptions,
+    detail.ficha.sustitucion_temporal ? [momentaryState, ...stateOptions] : initialStateOptions,
     detail.ficha.sustitucion_temporal ? 'sustitucion_momentanea' : baseState(),
     {
       placeholder: 'La situación se calcula desde las T',
@@ -139,8 +143,9 @@ export function renderMainSections(detail, markDirty) {
       detail.ficha.estado = nextState;
       markDirty();
     }
-    stateEditor.rebuild(stageDriven ? stateOptions : preEntryStateOptions, nextState || baseState(), true);
-    stateEditor.setDisabled(stageDriven);
+    const availableStates = isNewFlow && !stageDriven ? preEntryStateOptions : stateOptions;
+    stateEditor.rebuild(availableStates, nextState || baseState(), true);
+    stateEditor.setDisabled(isNewFlow && stageDriven);
   };
   syncOperationalState();
   const simpleFields = [
@@ -188,11 +193,13 @@ export function renderMainSections(detail, markDirty) {
     tempBox.classList.toggle('hidden', !detail.ficha.sustitucion_temporal);
     cancellationBox.classList.toggle('hidden', !detail.ficha.cancelado);
     stateEditor.rebuild(
-      detail.ficha.sustitucion_temporal ? [momentaryState, ...stateOptions] : stateOptions,
+      detail.ficha.sustitucion_temporal
+        ? [momentaryState, ...stateOptions]
+        : (isNewFlow && !hasStageDrivenSituation(detail.ficha, detail.etapas) ? preEntryStateOptions : stateOptions),
       detail.ficha.sustitucion_temporal ? 'sustitucion_momentanea' : baseState(),
       true
     );
-    stateEditor.setDisabled(detail.ficha.cancelado || detail.ficha.sustitucion_temporal || hasStageDrivenSituation(detail.ficha, detail.etapas));
+    stateEditor.setDisabled(detail.ficha.cancelado || detail.ficha.sustitucion_temporal || (isNewFlow && hasStageDrivenSituation(detail.ficha, detail.etapas)));
   };
   bindCheckbox(temp.input, detail.ficha, 'sustitucion_temporal', markDirty, refresh);
   bindCheckbox(cancelled.input, detail.ficha, 'cancelado', markDirty, checked => {
