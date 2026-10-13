@@ -1,8 +1,8 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { renderMainSections } from './hotel-editor-main.js?v=75.1';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf5';
+import { renderMainSections } from './hotel-editor-main.js?v=75.23-hf6';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf6';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import { saveErrorIssues, stageStateMismatchIssues } from './hotel-editor-validation.js';
 import {
@@ -240,9 +240,9 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     element('span', { text: `Reserva ${loadedIdentity.vehiculo_reserva || 'no asignada'}` }),
     element('small', { text: 'La reserva puede reutilizarse y no identifica por sí sola una ficha.' })
   ]);
-  const [identification, operation, controls] = renderMainSections(detail, markDirty);
+  const [identification, operation, controls, syncOperationalState] = renderMainSections(detail, markDirty);
   const annotationsSection = renderManualAnnotationsEditor(detail, markDirty);
-  const stagesSection = renderStagesSection(detail, markDirty);
+  const stagesSection = renderStagesSection(detail, markDirty, syncOperationalState);
   const errorsHost = element('div', { className: 'editor-errors hidden' });
   const saveButton = element('button', {
     className: 'button primary',
