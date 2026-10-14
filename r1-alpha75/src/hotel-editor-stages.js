@@ -384,7 +384,7 @@ export function renderStagesSection(detail, markDirty, onOperationalChange) {
       renderWorks(detail, stage, worksHost, markDirty);
       const addWorkButton = element('button', { className: 'button secondary compact', type: 'button', text: '+ Añadir trabajo' });
       addWorkButton.addEventListener('click', () => {
-        stage.trabajos.push(makeNewWork(detail.catalogos.tipos_trabajo[0]?.codigo || 'AV'));
+        stage.trabajos.push(makeNewWork());
         markDirty();
         renderWorks(detail, stage, worksHost, markDirty);
       });
