@@ -46,10 +46,19 @@ async function readPages(client, table, columns, consume, filters = []) {
   }
 }
 
-export async function searchHistoricalRecords(client, value, limit = 500) {
+export async function searchHistoricalRecords(client, value, limit = 500, { from = '', to = '' } = {}) {
   const term = searchable(safeHistorySearch(value));
   if (!term) return { rows: [], total: 0, truncated: false };
   const pageSize = Math.min(500, Math.max(1, Math.trunc(Number(limit)) || 500));
+  const fromDate = String(from || '').trim();
+  const toDate = String(to || '').trim();
+  const inPeriod = board => {
+    const date = String(board?.fecha || '');
+    if (!date) return false;
+    if (fromDate && date < fromDate) return false;
+    if (toDate && date > toDate) return false;
+    return true;
+  };
   const matches = (row, fields) => fields.some(field => searchable(row[field]).includes(term));
   const records = new Map();
   const boards = new Map();
@@ -138,7 +147,8 @@ export async function searchHistoricalRecords(client, value, limit = 500) {
     || String(b.actualizado_en || '').localeCompare(String(a.actualizado_en || ''))
     || String(a.id).localeCompare(String(b.id));
   for (const row of records.values()) {
-    if (!boards.has(row.pizarra_id) || (!recordIds.has(row.id) && !trackingIds.has(row.seguimiento_id))) continue;
+    const board = boards.get(row.pizarra_id);
+    if (!board || !inPeriod(board) || (!recordIds.has(row.id) && !trackingIds.has(row.seguimiento_id))) continue;
     const key = row.seguimiento_id || row.id;
     if (!latest.has(key) || newestFirst(row, latest.get(key)) < 0) latest.set(key, row);
   }
