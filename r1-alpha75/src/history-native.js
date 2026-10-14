@@ -277,7 +277,7 @@ async function loadDay(container, dateValue, access, searchInput) {
   await showHistoryRows(container, rows || [], access, { board, dateValue, reload });
 }
 
-async function searchAllHistory(container, access, searchInput) {
+async function searchAllHistory(container, access, searchInput, fromInput, toInput) {
   invalidateSubstitutionBilling();
   const resultHost = container.querySelector('[data-history-results]');
   const searchTerm = safeHistorySearch(searchInput.value);
@@ -288,16 +288,40 @@ async function searchAllHistory(container, access, searchInput) {
     return;
   }
 
+  const from = fromInput?.value || '';
+  const to = toInput?.value || '';
+  if (from && to && from > to) {
+    clear(resultHost);
+    resultHost.append(notice('La fecha Desde no puede ser posterior a Hasta.', 'warning'));
+    fromInput.focus();
+    return;
+  }
+
   clear(resultHost);
+  const periodLabel = from || to
+    ? ` entre ${from || 'el inicio'} y ${to || 'hoy'}`
+    : '';
   resultHost.append(notice(
-    `Buscando “${searchTerm}” en todas las pizarras, T y documentos…`,
+    `Buscando “${searchTerm}”${periodLabel} en el Histórico…`,
     'warning'
   ));
 
   try {
-    const { rows, truncated } = await searchHistoricalRecords(supabase, searchTerm, HISTORY_SEARCH_LIMIT);
-    const reload = () => searchAllHistory(container, access, searchInput);
-    await showHistoryRows(container, rows, access, { searchTerm, truncated, reload });
+    const { rows, truncated } = await searchHistoricalRecords(
+      supabase,
+      searchTerm,
+      HISTORY_SEARCH_LIMIT,
+      { from, to }
+    );
+    const reload = () => searchAllHistory(container, access, searchInput, fromInput, toInput);
+    const periodText = from || to
+      ? ` · periodo ${from || 'inicio'} → ${to || 'hoy'}`
+      : '';
+    await showHistoryRows(container, rows, access, {
+      searchTerm: `${searchTerm}${periodText}`,
+      truncated,
+      reload
+    });
   } catch (error) {
     clear(resultHost);
     resultHost.append(notice(`No se pudo buscar en todo el Histórico: ${error.message}`, 'danger'));
@@ -321,9 +345,17 @@ async function renderHistoryNative(container, access) {
   });
   const searchInput = element('input', {
     type: 'search',
-    placeholder: 'DFM, matrícula, actuación, reserva, INC, T o documento',
+    placeholder: 'DFM o R, matrícula, actuación, reserva, INC, T o documento',
     'aria-label': 'Buscar en todo el histórico',
     enterkeyhint: 'search',
+  });
+  const fromInput = element('input', {
+    type: 'date',
+    'aria-label': 'Desde',
+  });
+  const toInput = element('input', {
+    type: 'date',
+    'aria-label': 'Hasta',
   });
   const dayButton = element('button', {
     className: 'button primary',
@@ -361,11 +393,11 @@ async function renderHistoryNative(container, access) {
     searchInput.value = '';
     if (dateInput.value) await loadDay(container, dateInput.value, access, searchInput);
   }));
-  globalSearchButton.addEventListener('click', () => runHistoryLoad(() => searchAllHistory(container, access, searchInput)));
+  globalSearchButton.addEventListener('click', () => runHistoryLoad(() => searchAllHistory(container, access, searchInput, fromInput, toInput)));
   searchInput.addEventListener('keydown', event => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
-    runHistoryLoad(() => searchAllHistory(container, access, searchInput));
+    runHistoryLoad(() => searchAllHistory(container, access, searchInput, fromInput, toInput));
   });
 
   container.append(
@@ -387,7 +419,9 @@ async function renderHistoryNative(container, access) {
       dayButton,
     ]),
     element('div', { className: 'toolbar' }, [
-      element('label', {}, [document.createTextNode('Buscar en todo el Histórico'), searchInput]),
+      element('label', {}, [document.createTextNode('DFM / R o búsqueda'), searchInput]),
+      element('label', {}, [document.createTextNode('Desde'), fromInput]),
+      element('label', {}, [document.createTextNode('Hasta'), toInput]),
       globalSearchButton,
     ]),
     resultHost
