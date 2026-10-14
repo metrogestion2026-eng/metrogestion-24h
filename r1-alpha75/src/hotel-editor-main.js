@@ -27,6 +27,8 @@ function setControl(controls, ficha, key, value) {
 
 export function renderMainSections(detail, markDirty) {
   const catalog = Array.isArray(detail.catalogos.vehiculos) ? detail.catalogos.vehiculos : [];
+  const masterAvailable = catalog.length > 0;
+  const masterReadOnly = new Set(['matricula_sustituido','matricula_reserva','etiqueta_reserva','tipo_unidad','marca','tipo_motor','modelo','upc','telefono']);
   const identification = element('section', { className: 'editor-section' }, [element('h3', { text: '1. Identificación y unidad' })]);
   const identificationGrid = element('div', { className: 'editor-grid' });
   const controls = {};
@@ -35,7 +37,7 @@ export function renderMainSections(detail, markDirty) {
     ['Matrícula sustituido', 'matricula_sustituido'],
   ];
   for (const [label, key] of fields) {
-    const control = createInput({ value: detail.ficha[key] || '' });
+    const control = createInput({ value: detail.ficha[key] || '', readOnly: masterAvailable && masterReadOnly.has(key) });
     controls[key] = control;
     bindText(control, detail.ficha, key, markDirty);
     identificationGrid.append(fieldLabel(label, control));
@@ -65,11 +67,11 @@ export function renderMainSections(detail, markDirty) {
   const substituteFields = [
     ['Sustituto real (RESERVA/FLOTA)', 'vehiculo_reserva'],
     ['Matrícula sustituto', 'matricula_reserva'], ['Etiqueta reserva', 'etiqueta_reserva'],
-    ['Tipo de unidad', 'tipo_unidad'], ['Marca', 'marca'], ['Tipo de motor', 'tipo_motor'],
+    ['TIPO / Configuración', 'tipo_unidad'], ['Marca', 'marca'], ['Tipo de motor', 'tipo_motor'],
     ['Modelo', 'modelo'], ['UPC', 'upc'], ['Teléfono del vehículo', 'telefono']
   ];
   for (const [label, key] of substituteFields) {
-    const control = createInput({ value: detail.ficha[key] || '' });
+    const control = createInput({ value: detail.ficha[key] || '', readOnly: masterAvailable && masterReadOnly.has(key) });
     controls[key] = control;
     bindText(control, detail.ficha, key, markDirty);
     identificationGrid.append(fieldLabel(label, control));
@@ -86,7 +88,7 @@ export function renderMainSections(detail, markDirty) {
       const vehicle = exactVehicle(catalog, controls.vehiculo_sustituido.value);
       if (!vehicle) return;
       setControl(controls, detail.ficha, 'matricula_sustituido', vehicle.matricula);
-      setControl(controls, detail.ficha, 'tipo_unidad', vehicle.categoria || (String(vehicle.dfm).startsWith('R') ? 'R' : 'DFM'));
+      setControl(controls, detail.ficha, 'tipo_unidad', vehicle.tipo_manteniment || '');
       setControl(controls, detail.ficha, 'marca', vehicle.marca);
       setControl(controls, detail.ficha, 'tipo_motor', vehicle.tipo_motor);
       setControl(controls, detail.ficha, 'modelo', vehicle.modelo);
@@ -108,7 +110,7 @@ export function renderMainSections(detail, markDirty) {
   }
 
   identification.append(identificationGrid,
-    element('p', { className: 'muted', text: 'Fuente de autocompletado: MANTENIMENT · ALTA. “Modalidad operativa” no ocupa el campo del sustituto. Todos los campos permanecen editables.' }));
+    element('p', { className: 'muted', text: 'Fuente de datos maestros: Registro ↔ MANTENIMENT · ALTA. DFM/R identifica la familia; TIPO refleja la configuración (TR, 21/HA…). Los datos maestros se corrigen únicamente en Registro o ALTA.' }));
 
   const operation = element('section', { className: 'editor-section' }, [element('h3', { text: '2. Situación operativa' })]);
   const operationGrid = element('div', { className: 'editor-grid' });

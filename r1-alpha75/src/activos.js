@@ -301,13 +301,13 @@ function openAssetModal(row, onChanged) {
   form.append(
     inputField('DFM / código', { name: 'dfm', value: row?.dfm, required: true, readOnly: !creating, placeholder: '2710 o R1320', hint: creating ? '' : 'Identificador permanente: no se modifica para conservar el histórico.' }),
     inputField('Matrícula', { name: 'matricula', value: row?.matricula, required: true, placeholder: '1234ABC' }),
-    inputField('Categoría', { name: 'categoria', value: row?.categoria || 'DFM', required: true, options: [
+    inputField('Familia técnica DFM/R', { name: 'categoria', value: row?.categoria || 'DFM', required: true, options: [
       { value: 'DFM', label: 'DFM · vehículo motor' }, { value: 'R', label: 'R · semirremolque' },
     ] }),
-    inputField('Clase', { name: 'clase_vehiculo', value: row?.clase_vehiculo || 'tractora', required: true, options: [
+    inputField('Clase técnica interna', { name: 'clase_vehiculo', value: row?.clase_vehiculo || 'tractora', required: true, options: [
       { value: 'tractora', label: 'Tractora' }, { value: 'rigido', label: 'Rígido' }, { value: 'semirremolque', label: 'Semirremolque' },
     ] }),
-    inputField('Tipo MANTENIMENT', { name: 'tipo_manteniment', value: row?.tipo_manteniment || 'ALTA', required: true, placeholder: 'ALTA' }),
+    inputField('TIPO / Configuración (MANTENIMENT · C)', { name: 'tipo_manteniment', value: row?.tipo_manteniment || 'ALTA', required: true, placeholder: 'TR, 21/HA…', hint: 'Configuración operativa del vehículo. No es la familia DFM/R.' }),
     inputField('Tipo de motor', { name: 'tipo_motor', value: row?.tipo_motor, placeholder: 'DIESEL, ELÉCTRICO…' }),
     inputField('Marca', { name: 'marca', value: row?.marca, required: true, placeholder: 'IVECO' }),
     inputField('Modelo', { name: 'modelo', value: row?.modelo, placeholder: 'Modelo' }),
@@ -449,7 +449,7 @@ async function loadAssets(root, profile, sequence) {
   const metrics = root.querySelector('.a70-assets-metrics-host');
   const count = root.querySelector('.a70-assets-count');
   loading.hidden = false;
-  loading.textContent = 'Consultando activos…';
+  loading.textContent = 'Consultando Registro…';
 
   const { data, error } = await supabase
     .from('vehiculos')
@@ -492,9 +492,9 @@ async function renderAssets(button) {
   const head = el('div', null, 'a70-assets-head');
   const copy = el('div');
   copy.append(
-    el('p', 'Flota maestra', 'eyebrow'),
-    el('h2', 'Activos'),
-    el('p', 'Vehículos de Supabase y altas manuales. Estos datos alimentan Hotel, reservas y asistencia 24H.', 'muted')
+    el('p', 'Datos maestros de vehículos', 'eyebrow'),
+    el('h2', 'Registro'),
+    el('p', 'Registro maestro de Metrogestión. Las correcciones autorizadas se realizan aquí o en MANTENIMENT · ALTA; Hotel, Panel, Histórico y 24H consumen estos datos.', 'muted')
   );
   const headActions = el('div', null, 'a70-assets-head-actions');
   const refresh = el('button', '↻ Actualizar', 'button secondary compact');
@@ -512,7 +512,7 @@ async function renderAssets(button) {
     const profile = await currentProfile();
     if (sequence !== loadSequence || content.dataset[MODULE_FLAG] !== '1') return;
     currentAccess = moduleAccess(profile);
-    if (!currentAccess.view) throw new Error('Tu usuario no tiene acceso al catálogo de Activos.');
+    if (!currentAccess.view) throw new Error('Tu usuario no tiene acceso al Registro de vehículos.');
     if (currentAccess.edit) {
       const create = el('button', '+ Dar de alta', 'button primary compact');
       create.type = 'button';
@@ -523,7 +523,7 @@ async function renderAssets(button) {
     const metricsHost = el('div', null, 'a70-assets-metrics-host');
     const toolbar = el('div', null, 'a70-assets-toolbar');
     const searchLabel = el('label');
-    searchLabel.append(el('span', 'Buscar'), Object.assign(document.createElement('input'), { name: 'asset_search', placeholder: 'DFM, matrícula, bastidor, marca, UPC…' }));
+    searchLabel.append(el('span', 'Buscar'), Object.assign(document.createElement('input'), { name: 'asset_search', placeholder: 'DFM, matrícula, TIPO/configuración, bastidor, marca, UPC…' }));
     const statusLabel = el('label');
     const status = document.createElement('select');
     status.name = 'asset_status';
@@ -542,7 +542,7 @@ async function renderAssets(button) {
     const origin = document.createElement('select');
     origin.name = 'asset_origin';
     appendOption(origin, 'all', 'Todos los orígenes', true);
-    appendOption(origin, 'sheet', 'MANTENIMENT');
+    appendOption(origin, 'sheet', 'MANTENIMENT · ALTA');
     appendOption(origin, 'manual', 'Altas manuales');
     originLabel.append(el('span', 'Origen'), origin);
     toolbar.append(searchLabel, statusLabel, categoryLabel, originLabel);
@@ -563,7 +563,7 @@ async function ensureNavButton() {
   try {
     const profile = await currentProfile();
     if (!moduleAccess(profile).view || nav.querySelector('[data-alpha70-activos]')) return;
-    const button = el('button', '🚚 Activos');
+    const button = el('button', '🚚 Registro');
     button.type = 'button';
     button.dataset.module = 'activos';
     button.dataset.alpha70Activos = '1';
@@ -571,7 +571,7 @@ async function ensureNavButton() {
     if (reservations) nav.insertBefore(button, reservations);
     else nav.append(button);
   } catch (error) {
-    console.warn('No se pudo habilitar la pestaña Activos.', error);
+    console.warn('No se pudo habilitar la pestaña Registro.', error);
   }
 }
 

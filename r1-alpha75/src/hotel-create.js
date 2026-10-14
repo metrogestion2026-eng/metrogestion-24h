@@ -1,8 +1,8 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { renderMainSections } from './hotel-editor-main.js';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.18';
+import { renderMainSections } from './hotel-editor-main.js?v=75.23-hf10';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf10';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import { fichaPayload, requestId, validate } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 
@@ -34,6 +34,7 @@ function renderErrors(host, errors) {
 function blankDetail() {
   return {
     ficha: {
+      modelo_flujo_taller: 'entrada_hitos_v1',
       numero_parada: '', vehiculo_sustituido: '', matricula_sustituido: '',
       vehiculo_reserva: '', matricula_reserva: '', etiqueta_reserva: '',
       modalidad_operativa: '',
@@ -109,7 +110,7 @@ export async function openHotelCreate({ onSaved } = {}) {
   closeButton.addEventListener('click', () => close(false));
   overlay.addEventListener('click', event => { if (event.target === overlay) close(false); });
 
-  status.textContent = 'Cargando estados, T, talleres y maestro de vehículos ALTA…';
+  status.textContent = 'Cargando estados, T, talleres y Registro maestro de vehículos…';
   const [
     statesResult, stageStatesResult, stageTypesResult, workTypesResult,
     workshopsResult, centresResult, vehiclesResult, modalitiesResult
@@ -207,6 +208,6 @@ export async function openHotelCreate({ onSaved } = {}) {
 
   status.className = vehiclesResult.error ? 'hotel-editor-status' : 'hotel-editor-status success';
   status.textContent = vehiclesResult.error
-    ? 'Formulario listo. El maestro ALTA no está disponible; los campos siguen siendo editables manualmente.'
-    : `Formulario listo. Maestro ALTA disponible (${detail.catalogos.vehiculos.length} vehículos).`;
+    ? 'Formulario listo. El Registro maestro no está disponible; revisa la conexión antes de crear una ficha.'
+    : `Formulario listo. Registro maestro disponible (${detail.catalogos.vehiculos.length} vehículos).`;
 }
