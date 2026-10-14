@@ -3,10 +3,10 @@ import './assistance-protocols.js';
 import './assistance-call-continuity.js';
 import './listados-export.js';
 import './reservas-create.js?v=75.13';
-import './activos.js';
+import './activos.js?v=75.23-hf10';
 import './pending-stages.js?v=75.20';
 import './assistance-followup.js?v=75.13';
 
-const VERSION = 'r1.0.0-alpha.75.23-hf3-h73-device-candidate';
+const VERSION = 'r1.0.0-alpha.75.23-hf10';
 const versionNode = document.querySelector('#app-version');
 if (versionNode) versionNode.textContent = VERSION;
