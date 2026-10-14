@@ -10,11 +10,23 @@ function normaliseVehicleKey(value) {
   return String(value || '').replace(/\s+/g, '').trim().toUpperCase();
 }
 
-function exactVehicle(catalog, value) {
+const VEHICLE_SEARCH_FIELDS = Object.freeze([
+  'dfm', 'matricula', 'tipo_manteniment', 'marca', 'tipo_motor', 'modelo', 'bastidor', 'telefono'
+]);
+
+function exactVehicle(catalog, value, preferredField = '') {
   const key = normaliseVehicleKey(value);
-  return catalog.find(item =>
-    normaliseVehicleKey(item.dfm) === key || normaliseVehicleKey(item.matricula) === key
-  ) || null;
+  if (!key) return null;
+
+  const fields = preferredField && VEHICLE_SEARCH_FIELDS.includes(preferredField)
+    ? [preferredField, ...VEHICLE_SEARCH_FIELDS.filter(field => field !== preferredField)]
+    : VEHICLE_SEARCH_FIELDS;
+
+  const matches = catalog.filter(item =>
+    fields.some(field => normaliseVehicleKey(item?.[field]) === key)
+  );
+
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function createVehicleList(catalog, id, valueKey = 'dfm') {
@@ -101,11 +113,18 @@ export function renderMainSections(detail, markDirty) {
       createVehicleList(catalog, substitutePlateListId, 'matricula')
     );
 
-    const fillMain = source => {
-      const value = source === 'matricula'
-        ? controls.matricula_sustituido.value
-        : controls.vehiculo_sustituido.value;
-      const vehicle = exactVehicle(catalog, value);
+    const masterControlFields = Object.freeze({
+      vehiculo_sustituido: 'dfm',
+      matricula_sustituido: 'matricula',
+      tipo_unidad: 'tipo_manteniment',
+      marca: 'marca',
+      tipo_motor: 'tipo_motor',
+      modelo: 'modelo',
+      telefono: 'telefono'
+    });
+
+    const fillMain = (controlKey, sourceField) => {
+      const vehicle = exactVehicle(catalog, controls[controlKey]?.value, sourceField);
       if (!vehicle) return;
       setControl(controls, detail.ficha, 'vehiculo_sustituido', vehicle.dfm);
       setControl(controls, detail.ficha, 'matricula_sustituido', vehicle.matricula);
@@ -122,7 +141,7 @@ export function renderMainSections(detail, markDirty) {
       const value = source === 'matricula'
         ? controls.matricula_reserva.value
         : controls.vehiculo_reserva.value;
-      const vehicle = exactVehicle(catalog, value);
+      const vehicle = exactVehicle(catalog, value, source === 'matricula' ? 'matricula' : 'dfm');
       if (!vehicle) return;
       setControl(controls, detail.ficha, 'vehiculo_reserva', vehicle.dfm);
       setControl(controls, detail.ficha, 'matricula_reserva', vehicle.matricula);
@@ -130,10 +149,17 @@ export function renderMainSections(detail, markDirty) {
       markDirty();
     };
 
-    controls.vehiculo_sustituido.addEventListener('change', () => fillMain('dfm'));
-    controls.vehiculo_sustituido.addEventListener('blur', () => fillMain('dfm'));
-    controls.matricula_sustituido.addEventListener('change', () => fillMain('matricula'));
-    controls.matricula_sustituido.addEventListener('blur', () => fillMain('matricula'));
+    Object.entries(masterControlFields).forEach(([controlKey, sourceField]) => {
+      const control = controls[controlKey];
+      if (!control) return;
+      control.readOnly = false;
+      control.addEventListener('change', () => fillMain(controlKey, sourceField));
+      control.addEventListener('blur', () => fillMain(controlKey, sourceField));
+    });
+
+    // UPC se muestra desde el maestro pero nunca identifica un vehículo.
+    if (controls.upc) controls.upc.readOnly = true;
+
     controls.vehiculo_reserva.addEventListener('change', () => fillSubstitute('dfm'));
     controls.vehiculo_reserva.addEventListener('blur', () => fillSubstitute('dfm'));
     controls.matricula_reserva.addEventListener('change', () => fillSubstitute('matricula'));
