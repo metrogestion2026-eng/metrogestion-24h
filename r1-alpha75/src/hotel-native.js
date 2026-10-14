@@ -1,8 +1,8 @@
 import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js';
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { openHotelCreate } from './hotel-create.js?v=75.18';
-import { openHotelEditor } from './hotel-editor.js?v=75.23-hf9';
+import { openHotelCreate } from './hotel-create.js?v=75.23-hf10';
+import { openHotelEditor } from './hotel-editor.js?v=75.23-hf10';
 import { requestId } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
