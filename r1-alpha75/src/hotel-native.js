@@ -15,6 +15,8 @@ import {
 import { renderHotelCard } from './hotel-card.js?v=75.23-hf2';
 
 ensureNativeHotelStyle();
+const alpha75VersionNode = document.querySelector('#app-version');
+if (alpha75VersionNode) alpha75VersionNode.textContent = 'r1.0.0-alpha.75.23-hf10';
 
 const HOTEL_FILTERS = Object.freeze([
   ...BASE_HOTEL_FILTERS,
