@@ -194,7 +194,7 @@ export function renderMainSections(detail, markDirty) {
   const baseState = () => detail.ficha.estado === 'anulado' ? 'pendiente_taller' : detail.ficha.estado;
   const momentaryState = { codigo: 'sustitucion_momentanea', nombre: 'Sustitución momentánea', orden: -1 };
   const stateOptions = detail.catalogos.estados.filter(item => !['anulado', 'reserva_liberada', 'sustitucion_momentanea'].includes(item.codigo));
-  const preEntryStateOptions = stateOptions.filter(item => ['planificado', 'pendiente_taller', 'tramite', 'gestion'].includes(item.codigo));
+  const preEntryStateOptions = stateOptions.filter(item => ['planificado', 'pendiente_taller', 'tramite', 'gestion', 'realizada'].includes(item.codigo));
   const isNewFlow = detail.ficha.modelo_flujo_taller === 'entrada_hitos_v1';
   const initialStateOptions = isNewFlow && !hasStageDrivenSituation(detail.ficha, detail.etapas)
     ? preEntryStateOptions
