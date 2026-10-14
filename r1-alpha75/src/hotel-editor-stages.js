@@ -7,6 +7,7 @@ import {
 import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js';
 import { catalogueCodeForOperationalState, deriveStageOperationalState } from './stage-operational-state.js?v=75.23-hf9';
 import { createStageDocuments } from '../../r1-alpha67/src/hotel-documents.js';
+import { createPendingStageDocuments } from './editor-pending-documents.js?v=75.23-hf13';
 
 export function stagesPayloadWithCatalogues(stages) {
   return stagesPayload(stages).map((payload, index) => ({
@@ -394,16 +395,16 @@ export function renderStagesSection(detail, markDirty, onOperationalChange, {
       });
 
       const documentsSection = documentsByGroup instanceof Map
-        ? createStageDocuments(stage, {
-            canEdit: canEditDocuments && Boolean(stage.id),
-            documents: documentsByGroup.get(stage.grupo_documental_id) || [],
-            context: stage.id
-              ? 'Añade PDF o fotografías directamente desde esta pantalla de edición. Se vinculan a esta T y quedan disponibles también en Histórico.'
-              : 'Esta T es nueva. La identidad documental se asignará al guardarla.',
-            onChanged: next => {
-              if (stage.grupo_documental_id) documentsByGroup.set(stage.grupo_documental_id, next);
-            },
-          })
+        ? (stage.id
+            ? createStageDocuments(stage, {
+                canEdit: canEditDocuments,
+                documents: documentsByGroup.get(stage.grupo_documental_id) || [],
+                context: 'Añade PDF o fotografías directamente desde esta pantalla de edición. Se vinculan a esta T y quedan disponibles también en Histórico.',
+                onChanged: next => {
+                  if (stage.grupo_documental_id) documentsByGroup.set(stage.grupo_documental_id, next);
+                },
+              })
+            : createPendingStageDocuments(stage, { markDirty }))
         : null;
 
       stageCard.append(
