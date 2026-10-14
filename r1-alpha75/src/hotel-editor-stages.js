@@ -421,7 +421,7 @@ export function renderStagesSection(detail, markDirty, onOperationalChange, {
         ]),
         worksHost,
         addWorkButton,
-        documentsSection
+        ...(documentsSection ? [documentsSection] : [])
       );
       stagesHost.append(stageCard);
     });
