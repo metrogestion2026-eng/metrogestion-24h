@@ -27,6 +27,8 @@ function setControl(controls, ficha, key, value) {
 
 export function renderMainSections(detail, markDirty) {
   const catalog = Array.isArray(detail.catalogos.vehiculos) ? detail.catalogos.vehiculos : [];
+  const masterAvailable = catalog.length > 0;
+  const masterReadOnly = new Set(['matricula_sustituido','matricula_reserva','etiqueta_reserva','tipo_unidad','marca','tipo_motor','modelo','upc','telefono']);
   const identification = element('section', { className: 'editor-section' }, [element('h3', { text: '1. Identificación y unidad' })]);
   const identificationGrid = element('div', { className: 'editor-grid' });
   const controls = {};
@@ -35,7 +37,7 @@ export function renderMainSections(detail, markDirty) {
     ['Matrícula sustituido', 'matricula_sustituido'],
   ];
   for (const [label, key] of fields) {
-    const control = createInput({ value: detail.ficha[key] || '' });
+    const control = createInput({ value: detail.ficha[key] || '', readOnly: masterAvailable && masterReadOnly.has(key) });
     controls[key] = control;
     bindText(control, detail.ficha, key, markDirty);
     identificationGrid.append(fieldLabel(label, control));
@@ -69,7 +71,7 @@ export function renderMainSections(detail, markDirty) {
     ['Modelo', 'modelo'], ['UPC', 'upc'], ['Teléfono del vehículo', 'telefono']
   ];
   for (const [label, key] of substituteFields) {
-    const control = createInput({ value: detail.ficha[key] || '' });
+    const control = createInput({ value: detail.ficha[key] || '', readOnly: masterAvailable && masterReadOnly.has(key) });
     controls[key] = control;
     bindText(control, detail.ficha, key, markDirty);
     identificationGrid.append(fieldLabel(label, control));
