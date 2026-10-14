@@ -2,7 +2,8 @@ import { element } from '../../r1-alpha17/src/dom.js';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js?v=75.23-hf10';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf11';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf12';
+import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import { saveErrorIssues, stageStateMismatchIssues } from './hotel-editor-validation.js';
 import {
@@ -190,7 +191,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     if (event.target === overlay) close(false);
   });
 
-  status.textContent = 'Cargando ficha, T, trabajos y listado de tipos…';
+  status.textContent = 'Cargando ficha, T, trabajos, documentos y listado de tipos…';
   const [detailResult, vehiclesResult] = await Promise.all([
     supabase.rpc('obtener_ficha_hotel_edicion_alpha72', { p_registro_id: registroId }),
     supabase.from('vehiculos_hotel_autocompletar').select('*').order('dfm', { ascending: true })
@@ -202,6 +203,15 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
   }
 
   detail = prepareDetail(detailResult.data);
+  let documentsByGroup = new Map();
+  let documentsWarning = '';
+  try {
+    documentsByGroup = await loadDocumentsForGroups(
+      detail.etapas.map(stage => stage.grupo_documental_id).filter(Boolean)
+    );
+  } catch (error) {
+    documentsWarning = `No se pudo cargar el listado de documentos: ${error?.message || 'error desconocido'}`;
+  }
   if (String(detail.ficha?.id || '') !== String(registroId || '')) {
     status.className = 'hotel-editor-status error';
     status.textContent = 'No se ha abierto la ficha solicitada. Cierra y vuelve a intentarlo; no se modificará ningún dato.';
@@ -242,7 +252,10 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
   ]);
   const [identification, operation, controls, syncOperationalState] = renderMainSections(detail, markDirty);
   const annotationsSection = renderManualAnnotationsEditor(detail, markDirty);
-  const stagesSection = renderStagesSection(detail, markDirty, syncOperationalState);
+  const stagesSection = renderStagesSection(detail, markDirty, syncOperationalState, {
+    documentsByGroup,
+    canEditDocuments: true,
+  });
   const errorsHost = element('div', { className: 'editor-errors hidden' });
   const saveButton = element('button', {
     className: 'button primary',
@@ -340,8 +353,11 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     element('div', { className: 'editor-footer-actions' }, [saveButton, discardButton])
   );
   body.append(form);
-  status.className = vehiclesResult.error ? 'hotel-editor-status' : 'hotel-editor-status success';
-  status.textContent = vehiclesResult.error
+  status.className = vehiclesResult.error || documentsWarning
+    ? 'hotel-editor-status'
+    : 'hotel-editor-status success';
+  const readyMessage = vehiclesResult.error
     ? 'Ficha cargada. El maestro ALTA no está disponible; los campos siguen siendo editables manualmente.'
-    : `Ficha cargada. Los desplegables permiten elegir o escribir valores nuevos. Nada se modifica hasta guardar.`;
+    : 'Ficha cargada. Puedes editar datos y añadir documentos dentro de cada T sin salir de esta pantalla.';
+  status.textContent = documentsWarning ? `${readyMessage} ${documentsWarning}` : readyMessage;
 }

@@ -6,6 +6,7 @@ import {
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js';
 import { catalogueCodeForOperationalState, deriveStageOperationalState } from './stage-operational-state.js?v=75.23-hf9';
+import { createStageDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 
 export function stagesPayloadWithCatalogues(stages) {
   return stagesPayload(stages).map((payload, index) => ({
@@ -171,7 +172,10 @@ function renderWorks(detail, stage, worksHost, markDirty) {
   });
 }
 
-export function renderStagesSection(detail, markDirty, onOperationalChange) {
+export function renderStagesSection(detail, markDirty, onOperationalChange, {
+  documentsByGroup = null,
+  canEditDocuments = false,
+} = {}) {
   const section = element('section', { className: 'editor-section editor-stages-section' }, [
     element('div', { className: 'editor-section-heading' }, [
       element('div', {}, [
@@ -389,6 +393,19 @@ export function renderStagesSection(detail, markDirty, onOperationalChange) {
         renderWorks(detail, stage, worksHost, markDirty);
       });
 
+      const documentsSection = documentsByGroup instanceof Map
+        ? createStageDocuments(stage, {
+            canEdit: canEditDocuments && Boolean(stage.id),
+            documents: documentsByGroup.get(stage.grupo_documental_id) || [],
+            context: stage.id
+              ? 'Añade PDF o fotografías directamente desde esta pantalla de edición. Se vinculan a esta T y quedan disponibles también en Histórico.'
+              : 'Esta T es nueva. La identidad documental se asignará al guardarla.',
+            onChanged: next => {
+              if (stage.grupo_documental_id) documentsByGroup.set(stage.grupo_documental_id, next);
+            },
+          })
+        : null;
+
       stageCard.append(
         stageHeader,
         grid,
@@ -403,7 +420,8 @@ export function renderStagesSection(detail, markDirty, onOperationalChange) {
           })
         ]),
         worksHost,
-        addWorkButton
+        addWorkButton,
+        ...(documentsSection ? [documentsSection] : [])
       );
       stagesHost.append(stageCard);
     });
