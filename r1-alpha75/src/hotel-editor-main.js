@@ -6,16 +6,24 @@ import {
 import { createEditableCatalogueField } from './editable-catalogue.js';
 import { deriveHotelOperationalState, hasStageDrivenSituation } from './hotel-operational-state.js?v=75.23-hf9';
 
-function exactVehicle(catalog, value) {
-  const code = String(value || '').trim().toUpperCase();
-  return catalog.find(item => String(item.dfm || '').trim().toUpperCase() === code) || null;
+function normaliseVehicleKey(value) {
+  return String(value || '').replace(/\s+/g, '').trim().toUpperCase();
 }
 
-function createVehicleList(catalog, id) {
+function exactVehicle(catalog, value) {
+  const key = normaliseVehicleKey(value);
+  if (!key) return null;
+  const matches = catalog.filter(item =>
+    normaliseVehicleKey(item.dfm) === key || normaliseVehicleKey(item.matricula) === key
+  );
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function createVehicleList(catalog, id, valueKey = 'dfm') {
   const list = element('datalist', { id });
   catalog.forEach(item => {
     const parts = [item.dfm, item.matricula, item.marca, item.tipo_manteniment].filter(Boolean);
-    list.append(element('option', { value: item.dfm, label: parts.join(' · ') }));
+    list.append(element('option', { value: item[valueKey] || '', label: parts.join(' · ') }));
   });
   return list;
 }
@@ -28,7 +36,7 @@ function setControl(controls, ficha, key, value) {
 export function renderMainSections(detail, markDirty) {
   const catalog = Array.isArray(detail.catalogos.vehiculos) ? detail.catalogos.vehiculos : [];
   const masterAvailable = catalog.length > 0;
-  const masterReadOnly = new Set(['matricula_sustituido','matricula_reserva','etiqueta_reserva','tipo_unidad','marca','tipo_motor','modelo','upc','telefono']);
+  const masterReadOnly = new Set(['etiqueta_reserva','tipo_unidad','marca','tipo_motor','modelo','upc','telefono']);
   const identification = element('section', { className: 'editor-section' }, [element('h3', { text: '1. Identificación y unidad' })]);
   const identificationGrid = element('div', { className: 'editor-grid' });
   const controls = {};
@@ -78,15 +86,30 @@ export function renderMainSections(detail, markDirty) {
   }
 
   if (catalog.length) {
-    const fleetListId = `hotel-vehicles-${crypto.randomUUID()}`;
-    const substituteListId = `hotel-substitutes-${crypto.randomUUID()}`;
-    controls.vehiculo_sustituido.setAttribute('list', fleetListId);
-    controls.vehiculo_reserva.setAttribute('list', substituteListId);
-    identification.append(createVehicleList(catalog, fleetListId), createVehicleList(catalog, substituteListId));
+    const fleetDfmListId = `hotel-vehicles-dfm-${crypto.randomUUID()}`;
+    const fleetPlateListId = `hotel-vehicles-plate-${crypto.randomUUID()}`;
+    const substituteDfmListId = `hotel-substitutes-dfm-${crypto.randomUUID()}`;
+    const substitutePlateListId = `hotel-substitutes-plate-${crypto.randomUUID()}`;
 
-    const fillMain = () => {
-      const vehicle = exactVehicle(catalog, controls.vehiculo_sustituido.value);
+    controls.vehiculo_sustituido.setAttribute('list', fleetDfmListId);
+    controls.matricula_sustituido.setAttribute('list', fleetPlateListId);
+    controls.vehiculo_reserva.setAttribute('list', substituteDfmListId);
+    controls.matricula_reserva.setAttribute('list', substitutePlateListId);
+
+    identification.append(
+      createVehicleList(catalog, fleetDfmListId, 'dfm'),
+      createVehicleList(catalog, fleetPlateListId, 'matricula'),
+      createVehicleList(catalog, substituteDfmListId, 'dfm'),
+      createVehicleList(catalog, substitutePlateListId, 'matricula')
+    );
+
+    const fillMain = source => {
+      const value = source === 'matricula'
+        ? controls.matricula_sustituido.value
+        : controls.vehiculo_sustituido.value;
+      const vehicle = exactVehicle(catalog, value);
       if (!vehicle) return;
+      setControl(controls, detail.ficha, 'vehiculo_sustituido', vehicle.dfm);
       setControl(controls, detail.ficha, 'matricula_sustituido', vehicle.matricula);
       setControl(controls, detail.ficha, 'tipo_unidad', vehicle.tipo_manteniment || '');
       setControl(controls, detail.ficha, 'marca', vehicle.marca);
@@ -96,17 +119,27 @@ export function renderMainSections(detail, markDirty) {
       setControl(controls, detail.ficha, 'telefono', vehicle.telefono);
       markDirty();
     };
-    const fillSubstitute = () => {
-      const vehicle = exactVehicle(catalog, controls.vehiculo_reserva.value);
+
+    const fillSubstitute = source => {
+      const value = source === 'matricula'
+        ? controls.matricula_reserva.value
+        : controls.vehiculo_reserva.value;
+      const vehicle = exactVehicle(catalog, value);
       if (!vehicle) return;
+      setControl(controls, detail.ficha, 'vehiculo_reserva', vehicle.dfm);
       setControl(controls, detail.ficha, 'matricula_reserva', vehicle.matricula);
       setControl(controls, detail.ficha, 'etiqueta_reserva', vehicle.tipo_sustituto_catalogo === 'RESERVA' ? vehicle.etiqueta_reserva : '');
       markDirty();
     };
-    controls.vehiculo_sustituido.addEventListener('change', fillMain);
-    controls.vehiculo_sustituido.addEventListener('blur', fillMain);
-    controls.vehiculo_reserva.addEventListener('change', fillSubstitute);
-    controls.vehiculo_reserva.addEventListener('blur', fillSubstitute);
+
+    controls.vehiculo_sustituido.addEventListener('change', () => fillMain('dfm'));
+    controls.vehiculo_sustituido.addEventListener('blur', () => fillMain('dfm'));
+    controls.matricula_sustituido.addEventListener('change', () => fillMain('matricula'));
+    controls.matricula_sustituido.addEventListener('blur', () => fillMain('matricula'));
+    controls.vehiculo_reserva.addEventListener('change', () => fillSubstitute('dfm'));
+    controls.vehiculo_reserva.addEventListener('blur', () => fillSubstitute('dfm'));
+    controls.matricula_reserva.addEventListener('change', () => fillSubstitute('matricula'));
+    controls.matricula_reserva.addEventListener('blur', () => fillSubstitute('matricula'));
   }
 
   identification.append(identificationGrid,
