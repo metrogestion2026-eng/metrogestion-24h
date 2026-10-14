@@ -18,6 +18,6 @@ test('cada T existente muestra el cargador documental dentro del editor', () => 
   assert.match(stages, /canEdit: canEditDocuments && Boolean\(stage\.id\)/);
 });
 
-test('hf12 fuerza la carga del editor actualizado', () => {
-  assert.match(html, /hotel-native\.js\?v=75\.23-hf12/);
+test('hf13 fuerza la carga del editor actualizado', () => {
+  assert.match(html, /hotel-native\.js\?v=75\.23-hf13/);
 });
