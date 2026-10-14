@@ -4,12 +4,71 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.09.25.2',
+  scriptVersion: 'alpha75-2026.10.14.1',
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
 
 const METROGESTION_EXECUTION_CACHE = new Map();
+
+const METROGESTION_MAESTRO_COLUMNAS = Object.freeze({
+  2: 'matricula',
+  3: 'tipo_manteniment',
+  4: 'upc',
+  6: 'telefono',
+  7: 'contrato_texto',
+  9: 'fecha_matriculacion',
+  10: 'fecha_alta_manteniment',
+  14: 'asignacion_manteniment',
+  15: 'marca',
+  17: 'bastidor',
+});
+
+function metrogestionClaveCambioMaestro_(dfm, campo) {
+  return `METROGESTION_MAESTRO:${metrogestionNormalizar_(dfm)}:${campo}`;
+}
+
+function metrogestionCambiosMaestro_(dfm, props) {
+  const result = {};
+  Object.values(METROGESTION_MAESTRO_COLUMNAS).forEach(campo => {
+    const value = props[metrogestionClaveCambioMaestro_(dfm, campo)];
+    if (value) result[campo] = value;
+  });
+  return result;
+}
+
+// Sella el momento REAL en que una persona cambia un dato maestro en ALTA.
+// Las escrituras hechas por Metrogestión mediante setValues no disparan onEdit,
+// por lo que una devolución desde Registro no se confunde con una edición humana.
+function onEdit(e) {
+  try {
+    const range = e?.range;
+    const sheet = range?.getSheet();
+    if (!range || !sheet) return;
+    if (sheet.getParent().getId() !== METROGESTION.spreadsheetId) return;
+    if (sheet.getName() !== METROGESTION.sheetName) return;
+    if (range.getRow() < 2) return;
+
+    const row = range.getRow();
+    if (metrogestionNormalizar_(sheet.getRange(row, 8).getDisplayValue()) !== 'ALTA') return;
+    const dfm = metrogestionNormalizar_(sheet.getRange(row, 1).getDisplayValue());
+    if (!dfm) return;
+
+    const props = PropertiesService.getScriptProperties();
+    const now = new Date().toISOString();
+    const firstColumn = range.getColumn();
+    const lastColumn = range.getLastColumn();
+    const updates = {};
+    for (let column = firstColumn; column <= lastColumn; column += 1) {
+      const campo = METROGESTION_MAESTRO_COLUMNAS[column];
+      if (!campo) continue;
+      updates[metrogestionClaveCambioMaestro_(dfm, campo)] = now;
+    }
+    if (Object.keys(updates).length) props.setProperties(updates, false);
+  } catch (_) {
+    // Un fallo del sello nunca debe impedir una edición manual de la hoja.
+  }
+}
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -98,6 +157,7 @@ const workBackgrounds = sheet.getRange(1, 8, lastRow, 1).getBackgrounds();
 const orderBackgrounds = sheet.getRange(1, 7, lastRow, 1).getBackgrounds();
 metrogestionValidarCabeceras_(values[0]);
 const rows = [];
+const maestroProps = PropertiesService.getScriptProperties().getProperties();
 for (let index = 1; index < values.length; index += 1) {
   const row = values[index];
   if (metrogestionNormalizar_(row[7]) !== 'ALTA') continue;
@@ -115,6 +175,7 @@ for (let index = 1; index < values.length; index += 1) {
     asignacion: row[13],
     marca: row[14],
     bastidor: row[16],
+    cambios_maestro: metrogestionCambiosMaestro_(row[0], maestroProps),
   });
 }
 const paradas = metrogestionLeerParadasVinculadas_(values, notes);
