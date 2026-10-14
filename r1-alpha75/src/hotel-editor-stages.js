@@ -321,8 +321,10 @@ export function renderStagesSection(detail, markDirty, onOperationalChange) {
       // a que el usuario toque de nuevo la fecha.
       refreshOperationalState();
 
+      const stageType = String(stage.tipo_etapa || '').trim().toLocaleLowerCase('es-ES');
       const isNewFlowEntry = detail.ficha.modelo_flujo_taller === 'entrada_hitos_v1'
-        && String(stage.tipo_etapa || '').trim().toLocaleLowerCase('es-ES') === 'entrada_taller';
+        && stageType === 'entrada_taller';
+      const isProcedure = stageType === 'trámite' || stageType === 'tramite';
       const grid = element('div', { className: 'editor-grid' }, [
         fieldLabel('Nombre de la T', name),
         fieldLabel('Posición', position),
@@ -332,9 +334,9 @@ export function renderStagesSection(detail, markDirty, onOperationalChange) {
         centerEditor.field,
         fieldLabel('Lugar / referencia', stagePlace),
         fieldLabel('Fecha programada', planned),
-        fieldLabel(isNewFlowEntry ? 'Fecha entrada' : 'Inicio real', started),
-        fieldLabel(isNewFlowEntry ? 'Acabado' : 'Fin real', finished),
-        fieldLabel(isNewFlowEntry ? 'Recogido' : 'Fecha realizada', realized)
+        fieldLabel(isNewFlowEntry ? 'Fecha entrada' : (isProcedure ? 'Fecha inicio trámite' : 'Inicio real'), started),
+        fieldLabel(isNewFlowEntry ? 'Acabado' : (isProcedure ? 'Fin del trámite' : 'Fin real'), finished),
+        fieldLabel(isNewFlowEntry ? 'Recogido' : (isProcedure ? 'Asunto arreglado' : 'Fecha realizada'), realized)
       ]);
 
       const stageObservations = createTextarea(stage.observaciones || '');
