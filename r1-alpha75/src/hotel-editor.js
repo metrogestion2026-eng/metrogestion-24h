@@ -4,6 +4,10 @@ import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js?v=75.23-hf10';
 import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf12';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
+import {
+  collectPendingStageDocuments,
+  uploadPendingStageDocuments,
+} from './editor-pending-documents.js?v=75.23-hf13';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import { saveErrorIssues, stageStateMismatchIssues } from './hotel-editor-validation.js';
 import {
@@ -136,6 +140,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
   let loadedIdentity;
   let dirty = false;
   let saving = false;
+  let pendingDocumentRetry = null;
 
   const overlay = element('div', {
     className: 'hotel-editor-overlay',
@@ -271,6 +276,41 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
 
   saveButton.addEventListener('click', async () => {
     if (saving) return;
+
+    if (pendingDocumentRetry) {
+      saving = true;
+      saveButton.disabled = true;
+      discardButton.disabled = true;
+      closeButton.disabled = true;
+      status.className = 'hotel-editor-status';
+      status.textContent = 'Reintentando únicamente los documentos pendientes; la ficha y la T no se vuelven a crear…';
+      try {
+        const result = await uploadPendingStageDocuments(
+          pendingDocumentRetry.pending,
+          pendingDocumentRetry.savedDetail,
+          {
+            originalStages: detail.etapas,
+            onProgress: message => { status.textContent = message; },
+          }
+        );
+        pendingDocumentRetry = null;
+        dirty = false;
+        status.className = 'hotel-editor-status success';
+        status.textContent = `✓ Documentos guardados correctamente (${result.uploaded}). La ficha y la T conservan su identidad.`;
+        await onSaved?.();
+        setTimeout(() => close(true), 1900);
+      } catch (error) {
+        status.className = 'hotel-editor-status error';
+        status.textContent = `La ficha y la T ya están guardadas, pero quedan documentos pendientes: ${error?.message || 'error desconocido'}. Pulsa “Reintentar documentos”.`;
+        saveButton.textContent = 'Reintentar documentos';
+        saveButton.disabled = false;
+        discardButton.disabled = false;
+        closeButton.disabled = false;
+        saving = false;
+      }
+      return;
+    }
+
     clearValidationMarks(form);
     const fieldIssues = stageStateMismatchIssues(detail);
     const errors = [...validate(detail), ...fieldIssues];
@@ -296,6 +336,8 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
       status.textContent = 'Guardado cancelado. No se ha modificado ningún dato.';
       return;
     }
+
+    const pendingDocuments = collectPendingStageDocuments(detail.etapas);
 
     saving = true;
     saveButton.disabled = true;
@@ -330,11 +372,45 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
       return;
     }
 
+    detail.ficha.version = Number(saved.version ?? detail.ficha.version);
+    versionBadge.textContent = `Versión ${saved.version}`;
+
+    if (pendingDocuments.entries.length) {
+      status.className = 'hotel-editor-status';
+      status.textContent = 'Ficha y T guardadas. Vinculando ahora los documentos preparados a su T real…';
+      try {
+        const documentResult = await uploadPendingStageDocuments(
+          pendingDocuments,
+          saved.detalle,
+          {
+            originalStages: detail.etapas,
+            onProgress: message => { status.textContent = message; },
+          }
+        );
+        status.className = 'hotel-editor-status success';
+        status.textContent = `${savedMessage(saved)} · ${documentResult.uploaded} documento${documentResult.uploaded === 1 ? '' : 's'} vinculado${documentResult.uploaded === 1 ? '' : 's'}.`;
+      } catch (error) {
+        pendingDocumentRetry = {
+          pending: pendingDocuments,
+          savedDetail: saved.detalle,
+        };
+        status.className = 'hotel-editor-status error';
+        status.textContent = `La ficha y la T ya están guardadas, pero quedan documentos pendientes: ${error?.message || 'error desconocido'}. No se ha vinculado ningún archivo a otra T. Pulsa “Reintentar documentos”.`;
+        saveButton.textContent = 'Reintentar documentos';
+        saveButton.disabled = false;
+        discardButton.disabled = false;
+        closeButton.disabled = false;
+        saving = false;
+        await onSaved?.();
+        return;
+      }
+    } else {
+      status.className = 'hotel-editor-status success';
+      status.textContent = savedMessage(saved);
+    }
+
     dirty = false;
     detail = prepareDetail(saved.detalle);
-    versionBadge.textContent = `Versión ${saved.version}`;
-    status.className = 'hotel-editor-status success';
-    status.textContent = savedMessage(saved);
     await onSaved?.();
     const cataloguesAdded = Object.values(saved?.catalogos_nuevos || {}).reduce((total, value) => total + Number(value || 0), 0);
     saveButton.textContent = cataloguesAdded ? 'Guardado · listados actualizados' : 'Guardado correctamente';
