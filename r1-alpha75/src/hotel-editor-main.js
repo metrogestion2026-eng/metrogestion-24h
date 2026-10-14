@@ -1,7 +1,7 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import {
   bindCheckbox, bindText, createCheckbox, createInput,
-  createTextarea, fieldLabel
+  createTextarea, fieldLabel, makeNewStage
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { createEditableCatalogueField } from './editable-catalogue.js';
 import { deriveHotelOperationalState, hasStageDrivenSituation } from './hotel-operational-state.js?v=75.23-hf9';
@@ -31,6 +31,48 @@ function createVehicleList(catalog, id, valueKey = 'dfm') {
 function setControl(controls, ficha, key, value) {
   ficha[key] = value ?? '';
   if (controls[key]) controls[key].value = value ?? '';
+}
+
+function normaliseOperationalCode(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLocaleLowerCase('es-ES');
+}
+
+function ensureSituationStage(detail, stateCode) {
+  const normalized = normaliseOperationalCode(stateCode);
+  if (!['gestion', 'tramite'].includes(normalized)) return null;
+
+  const wantedType = normalized === 'gestion' ? 'GESTIÓN' : 'TRÁMITE';
+  const wantedName = wantedType;
+
+  const existing = (detail.etapas || []).find(stage =>
+    !stage?.cancelado && normaliseOperationalCode(stage?.tipo_etapa) === normalized
+  );
+  if (existing) return existing;
+
+  const reusable = (detail.etapas || []).find(stage =>
+    !stage?.id
+    && stage?.auto_situacion === true
+    && !stage?.cancelado
+    && !(stage?.trabajos || []).length
+    && !stage?.fecha_prevista
+    && !stage?.fecha_inicio_real
+    && !stage?.fecha_fin_real
+    && !stage?.fecha_real
+  );
+
+  const stage = reusable || makeNewStage(detail.etapas || []);
+  stage.nombre = wantedName;
+  stage.tipo_etapa = wantedType;
+  stage.estado = 'pendiente';
+  stage.estado_catalogo_codigo = 'pendiente';
+  stage.auto_situacion = true;
+
+  if (!reusable) detail.etapas.push(stage);
+  return stage;
 }
 
 export function renderMainSections(detail, markDirty) {
@@ -166,7 +208,9 @@ export function renderMainSections(detail, markDirty) {
       hint: 'Antes de programar la Entrada puedes elegir Pendiente de parar o Parado en espera de taller. En fichas nuevas, desde que programas la Entrada la situación se calcula con sus fechas y con la T siguiente.',
       onChange: (item, typed) => {
         detail.ficha.estado = item?.codigo || typed;
+        const stage = ensureSituationStage(detail, detail.ficha.estado);
         markDirty();
+        if (stage) detail.onStagesChanged?.(stage);
       }
     }
   );
