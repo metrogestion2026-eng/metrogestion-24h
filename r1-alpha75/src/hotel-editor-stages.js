@@ -417,6 +417,12 @@ export function renderStagesSection(detail, markDirty, onOperationalChange) {
     onOperationalChange?.();
   });
 
+  detail.onStagesChanged = () => {
+    showingCancelled = false;
+    renderStages();
+    disclosure.setExpanded(true);
+  };
+
   cancelledButton.addEventListener('click', () => {
     disclosure.setExpanded(true);
     showingCancelled = !showingCancelled;
