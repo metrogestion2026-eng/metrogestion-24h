@@ -7,6 +7,9 @@ const EXCEPTION_STATES = new Set([
 const PRE_ENTRY_STATES = new Set([
   'planificado',
   'pendiente_taller',
+  'tramite',
+  'gestion',
+  'realizada',
 ]);
 
 function normalized(value) {
@@ -59,7 +62,7 @@ function deriveLegacyHotelOperationalState(ficha = {}, stages = []) {
   if (procedure && stateOf(procedure) !== 'realizada') return 'tramite';
 
   const management = active.find(stage => typeOf(stage) === 'gestión');
-  if (management && stateOf(management) !== 'realizada') return 'gestion';
+  if (management) return stateOf(management) === 'realizada' ? 'realizada' : 'gestion';
 
   if (active.some(stage => stateOf(stage) === 'programada')) return 'planificado';
   return normalized(ficha.estado) || 'pendiente_taller';
@@ -90,7 +93,7 @@ function nextStageSituation(stage = {}) {
   }
   if (type === '24h') return normalized(stage.estado) === 'realizada' ? null : 'asistencia_24h';
   if (type === 'trámite') return normalized(stage.estado) === 'realizada' ? null : 'tramite';
-  if (type === 'gestión') return normalized(stage.estado) === 'realizada' ? null : 'gestion';
+  if (type === 'gestión') return normalized(stage.estado) === 'realizada' || stage.fecha_real ? 'realizada' : 'gestion';
   if (normalized(stage.estado) === 'realizada' || stage.fecha_real) return null;
   if (stage.fecha_prevista) return 'planificado';
   return null;
@@ -110,6 +113,14 @@ function deriveNewFlowOperationalState(ficha = {}, stages = []) {
   );
 
   if (firstEntryIndex < 0) {
+    const firstOperational = active.find(stage => {
+      const type = normalized(stage.tipo_etapa);
+      return type === 'gestión' || type === 'trámite' || type === '24h';
+    });
+    if (firstOperational) {
+      const situation = nextStageSituation(firstOperational);
+      if (situation) return situation;
+    }
     const current = normalized(ficha.estado);
     return PRE_ENTRY_STATES.has(current) ? current : 'pendiente_taller';
   }
