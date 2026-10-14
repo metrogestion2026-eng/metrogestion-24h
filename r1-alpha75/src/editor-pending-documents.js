@@ -354,6 +354,8 @@ export async function uploadPendingStageDocuments(pending, savedDetail, {
 
     if (!entry.stageId) usedIds.add(String(resolved.id));
     const stage = await ensureDocumentIdentity(resolved);
+    entry.stageId = String(stage.id);
+    entry.groupId = String(stage.grupo_documental_id || '');
 
     const original = (originalStages || []).find(candidate =>
       candidate?.client_key === entry.clientKey
@@ -365,10 +367,12 @@ export async function uploadPendingStageDocuments(pending, savedDetail, {
       original.grupo_documental_id = stage.grupo_documental_id;
     }
 
-    for (const item of entry.documents) {
+    while (entry.documents.length) {
+      const item = entry.documents[0];
       onProgress?.(`Guardando documento ${uploaded + 1}: ${item.file.name}…`);
       await uploadOne(stage, item);
       uploaded += 1;
+      entry.documents.shift();
       if (original && Array.isArray(original._pendingDocuments)) {
         const index = original._pendingDocuments.indexOf(item);
         if (index >= 0) original._pendingDocuments.splice(index, 1);
