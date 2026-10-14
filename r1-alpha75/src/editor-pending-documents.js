@@ -229,9 +229,11 @@ export function collectPendingStageDocuments(stages) {
     .map(String);
 
   const entries = (stages || [])
-    .filter(stage => !stage?.id && Array.isArray(stage?._pendingDocuments) && stage._pendingDocuments.length)
+    .filter(stage => Array.isArray(stage?._pendingDocuments) && stage._pendingDocuments.length)
     .map(stage => ({
       clientKey: stage.client_key || '',
+      stageId: stage.id ? String(stage.id) : '',
+      groupId: stage.grupo_documental_id ? String(stage.grupo_documental_id) : '',
       position: Number(stage.posicion || 0),
       name: normalise(stage.nombre),
       type: normalise(stage.tipo_etapa),
@@ -318,24 +320,59 @@ async function uploadOne(stage, item) {
   }
 }
 
-export async function uploadPendingStageDocuments(pending, savedDetail, { onProgress } = {}) {
+export async function uploadPendingStageDocuments(pending, savedDetail, {
+  onProgress,
+  originalStages = [],
+} = {}) {
   const entries = pending?.entries || [];
   if (!entries.length) return { uploaded: 0, stages: 0 };
 
   const existingIds = new Set((pending?.existingIds || []).map(String));
   const usedIds = new Set();
   const savedStages = Array.isArray(savedDetail?.etapas) ? savedDetail.etapas : [];
+  const savedById = new Map(savedStages.filter(stage => stage?.id).map(stage => [String(stage.id), stage]));
+
+  // Actualiza versiones de las T que ya existían para que un posible reintento
+  // posterior al guardado no vuelva a enviar una versión antigua.
+  (originalStages || []).forEach(stage => {
+    if (!stage?.id) return;
+    const saved = savedById.get(String(stage.id));
+    if (!saved) return;
+    stage.version = saved.version;
+    stage.grupo_documental_id = saved.grupo_documental_id || stage.grupo_documental_id;
+  });
+
   let uploaded = 0;
 
   for (const entry of entries) {
-    const resolved = resolveCreatedStage(entry, savedStages, existingIds, usedIds);
-    usedIds.add(String(resolved.id));
+    const resolved = entry.stageId
+      ? (savedById.get(String(entry.stageId)) || {
+          id: entry.stageId,
+          grupo_documental_id: entry.groupId || null
+        })
+      : resolveCreatedStage(entry, savedStages, existingIds, usedIds);
+
+    if (!entry.stageId) usedIds.add(String(resolved.id));
     const stage = await ensureDocumentIdentity(resolved);
+
+    const original = (originalStages || []).find(candidate =>
+      candidate?.client_key === entry.clientKey
+      || (entry.stageId && String(candidate?.id || '') === String(entry.stageId))
+    );
+    if (original) {
+      original.id = stage.id;
+      original.version = stage.version ?? resolved.version ?? original.version;
+      original.grupo_documental_id = stage.grupo_documental_id;
+    }
 
     for (const item of entry.documents) {
       onProgress?.(`Guardando documento ${uploaded + 1}: ${item.file.name}…`);
       await uploadOne(stage, item);
       uploaded += 1;
+      if (original && Array.isArray(original._pendingDocuments)) {
+        const index = original._pendingDocuments.indexOf(item);
+        if (index >= 0) original._pendingDocuments.splice(index, 1);
+      }
     }
   }
 
