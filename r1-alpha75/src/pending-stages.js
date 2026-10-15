@@ -61,6 +61,22 @@ function sourceLabel(source) {
   return source === 'manteniment' ? 'Pendientes MANTENIMENT' : 'T del Hotel';
 }
 
+function maintenanceIdentity(row = {}) {
+  const physicalRow = Number(row.fila_origen || 0);
+  const parts = [
+    physicalRow ? `fila:${physicalRow}` : '',
+    normalize(row.dfm),
+    normalize(row.matricula),
+    normalize(row.designacion),
+    normalize(row.tipo_trabajo),
+    normalize(row.taller || row.lugar),
+    String(row.fecha_referencia || '').slice(0, 10),
+  ].filter(Boolean);
+  return parts.length > 1
+    ? parts.join('|')
+    : String(row.necesidad_id || '');
+}
+
 function ensureStyle() {
   if (document.querySelector('#alpha74-pending-stages-style')) return;
   const style = document.createElement('style');
@@ -211,7 +227,11 @@ async function renderPendingStages(button) {
     if (maintenanceResult.error) throw maintenanceResult.error;
     if (sequence !== renderSequence || content.dataset[MODULE_FLAG] !== '1') return;
     const hotelRows = [...new Map((hotelResult.data || []).filter(row => row.etapa_id && PENDING_STATES.has(row.estado)).map(row => [row.etapa_id, { ...row, source: 'hotel' }])).values()];
-    const maintenanceRows = [...new Map((maintenanceResult.data?.filas || []).filter(row => row.necesidad_id).map(row => [row.necesidad_id, { ...row, source: 'manteniment' }])).values()];
+    const maintenanceRows = [...new Map(
+      (maintenanceResult.data?.filas || [])
+        .filter(row => row.necesidad_id)
+        .map(row => [maintenanceIdentity(row), { ...row, source: 'manteniment' }])
+    ).values()];
     const allRows = [...hotelRows, ...maintenanceRows];
     const today = localDateKey();
     const horizon = addDays(today, 30);
