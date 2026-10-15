@@ -41,7 +41,7 @@ test('un fallo documental reintenta solo archivos y no vuelve a crear la T', () 
   assert.match(pending, /entry\.documents\.shift\(\)/);
 });
 
-test('hf13 fuerza la carga del editor actualizado', () => {
-  assert.match(html, /hotel-native\.js\?v=75\.23-hf13/);
+test('hf14 mantiene la carga del editor actualizado', () => {
+  assert.match(html, /hotel-native\\.js\\?v=75\\.23-hf14/);
   assert.match(editor, /hotel-editor-stages\.js\?v=75\.23-hf13/);
 });
