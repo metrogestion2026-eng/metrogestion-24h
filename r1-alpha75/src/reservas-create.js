@@ -7,6 +7,7 @@ let historyLoadRunning = false;
 let historyTimer = null;
 let interactiveLoadRunning = false;
 let interactiveTimer = null;
+let reserveSummaryFilter = 'all';
 
 function clean(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -531,8 +532,73 @@ async function ensureInteractiveReserveCards() {
   }
 }
 
+function ensureReserveSummaryFilters() {
+  if (!content) return;
+  const summary = content.querySelector('.summary-grid');
+  if (!summary) return;
+
+  const metrics = [...summary.querySelectorAll('.metric')];
+  if (metrics.length < 3) return;
+
+  const activeGrid = [...content.children].find(node =>
+    node.classList?.contains('reserve-grid')
+  );
+  const inactiveDetails = [...content.querySelectorAll('details')].find(node =>
+    clean(node.querySelector('summary')?.textContent).toLocaleLowerCase('es-ES').startsWith('reservas de baja')
+  );
+  if (!activeGrid) return;
+
+  const configs = [
+    { key: 'all', label: 'Reservas registradas', title: 'Mostrar todas las reservas, en alta y en baja' },
+    { key: 'active', label: 'En alta', title: 'Mostrar solo las reservas en alta' },
+    { key: 'inactive', label: 'En baja', title: 'Mostrar solo las reservas dadas de baja' },
+  ];
+
+  const apply = () => {
+    activeGrid.hidden = reserveSummaryFilter === 'inactive';
+    if (inactiveDetails) {
+      inactiveDetails.hidden = reserveSummaryFilter === 'active';
+      if (reserveSummaryFilter !== 'active') inactiveDetails.open = true;
+    }
+
+    metrics.forEach((metric, index) => {
+      const config = configs[index];
+      const selected = config?.key === reserveSummaryFilter;
+      metric.classList.toggle('a75-reserve-filter-active', selected);
+      metric.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+  };
+
+  metrics.slice(0, 3).forEach((metric, index) => {
+    const config = configs[index];
+    if (!config) return;
+    metric.dataset.reserveFilter = config.key;
+    metric.setAttribute('role', 'button');
+    metric.setAttribute('tabindex', '0');
+    metric.setAttribute('title', config.title);
+    metric.setAttribute('aria-label', config.title);
+
+    if (metric.dataset.a75ReserveFilterBound !== '1') {
+      const activate = () => {
+        reserveSummaryFilter = config.key;
+        apply();
+      };
+      metric.addEventListener('click', activate);
+      metric.addEventListener('keydown', event => {
+        if (!['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        activate();
+      });
+      metric.dataset.a75ReserveFilterBound = '1';
+    }
+  });
+
+  apply();
+}
+
 function scheduleReservationEnhancements() {
   ensureCreateButton();
+  ensureReserveSummaryFilters();
   window.clearTimeout(historyTimer);
   historyTimer = window.setTimeout(ensureResolvedHistory, 0);
   window.clearTimeout(interactiveTimer);
@@ -553,6 +619,7 @@ function ensureStyle() {
     .a70-reserve-form .wide{grid-column:1/-1}.a70-reserve-modal-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}.a70-reserve-status.success{color:#166534}
     .a72-resolved-history{margin-top:12px;border-top:1px solid #d8e1ea;padding-top:10px}.a72-resolved-history summary{cursor:pointer;font-weight:800;color:#174f78}.a72-resolved-history-list{display:grid;gap:8px;margin-top:10px}.a72-resolved-history-item{display:grid;gap:2px;padding:9px 10px;border-radius:10px;background:#f1f7fb}.a72-resolved-history-item span{font-size:.9rem;color:#526475}.a72-resolved-history-note{margin:8px 0 0;font-size:.85rem}
     .a75-reserve-edit-note{margin:8px 0 0}.a75-pending-box{display:grid;gap:7px;padding:12px;border:1px solid #b9c9d8;border-radius:12px;background:#f7fbfe}.a75-pending-box>p{margin:0}.a75-pending-list{display:grid;gap:8px}.a75-pending-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border:1px solid #d8e1ea;border-radius:10px;background:#fff}.a75-pending-item>span{font-weight:750}.a75-edit-reserve{margin-right:auto}
+    .summary-grid .metric[data-reserve-filter]{cursor:pointer;user-select:none;transition:transform .12s ease,border-color .12s ease,box-shadow .12s ease}.summary-grid .metric[data-reserve-filter]:hover{transform:translateY(-1px);border-color:#38bdf8}.summary-grid .metric[data-reserve-filter]:focus-visible{outline:3px solid #38bdf8;outline-offset:2px}.summary-grid .metric.a75-reserve-filter-active{border-color:#0284c7;box-shadow:0 0 0 2px rgba(2,132,199,.15) inset;background:#eff8ff}
     body.a70-reserve-modal-open{overflow:hidden}
     @media(max-width:620px){.a70-reserve-heading-actions,.a70-reserve-heading-actions .button{width:100%}.a70-reserve-form{grid-template-columns:1fr}.a70-reserve-form .wide{grid-column:auto}.a70-reserve-modal-actions .button{width:100%}.a75-pending-item{align-items:stretch;flex-direction:column}.a75-pending-item .button{width:100%}}
   `;
