@@ -1,6 +1,6 @@
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { createDetailPdf, downloadDetailPdf } from './panel-pdf.js';
-import { openHotelEditor } from './hotel-editor.js?v=75.18';
+import { openHotelEditor } from './hotel-editor.js?v=75.23-hf15';
 
 const nav = document.querySelector('#module-nav');
 const content = document.querySelector('#module-content');
@@ -486,7 +486,7 @@ async function renderPanel({ automatic = false } = {}) {
     const canFleet = can24h || moduleAccess(profile, 'resumen').view;
 
     const [hotelResult, reservesResult, incidentsResult, vehiclesResult, periodsResult, dfmBillingResult, rBillingResult, substitutionsResult, usersResult, devicesResult, mantenimentOrdersResult] = await Promise.all([
-      canHotel ? readQuery('Hotel', supabase.from('hotel_actual_detalle').select('id,numero_parada,dfm,matricula,sustituto,matricula_sustituto,tipo_sustituto,tipo_movimiento,estado,lugar,causa,incidencia,prioridad,proximo,t_pendientes,actualizado_en').order('orden', { ascending: true })) : skipped('Hotel'),
+      canHotel ? readQuery('Hotel', supabase.from('hotel_actual_detalle').select('id,seguimiento_id,numero_parada,dfm,matricula,sustituto,matricula_sustituto,tipo_sustituto,tipo_movimiento,estado,lugar,causa,incidencia,prioridad,proximo,t_pendientes,actualizado_en').order('orden', { ascending: true })) : skipped('Hotel'),
       canReservations ? readQuery('Reservas', supabase.from('reservas_hotel').select('id,vehiculo_codigo,matricula,etiqueta,estado,ubicacion,pendientes,activo,actualizado_en').eq('activo', true).order('vehiculo_codigo')) : skipped('Reservas'),
       can24h ? readQuery('24H', supabase.from('activaciones_24h').select('id,dfm,matricula,numero_caso,estado,resultado,averia,proveedor,creado_en,actualizado_en,creado_por').order('creado_en', { ascending: false })) : skipped('24H'),
       canFleet ? readQuery('Contratos', supabase.from('vehiculos').select('dfm,matricula,categoria,clase_vehiculo,marca,modelo,km_actual,fin_contrato_km,fin_contrato_fecha,activo').eq('activo', true).order('dfm')) : skipped('Contratos'),
@@ -579,6 +579,24 @@ async function renderPanel({ automatic = false } = {}) {
     const dfmRows = period ? (dfmBillingResult.data || []).filter(row => row.periodo === period.periodo) : [];
     const rRows = period ? (rBillingResult.data || []).filter(row => overlapPeriod(row, period)) : [];
     const missingMedia = (substitutionsResult.data || []).filter(row => row.clase_facturacion === 'DFM' && row.sustituto && row.fecha_fin_parada == null && row.km_dia == null);
+    const hotelByTracking = new Map(
+      hotelRows.filter(row => row.seguimiento_id).map(row => [String(row.seguimiento_id), row])
+    );
+    const hotelByStopVehicle = new Map(
+      hotelRows.map(row => [`${String(row.numero_parada || '').trim()}|${String(row.dfm || '').trim().toUpperCase()}`, row])
+    );
+    const missingMediaItem = row => {
+      const hotel = hotelByTracking.get(String(row.seguimiento_id || ''))
+        || hotelByStopVehicle.get(`${String(row.numero_parada || '').trim()}|${String(row.unidad || '').trim().toUpperCase()}`);
+      return {
+        title: `${row.numero_parada || '—'} · ${row.unidad || '—'}`,
+        meta: `${stateLabel(row.estado)} · Sustituto ${row.sustituto || '—'}`,
+        note: 'Falta la media CTM o una media manual.',
+        module: 'hotel',
+        recordId: hotel?.id || null,
+        actionLabel: hotel?.id ? 'Abrir ficha del vehículo' : 'Abrir Hotel',
+      };
+    };
 
     const users = usersResult.data || [];
     const userMap = new Map(users.map(row => [row.id, row]));
@@ -631,7 +649,7 @@ async function renderPanel({ automatic = false } = {}) {
       if (spec.module) {
         const moduleButton = el('button', spec.moduleLabel || 'Abrir módulo', 'button primary compact');
         moduleButton.type = 'button';
-        moduleButton.addEventListener('click', () => openModule(spec.module));
+        moduleButton.addEventListener('click', () => activatePanelItem(spec, spec));
         detailActions.append(moduleButton);
       }
       const closeButton = el('button', 'Cerrar detalle', 'button secondary compact');
@@ -771,7 +789,13 @@ async function renderPanel({ automatic = false } = {}) {
       { label: 'KM DFM', value: numberFormat.format(dfmKm), hint: 'km facturables', tone: 'green', detail: { title: `Kilómetros facturables DFM · ${periodLabel}`, items: dfmRows.map(billingDfmItem), module: 'listados', moduleLabel: 'Abrir Listados' } },
       { label: 'Sustituciones R', value: rUnits, hint: rRows.length ? `${rRows.length} parada(s)` : '', tone: 'lilac', detail: { title: `Sustituciones R · ${periodLabel}`, items: rRows.map(billingRItem), module: 'listados', moduleLabel: 'Abrir Listados' } },
       { label: 'Importe R', value: rRows.some(row => row.importe != null) ? moneyFormat.format(rAmount) : '—', tone: 'orange', detail: { title: `Importe R · ${periodLabel}`, items: rRows.map(billingRItem), module: 'listados', moduleLabel: 'Abrir Listados' } },
-      { label: 'Sin media km', value: missingMedia.length, tone: missingMedia.length ? 'red' : 'green', detail: { title: 'Paradas DFM sin media de km', items: missingMedia.map(row => ({ title: `${row.numero_parada || '—'} · ${row.unidad || '—'}`, meta: `${stateLabel(row.estado)} · Sustituto ${row.sustituto || '—'}`, note: 'Falta la media CTM o una media manual.' })), module: 'listados', moduleLabel: 'Abrir Listados' } },
+      { label: 'Sin media km', value: missingMedia.length, tone: missingMedia.length ? 'red' : 'green', detail: {
+        title: 'Paradas DFM sin media de km',
+        items: missingMedia.map(missingMediaItem),
+        module: 'hotel',
+        moduleLabel: missingMedia.length === 1 ? 'Abrir ficha del vehículo' : 'Abrir Hotel',
+        recordId: missingMedia.length === 1 ? missingMediaItem(missingMedia[0]).recordId : null,
+      } },
     ];
     const billingSection = canBilling
       ? section('Facturación de sustituciones', 'Periodo vigente y cálculo acumulado.', billingMetrics, openDetail)

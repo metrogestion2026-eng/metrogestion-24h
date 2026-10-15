@@ -43,7 +43,7 @@ test('un fallo documental reintenta solo archivos y no vuelve a crear la T', () 
 });
 
 test('hf15 fuerza toda la cadena documental del editor', () => {
-  assert.match(html, /hotel-native\.js\?v=75\.23-hf16/);
+  assert.match(html, /hotel-native\.js\?v=75\.23-hf17/);
   assert.match(native, /hotel-editor\.js\?v=75\.23-hf15/);
   assert.match(editor, /hotel-editor-stages\.js\?v=75\.23-hf15/);
   assert.match(editor, /editor-pending-documents\.js\?v=75\.23-hf15/);
