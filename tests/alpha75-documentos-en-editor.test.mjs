@@ -5,6 +5,7 @@ import test from 'node:test';
 const editor = await readFile('r1-alpha75/src/hotel-editor.js', 'utf8');
 const stages = await readFile('r1-alpha75/src/hotel-editor-stages.js', 'utf8');
 const pending = await readFile('r1-alpha75/src/editor-pending-documents.js', 'utf8');
+const native = await readFile('r1-alpha75/src/hotel-native.js', 'utf8');
 const html = await readFile('r1-alpha75/index.html', 'utf8');
 
 test('Edición completa carga los documentos de las T', () => {
@@ -42,6 +43,9 @@ test('un fallo documental reintenta solo archivos y no vuelve a crear la T', () 
 });
 
 test('hf15 fuerza toda la cadena documental del editor', () => {
-  assert.match(html, /hotel-native\.js\?v=75\.23-hf14/);
-  assert.match(editor, /hotel-editor-stages\.js\?v=75\.23-hf13/);
+  assert.match(html, /hotel-native\.js\?v=75\.23-hf15/);
+  assert.match(native, /hotel-editor\.js\?v=75\.23-hf15/);
+  assert.match(editor, /hotel-editor-stages\.js\?v=75\.23-hf15/);
+  assert.match(editor, /editor-pending-documents\.js\?v=75\.23-hf15/);
+  assert.match(stages, /editor-pending-documents\.js\?v=75\.23-hf15/);
 });
