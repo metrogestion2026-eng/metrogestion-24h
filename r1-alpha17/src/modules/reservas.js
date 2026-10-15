@@ -20,7 +20,22 @@ function reserveCard(row,canEdit,message){
       detail('Característica PISSARRA',row.etiqueta),detail('Estado operativo',stateLabel(row.estado)),detail('Pendientes propios',row.pendientes||'—'),detail('Ubicación',row.ubicacion||'—'),detail('Alta',row.fecha_alta||'—'),detail('Baja',row.fecha_baja||'—')
     ])
   ]);
-  if(canEdit){const btn=element('button',{className:'button secondary compact',type:'button',text:row.activo?'Dar de baja':'Dar de alta'});btn.addEventListener('click',()=>toggleReserve(row,btn,message));card.append(element('div',{className:'reserve-actions'},[btn]));}
+  if(canEdit){
+    const occupied = row.activo && row.estado === 'ocupada';
+    const btn=element('button',{
+      className:'button secondary compact',
+      type:'button',
+      text:occupied?'Baja bloqueada':(row.activo?'Dar de baja':'Dar de alta'),
+      title:occupied?'Esta reserva está ocupada y no puede darse de baja mientras siga asignada.':''
+    });
+    if(occupied){
+      btn.disabled=true;
+      btn.setAttribute('aria-disabled','true');
+    }else{
+      btn.addEventListener('click',()=>toggleReserve(row,btn,message));
+    }
+    card.append(element('div',{className:'reserve-actions'},[btn]));
+  }
   return card;
 }
 
