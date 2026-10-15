@@ -7,7 +7,7 @@ import {
 import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js';
 import { catalogueCodeForOperationalState, deriveStageOperationalState } from './stage-operational-state.js?v=75.23-hf9';
 import { createStageDocuments } from '../../r1-alpha67/src/hotel-documents.js';
-import { createPendingStageDocuments } from './editor-pending-documents.js?v=75.23-hf13';
+import { createPendingStageDocuments } from './editor-pending-documents.js?v=75.23-hf15';
 
 export function stagesPayloadWithCatalogues(stages) {
   return stagesPayload(stages).map((payload, index) => ({
