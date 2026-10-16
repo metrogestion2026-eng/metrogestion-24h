@@ -115,6 +115,46 @@ function deriveLegacyHotelOperationalState(ficha = {}, stages = []) {
   );
   if (recovery && stateOf(recovery) === 'realizada') return 'recuperado';
 
+  // En fichas con varias visitas a taller manda siempre la estancia más reciente.
+  // Una recogida antigua realizada no puede convertir la ficha en
+  // "Pendiente de recuperar" si después existe otra entrada aún abierta.
+  const ordered = active.slice().sort((a, b) => stagePosition(a) - stagePosition(b));
+  const entries = ordered.filter(stage => typeOf(stage) === 'entrada_taller');
+  const latestEntry = entries.at(-1);
+  if (latestEntry) {
+    const entryState = stateOf(latestEntry);
+    if (entryState === 'programada') return 'entrada_taller_programada';
+    if (entryState === 'pendiente') {
+      const current = normalized(ficha.estado);
+      if (PRE_ENTRY_STATES.has(current) || EXCEPTION_STATES.has(current)) return current;
+      return 'pendiente_taller';
+    }
+
+    if (['en_curso', 'realizada'].includes(entryState)) {
+      const latestEntryPos = stagePosition(latestEntry);
+      const matchingPickup = ordered.find(stage =>
+        typeOf(stage) === 'recogida_taller'
+        && (
+          String(stage.etapa_origen_id || '') === String(latestEntry.id || '')
+          || stagePosition(stage) === latestEntryPos + 1
+        )
+      ) || ordered.find(stage =>
+        typeOf(stage) === 'recogida_taller'
+        && stagePosition(stage) > latestEntryPos
+      );
+
+      if (!matchingPickup || stateOf(matchingPickup) === 'pendiente') {
+        const current = normalized(ficha.estado);
+        return EXCEPTION_STATES.has(current) ? current : 'en_taller';
+      }
+      if (['programada', 'en_curso'].includes(stateOf(matchingPickup))) {
+        return 'terminado_pendiente_recogida';
+      }
+      // Si la recogida de la estancia más reciente ya está realizada,
+      // continúa con la lógica normal: recuperación, trámites, etc.
+    }
+  }
+
   const pickups = active.filter(stage => typeOf(stage) === 'recogida_taller');
   if (pickups.some(stage => stateOf(stage) === 'realizada')) return 'recogido_pendiente_ruta';
   if (pickups.some(stage => ['programada', 'en_curso'].includes(stateOf(stage)))) {
