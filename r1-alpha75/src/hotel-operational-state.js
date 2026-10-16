@@ -161,13 +161,13 @@ function deriveLegacyHotelOperationalState(ficha = {}, stages = []) {
     return 'terminado_pendiente_recogida';
   }
 
-  const entries = active.filter(stage => typeOf(stage) === 'entrada_taller');
-  if (entries.some(stage => ['en_curso', 'realizada'].includes(stateOf(stage)))) {
+  const allEntries = active.filter(stage => typeOf(stage) === 'entrada_taller');
+  if (allEntries.some(stage => ['en_curso', 'realizada'].includes(stateOf(stage)))) {
     const current = normalized(ficha.estado);
     return EXCEPTION_STATES.has(current) ? current : 'en_taller';
   }
-  if (entries.some(stage => stateOf(stage) === 'programada')) return 'entrada_taller_programada';
-  if (entries.length) {
+  if (allEntries.some(stage => stateOf(stage) === 'programada')) return 'entrada_taller_programada';
+  if (allEntries.length) {
     const current = normalized(ficha.estado);
     if (PRE_ENTRY_STATES.has(current) || EXCEPTION_STATES.has(current)) return current;
     return 'pendiente_taller';
