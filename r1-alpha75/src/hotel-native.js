@@ -12,11 +12,11 @@ import {
   metric,
   formatBoardDate,
 } from '../../r1-alpha53/src/hotel-utils.js?v=75.2';
-import { renderHotelCard } from './hotel-card.js?v=75.23-hf2';
+import { renderHotelCard } from './hotel-card.js?v=75.23-hf23';
 
 ensureNativeHotelStyle();
 const alpha75VersionNode = document.querySelector('#app-version');
-if (alpha75VersionNode) alpha75VersionNode.textContent = 'r1.0.0-alpha.75.23-hf22';
+if (alpha75VersionNode) alpha75VersionNode.textContent = 'r1.0.0-alpha.75.23-hf23';
 
 const HOTEL_FILTERS = Object.freeze([
   ...BASE_HOTEL_FILTERS,
@@ -46,6 +46,13 @@ const hotelViewState = {
   search: '',
   editMode: false,
 };
+
+let pendingHotelBillingFocus = '';
+
+window.addEventListener('metrogestion:hotel-billing-focus', event => {
+  const recordId = String(event?.detail?.recordId || '').trim();
+  if (recordId) pendingHotelBillingFocus = recordId;
+});
 
 function ensureAlpha71HotelStyle() {
   if (document.querySelector('#alpha71-hotel-style')) return;
@@ -106,6 +113,12 @@ function ensureAlpha71HotelStyle() {
     }
     .a75-cancelled-card h3 { margin: 0; }
     .a75-cancelled-card .reserve-actions { margin-top: 12px; }
+    .a75-billing-focus {
+      outline: 4px solid #0ea5e9;
+      outline-offset: 4px;
+      border-radius: 12px;
+      transition: outline-color .25s ease;
+    }
     @media (max-width: 760px) {
       .a71-hotel-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .a75-cancelled-head,
@@ -680,6 +693,46 @@ async function renderHotelNative(container, access) {
         : 'Activa “Lectura y edición” para consultar las fichas canceladas';
     };
 
+    const focusPendingBilling = () => {
+      const recordId = pendingHotelBillingFocus;
+      if (!recordId) return;
+
+      activeFilter = 'all';
+      hotelViewState.filter = 'all';
+      searchInput.value = '';
+      hotelViewState.search = '';
+      applyFilter();
+
+      const card = [...list.querySelectorAll('.hotel-card')]
+        .find(node => node.dataset.recordId === recordId);
+      if (!card) return;
+
+      pendingHotelBillingFocus = '';
+      const billing = card.querySelector('[data-alpha75-billing]');
+      const target = billing || card;
+      target.classList.add('a75-billing-focus');
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      window.setTimeout(() => target.classList.remove('a75-billing-focus'), 2600);
+
+      if (!billing) return;
+      const focusInput = () => {
+        const input = billing.querySelector('.a66-manual-editor input[type="number"]');
+        if (!input) return false;
+        try { input.focus({ preventScroll: true }); } catch { input.focus(); }
+        if (typeof input.select === 'function') input.select();
+        return true;
+      };
+      if (focusInput()) return;
+
+      const observer = new MutationObserver(() => {
+        if (!focusInput()) return;
+        observer.disconnect();
+        window.clearTimeout(timeout);
+      });
+      observer.observe(billing, { childList: true, subtree: true });
+      const timeout = window.setTimeout(() => observer.disconnect(), 5000);
+    };
+
     const renderRows = () => {
       list.replaceChildren();
       modeNotice.replaceChildren();
@@ -731,6 +784,7 @@ async function renderHotelNative(container, access) {
         list.append(card);
       });
       applyFilter();
+      focusPendingBilling();
     };
 
     if (createButton) {
