@@ -115,11 +115,46 @@ function deriveLegacyHotelOperationalState(ficha = {}, stages = []) {
   );
   if (recovery && stateOf(recovery) === 'realizada') return 'recuperado';
 
-  // En fichas con varias visitas a taller manda siempre la estancia más reciente.
-  // Una recogida antigua realizada no puede convertir la ficha en
-  // "Pendiente de recuperar" si después existe otra entrada aún abierta.
   const ordered = active.slice().sort((a, b) => stagePosition(a) - stagePosition(b));
   const entries = ordered.filter(stage => typeOf(stage) === 'entrada_taller');
+
+  const pickupFor = entry => {
+    const entryPos = stagePosition(entry);
+    return ordered.find(stage =>
+      typeOf(stage) === 'recogida_taller'
+      && (
+        String(stage.etapa_origen_id || '') === String(entry.id || '')
+        || stagePosition(stage) === entryPos + 1
+      )
+    ) || ordered.find(stage =>
+      typeOf(stage) === 'recogida_taller'
+      && stagePosition(stage) > entryPos
+    );
+  };
+
+  // Una recuperación ya iniciada es una decisión operativa explícita y manda.
+  if (recovery && ['programada', 'en_curso'].includes(stateOf(recovery))) {
+    return 'recogido_pendiente_ruta';
+  }
+
+  // Después manda la estancia realmente abierta, aunque haya entradas futuras
+  // todavía pendientes detrás. Esto corrige R1520 y conserva 2527.
+  const openEntries = entries.filter(entry => {
+    if (!['en_curso', 'realizada'].includes(stateOf(entry))) return false;
+    const pickup = pickupFor(entry);
+    return !pickup || stateOf(pickup) !== 'realizada';
+  });
+  const currentEntry = openEntries.at(-1);
+  if (currentEntry) {
+    const pickup = pickupFor(currentEntry);
+    if (pickup && ['programada', 'en_curso'].includes(stateOf(pickup))) {
+      return 'terminado_pendiente_recogida';
+    }
+    const current = normalized(ficha.estado);
+    return EXCEPTION_STATES.has(current) ? current : 'en_taller';
+  }
+
+  // Si no hay ninguna estancia abierta, ya puede mandar la siguiente entrada.
   const latestEntry = entries.at(-1);
   if (latestEntry) {
     const entryState = stateOf(latestEntry);
@@ -128,30 +163,6 @@ function deriveLegacyHotelOperationalState(ficha = {}, stages = []) {
       const current = normalized(ficha.estado);
       if (PRE_ENTRY_STATES.has(current) || EXCEPTION_STATES.has(current)) return current;
       return 'pendiente_taller';
-    }
-
-    if (['en_curso', 'realizada'].includes(entryState)) {
-      const latestEntryPos = stagePosition(latestEntry);
-      const matchingPickup = ordered.find(stage =>
-        typeOf(stage) === 'recogida_taller'
-        && (
-          String(stage.etapa_origen_id || '') === String(latestEntry.id || '')
-          || stagePosition(stage) === latestEntryPos + 1
-        )
-      ) || ordered.find(stage =>
-        typeOf(stage) === 'recogida_taller'
-        && stagePosition(stage) > latestEntryPos
-      );
-
-      if (!matchingPickup || stateOf(matchingPickup) === 'pendiente') {
-        const current = normalized(ficha.estado);
-        return EXCEPTION_STATES.has(current) ? current : 'en_taller';
-      }
-      if (['programada', 'en_curso'].includes(stateOf(matchingPickup))) {
-        return 'terminado_pendiente_recogida';
-      }
-      // Si la recogida de la estancia más reciente ya está realizada,
-      // continúa con la lógica normal: recuperación, trámites, etc.
     }
   }
 
