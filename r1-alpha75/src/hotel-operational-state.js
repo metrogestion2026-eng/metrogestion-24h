@@ -24,6 +24,80 @@ function legacyStageState(stage = {}) {
   return normalized(stage.estado) || 'pendiente';
 }
 
+const NO_RECOVERY_MODALITIES = new Set([
+  'sin_sustitucion',
+  'reparado_en_ruta',
+  'reserva_en_reparacion',
+]);
+
+function stagePosition(stage = {}) {
+  return Number(stage.posicion || 0);
+}
+
+function deriveNoRecoveryLegacyState(ficha = {}, active = []) {
+  const ordered = active.slice().sort((a, b) => stagePosition(a) - stagePosition(b));
+  const stateOf = stage => legacyStageState(stage);
+  const typeOf = stage => normalized(stage?.tipo_etapa);
+
+  const entries = ordered.filter(stage => typeOf(stage) === 'entrada_taller');
+  const latestEntry = entries.at(-1);
+  if (latestEntry) {
+    const entryState = stateOf(latestEntry);
+    if (entryState === 'programada') return 'entrada_taller_programada';
+    if (entryState === 'pendiente') {
+      const current = normalized(ficha.estado);
+      return PRE_ENTRY_STATES.has(current) || EXCEPTION_STATES.has(current)
+        ? current
+        : 'pendiente_taller';
+    }
+
+    if (['en_curso', 'realizada'].includes(entryState)) {
+      const pickup = ordered.find(stage =>
+        typeOf(stage) === 'recogida_taller'
+        && (
+          String(stage.etapa_origen_id || '') === String(latestEntry.id || '')
+          || stagePosition(stage) === stagePosition(latestEntry) + 1
+        )
+      );
+
+      if (!pickup || stateOf(pickup) === 'pendiente') {
+        const current = normalized(ficha.estado);
+        return EXCEPTION_STATES.has(current) ? current : 'en_taller';
+      }
+      if (['programada', 'en_curso'].includes(stateOf(pickup))) {
+        return 'terminado_pendiente_recogida';
+      }
+
+      const later = ordered.filter(stage => stagePosition(stage) > stagePosition(pickup));
+      const pendingProcedure = later.find(stage =>
+        ['trámite', 'tramite'].includes(typeOf(stage))
+        && stateOf(stage) !== 'realizada'
+      );
+      if (pendingProcedure) return 'tramite';
+      const pendingManagement = later.find(stage =>
+        ['gestión', 'gestion'].includes(typeOf(stage))
+        && stateOf(stage) !== 'realizada'
+      );
+      if (pendingManagement) return 'gestion';
+    }
+  }
+
+  const assistance = ordered.find(stage => typeOf(stage) === '24h' && stateOf(stage) !== 'realizada');
+  if (assistance) return 'asistencia_24h';
+
+  const procedure = ordered.find(stage =>
+    ['trámite', 'tramite'].includes(typeOf(stage)) && stateOf(stage) !== 'realizada'
+  );
+  if (procedure) return 'tramite';
+
+  const management = ordered.find(stage =>
+    ['gestión', 'gestion'].includes(typeOf(stage)) && stateOf(stage) !== 'realizada'
+  );
+  if (management) return 'gestion';
+
+  return normalized(ficha.estado) || 'pendiente_taller';
+}
+
 function deriveLegacyHotelOperationalState(ficha = {}, stages = []) {
   const active = (Array.isArray(stages) ? stages : []).filter(stage => !stage?.cancelado);
   if (!active.length) return normalized(ficha.estado) || 'pendiente_taller';
@@ -31,6 +105,10 @@ function deriveLegacyHotelOperationalState(ficha = {}, stages = []) {
   const stateOf = stage => legacyStageState(stage);
   const typeOf = stage => normalized(stage?.tipo_etapa);
   const actionOf = stage => normalized(stage?.accion_sistema);
+
+  if (NO_RECOVERY_MODALITIES.has(normalized(ficha.modalidad_operativa))) {
+    return deriveNoRecoveryLegacyState(ficha, active);
+  }
 
   const recovery = active.find(stage =>
     actionOf(stage) === 'recuperar_y_liberar' || typeOf(stage) === 'recuperar_ruta'
