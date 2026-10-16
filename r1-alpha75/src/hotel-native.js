@@ -2,7 +2,7 @@ import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js';
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { openHotelCreate } from './hotel-create.js?v=75.23-hf11';
-import { openHotelEditor } from './hotel-editor.js?v=75.23-hf15';
+import { openHotelEditor } from './hotel-editor.js?v=75.23-hf18';
 import { requestId } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
@@ -16,7 +16,7 @@ import { renderHotelCard } from './hotel-card.js?v=75.23-hf2';
 
 ensureNativeHotelStyle();
 const alpha75VersionNode = document.querySelector('#app-version');
-if (alpha75VersionNode) alpha75VersionNode.textContent = 'r1.0.0-alpha.75.23-hf17';
+if (alpha75VersionNode) alpha75VersionNode.textContent = 'r1.0.0-alpha.75.23-hf18';
 
 const HOTEL_FILTERS = Object.freeze([
   ...BASE_HOTEL_FILTERS,
