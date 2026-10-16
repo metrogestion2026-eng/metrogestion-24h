@@ -4,7 +4,7 @@ import {
   createTextarea, fieldLabel, makeNewStage
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { createEditableCatalogueField } from './editable-catalogue.js';
-import { deriveHotelOperationalState, hasStageDrivenSituation } from './hotel-operational-state.js?v=75.23-hf20';
+import { deriveHotelOperationalState, hasStageDrivenSituation } from './hotel-operational-state.js?v=75.23-hf21';
 
 function normaliseVehicleKey(value) {
   return String(value || '').replace(/\s+/g, '').trim().toUpperCase();
