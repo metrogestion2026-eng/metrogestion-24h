@@ -1,7 +1,7 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { renderMainSections } from './hotel-editor-main.js?v=75.23-hf10';
+import { renderMainSections } from './hotel-editor-main.js?v=75.23-hf18';
 import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf15';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
@@ -9,7 +9,7 @@ import {
   uploadPendingStageDocuments,
 } from './editor-pending-documents.js?v=75.23-hf15';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
-import { saveErrorIssues, stageStateMismatchIssues } from './hotel-editor-validation.js';
+import { saveErrorIssues, stageStateMismatchIssues } from './hotel-editor-validation.js?v=75.23-hf18';
 import {
   displayDateTime, fichaPayload, normalizeDetail, requestId, validate
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
