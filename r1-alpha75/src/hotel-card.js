@@ -201,7 +201,7 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
   const editable = editableIds.has(row.id);
   const card = element('article', {
     className: `card hotel-card hotel-final-card hotel-bg-${row.fondo_visual || 'blanco'}${row.trazo_marron ? ' hotel-outline-brown' : ''}`,
-    dataset: { state: row.estado || '' },
+    dataset: { state: row.estado || '', recordId: row.id || '' },
   });
 
   card.append(
