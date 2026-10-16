@@ -847,6 +847,8 @@ async function openNativeHotel(button) {
     delete content.dataset.alpha70Panel;
     delete content.dataset.alpha52Panel;
     delete content.dataset.alpha62PanelOwned;
+    delete content.dataset.alpha75PanelHf22;
+    delete content.dataset.alpha75PanelHf23;
     nav?.querySelectorAll('button').forEach(node => node.classList.toggle('active', node === button));
     const access = await getHotelAccess();
     await renderHotelNative(content, access);
