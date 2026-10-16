@@ -39,8 +39,8 @@ function deriveNoRecoveryLegacyState(ficha = {}, active = []) {
   const stateOf = stage => legacyStageState(stage);
   const typeOf = stage => normalized(stage?.tipo_etapa);
 
-  const entries = ordered.filter(stage => typeOf(stage) === 'entrada_taller');
-  const latestEntry = entries.at(-1);
+  const orderedEntries = ordered.filter(stage => typeOf(stage) === 'entrada_taller');
+  const latestEntry = orderedEntries.at(-1);
   if (latestEntry) {
     const entryState = stateOf(latestEntry);
     if (entryState === 'programada') return 'entrada_taller_programada';
