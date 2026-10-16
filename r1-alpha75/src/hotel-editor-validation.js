@@ -48,8 +48,9 @@ export function saveErrorIssues(detail, error) {
   if (!/estado personalizado de la T no corresponde|estado visible de la T no es válido/i.test(message)) return [];
   const mismatches = stageStateMismatchIssues(detail);
   if (mismatches.length) return mismatches;
-  return (detail?.etapas || []).filter(stage => !stage.cancelado).map((stage, index) => ({
-    key: stageValidationKey(stage),
-    message: `${Number(stage.posicion) || index + 1}T · ${stage.nombre || 'Sin nombre'}: revisa el desplegable Estado y vuelve a seleccionar su opción correcta.`
-  }));
+  // Si el servidor devuelve un error genérico pero la pantalla no tiene ninguna
+  // discrepancia real entre estado visible y operativo, no marques todas las T.
+  // Mostrar rojo masivo obliga a tocar datos correctos para esquivar un error
+  // que puede venir de reconciliación, Histórico o una regla de servidor.
+  return [];
 }
