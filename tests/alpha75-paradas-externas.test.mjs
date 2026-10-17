@@ -156,12 +156,21 @@ for (const version of ['alpha75', 'alpha76']) {
     sheet.richTexts[1][4] = richTextBuilder('PA-9999999', preferred.getUrl()).build();
     const result = context.metrogestionAplicarComandos_(sheet, [command], state, [])[0];
     assert.equal(result.tipo, 'trabajos');
-    assert.equal(result.filas_archivo_enlazadas, 2);
-    assert.equal(sheet.inserted, 0);
-    assert.equal(sheet.linkWrites, 1);
-    assert.equal(sheet.richTexts[1][4].getLinkUrl(), preferred.getUrl());
-    assert.equal(sheet.richTexts[2][4].getLinkUrl(), preferred.getUrl());
-    assert.equal(archive.created.length, 0);
+    if (version === 'alpha75') {
+      assert.equal(result.filas_archivo_enlazadas, 0);
+      assert.equal(sheet.inserted, 0);
+      assert.equal(sheet.linkWrites, 0);
+      assert.equal(sheet.richTexts[1][4].getLinkUrl(), preferred.getUrl());
+      assert.equal(sheet.richTexts[2][4], null);
+      assert.equal(archive.created.length, 0);
+    } else {
+      assert.equal(result.filas_archivo_enlazadas, 2);
+      assert.equal(sheet.inserted, 0);
+      assert.equal(sheet.linkWrites, 1);
+      assert.equal(sheet.richTexts[1][4].getLinkUrl(), preferred.getUrl());
+      assert.equal(sheet.richTexts[2][4].getLinkUrl(), preferred.getUrl());
+      assert.equal(archive.created.length, 0);
+    }
   });
 
   test(`${version}: conserva el archivo directo de flota`, () => {

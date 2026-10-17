@@ -4,7 +4,8 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.10.14.1',
+  scriptVersion: 'alpha75-2026.10.17.1',
+  escrituraSeguraManual: true,
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
 });
@@ -393,6 +394,65 @@ function metrogestionNormalizar_(value) {
     .replace(/\s+/g, ' ')
     .trim()
     .toUpperCase();
+}
+
+function metrogestionVacio_(value) {
+  return String(value ?? '').trim() === '';
+}
+
+function metrogestionDatoComparable_(value, tipo, label) {
+  if (metrogestionVacio_(value)) return '';
+  if (tipo === 'fecha') return metrogestionFechaIso_(value, label || 'dato');
+  if (tipo === 'numero') {
+    const number = Number(String(value).replace(/\./g, '').replace(',', '.'));
+    return Number.isFinite(number) ? String(number) : metrogestionNormalizar_(value);
+  }
+  return metrogestionNormalizar_(value);
+}
+
+function metrogestionPlanRellenoSeguro_(actual, esperado, label, tipo) {
+  if (metrogestionVacio_(esperado)) return { escribir: false };
+  if (metrogestionVacio_(actual)) return { escribir: true };
+  const a = metrogestionDatoComparable_(actual, tipo || 'texto', label);
+  const e = metrogestionDatoComparable_(esperado, tipo || 'texto', label);
+  if (a === e) return { escribir: false };
+  throw new Error(
+    `Conflicto manual en ${label}: MANTENIMENT contiene «${actual}» y Metrogestión propone «${esperado}». No se ha modificado nada.`
+  );
+}
+
+function metrogestionCompletarCeldaSegura_(sheet, rowNumber, column, esperado, label, sheetState, cacheIndex, tipo) {
+  if (metrogestionVacio_(esperado)) return false;
+  const cell = sheet.getRange(rowNumber, column);
+  const actual = String(
+    sheetState?.values?.[rowNumber - 1]?.[cacheIndex]
+      ?? cell.getDisplayValue()
+      ?? ''
+  ).trim();
+  const plan = metrogestionPlanRellenoSeguro_(actual, esperado, label, tipo);
+  if (!plan.escribir) return false;
+  cell.setValue(tipo === 'fecha' ? metrogestionDate_(esperado) : esperado);
+  if (tipo === 'fecha') cell.setNumberFormat('dd/MM/yyyy');
+  if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][cacheIndex] = esperado;
+  return true;
+}
+
+function metrogestionNotaConParada_(note, syncId) {
+  const lines = String(note || '').split(/\r?\n/)
+    .filter(line => line && !/^METROGESTION_PARADA:/i.test(line));
+  lines.push(`METROGESTION_PARADA:${syncId}`);
+  return lines.join('\n');
+}
+
+function metrogestionClaveTrabajoPayload_(work) {
+  return [
+    metrogestionNormalizar_(work?.dfm),
+    metrogestionNormalizar_(work?.matricula),
+    metrogestionNormalizar_(work?.taller),
+    metrogestionNormalizar_(work?.tipo_trabajo),
+    metrogestionNormalizar_(work?.designacion),
+    metrogestionFechaIso_(work?.fecha_necesidad, 'de necesidad del trabajo nuevo'),
+  ].join('|');
 }
 
 function metrogestionFechaIso_(value, label) {
@@ -807,7 +867,41 @@ function metrogestionCrearTrabajosDesdeHotel_(sheet, works, sheetState) {
         throw new Error('No se puede crear una necesidad de Hotel sin DFM y PA válidos.');
       }
 
-      rowNumber = metrogestionInsertarFilaParada_(sheet, {
+      const expectedKey = metrogestionClaveTrabajoPayload_(work);
+      const expectedStop = metrogestionClaveNumeroParada_(work.numero_parada);
+      const exactRows = [];
+      const sameStopRows = [];
+      for (let index = 1; index < values.length; index += 1) {
+        const row = values[index];
+        const designation = metrogestionNormalizar_(row[7]);
+        if (['ALTA','BAJA','PARADA','ANULADA'].includes(designation)) continue;
+        if (metrogestionCoincideIdentidadTrabajo_(row, expectedKey)) exactRows.push(index + 1);
+        if (
+          metrogestionNormalizar_(row[0]) === metrogestionNormalizar_(work.dfm)
+          && metrogestionNormalizar_(row[7]) === metrogestionNormalizar_(work.designacion)
+          && metrogestionClaveNumeroParada_(row[4]) === expectedStop
+        ) sameStopRows.push(index + 1);
+      }
+
+      if (exactRows.length > 1) {
+        throw new Error(`Ya existen varias filas equivalentes a ${work.designacion || 'la necesidad'} de ${work.dfm}. No se ha insertado ninguna.`);
+      }
+      if (exactRows.length === 1) {
+        rowNumber = exactRows[0];
+        const existingStop = metrogestionClaveNumeroParada_(values[rowNumber - 1]?.[4]);
+        if (existingStop && existingStop !== expectedStop) {
+          throw new Error(`La necesidad equivalente de ${work.dfm} ya pertenece a otra actuación. No se ha duplicado.`);
+        }
+        const cell = sheet.getRange(rowNumber, 5);
+        const currentNote = sheetState?.notesE?.[rowNumber - 1] ?? '';
+        const nextNote = metrogestionNotaConTrabajo_(currentNote, syncId);
+        cell.setNote(nextNote);
+        if (sheetState?.notesE) sheetState.notesE[rowNumber - 1] = nextNote;
+      } else if (sameStopRows.length) {
+        throw new Error(`La actuación ${work.numero_parada} ya contiene ${work.designacion || 'una necesidad equivalente'} con datos distintos. Revisa el conflicto; no se ha creado una copia.`);
+      }
+
+      if (!rowNumber) rowNumber = metrogestionInsertarFilaParada_(sheet, {
         dfm: work.dfm,
         numero_parada: work.numero_parada
       }, sheetState);
@@ -879,8 +973,24 @@ function metrogestionCrearTrabajosDesdeHotel_(sheet, works, sheetState) {
 
 function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks) {
   return commands.map(command => {
+    if (METROGESTION.escrituraSeguraManual && command?.tipo === 'alta') {
+      throw new Error('La actualización automática de ALTA está bloqueada en modo protegido. No se ha modificado MANTENIMENT.');
+    }
     if (command?.tipo === 'alta') return metrogestionAplicarComandoAlta_(sheet, command, sheetState);
     const payload = command?.payload || {};
+    if (METROGESTION.escrituraSeguraManual && payload.ajuste_24h) {
+      throw new Error('El ajuste AV24H puede reorganizar filas y queda bloqueado en modo protegido. No se ha modificado MANTENIMENT.');
+    }
+    if (
+      METROGESTION.escrituraSeguraManual
+      && (
+        payload.reversion_t?.limpiar_fecha_entrada === true
+        || payload.reversion_t?.limpiar_fecha_salida === true
+        || payload.reversion_t?.limpiar_k_parada === true
+      )
+    ) {
+      throw new Error('La reapertura requiere borrar datos existentes y queda bloqueada en modo protegido. No se ha modificado MANTENIMENT.');
+    }
     const syncId = String(command?.sync_id || payload.sync_id || '').trim();
     if (!/^[0-9a-f-]{36}$/i.test(syncId)) throw new Error('Supabase devolvió una fila PARADA sin identificador válido.');
     if (payload.solo_trabajos === true) {
@@ -898,12 +1008,14 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
         currentWorks,
         payload.reversion_t || null
       );
-      const linkedArchiveRows = metrogestionEnlazarArchivoParada_(
-        sheet,
-        payload.numero_parada,
-        payload.dfm,
-        sheetState
-      );
+      const linkedArchiveRows = METROGESTION.escrituraSeguraManual
+        ? 0
+        : metrogestionEnlazarArchivoParada_(
+            sheet,
+            payload.numero_parada,
+            payload.dfm,
+            sheetState
+          );
       return {
         tipo: 'trabajos',
         sync_id: syncId,
@@ -1252,8 +1364,10 @@ function metrogestionAplicarAsignacionesTrabajos_(
     const cell = sheet.getRange(rowNumber, 5);
     const currentValue = sheetState?.values?.[rowNumber - 1]?.[4]
       ?? cell.getDisplayValue();
-    if (metrogestionNormalizar_(currentValue) !== metrogestionNormalizar_(numeroParada)) {
+    if (!String(currentValue || '').trim()) {
       cell.setValue(numeroParada);
+    } else if (metrogestionNormalizar_(currentValue) !== metrogestionNormalizar_(numeroParada)) {
+      throw new Error(`La fila ${rowNumber} contiene otra actuación en E. No se ha modificado.`);
     }
     const currentNote = sheetState?.notesE?.[rowNumber - 1] ?? cell.getNote();
     const nextNote = metrogestionNotaConTrabajo_(currentNote, syncId);
@@ -1281,12 +1395,19 @@ function metrogestionAplicarAsignacionesTrabajos_(
     const cached = sheetState?.values?.[item.rowNumber - 1];
     const revertThisWork = reversalIds.has(item.syncId.toLowerCase());
 
-    if (revertThisWork && reversion?.limpiar_fecha_entrada === true) {
+    if (
+      METROGESTION.escrituraSeguraManual
+      && revertThisWork
+      && (reversion?.limpiar_fecha_entrada === true || reversion?.limpiar_fecha_salida === true)
+    ) {
+      throw new Error('La reapertura intenta borrar fechas de una fila existente. Revisión manual obligatoria; no se ha modificado MANTENIMENT.');
+    }
+    if (!METROGESTION.escrituraSeguraManual && revertThisWork && reversion?.limpiar_fecha_entrada === true) {
       sheet.getRange(item.rowNumber, 10).clearContent().setNumberFormat('dd/MM/yyyy');
       if (cached) cached[9] = '';
     }
 
-    if (revertThisWork && reversion?.limpiar_fecha_salida === true) {
+    if (!METROGESTION.escrituraSeguraManual && revertThisWork && reversion?.limpiar_fecha_salida === true) {
       sheet.getRange(item.rowNumber, 11).clearContent().setNumberFormat('dd/MM/yyyy');
       sheet.getRange(item.rowNumber, 1, 1, 17).setBackground('#ffffff');
       sheet.getRange(item.rowNumber, 5).setBackground('#cfe2f3');
@@ -1548,63 +1669,63 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     row[16] = payload.tancament || '';
     range.setValues([row]);
   } else {
-    // Metrogestión protege la identidad (A-E, G y O) y el marcador PARADA (H).
-    // MANTENIMENT sigue gobernando I y J. L y P reflejan el cálculo vigente
-    // devuelto por Metrogestión para evitar fórmulas antiguas con K vacía. Q conserva cualquier valor
-    // informado y Metrogestión solo completa el periodo actual si está vacío.
-    // Al realizar la T final de recuperación, también completa K si está vacía.
-    sheet.getRange(rowNumber, 1, 1, 4).setValues([[
-      payload.dfm || '',
-      payload.matricula || '',
-      payload.tipo || '',
-      payload.upc || '',
-    ]]);
-    const paradaEsperada = String(payload.numero_parada || '').trim();
-    const paradaActual = String(sheet.getRange(rowNumber, 5).getDisplayValue() || '').trim();
-    // Si el valor ya coincide, no tocamos E y conservamos su enlace de Drive.
-    if (paradaActual !== paradaEsperada) sheet.getRange(rowNumber, 5).setValue(paradaEsperada);
-    sheet.getRange(rowNumber, 7, 1, 2).setValues([[payload.sustituto || '', estado]]);
-    sheet.getRange(rowNumber, 15).setValue(payload.marca || '');
-    sheet.getRange(rowNumber, 12).setValue(payload.dias_parada ?? '');
-    sheet.getRange(rowNumber, 16).setValue(payload.km_facturables ?? '');
-
-    const fechaKIso = String(payload.fecha_k || '').trim();
-    const fechaKActual = String(
-      sheetState?.values?.[rowNumber - 1]?.[10]
-      ?? sheet.getRange(rowNumber, 11).getDisplayValue()
-    ).trim();
-    if (payload.reversion_t?.limpiar_k_parada === true) {
-      sheet.getRange(rowNumber, 11).clearContent();
-      if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][10] = '';
-    } else if (fechaKIso && !fechaKActual) {
-      sheet.getRange(rowNumber, 11).setValue(metrogestionDate_(fechaKIso));
-      if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][10] = fechaKIso;
+    // ESCRITURA SEGURA: una fila existente nunca se reescribe.
+    // Solo se rellenan huecos. Cualquier valor manual diferente detiene la orden
+    // antes de aplicar cambios visibles.
+    const actual = sheetState?.values?.[rowNumber - 1]
+      || sheet.getRange(rowNumber, 1, 1, 17).getDisplayValues()[0];
+    const checks = [
+      [actual[0], payload.dfm, 'A · DFM', 'texto'],
+      [actual[1], payload.matricula, 'B · matrícula', 'texto'],
+      [actual[2], payload.tipo, 'C · tipo', 'texto'],
+      [actual[3], payload.upc, 'D · UPC/INC', 'texto'],
+      [actual[4], payload.numero_parada, 'E · actuación', 'texto'],
+      [actual[6], payload.sustituto, 'G · sustituto', 'texto'],
+      [actual[7], estado, 'H · estado PARADA', 'texto'],
+      [actual[10], payload.fecha_k, 'K · fecha de recuperación/corte', 'fecha'],
+      [actual[11], payload.dias_parada, 'L · días de parada', 'numero'],
+      [actual[14], payload.marca, 'O · marca', 'texto'],
+      [actual[15], payload.km_facturables, 'P · km facturables', 'numero'],
+      [actual[16], payload.tancament, 'Q · cierre/entrada', 'texto'],
+    ];
+    checks.forEach(([current, expected, label, type]) => {
+      metrogestionPlanRellenoSeguro_(current, expected, label, type);
+    });
+    if (payload.reversion_t?.limpiar_k_parada === true && !metrogestionVacio_(actual[10])) {
+      throw new Error('La reapertura requiere borrar K en MANTENIMENT. En modo protegido debe revisarse manualmente; no se ha modificado nada.');
     }
 
-    const tancamentEsperado = String(payload.tancament || '').trim();
-    const tancamentActual = String(
-      sheetState?.values?.[rowNumber - 1]?.[16]
-      ?? sheet.getRange(rowNumber, 17).getDisplayValue()
-    ).trim();
-    if (tancamentEsperado && !tancamentActual) {
-      sheet.getRange(rowNumber, 17).setValue(tancamentEsperado);
-      if (sheetState?.values?.[rowNumber - 1]) {
-        sheetState.values[rowNumber - 1][16] = tancamentEsperado;
-      }
-    }
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,1,payload.dfm,'A · DFM',sheetState,0,'texto');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,2,payload.matricula,'B · matrícula',sheetState,1,'texto');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,3,payload.tipo,'C · tipo',sheetState,2,'texto');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,4,payload.upc,'D · UPC/INC',sheetState,3,'texto');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,5,payload.numero_parada,'E · actuación',sheetState,4,'texto');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,7,payload.sustituto,'G · sustituto',sheetState,6,'texto');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,8,estado,'H · estado PARADA',sheetState,7,'texto');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,11,payload.fecha_k,'K · fecha de recuperación/corte',sheetState,10,'fecha');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,12,payload.dias_parada,'L · días de parada',sheetState,11,'numero');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,15,payload.marca,'O · marca',sheetState,14,'texto');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,16,payload.km_facturables,'P · km facturables',sheetState,15,'numero');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,17,payload.tancament,'Q · cierre/entrada',sheetState,16,'texto');
   }
-  sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
-  sheet.getRange(rowNumber, 12).setNumberFormat('0');
-  sheet.getRange(rowNumber, 16).setNumberFormat('0.00');
-  sheet.getRange(rowNumber, 1).setNote(`METROGESTION_PARADA:${syncId}`);
+  if (nuevaFila) {
+    sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
+    sheet.getRange(rowNumber, 12).setNumberFormat('0');
+    sheet.getRange(rowNumber, 16).setNumberFormat('0.00');
+  }
+  const paradaCell = sheet.getRange(rowNumber, 1);
+  const paradaNoteActual = sheetState?.notesA?.[rowNumber - 1] ?? '';
+  const paradaNoteNueva = metrogestionNotaConParada_(paradaNoteActual, syncId);
+  paradaCell.setNote(paradaNoteNueva);
   const baseColour = '#cfe2f3';
-  if (nuevaFila) sheet.getRange(rowNumber, 1, 1, 17).setBackground(baseColour);
-  const rowColour = nuevaFila ? baseColour : sheet.getRange(rowNumber, 1).getBackground();
-  sheet.getRange(rowNumber, 8).setBackground(estado === 'ANULADA' ? '#f4cccc' : rowColour);
-  sheet.getRange(rowNumber, 17).setBackground(
-    payload.tancament && payload.tancament_supervisado !== true ? '#f4cccc' : rowColour
-  );
-  if (sheetState?.values?.[rowNumber - 1]) {
+  if (nuevaFila) {
+    sheet.getRange(rowNumber, 1, 1, 17).setBackground(baseColour);
+    sheet.getRange(rowNumber, 8).setBackground(estado === 'ANULADA' ? '#f4cccc' : baseColour);
+    sheet.getRange(rowNumber, 17).setBackground(
+      payload.tancament && payload.tancament_supervisado !== true ? '#f4cccc' : baseColour
+    );
+  }
+  if (sheetState?.values?.[rowNumber - 1] && (nuevaFila || !METROGESTION.escrituraSeguraManual)) {
     const cached = sheetState.values[rowNumber - 1];
     cached[0] = payload.dfm || '';
     cached[1] = payload.matricula || '';
