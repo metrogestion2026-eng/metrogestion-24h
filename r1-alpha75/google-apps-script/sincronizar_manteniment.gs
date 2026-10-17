@@ -432,6 +432,7 @@ function metrogestionCompletarCeldaSegura_(sheet, rowNumber, column, esperado, l
   const plan = metrogestionPlanRellenoSeguro_(actual, esperado, label, tipo);
   if (!plan.escribir) return false;
   cell.setValue(tipo === 'fecha' ? metrogestionDate_(esperado) : esperado);
+  if (tipo === 'fecha') cell.setNumberFormat('dd/MM/yyyy');
   if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][cacheIndex] = esperado;
   return true;
 }
@@ -974,6 +975,7 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
     if (METROGESTION.escrituraSeguraManual && command?.tipo === 'alta') {
       throw new Error('La actualización automática de ALTA está bloqueada en modo protegido. No se ha modificado MANTENIMENT.');
     }
+    if (command?.tipo === 'alta') return metrogestionAplicarComandoAlta_(sheet, command, sheetState);
     const payload = command?.payload || {};
     if (METROGESTION.escrituraSeguraManual && payload.ajuste_24h) {
       throw new Error('El ajuste AV24H puede reorganizar filas y queda bloqueado en modo protegido. No se ha modificado MANTENIMENT.');
@@ -1705,9 +1707,11 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,16,payload.km_facturables,'P · km facturables',sheetState,15,'numero');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,17,payload.tancament,'Q · cierre/entrada',sheetState,16,'texto');
   }
-  sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
-  sheet.getRange(rowNumber, 12).setNumberFormat('0');
-  sheet.getRange(rowNumber, 16).setNumberFormat('0.00');
+  if (nuevaFila) {
+    sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
+    sheet.getRange(rowNumber, 12).setNumberFormat('0');
+    sheet.getRange(rowNumber, 16).setNumberFormat('0.00');
+  }
   const paradaCell = sheet.getRange(rowNumber, 1);
   paradaCell.setNote(metrogestionNotaConParada_(paradaCell.getNote(), syncId));
   const baseColour = '#cfe2f3';
@@ -1718,7 +1722,7 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
       payload.tancament && payload.tancament_supervisado !== true ? '#f4cccc' : baseColour
     );
   }
-  if (sheetState?.values?.[rowNumber - 1]) {
+  if (sheetState?.values?.[rowNumber - 1] && (nuevaFila || !METROGESTION.escrituraSeguraManual)) {
     const cached = sheetState.values[rowNumber - 1];
     cached[0] = payload.dfm || '';
     cached[1] = payload.matricula || '';
