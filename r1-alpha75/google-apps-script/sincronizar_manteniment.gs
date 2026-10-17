@@ -893,7 +893,8 @@ function metrogestionCrearTrabajosDesdeHotel_(sheet, works, sheetState) {
           throw new Error(`La necesidad equivalente de ${work.dfm} ya pertenece a otra actuación. No se ha duplicado.`);
         }
         const cell = sheet.getRange(rowNumber, 5);
-        const nextNote = metrogestionNotaConTrabajo_(cell.getNote(), syncId);
+        const currentNote = sheetState?.notesE?.[rowNumber - 1] ?? '';
+        const nextNote = metrogestionNotaConTrabajo_(currentNote, syncId);
         cell.setNote(nextNote);
         if (sheetState?.notesE) sheetState.notesE[rowNumber - 1] = nextNote;
       } else if (sameStopRows.length) {
@@ -1713,7 +1714,9 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     sheet.getRange(rowNumber, 16).setNumberFormat('0.00');
   }
   const paradaCell = sheet.getRange(rowNumber, 1);
-  paradaCell.setNote(metrogestionNotaConParada_(paradaCell.getNote(), syncId));
+  const paradaNoteActual = sheetState?.notesA?.[rowNumber - 1] ?? '';
+  const paradaNoteNueva = metrogestionNotaConParada_(paradaNoteActual, syncId);
+  paradaCell.setNote(paradaNoteNueva);
   const baseColour = '#cfe2f3';
   if (nuevaFila) {
     sheet.getRange(rowNumber, 1, 1, 17).setBackground(baseColour);
