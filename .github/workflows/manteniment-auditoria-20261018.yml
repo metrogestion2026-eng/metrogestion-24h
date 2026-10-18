@@ -1,0 +1,34 @@
+name: MANTENIMENT - auditoria aislada 20261018
+on:
+  push:
+    branches: [fix/manteniment-auditoria-20261018]
+    paths:
+      - .github/workflows/manteniment-auditoria-20261018.yml
+      - tests/manteniment-auditoria-20261018/**
+permissions:
+  contents: read
+jobs:
+  fuente:
+    if: github.ref == 'refs/heads/fix/manteniment-auditoria-20261018'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 2cca24a46c8e55e8f66bb0fe18f7e1f3ecbe038a
+          persist-credentials: false
+      - name: Archivar exclusivamente el codigo de referencia, sin ejecutarlo
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '2cca24a46c8e55e8f66bb0fe18f7e1f3ecbe038a'
+          test "$(git hash-object r1-alpha75/google-apps-script/sincronizar_manteniment.gs)" = 'a601a86460babb0009430843eff02b1c3afb192d'
+          mkdir -p "$RUNNER_TEMP/mg-auditoria"
+          git archive --format=zip HEAD > "$RUNNER_TEMP/mg-auditoria/original_2cca24a.zip"
+          sha256sum "$RUNNER_TEMP/mg-auditoria/original_2cca24a.zip" > "$RUNNER_TEMP/mg-auditoria/SHA256SUMS.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manteniment-fuente-2cca24a
+          path: ${{ runner.temp }}/mg-auditoria/
+          retention-days: 7
+          if-no-files-found: error
