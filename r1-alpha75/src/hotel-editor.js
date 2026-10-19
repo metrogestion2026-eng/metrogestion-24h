@@ -1,4 +1,5 @@
 import { element } from '../../r1-alpha17/src/dom.js';
+import { refreshConfirmedHotelSave } from './hotel-save-completion.js?v=75.23-hf24';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js?v=75.23-hf21';
@@ -130,7 +131,7 @@ function savedMessage(saved) {
   ].filter(([count]) => count > 0).map(([count, singular, plural]) => `${count} ${count === 1 ? singular : plural}`);
   if (saved?.reactivacion_coherente) parts.unshift('reactivación completa: ficha, T final y reserva sincronizadas');
   if (operationalEffects.length) parts.unshift(`efecto operativo aplicado: ${operationalEffects.join(', ')}`);
-  else if (impact.manteniment_encolado) parts.unshift('efecto operativo revisado y MANTENIMENT sincronizado');
+  else if (impact.manteniment_encolado) parts.unshift('efecto operativo revisado; envío a MANTENIMENT encolado, pendiente de aplicación autorizada');
   if (added.length) parts.push(`listados actualizados: ${added.join(', ')}`);
   return `✓ Ficha guardada: ${parts.join(' · ')}. Referencia ${saved?.request_id || '—'}.`;
 }
@@ -192,6 +193,15 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
   };
   document.addEventListener('keydown', handleKeydown);
   closeButton.addEventListener('click', () => close(false));
+  const refreshSavedView = (closeEditor = false) => refreshConfirmedHotelSave({
+    refresh: onSaved,
+    close: closeEditor ? () => close(true) : null,
+    schedule: (callback, delay) => window.setTimeout(callback, delay),
+    onRefreshError: () => window.alert(
+      'La ficha ya está guardada. No se ha podido actualizar el listado. '
+      + 'Vuelve a abrir la vista para consultar el resultado; no repitas el guardado.'
+    ),
+  });
   overlay.addEventListener('click', event => {
     if (event.target === overlay) close(false);
   });
@@ -297,8 +307,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
         dirty = false;
         status.className = 'hotel-editor-status success';
         status.textContent = `✓ Documentos guardados correctamente (${result.uploaded}). La ficha y la T conservan su identidad.`;
-        await onSaved?.();
-        setTimeout(() => close(true), 1900);
+        await refreshSavedView(true);
       } catch (error) {
         status.className = 'hotel-editor-status error';
         status.textContent = `La ficha y la T ya están guardadas, pero quedan documentos pendientes: ${error?.message || 'error desconocido'}. Pulsa “Reintentar documentos”.`;
@@ -344,17 +353,33 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     discardButton.disabled = true;
     closeButton.disabled = true;
     status.className = 'hotel-editor-status';
-    status.textContent = 'Guardando y aplicando el efecto operativo de las T en Hotel, Panel y MANTENIMENT…';
+    status.textContent = 'Guardando ficha y T. La escritura en MANTENIMENT depende de la sincronización autorizada…';
 
     const saveRequestId = requestId();
-    const { data: saved, error: saveError } = await supabase.rpc('guardar_ficha_hotel_edicion_alpha73', {
+    let saveResult;
+    try {
+      saveResult = await supabase.rpc('guardar_ficha_hotel_edicion_alpha73', {
       p_registro_id: detail.ficha.id,
       p_version: Number(detail.ficha.version),
       p_ficha: alpha72FichaPayload(detail.ficha, detail),
       p_etapas: stagesPayloadWithCatalogues(detail.etapas),
       p_identidad: loadedIdentity,
       p_request_id: saveRequestId
-    });
+      });
+    } catch (error) {
+      // Un fallo de transporte no demuestra que el servidor haya cancelado.
+      // No repetir automáticamente ni habilitar otra creación con un ID nuevo.
+      saving = false;
+      discardButton.disabled = false;
+      closeButton.disabled = false;
+      saveButton.textContent = 'Resultado sin confirmar';
+      status.className = 'hotel-editor-status error';
+      status.textContent = 'No se ha podido confirmar el resultado. Conserva los cambios '
+        + 'y vuelve a abrir esta ficha para comprobarla antes de repetir el guardado. '
+        + `Referencia ${saveRequestId}.`;
+      return;
+    }
+    const { data: saved, error: saveError } = saveResult;
 
     if (saveError || !saved?.ok) {
       const fieldIssues = saveErrorIssues(detail, saveError);
@@ -401,7 +426,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
         discardButton.disabled = false;
         closeButton.disabled = false;
         saving = false;
-        await onSaved?.();
+        await refreshSavedView();
         return;
       }
     } else {
@@ -410,11 +435,9 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     }
 
     dirty = false;
-    detail = prepareDetail(saved.detalle);
-    await onSaved?.();
     const cataloguesAdded = Object.values(saved?.catalogos_nuevos || {}).reduce((total, value) => total + Number(value || 0), 0);
     saveButton.textContent = cataloguesAdded ? 'Guardado · listados actualizados' : 'Guardado correctamente';
-    setTimeout(() => close(true), 1900);
+    await refreshSavedView(true);
   });
 
   form.append(

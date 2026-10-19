@@ -56,7 +56,7 @@ for (const value of [undefined, null, '', '  ', 'TEST', 'PA-TEST', `${A},or=(tru
   });
 }
 
-test('todas las lecturas de resumen filtran una identidad exacta, sin lista global', async () => {
+ test('todas las lecturas de resumen filtran una identidad exacta, sin lista global', async () => {
   const client = fakeClient();
   const reader = createBillingReader(client);
   const result = await reader.read(` ${A.toUpperCase()} `);
@@ -70,7 +70,7 @@ test('todas las lecturas de resumen filtran una identidad exacta, sin lista glob
   assert.ok(client.calls.every(call => call.signal instanceof AbortSignal));
 });
 
-test('comparte solo peticiones simultáneas de la misma identidad', async () => {
+ test('comparte solo peticiones simultáneas de la misma identidad', async () => {
   const client = fakeClient({ delay: 10 });
   const reader = createBillingReader(client);
   const one = reader.read(A);
@@ -84,7 +84,7 @@ test('comparte solo peticiones simultáneas de la misma identidad', async () => 
   assert.equal(client.calls.filter(c => c.table === 'paradas_sustitucion_resumen').length, 2);
 });
 
-test('reabrir después de editar obtiene valores nuevos; no retiene resultados', async () => {
+ test('reabrir después de editar obtiene valores nuevos; no retiene resultados', async () => {
   let km = 100;
   const client = fakeClient({ respond: c => c.table === 'paradas_sustitucion_resumen'
     ? { data: { seguimiento_id: A, km_dia: km }, error: null } : undefined });
@@ -114,7 +114,7 @@ for (const table of ['paradas_sustitucion_resumen', 'cierres_facturacion', 'conf
   });
 }
 
-test('limita a tres las consultas de resumen al abrir muchas fichas', async () => {
+ test('limita a tres las consultas de resumen al abrir muchas fichas', async () => {
   const client = fakeClient({ delay: 20 });
   const reader = createBillingReader(client);
   const ids = Array.from({ length: 12 }, (_, i) => `${String(i).padStart(8, '0')}-1111-4111-8111-111111111111`);
@@ -126,7 +126,7 @@ test('limita a tres las consultas de resumen al abrir muchas fichas', async () =
   assert.ok(client.calls.filter(c => c.table === 'paradas_sustitucion_resumen').every(c => c.filters.length === 1));
 });
 
-test('al cambiar sesión cancela lecturas activas y en cola; no reutiliza datos anteriores', async () => {
+ test('al cambiar sesión cancela lecturas activas y en cola; no reutiliza datos anteriores', async () => {
   const client = fakeClient({ delay: 30 });
   const reader = createBillingReader(client, { concurrency: 1 });
   const oldA = reader.read(A);
@@ -143,7 +143,7 @@ test('al cambiar sesión cancela lecturas activas y en cola; no reutiliza datos 
   assert.equal(fresh.stop.seguimiento_id, B);
 });
 
-test('invalidar una parada no invalida la otra; un resultado antiguo no borra la petición nueva', async () => {
+ test('invalidar una parada no invalida la otra; un resultado antiguo no borra la petición nueva', async () => {
   const client = fakeClient({ delay: 15 });
   const reader = createBillingReader(client);
   const old = reader.read(A);
@@ -168,7 +168,7 @@ const baseline = fs.readFileSync(new URL('../r1-alpha67/src/card-operational.js'
 const candidate = fs.readFileSync(new URL('../r1-alpha75/src/substitution-billing-hf2.js', import.meta.url), 'utf8');
 function between(source, start, end) { return source.slice(source.indexOf(start), source.indexOf(end)); }
 
-test('conserva literalmente los ayudantes de fechas y cálculo inclusivo de alpha67', () => {
+ test('conserva literalmente los ayudantes de fechas y cálculo inclusivo de alpha67', () => {
   assert.equal(between(candidate, 'function el(', 'async function isPrimaryAdmin'), between(baseline, 'function el(', 'function stageTimestamp('));
   assert.equal(between(candidate, 'function findPeriod(', 'function createManualEditor('), between(baseline, 'function findPeriod(', 'function createManualEditor('));
 });
@@ -205,12 +205,12 @@ for (const [label, start, end, reference, km] of scenarios) {
   });
 }
 
-test('la línea 75 carga el lector corregido en Hotel e Histórico, sin alterar el módulo compartido', () => {
+ test('la línea 75 carga el lector corregido en Hotel e Histórico, sin alterar el módulo compartido', () => {
   const load = path => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
   assert.match(load('r1-alpha75/src/card-operational.js'), /from '\.\/substitution-billing-hf2\.js'/);
   for (const name of ['hotel-native', 'history-native']) assert.match(load(`r1-alpha75/src/${name}.js`), /invalidateSubstitutionBilling\(\);/);
-  assert.match(load('r1-alpha75/index.html'), /hotel-native\.js\?v=75\.23-hf23/);
-  assert.match(load('r1-alpha75/index.html'), /history-native\.js\?v=75\.23-hf2/);
+  assert.match(load('r1-alpha75/index.html'), /hotel-native\.js\?v=75\.23-hf24/);
+  assert.match(load('r1-alpha75/index.html'), /history-native\.js\?v=75\.23-hf24/);
   assert.match(candidate, /generation !== billingReader\.generation/);
   assert.doesNotMatch(candidate, /loadBillingData|byStop|byTracking|localStorage|sessionStorage/);
   assert.match(baseline, /let billingDataPromise = null/);
