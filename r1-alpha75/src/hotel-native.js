@@ -1,8 +1,9 @@
 import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js';
+import { loadEditableHotelRecords } from './hotel-editable-records.js?v=75.23-hf24';
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { openHotelCreate } from './hotel-create.js?v=75.23-hf11';
-import { openHotelEditor } from './hotel-editor.js?v=75.23-hf21';
+import { openHotelEditor } from './hotel-editor.js?v=75.23-hf24';
 import { requestId } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
@@ -16,7 +17,7 @@ import { renderHotelCard } from './hotel-card.js?v=75.23-hf23';
 
 ensureNativeHotelStyle();
 const alpha75VersionNode = document.querySelector('#app-version');
-if (alpha75VersionNode) alpha75VersionNode.textContent = 'r1.0.0-alpha.75.23-hf23';
+if (alpha75VersionNode) alpha75VersionNode.textContent = 'r1.0.0-alpha.75.23-hf24';
 
 const HOTEL_FILTERS = Object.freeze([
   ...BASE_HOTEL_FILTERS,
@@ -257,17 +258,15 @@ async function annulGeneratedHotelNote(registroId, stage) {
 }
 
 async function loadHotelData(access) {
-  const [boardResult, hotelResult, editableResult] = await Promise.all([
+  const [boardResult, hotelResult] = await Promise.all([
     supabase.from('pizarras').select('id,fecha,estado').eq('estado', 'en_curso').maybeSingle(),
     supabase.from('hotel_actual_detalle').select('*').order('orden', { ascending: true }),
-    access.editFicha
-      ? supabase.from('hotel_edicion_piloto').select('registro_hotel_id').eq('activo', true)
-      : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (hotelResult.error) throw new Error(`No se pudo cargar Hotel: ${hotelResult.error.message}`);
   const rows = hotelResult.data || [];
   const recordIds = rows.map(row => row.id).filter(Boolean);
+  const editablePromise = loadEditableHotelRecords(supabase, recordIds, access.editFicha);
   const trackingIds = [...new Set(rows.map(row => row.seguimiento_id).filter(Boolean))];
   let stages = [];
   let manualNotes = [];
@@ -332,6 +331,7 @@ async function loadHotelData(access) {
     documentsWarning = `No pudo leerse la documentación: ${error.message}`;
   }
 
+  const editableResult = await editablePromise;
   return {
     boardResult,
     editableResult,
@@ -738,7 +738,7 @@ async function renderHotelNative(container, access) {
       modeNotice.replaceChildren();
       if (access.editFicha) {
         modeNotice.append(editMode
-          ? notice(`✏️ Lectura y edición activada · ${editableIds.size} fichas autorizadas. Ya puedes crear una nueva ficha o editar las existentes.`, 'warning')
+          ? notice(`✏️ Lectura y edición activada · ${editableIds.size} fichas de esta pizarra autorizadas. Ya puedes crear una nueva ficha o editar las existentes.`, 'warning')
           : notice('🔒 Protección de la ficha activada. Puedes añadir, modificar o anular anotaciones directamente; el administrador principal también puede anular las generadas sin modificar la T.', 'success'));
       } else {
         modeNotice.append(notice(
