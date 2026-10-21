@@ -1,3 +1,4 @@
+import { bindAssistanceSituation } from './assistance-situation.js?v=75.23-hf25';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 
 const content = document.querySelector('#module-content');
@@ -93,7 +94,7 @@ function openFollowup(row, card, fleet = []) {
   title.textContent = `Seguimiento 24H · DFM ${row.dfm} · ${row.numero_caso || 'sin número'}`;
   const note = document.createElement('div');
   note.className = 'a74-follow-note';
-  note.textContent = 'Si se confirma traslado en grúa, indica el taller: la parada creará automáticamente Entrada y Recogida.';
+  note.textContent = 'Para una asistencia ya resuelta indica fecha y hora reales. El traslado conserva las actuaciones de taller pendientes; no equivale a vehículo operativo.';
   const grid = document.createElement('div');
   grid.className = 'a74-follow-grid';
 
@@ -119,7 +120,7 @@ function openFollowup(row, card, fleet = []) {
   ], row.resultado);
   const [workshopLabel, workshop] = field('Taller de traslado', row.taller_traslado || row.proveedor || '');
   const [operationalLabel, operational] = check('Vehículo operativo y reparación finalizada', row.estado_operativo_confirmado);
-  const [finishDateLabel, finishDate] = field('Fecha de fin de reparación', String(row.fecha_fin_reparacion || madridToday()).slice(0, 10), 'date');
+  const [finishDateLabel, finishDate] = field('Fecha de fin de reparación', String(row.fecha_fin_reparacion || '').slice(0, 10), 'date');
   const [finishLabel, finish] = field('Hora de fin de reparación', String(row.hora_fin_reparacion || '').slice(0, 5), 'time');
   const [substituteDfmLabel, substituteDfm] = field('DFM del vehículo sustituto', row.vehiculo_sustituto || '');
   const [substitutePlateLabel, substitutePlate] = field('Matrícula del vehículo sustituto', row.matricula_sustituto || '');
@@ -167,6 +168,7 @@ function openFollowup(row, card, fleet = []) {
   };
   syncVisibility();
   result.onchange = syncVisibility;
+  bindAssistanceSituation(currentState, result);
   const autofillSubstitute = () => {
     const vehicle = findFleetVehicle(fleet, substituteDfm.value);
     if (!vehicle) return;

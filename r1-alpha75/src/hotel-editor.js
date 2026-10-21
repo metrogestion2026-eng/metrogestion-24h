@@ -1,9 +1,11 @@
+import { installVehicleCorrection, substituteLabel } from './hotel-vehicle-correction.js?v=75.23-hf25';
+import { bindRecoveryPreview } from './hotel-operational-state.js?v=75.23-hf25';
 import { element } from '../../r1-alpha17/src/dom.js';
 import { refreshConfirmedHotelSave } from './hotel-save-completion.js?v=75.23-hf24';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { renderMainSections } from './hotel-editor-main.js?v=75.23-hf21';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf15';
+import { renderMainSections } from './hotel-editor-main.js?v=75.23-hf25';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf25';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
   collectPendingStageDocuments,
@@ -21,6 +23,7 @@ function prepareDetail(raw) {
   detail.catalogos.tipos_etapa ||= [];
   detail.catalogos.modalidades_operativas ||= [];
   detail.anotaciones_manuales ||= [];
+  bindRecoveryPreview(detail.ficha, detail.etapas);
   return detail;
 }
 
@@ -262,10 +265,10 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     element('strong', {
       text: `${loadedIdentity.vehiculo_sustituido || 'Vehículo sin indicar'} · actuación ${loadedIdentity.numero_parada || 'sin número'}`
     }),
-    element('span', { text: `Reserva ${loadedIdentity.vehiculo_reserva || 'no asignada'}` }),
+    element('span', { text: substituteLabel(detail.ficha) }),
     element('small', { text: 'La reserva puede reutilizarse y no identifica por sí sola una ficha.' })
   ]);
-  const [identification, operation, controls, syncOperationalState] = renderMainSections(detail, markDirty);
+  const [identification, operation, controls, syncOperationalState, vehicleControls] = renderMainSections(detail, markDirty);
   const annotationsSection = renderManualAnnotationsEditor(detail, markDirty);
   const stagesSection = renderStagesSection(detail, markDirty, syncOperationalState, {
     documentsByGroup,
@@ -283,6 +286,28 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     text: 'Cerrar sin guardar'
   });
   discardButton.addEventListener('click', () => close(false));
+
+  installVehicleCorrection({
+    detail, controls: vehicleControls, host: identification, notice: identityNotice, status,
+    getIdentity: () => loadedIdentity,
+    acceptIdentity: ficha => { loadedIdentity = Object.freeze(editionIdentity(ficha)); },
+    rpc: (name, args) => supabase.rpc(name, args),
+    isSaving: () => saving,
+    setSaving: (busy, uncertain = false) => {
+      saving = busy;
+      saveButton.disabled = busy || uncertain;
+      discardButton.disabled = busy;
+      closeButton.disabled = busy;
+    },
+    requestId,
+    onCorrected: ficha => {
+      dirty = true;
+      versionBadge.textContent = `Versión ${ficha.version}`;
+      title.textContent = `Edición completa · ${ficha.vehiculo_sustituido}`;
+      const stamp = systemInfo.lastElementChild;
+      if (stamp) stamp.textContent = `Última modificación: ${displayDateTime(ficha.actualizado_en)}`;
+    },
+  });
 
   saveButton.addEventListener('click', async () => {
     if (saving) return;
@@ -337,7 +362,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
 
     if (!sameEditionIdentity(editionIdentity(detail.ficha), loadedIdentity)) {
       status.className = 'hotel-editor-status error';
-      status.textContent = 'No se ha guardado: la identidad de la ficha cambió durante la edición. Cierra y vuelve a abrirla.';
+      status.textContent = 'No se ha guardado: para cambiar de vehículo utiliza «Confirmar rectificación del vehículo» en Identificación. No crees otra parada.';
       return;
     }
     if (!window.confirm(identityConfirmation(detail.ficha))) {

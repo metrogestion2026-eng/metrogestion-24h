@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { bindRecoveryPreview, deriveHotelOperationalState as derive, recoveryInputSignature } from '../r1-alpha75/src/hotel-operational-state.js';
+import { applyCorrectedVehicle, substituteLabel, vehicleChanged } from '../r1-alpha75/src/hotel-vehicle-correction.js';
+const ficha = () => ({ id:'TEST-FICHA', estado:'en_taller', modalidad_operativa:'sin_sustitucion', vehiculo_reserva:'', modelo_flujo_taller:'entrada_hitos_v1' });
+const entry = (extra={}) => ({id:'TEST-ENTRY',posicion:1,tipo_etapa:'entrada_taller',estado:'realizada',fecha_inicio_real:'2020-01-02T08:00',fecha_fin_real:'2020-01-02T10:00',fecha_real:'2020-01-02T12:00',...extra});
+function bind(f, stages, complete=true) {f.rec001={registro_id:f.id,modalidad:f.modalidad_operativa,requiere_recuperacion:false,cierre_confirmable:complete,conflicto:null};bindRecoveryPreview(f, stages);return f;}
+test('REC001 sin sustitución no impone recuperación por origen 24H',()=>{const f={...ficha(),tipo_movimiento:'24H'};assert.equal(derive(f,[entry(),{tipo_etapa:'otro',nombre:'Recuperar ruta y liberar reserva',estado:'pendiente',posicion:2}]),'t_pendientes');});
+test('el núcleo confirma cierre sin recuperación cuando el borrador no cambia',()=>{const f=ficha(),s=[entry()];assert.equal(derive(bind(f,s),s),'realizada');});
+test('cambiar un hito invalida la confirmación anterior del núcleo',()=>{const f=ficha(),s=[entry()];bind(f,s);s[0].fecha_real='';assert.equal(derive(f,s),'terminado_pendiente_recogida');});
+test('añadir otra T no reutiliza una confirmación antigua de cierre',()=>{const f=ficha(),s=[entry()];bind(f,s);s.push({id:'TEST-NEW',posicion:2,tipo_etapa:'TRÁMITE',estado:'pendiente'});assert.equal(derive(f,s),'tramite');});
+test('no se ignora una T pendiente situada antes de la entrada ya recogida',()=>{const f=ficha();assert.equal(derive(f,[{posicion:1,tipo_etapa:'GESTIÓN',estado:'pendiente'},entry({posicion:2})]),'gestion');});
+test('acabado no equivale a recogido',()=>assert.equal(derive(ficha(),[entry({fecha_real:null})]),'terminado_pendiente_recogida'));
+test('una estancia abierta prevalece sobre una futura',()=>assert.equal(derive(ficha(),[entry({fecha_fin_real:null,fecha_real:null}),entry({id:'TEST-FUTURE',posicion:2,fecha_prevista:'2020-02-01',fecha_inicio_real:null,fecha_fin_real:null,fecha_real:null,estado:'programada'})]),'en_taller'));
+test('se conserva una recuperación legítima con sustituto real',()=>assert.equal(derive({...ficha(),modalidad_operativa:'',vehiculo_reserva:'TEST-RES'},[entry(),{posicion:2,tipo_etapa:'recuperar_ruta',estado:'pendiente'}]),'recogido_pendiente_ruta'));
+test('modalidad contradictoria no borra sustituto ni fuerza el cierre',()=>{const f={...ficha(),vehiculo_reserva:'TEST-RES'};assert.equal(derive(f,[entry()]),'en_taller');assert.equal(f.vehiculo_reserva,'TEST-RES');});
+test('legacy mantiene situación manual y T históricas',()=>{const f={...ficha(),modelo_flujo_taller:'legacy',estado:'t_pendientes'},s=[entry()];const before=JSON.stringify(s);assert.equal(derive(f,s),'t_pendientes');assert.equal(JSON.stringify(s),before);});
+test('varias gestiones no cierran al terminar solo una',()=>assert.equal(derive({...ficha(),estado:'t_pendientes'},[{tipo_etapa:'GESTIÓN',estado:'realizada'},{tipo_etapa:'TRÁMITE',estado:'pendiente'}]),'t_pendientes'));
+test('la firma cambia al rectificar la modalidad o el sustituto',()=>{const f=ficha(),s=[entry()],before=recoveryInputSignature(f,s);f.vehiculo_reserva='TEST-RES';assert.notEqual(recoveryInputSignature(f,s),before);});
+test('cabecera utiliza el sustituto real, no el snapshot inmutable',()=>{assert.equal(substituteLabel({vehiculo_reserva:'TEST-RES',matricula_reserva:'TEST-PLATE'}),'Sustituto TEST-RES · TEST-PLATE');assert.equal(substituteLabel({}), 'Sin sustituto asignado');});
+test('rectificar no sustituye otras ediciones ni las T y archivos pendientes',()=>{
+ const detail={ficha:{id:'TEST',seguimiento_id:'TEST-S',pizarra_id:'TEST-P',numero_parada:'TEST-N',version:2,vehiculo_sustituido:'OLD',matricula_sustituido:'OLD-P',causa:'BORRADOR',vehiculo_reserva:'BORRADOR-RES'},etapas:[{id:'TEST-T',_pendingDocuments:['TEST-DOC']}]};
+ const saved={ok:true,ficha:{...detail.ficha,version:3,vehiculo_sustituido:'NEW',matricula_sustituido:'NEW-P',marca:'TEST-M',causa:'GUARDADA',vehiculo_reserva:'GUARDADA-RES'}};
+ const before=detail.etapas;applyCorrectedVehicle(detail,saved);assert.equal(detail.ficha.vehiculo_sustituido,'NEW');assert.equal(detail.ficha.causa,'BORRADOR');assert.equal(detail.ficha.vehiculo_reserva,'BORRADOR-RES');assert.equal(detail.etapas,before);assert.equal(detail.ficha.version,3);
+});
+test('la respuesta de otra ficha no se aplica al borrador',()=>assert.throws(()=>applyCorrectedVehicle({ficha:{id:'A',version:2}},{ok:true,ficha:{id:'B',version:3}}),/identificable/));
+test('cambiar vehículo se distingue de modificar sustituto',()=>{const f={vehiculo_sustituido:'TEST',matricula_sustituido:'TEST-P',vehiculo_reserva:'RES1'};assert.equal(vehicleChanged({...f,vehiculo_reserva:'RES2'},f),false);assert.equal(vehicleChanged({...f,vehiculo_sustituido:'NEW'},f),true);});
+test('la fecha final de una 24H retrospectiva no se inventa como hoy',()=>{const source=readFileSync('r1-alpha75/src/assistance-followup.js','utf8');assert.doesNotMatch(source,/fecha_fin_reparacion\s*\|\|\s*madridToday/);assert.match(source,/bindAssistanceSituation\(currentState, result\)/);});
+test('abrir T existentes no ejecuta un recálculo de sus hitos',()=>{const source=readFileSync('r1-alpha75/src/hotel-editor-stages.js','utf8');assert.match(source,/if \(!stage.id\) refreshOperationalState\(\)/);});

@@ -321,10 +321,9 @@ export function renderStagesSection(detail, markDirty, onOperationalChange, {
         control.addEventListener('input', refreshOperationalState);
         control.addEventListener('change', refreshOperationalState);
       });
-      // Una T existente puede abrirse con hitos ya informados y un estado heredado.
-      // Recalcular al renderizar mantiene la vista alineada con los hechos sin esperar
-      // a que el usuario toque de nuevo la fecha.
-      refreshOperationalState();
+      // Abrir o reordenar no modifica estados históricos. Recalcular únicamente
+      // al editar un hito, o al preparar una T nueva sin identidad persistida.
+      if (!stage.id) refreshOperationalState();
 
       const stageType = String(stage.tipo_etapa || '').trim().toLocaleLowerCase('es-ES');
       const isNewFlowEntry = detail.ficha.modelo_flujo_taller === 'entrada_hitos_v1'
