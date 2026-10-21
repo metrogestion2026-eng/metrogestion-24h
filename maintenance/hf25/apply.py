@@ -41,6 +41,16 @@ new = b'-r1.0.0-alpha.75.23-hf24\n+r1.0.0-alpha.75.23-hf25\n'
 if patch.count(old) != 1:
     raise SystemExit('VERSION delta is not unique')
 patch = patch.replace(old, new)
+# difflib emits /dev/null without Git's new-file metadata. Add that metadata
+# only for the three paths whose source was independently verified absent.
+created = [name for name, hashes in MANIFEST.items() if hashes['before'] is None]
+if len(created) != 3:
+    raise SystemExit('Unexpected number of new files')
+for name in created:
+    header = f'diff --git a/{name} b/{name}\n--- /dev/null\n'.encode()
+    if patch.count(header) != 1:
+        raise SystemExit('New-file header is not unique: ' + name)
+    patch = patch.replace(header, f'diff --git a/{name} b/{name}\nnew file mode 100644\n--- /dev/null\n'.encode())
 run('git', 'apply', '--check', '-', input=patch)
 run('git', 'apply', '-', input=patch)
 for name, hashes in MANIFEST.items():
