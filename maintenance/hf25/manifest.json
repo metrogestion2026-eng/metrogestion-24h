@@ -1,0 +1,21 @@
+{
+  ".github/workflows/check-javascript.yml": {"before":"9da93400171813e3293431b95c2436a7b3b9fe5bee55aed6a1c8c73b673873f8","after":"bb8a589ff88e49c82e6d1cdc87989319474f27ecd5549ab3105e2f775a3f59f7"},
+  "tests/alpha75-hf25-pendientes.test.mjs": {"before":null,"after":"b2399dfe3bf8bc95975bd86dd10a56b1143e48140d02f0479a4f41480c2d5002"},
+  "tests/security-alpha75-billing-scoped.test.mjs": {"before":"91307f7eac4d4b4227af7827dfa479ea5b2c48817395a20d01851f3d43848dae","after":"fdb69ccf578d3b30f19f28831cbb59342199e8139bda06c43687e1f5da542961"},
+  "tests/security-alpha75-hotel-save-hf24.test.mjs": {"before":"785ac0ac99720cfa6f1b03e6ec511f630fd991cd8fbbecb5d969feb547e69079","after":"ef701f5054bd8762dc3b26c7cba9c3ea199e2dc31b3b9527a074c0f9746e8a87"},
+  "r1-alpha75/VERSION": {"before":"84dd47ad1c6a993d517623ac1f1d013ca7e15c9699c3f13ea082223979328ee9","after":"ded11ad0e48ea032db03a61df2bbbee1733ef2f5374eb6ca43ee2ed84356d25d"},
+  "r1-alpha75/index.html": {"before":"ca417493ae0fd2f8d5e15879adb19441febe8371cffb81c76cfcb3a5b26a0d49","after":"ef1037e4e63005dac2256de3cdf0d7b7ab77a3ea8ba0dbb28e0b79c11434fbb2"},
+  "r1-alpha75/src/app.js": {"before":"6b01202fce097f39308e2307715e9d7d25787dfd619d772c3331b7f91c0af21e","after":"38c15da7ab27e2a598007e24deee73fad8e85c4ce04b08f0d2e994c4a03304ce"},
+  "r1-alpha75/src/assistance-followup.js": {"before":"64aec6232095a9f8313b0f00b088379f46511bb650c60dbcc18cd6b65707f172","after":"5eb7d5be121647030fdfbdb0f6b5e75c228ed6e0e315d0a460d9da485d36613c"},
+  "r1-alpha75/src/assistance-situation.js": {"before":null,"after":"5eb7c2bba67288b42440f3eda182792bbe72471efeba36ae9dfc834d55fb2d04"},
+  "r1-alpha75/src/history-card.js": {"before":"186d3d3dbf627753b56503aa0be04a1d638c4ad1972c09e2038011c183bf4550","after":"fface678b1626766b9a3bd9e3c3e956ea128553cadfb8af65f22a4ec9c27759c"},
+  "r1-alpha75/src/history-native.js": {"before":"86158887cfd4b99933d286ac39ea2f40f458001cf14f9c2b52b43764497d2d20","after":"a51e6991e0f7940d1670d64f7994007d503e65215ccba92c0d2c108ea73ba1ff"},
+  "r1-alpha75/src/hotel-create.js": {"before":"335c1cea19a9f8493235af72d8f9aba6377285635fe0705245bf434fdf6b15e8","after":"9be4b4c15e7091b89aa80cb5877c8de2d894add9baae25aae35331a4892bf273"},
+  "r1-alpha75/src/hotel-editor-main.js": {"before":"183c4565563583a074f976dfbac0a7a57003ccfefa22686357534c8e1145a390","after":"55f892e4b163c632118d8a42b12b77bd637644ce3e74ed323c65d4744340d2e9"},
+  "r1-alpha75/src/hotel-editor-stages.js": {"before":"503fd19b4e93088168a966759e01208964880d106fa98872eca5926a7b3e48ee","after":"04739a24eea3c63daea4128b180d4ffe39fc232645deb460d7885287c1c51b8f"},
+  "r1-alpha75/src/hotel-editor.js": {"before":"d31ef32cab46fc0ecbba66676873499599d08e0fdae63f1dd9d514c9151921da","after":"e30e50f06113fab447edd780737e70bf6447f0dce87cf37c500425cbea691471"},
+  "r1-alpha75/src/hotel-native.js": {"before":"c167399555e3dc70b8688bd52729da929b592467415bffcd9cdb745373d66b97","after":"7e28088e0cf9101b582c6e164b76f7d051603e3cad6d3b2ecbfb2e69d0f46595"},
+  "r1-alpha75/src/hotel-operational-state.js": {"before":"eff635691dd76beb3da9370bdb1ce75b2469081671faad6e2480fefe1575d078","after":"50c6f5339ee93df0f7025351e64925f6642bc09252849840c6741cf8cea3cb67"},
+  "r1-alpha75/src/hotel-vehicle-correction.js": {"before":null,"after":"21f389aa739766cea29cb31eded88ba4c683057ca4e5f4dc5d89e73704d521ac"},
+  "r1-alpha75/src/panel-native-hf23.js": {"before":"72b5921bf26c03d498309fa2ef90b25227b641a1f043118b13d80e778a926629","after":"5ea29e6e0fbe8a99b28dded101d80a20ab416a5c85d261959a9f020a6b388887"}
+}

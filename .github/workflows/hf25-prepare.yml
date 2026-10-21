@@ -1,0 +1,39 @@
+name: Preparar candidata hf25 una vez
+on:
+  push:
+    branches: ['fix/alpha75-hf25-pendientes-20261021']
+    paths: ['maintenance/hf25/**', '.github/workflows/hf25-prepare.yml']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/fix/alpha75-hf25-pendientes-20261021'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Aplicar delta exacto y comprobar
+        run: |
+          set -eu
+          python3 maintenance/hf25/apply.py
+          python3 .github/scripts/check-public-privacy.py
+          find r1-alpha75 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --test tests/security-*.test.mjs tests/alpha75-paradas-externas.test.mjs tests/alpha75-24h-wizard-close.test.mjs tests/alpha75-hf25-pendientes.test.mjs
+          python3 tests/pages-public-files.test.py
+          python3 .github/scripts/build-pages.py _site
+      - name: Conservar candidata y retirar este preparador
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/hf25-prepare.yml
+          git commit -m 'Alpha75 hf25: candidata verificada, rectificación y estados coherentes'
+          AUTH=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" push origin HEAD:refs/heads/fix/alpha75-hf25-pendientes-20261021
