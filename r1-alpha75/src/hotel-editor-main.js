@@ -4,7 +4,7 @@ import {
   createTextarea, fieldLabel, makeNewStage
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { createEditableCatalogueField } from './editable-catalogue.js';
-import { deriveHotelOperationalState, hasStageDrivenSituation } from './hotel-operational-state.js?v=75.23-hf21';
+import { deriveHotelOperationalState, hasStageDrivenSituation } from './hotel-operational-state.js?v=75.23-hf25';
 
 function normaliseVehicleKey(value) {
   return String(value || '').replace(/\s+/g, '').trim().toUpperCase();
@@ -88,6 +88,7 @@ export function renderMainSections(detail, markDirty) {
   ];
   for (const [label, key] of fields) {
     const control = createInput({ value: detail.ficha[key] || '', readOnly: masterAvailable && masterReadOnly.has(key) });
+    if (key === 'numero_parada' && detail.ficha.id) control.readOnly = true;
     controls[key] = control;
     bindText(control, detail.ficha, key, markDirty);
     identificationGrid.append(fieldLabel(label, control));
@@ -102,11 +103,7 @@ export function renderMainSections(detail, markDirty) {
       hint: 'Déjalo vacío si existe un sustituto real. También puedes elegir o escribir una modalidad nueva.',
       onChange: (item, typed) => {
         detail.ficha.modalidad_operativa = item?.codigo || typed;
-        if (['sin_sustitucion', 'reparado_en_ruta'].includes(item?.comportamiento)) {
-          setControl(controls, detail.ficha, 'vehiculo_reserva', '');
-          setControl(controls, detail.ficha, 'matricula_reserva', '');
-          setControl(controls, detail.ficha, 'etiqueta_reserva', '');
-        }
+        // REC-001: cambiar modalidad no borra una sustitución real. Conflicto explícito al guardar.
         markDirty();
       }
     }
@@ -194,7 +191,7 @@ export function renderMainSections(detail, markDirty) {
   const baseState = () => detail.ficha.estado === 'anulado' ? 'pendiente_taller' : detail.ficha.estado;
   const momentaryState = { codigo: 'sustitucion_momentanea', nombre: 'Sustitución momentánea', orden: -1 };
   const stateOptions = detail.catalogos.estados.filter(item => !['anulado', 'reserva_liberada', 'sustitucion_momentanea'].includes(item.codigo));
-  const preEntryStateOptions = stateOptions.filter(item => ['planificado', 'pendiente_taller', 'tramite', 'gestion', 'realizada'].includes(item.codigo));
+  const preEntryStateOptions = stateOptions.filter(item => ['planificado', 'pendiente_taller', 'tramite', 'gestion', 't_pendientes', 'realizada'].includes(item.codigo));
   const isNewFlow = detail.ficha.modelo_flujo_taller === 'entrada_hitos_v1';
   const initialStateOptions = isNewFlow && !hasStageDrivenSituation(detail.ficha, detail.etapas)
     ? preEntryStateOptions
@@ -205,7 +202,7 @@ export function renderMainSections(detail, markDirty) {
     detail.ficha.sustitucion_temporal ? 'sustitucion_momentanea' : baseState(),
     {
       placeholder: 'La situación se calcula desde las T',
-      hint: 'Antes de programar la Entrada puedes elegir Pendiente de parar o Parado en espera de taller. En fichas nuevas, desde que programas la Entrada la situación se calcula con sus fechas y con la T siguiente.',
+      hint: 'Previsualización por hechos: Entrada, Acabado y Recogido son distintos. El servidor confirma el cierre al guardar. T pendientes conserva las demás actuaciones abiertas.',
       onChange: (item, typed) => {
         detail.ficha.estado = item?.codigo || typed;
         const stage = ensureSituationStage(detail, detail.ficha.estado);
@@ -313,5 +310,5 @@ export function renderMainSections(detail, markDirty) {
   });
   editorControls.append(temp.label, tempBox, retired.label, cancelled.label, cancellationBox, syncTitle, syncGrid, supervised.label, syncHelp, historyHelp);
   refresh();
-  return [identification, operation, editorControls, syncOperationalState];
+  return [identification, operation, editorControls, syncOperationalState, controls];
 }

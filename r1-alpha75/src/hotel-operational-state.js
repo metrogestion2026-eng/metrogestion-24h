@@ -9,6 +9,7 @@ const PRE_ENTRY_STATES = new Set([
   'pendiente_taller',
   'tramite',
   'gestion',
+  't_pendientes',
   'realizada',
 ]);
 
@@ -201,65 +202,106 @@ function isNewFlowEntry(stage = {}) {
   return !stage?.cancelado && normalized(stage.tipo_etapa) === 'entrada_taller';
 }
 
-function isRecovery(stage = {}) {
-  return !stage?.cancelado && (
+function typeKey(value) {
+  return normalized(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+export function isRecovery(stage = {}) {
+  return !stage?.cancelado && normalized(stage.estado) !== 'anulada' && (
     normalized(stage.accion_sistema) === 'recuperar_y_liberar'
-    || normalized(stage.tipo_etapa) === 'recuperar_ruta'
+    || ['recuperar_ruta', 'recuperar'].includes(typeKey(stage.tipo_etapa))
+    || /^(recuperar ruta|recuperar vehiculo)/.test(typeKey(stage.nombre))
   );
 }
 
+export function recoveryInputSignature(ficha = {}, stages = []) {
+  return JSON.stringify([ficha.id, ficha.modalidad_operativa || '', ficha.vehiculo_reserva || '',
+    (Array.isArray(stages) ? stages : []).map(stage => [stage.id, stage.tipo_etapa, stage.nombre,
+      stage.accion_sistema, stage.estado, stage.cancelado, stage.etapa_origen_id,
+      stage.fecha_prevista, stage.fecha_inicio_real, stage.fecha_fin_real, stage.fecha_real])]);
+}
+
+export function bindRecoveryPreview(ficha, stages) {
+  if (ficha?.rec001?.registro_id === ficha.id) ficha.rec001_base = recoveryInputSignature(ficha, stages);
+}
+
+function recoveryPreview(ficha, stages) {
+  const common = ficha.rec001;
+  if (common?.registro_id === ficha.id && ficha.rec001_base === recoveryInputSignature(ficha, stages)) {
+    if (common.conflicto) return { conflict: true };
+    if (typeof common.requiere_recuperacion === 'boolean') {
+      return { required: common.requiere_recuperacion, complete: common.cierre_confirmable === true };
+    }
+  }
+  // Al cambiar el borrador se descarta el permiso de cierre de la lectura anterior.
+  // Solo se anticipa la exclusión explícita; guardar consulta el núcleo otra vez.
+  const excluded = NO_RECOVERY_MODALITIES.has(normalized(ficha.modalidad_operativa));
+  const substitute = Boolean(String(ficha.vehiculo_reserva || '').trim());
+  if (excluded) return substitute ? { conflict: true } : { required: false, complete: false };
+  if (substitute) return { required: true, complete: false };
+  const tasks = stages.filter(stage => !stage.cancelado && normalized(stage.estado) !== 'anulada' && !isRecovery(stage));
+  if (tasks.length && tasks.every(stage => ['tramite', 'gestion'].includes(typeKey(stage.tipo_etapa)))) {
+    return { required: false, complete: false };
+  }
+  return { required: true, complete: false };
+}
+
 function nextStageSituation(stage = {}) {
-  const type = normalized(stage.tipo_etapa);
-  if (isRecovery(stage)) return stage.fecha_real || normalized(stage.estado) === 'realizada'
-    ? 'recuperado'
-    : 'recogido_pendiente_ruta';
+  const type = typeKey(stage.tipo_etapa);
   if (type === 'entrada_taller') {
+    if (stage.fecha_inicio_real && stage.fecha_fin_real && stage.fecha_real) return null;
+    // Mostrar hitos existentes no permite inventar los que falten ni cerrar.
     if (stage.fecha_real) return null;
     if (stage.fecha_fin_real) return 'terminado_pendiente_recogida';
     if (stage.fecha_inicio_real) return 'en_taller';
     if (stage.fecha_prevista) return 'entrada_taller_programada';
     return 'pendiente_taller';
   }
-  if (type === '24h') return normalized(stage.estado) === 'realizada' ? null : 'asistencia_24h';
-  if (type === 'trámite') return normalized(stage.estado) === 'realizada' ? null : 'tramite';
-  if (type === 'gestión') return normalized(stage.estado) === 'realizada' || stage.fecha_real ? 'realizada' : 'gestion';
-  if (normalized(stage.estado) === 'realizada' || stage.fecha_real) return null;
-  if (stage.fecha_prevista) return 'planificado';
-  return null;
+  if (normalized(stage.estado) === 'realizada') return null;
+  if (type === '24h') return 'asistencia_24h';
+  if (type === 'recogida_taller') return 'terminado_pendiente_recogida';
+  if (type === 'tramite') return 'tramite';
+  if (type === 'gestion') return 'gestion';
+  return stage.fecha_prevista ? 'planificado' : 't_pendientes';
 }
 
 function deriveNewFlowOperationalState(ficha = {}, stages = []) {
   const active = (Array.isArray(stages) ? stages : [])
-    .filter(stage => !stage?.cancelado && normalized(stage.tipo_etapa) !== 'recogida_taller')
-    .slice()
-    .sort((a, b) => Number(a?.posicion || 0) - Number(b?.posicion || 0));
-
+    .filter(stage => !stage?.cancelado && normalized(stage.estado) !== 'anulada')
+    .slice().sort((a, b) => Number(a?.posicion || 0) - Number(b?.posicion || 0));
+  const decision = recoveryPreview(ficha, Array.isArray(stages) ? stages : []);
+  if (decision.conflict) return normalized(ficha.estado) || 'pendiente_taller';
   if (!active.length) return normalized(ficha.estado) || 'pendiente_taller';
+  const tasks = active.filter(stage => !isRecovery(stage));
+  const recovery = decision.required ? active.find(isRecovery) : null;
+  const hasFacts = hasStageDrivenSituation(ficha, active);
 
-  const firstEntryIndex = active.findIndex(stage =>
-    isNewFlowEntry(stage)
-    && Boolean(stage.fecha_prevista || stage.fecha_inicio_real || stage.fecha_fin_real || stage.fecha_real)
-  );
-
-  if (firstEntryIndex < 0) {
-    const firstOperational = active.find(stage => {
-      const type = normalized(stage.tipo_etapa);
-      return type === 'gestión' || type === 'trámite' || type === '24h';
-    });
-    if (firstOperational) {
-      const situation = nextStageSituation(firstOperational);
-      if (situation) return situation;
-    }
+  // Una estancia física abierta conserva prioridad sobre entradas futuras.
+  const inWorkshop = tasks.find(stage => isNewFlowEntry(stage) && stage.fecha_inicio_real && !stage.fecha_real);
+  if (inWorkshop) {
+    if (inWorkshop.fecha_fin_real) return 'terminado_pendiente_recogida';
     const current = normalized(ficha.estado);
-    return PRE_ENTRY_STATES.has(current) ? current : 'pendiente_taller';
+    return EXCEPTION_STATES.has(current) ? current : 'en_taller';
   }
-
-  for (let index = firstEntryIndex; index < active.length; index += 1) {
-    const situation = nextStageSituation(active[index]);
-    if (situation) return situation;
+  for (const stage of tasks) {
+    const situation = nextStageSituation(stage);
+    if (!situation) continue;
+    if (isNewFlowEntry(stage) && !hasFacts) {
+      const current = normalized(ficha.estado);
+      return PRE_ENTRY_STATES.has(current) ? current : situation;
+    }
+    if (['tramite', 'gestion'].includes(situation) && normalized(ficha.estado) === 't_pendientes') return 't_pendientes';
+    return situation;
   }
-
-  return 'recogido_pendiente_ruta';
+  if (decision.required) {
+    if (recovery && (normalized(recovery.estado) === 'realizada' || recovery.fecha_real)) return 'recuperado';
+    if (recovery || hasFacts) return 'recogido_pendiente_ruta';
+  }
+  // La gestión/trámite sin otras actuaciones cierra su propio flujo. Para las
+  // actuaciones físicas, solo el núcleo confirma que no falta ningún hecho.
+  if (decision.complete || (tasks.length && !decision.required
+    && tasks.every(stage => ['tramite', 'gestion'].includes(typeKey(stage.tipo_etapa)) && normalized(stage.estado) === 'realizada'))) return 'realizada';
+  return tasks.length ? 't_pendientes' : (normalized(ficha.estado) || 'pendiente_taller');
 }
 
 export function hasStageDrivenSituation(ficha = {}, stages = []) {
