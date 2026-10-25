@@ -158,7 +158,9 @@ export function renderHistoricalCard(
   });
   if (chronology) card.append(chronology);
 
-  card.append(createSubstitutionBilling(row, { allowManual: false }));
+  // Histórico debe permitir al administrador principal corregir la media diaria
+  // de kilómetros de sustitución usando el mismo dato y RPC que Hotel/Pizarra.
+  card.append(createSubstitutionBilling(row, { allowManual: true }));
 
   const documentSummary = element('div', { className: 'a53-card-doc-summary' });
   const updateDocumentSummary = () => {
