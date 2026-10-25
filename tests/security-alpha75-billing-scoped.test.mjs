@@ -215,3 +215,10 @@ for (const [label, start, end, reference, km] of scenarios) {
   assert.doesNotMatch(candidate, /loadBillingData|byStop|byTracking|localStorage|sessionStorage/);
   assert.match(baseline, /let billingDataPromise = null/);
 });
+
+
+test('Histórico permite la media manual de sustitución solo a través del control protegido', () => {
+  const source = load('r1-alpha75/src/history-card.js');
+  assert.match(source, /createSubstitutionBilling\(row, \{ allowManual: true \}\)/);
+  assert.doesNotMatch(source, /from\(['\"]ajustes_sustitucion_parada['\"]\)\.update/);
+});
