@@ -214,10 +214,10 @@ for (const [label, start, end, reference, km] of scenarios) {
 
  test('la línea 75 carga el lector corregido en Hotel e Histórico, sin alterar el módulo compartido', () => {
   const load = path => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-  assert.match(load('r1-alpha75/src/card-operational.js'), /from '\.\/substitution-billing-hf2\.js\?v=75\.23-hf27'/);
+  assert.match(load('r1-alpha75/src/card-operational.js'), /from '\.\/substitution-billing-hf2\.js\?v=75\.23-hf28'/);
   for (const name of ['hotel-native', 'history-native']) assert.match(load(`r1-alpha75/src/${name}.js`), /invalidateSubstitutionBilling\(\);/);
-  assert.match(load('r1-alpha75/index.html'), /hotel-native\.js\?v=75\.23-hf27/);
-  assert.match(load('r1-alpha75/index.html'), /history-native\.js\?v=75\.23-hf27/);
+  assert.match(load('r1-alpha75/index.html'), /hotel-native\.js\?v=75\.23-hf28/);
+  assert.match(load('r1-alpha75/index.html'), /history-native\.js\?v=75\.23-hf28/);
   assert.match(candidate, /generation !== billingReader\.generation/);
   assert.doesNotMatch(candidate, /loadBillingData|byStop|byTracking|localStorage|sessionStorage/);
   assert.match(baseline, /let billingDataPromise = null/);

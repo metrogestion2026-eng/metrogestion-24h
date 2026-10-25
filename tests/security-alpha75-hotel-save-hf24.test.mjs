@@ -120,10 +120,10 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
   for (const path of ['hotel-native.js', 'history-card.js']) {
     assert.match(source(`r1-alpha75/src/${path}`), /hotel-editor\.js\?v=75\.23-hf25/);
   }
-  assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.23-hf27/);
+  assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.23-hf28/);
   const html = source('r1-alpha75/index.html');
   for (const name of ['app', 'hotel-native', 'history-native']) {
-    assert.ok(html.includes(`${name}.js?v=75.23-hf27`));
+    assert.ok(html.includes(`${name}.js?v=75.23-hf28`));
   }
 });
 
@@ -138,4 +138,17 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
   assert.match(editor, /refreshSavedView\(true\)/);
   assert.doesNotMatch(editor, /await onSaved\?\./);
   assert.doesNotMatch(editor, /MANTENIMENT sincronizado/);
+});
+
+
+test('la 75 comprueba versión publicada sin caché y fuerza una entrada nueva si queda antigua', () => {
+  const html = source('r1-alpha75/index.html');
+  const refresh = source('r1-alpha75/src/version-refresh.js');
+  const manifest = JSON.parse(source('r1-alpha75/manifest.webmanifest'));
+  assert.ok(html.includes('version-refresh.js?v=75.23-hf28'));
+  assert.match(html, /Cache-Control/);
+  assert.match(refresh, /cache:\s*'no-store'/);
+  assert.match(refresh, /new URL\('\.\.\/VERSION', import\.meta\.url\)/);
+  assert.match(refresh, /window\.location\.replace/);
+  assert.equal(manifest.start_url, './?v=75.23-hf28');
 });
