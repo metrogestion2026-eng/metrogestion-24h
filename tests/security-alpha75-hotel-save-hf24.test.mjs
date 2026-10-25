@@ -120,7 +120,7 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
   for (const path of ['hotel-native.js', 'history-card.js']) {
     assert.match(source(`r1-alpha75/src/${path}`), /hotel-editor\.js\?v=75\.23-hf25/);
   }
-  assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.23-hf27/);
+  assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.23-hf28/);
   const html = source('r1-alpha75/index.html');
   for (const name of ['app', 'hotel-native', 'history-native']) {
     assert.ok(html.includes(`${name}.js?v=75.23-hf28`));
