@@ -1,4 +1,4 @@
-import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js?v=75.23-hf27';
+import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js?v=75.23-hf28';
 import { loadEditableHotelRecords } from './hotel-editable-records.js?v=75.23-hf24';
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
@@ -13,7 +13,7 @@ import {
   metric,
   formatBoardDate,
 } from '../../r1-alpha53/src/hotel-utils.js?v=75.2';
-import { renderHotelCard } from './hotel-card.js?v=75.23-hf27';
+import { renderHotelCard } from './hotel-card.js?v=75.23-hf28';
 
 ensureNativeHotelStyle();
 const alpha75VersionNode = document.querySelector('#app-version');
