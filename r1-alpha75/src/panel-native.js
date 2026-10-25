@@ -264,7 +264,7 @@ function billingDfmItem(row) {
   return {
     title: `${row.numero_parada || '—'} · DFM ${row.dfm || '—'}${row.matricula ? ` · ${row.matricula}` : ''}`,
     meta: `${formatDate(row.tramo_inicio)}–${formatDate(row.tramo_fin)} · ${numberFormat.format(row.dias_facturables || 0)} días`,
-    note: `${numberFormat.format(row.km_facturables || 0)} km · Media ${row.km_dia == null ? 'sin dato' : `${numberFormat.format(row.km_dia)} km/día`} · Sustituto ${row.sustituto || '—'}`,
+    note: `Media ${row.km_dia == null ? 'sin dato' : `${numberFormat.format(row.km_dia)} km/día`} · Sustituto ${row.sustituto || '—'}`,
     module: 'listados',
     actionLabel: 'Abrir en Listados',
   };
@@ -491,9 +491,9 @@ async function renderPanel({ automatic = false } = {}) {
       can24h ? readQuery('24H', supabase.from('activaciones_24h').select('id,dfm,matricula,numero_caso,estado,resultado,averia,proveedor,creado_en,actualizado_en,creado_por').order('creado_en', { ascending: false })) : skipped('24H'),
       canFleet ? readQuery('Contratos', supabase.from('vehiculos').select('dfm,matricula,categoria,clase_vehiculo,marca,modelo,km_actual,fin_contrato_km,fin_contrato_fecha,activo').eq('activo', true).order('dfm')) : skipped('Contratos'),
       canBilling ? readQuery('Periodos', supabase.from('cierres_facturacion').select('periodo,fecha_inicio,fecha_cierre').order('periodo', { ascending: false })) : skipped('Periodos'),
-      canBilling ? readQuery('Facturación DFM', supabase.from('facturacion_dfm_periodos').select('seguimiento_id,numero_parada,dfm,matricula,sustituto,periodo,tramo_inicio,tramo_fin,dias_facturables,km_dia,km_facturables,estado').order('periodo', { ascending: false })) : skipped('Facturación DFM'),
+      canBilling ? readQuery('Facturación DFM', supabase.from('facturacion_dfm_periodos').select('seguimiento_id,numero_parada,dfm,matricula,sustituto,periodo,tramo_inicio,tramo_fin,dias_facturables,km_dia,estado').order('periodo', { ascending: false })) : skipped('Facturación DFM'),
       canBilling ? readQuery('Facturación R', supabase.from('facturacion_r_sustituciones').select('seguimiento_id,numero_parada,r_sustituido,matricula,r_sustituto,fecha_inicio_parada,fecha_fin_parada,dias_parada_total,unidades,precio_r_unidad,importe').order('fecha_inicio_parada', { ascending: false })) : skipped('Facturación R'),
-      canBilling ? readQuery('Sustituciones', supabase.from('paradas_sustitucion_resumen').select('seguimiento_id,numero_parada,unidad,matricula,sustituto,estado,fecha_fin_parada,clase_facturacion,km_dia,km_sustitucion_total')) : skipped('Sustituciones'),
+      canBilling ? readQuery('Sustituciones', supabase.from('paradas_sustitucion_resumen').select('seguimiento_id,numero_parada,unidad,matricula,sustituto,estado,fecha_fin_parada,clase_facturacion,km_dia')) : skipped('Sustituciones'),
       canUsers ? readQuery('Usuarios', supabase.from('usuarios').select('id,nombre,apellidos,correo,tipo_usuario,permisos,activo,creado_en,actualizado_en').order('creado_en')) : skipped('Usuarios'),
       admin ? readQuery('Dispositivos', supabase.from('dispositivos_usuario').select('id,usuario_id,nombre,estado,solicitado_en,ultimo_acceso_en,observaciones').order('solicitado_en', { ascending: false })) : skipped('Dispositivos'),
       admin ? readQuery('Órdenes MANTENIMENT', supabase.rpc('listar_ordenes_manteniment_pendientes_alpha74')) : skipped('Órdenes MANTENIMENT'),
@@ -778,7 +778,6 @@ async function renderPanel({ automatic = false } = {}) {
     root.append(secondColumns);
 
     const periodLabel = period?.periodo || 'Sin periodo';
-    const dfmKm = sum(dfmRows, 'km_facturables');
     const dfmDays = sum(dfmRows, 'dias_facturables');
     const rUnits = sum(rRows, 'unidades');
     const rAmount = sum(rRows, 'importe');
@@ -786,7 +785,6 @@ async function renderPanel({ automatic = false } = {}) {
       { label: 'Periodo actual', value: periodLabel, hint: period ? `${formatDate(period.fecha_inicio)}–${formatDate(period.fecha_cierre)}` : 'Sin calendario', tone: 'main', detail: { title: `Periodo ${periodLabel}`, subtitle: period ? `${formatDate(period.fecha_inicio)}–${formatDate(period.fecha_cierre)}` : 'No existe un periodo configurado', items: [], module: 'listados', moduleLabel: 'Abrir Listados' } },
       { label: 'Paradas DFM', value: dfmRows.length, tone: 'neutral', detail: { title: `Paradas DFM · ${periodLabel}`, items: dfmRows.map(billingDfmItem), module: 'listados', moduleLabel: 'Abrir Listados' } },
       { label: 'Días DFM', value: numberFormat.format(dfmDays), tone: 'blue', detail: { title: `Días facturables DFM · ${periodLabel}`, items: dfmRows.map(billingDfmItem), module: 'listados', moduleLabel: 'Abrir Listados' } },
-      { label: 'KM DFM', value: numberFormat.format(dfmKm), hint: 'km facturables', tone: 'green', detail: { title: `Kilómetros facturables DFM · ${periodLabel}`, items: dfmRows.map(billingDfmItem), module: 'listados', moduleLabel: 'Abrir Listados' } },
       { label: 'Sustituciones R', value: rUnits, hint: rRows.length ? `${rRows.length} parada(s)` : '', tone: 'lilac', detail: { title: `Sustituciones R · ${periodLabel}`, items: rRows.map(billingRItem), module: 'listados', moduleLabel: 'Abrir Listados' } },
       { label: 'Importe R', value: rRows.some(row => row.importe != null) ? moneyFormat.format(rAmount) : '—', tone: 'orange', detail: { title: `Importe R · ${periodLabel}`, items: rRows.map(billingRItem), module: 'listados', moduleLabel: 'Abrir Listados' } },
       { label: 'Sin media km', value: missingMedia.length, tone: missingMedia.length ? 'red' : 'green', detail: {
@@ -798,7 +796,7 @@ async function renderPanel({ automatic = false } = {}) {
       } },
     ];
     const billingSection = canBilling
-      ? section('Facturación de sustituciones', 'Periodo vigente y cálculo acumulado.', billingMetrics, openDetail)
+      ? section('Facturación de sustituciones', 'Periodo vigente, días y medias diarias informadas.', billingMetrics, openDetail)
       : el('section', 'Facturación no está autorizada para este usuario.', 'a52-permission-note');
 
     const contractMetrics = [

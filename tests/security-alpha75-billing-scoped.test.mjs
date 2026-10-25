@@ -168,9 +168,10 @@ const baseline = fs.readFileSync(new URL('../r1-alpha67/src/card-operational.js'
 const candidate = fs.readFileSync(new URL('../r1-alpha75/src/substitution-billing-hf2.js', import.meta.url), 'utf8');
 function between(source, start, end) { return source.slice(source.indexOf(start), source.indexOf(end)); }
 
- test('conserva literalmente los ayudantes de fechas y cálculo inclusivo de alpha67', () => {
+ test('conserva los ayudantes de fechas de alpha67 pero no deriva km totales desde la media', () => {
   assert.equal(between(candidate, 'function el(', 'async function isPrimaryAdmin'), between(baseline, 'function el(', 'function stageTimestamp('));
-  assert.equal(between(candidate, 'function findPeriod(', 'function createManualEditor('), between(baseline, 'function findPeriod(', 'function createManualEditor('));
+  assert.doesNotMatch(candidate, /periodDays \* media|totalDays \* media|KM del periodo|KM sustitución total/);
+  assert.match(candidate, /Media diaria de sustitución/);
 });
 
 function billingContext(source) {
@@ -201,16 +202,22 @@ for (const [label, start, end, reference, km] of scenarios) {
   test(`mismo resultado matemático que alpha67: ${label}`, () => {
     const row = { fecha_pizarra: reference, fecha_parada: start };
     const stop = { fecha_inicio_parada: start, fecha_fin_parada: end, km_dia: km };
-    assert.deepEqual(JSON.parse(JSON.stringify(newMath.snapshot(row, stop, periods))), JSON.parse(JSON.stringify(oldMath.snapshot(row, stop, periods))));
+    const newer = newMath.snapshot(row, stop, periods);
+    const older = oldMath.snapshot(row, stop, periods);
+    for (const key of ['referenceDate','startDate','endDate','totalDays','periodStart','periodEnd','periodDays','media','historical']) {
+      assert.deepEqual(newer[key], older[key]);
+    }
+    assert.equal('periodKm' in newer, false);
+    assert.equal('totalKm' in newer, false);
   });
 }
 
  test('la línea 75 carga el lector corregido en Hotel e Histórico, sin alterar el módulo compartido', () => {
   const load = path => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-  assert.match(load('r1-alpha75/src/card-operational.js'), /from '\.\/substitution-billing-hf2\.js'/);
+  assert.match(load('r1-alpha75/src/card-operational.js'), /from '\.\/substitution-billing-hf2\.js\?v=75\.23-hf27'/);
   for (const name of ['hotel-native', 'history-native']) assert.match(load(`r1-alpha75/src/${name}.js`), /invalidateSubstitutionBilling\(\);/);
-  assert.match(load('r1-alpha75/index.html'), /hotel-native\.js\?v=75\.23-hf26/);
-  assert.match(load('r1-alpha75/index.html'), /history-native\.js\?v=75\.23-hf26/);
+  assert.match(load('r1-alpha75/index.html'), /hotel-native\.js\?v=75\.23-hf27/);
+  assert.match(load('r1-alpha75/index.html'), /history-native\.js\?v=75\.23-hf27/);
   assert.match(candidate, /generation !== billingReader\.generation/);
   assert.doesNotMatch(candidate, /loadBillingData|byStop|byTracking|localStorage|sessionStorage/);
   assert.match(baseline, /let billingDataPromise = null/);
@@ -221,4 +228,11 @@ test('Histórico permite la media manual de sustitución solo a través del cont
   const source = fs.readFileSync(new URL('../r1-alpha75/src/history-card.js', import.meta.url), 'utf8');
   assert.match(source, /createSubstitutionBilling\(row, \{ allowManual: true \}\)/);
   assert.doesNotMatch(source, /from\(['\"]ajustes_sustitucion_parada['\"]\)\.update/);
+});
+
+
+test('Panel no presenta kilómetros DFM calculados desde media por días', () => {
+  const panel = fs.readFileSync(new URL('../r1-alpha75/src/panel-native-hf23.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(panel, /KM DFM|km facturables|row\.km_facturables/);
+  assert.match(panel, /Media \$\{row\.km_dia/);
 });

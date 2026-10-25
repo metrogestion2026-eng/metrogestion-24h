@@ -1,5 +1,5 @@
-// 75.23-hf2: preserves alpha67 billing arithmetic and presentation.
-// Deliberately local to alpha75; the older shared module remains unchanged.
+// 75.23-hf27: la media km/día es un dato propio de la parada.
+ // No se multiplica por días para inventar km de periodo ni km totales.
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { createBillingReader } from './billing-data-hf2.js';
 
@@ -138,8 +138,6 @@ function billingSnapshot(row, stop, periods) {
   const rawMedia = stop?.km_dia;
   const parsedMedia = rawMedia == null || rawMedia === '' ? Number.NaN : Number(rawMedia);
   const media = Number.isFinite(parsedMedia) ? parsedMedia : null;
-  const periodKm = media == null ? null : Math.round(periodDays * media);
-  const totalKm = media == null ? null : Math.round(totalDays * media);
   const historical = referenceDate !== madridToday();
 
   return {
@@ -152,8 +150,6 @@ function billingSnapshot(row, stop, periods) {
     periodEnd,
     periodDays,
     media,
-    periodKm,
-    totalKm,
     historical,
   };
 }
@@ -234,7 +230,7 @@ function createManualEditor(row, stop, snapshot, rerender) {
       status.textContent = `No se pudo guardar: ${error.message}`;
       return;
     }
-    status.textContent = 'Media manual guardada. Actualizando cálculo…';
+    status.textContent = 'Media manual guardada. Actualizando datos…';
     billingReader.invalidate(trackingId);
     await rerender();
   });
@@ -253,7 +249,7 @@ function createManualEditor(row, stop, snapshot, rerender) {
       status.textContent = `No se pudo restaurar: ${error.message}`;
       return;
     }
-    status.textContent = 'Media automática restaurada. Actualizando cálculo…';
+    status.textContent = 'Media automática restaurada. Actualizando datos…';
     billingReader.invalidate(trackingId);
     await rerender();
   });
@@ -304,9 +300,11 @@ async function renderBillingBody(body, row, allowManual) {
       );
     } else {
       grid.append(
-        metric('Media usada', snapshot.media == null ? 'Sin media' : `${formatNumber(snapshot.media)} km/día`, stop.km_dia_fuente || 'SIN_MEDIA'),
-        metric('KM del periodo', snapshot.periodKm == null ? '—' : `${formatNumber(snapshot.periodKm)} km`, `${formatNumber(snapshot.periodDays)} días × media`),
-        metric('KM sustitución total', snapshot.totalKm == null ? '—' : `${formatNumber(snapshot.totalKm)} km`, `${formatNumber(snapshot.totalDays)} días × media`)
+        metric(
+          'Media diaria de sustitución',
+          snapshot.media == null ? 'Sin media' : `${formatNumber(snapshot.media)} km/día`,
+          stop.km_dia_fuente || 'SIN_MEDIA'
+        )
       );
     }
 
@@ -350,7 +348,7 @@ export function createSubstitutionBilling(row, { allowManual = false } = {}) {
   // Evita que el enriquecedor antiguo vuelva a controlar este componente nativo.
   box.dataset.alpha31 = '1';
   box.dataset.alpha66Billing = '1';
-  box.dataset.alpha75Billing = '75.23-hf2';
+  box.dataset.alpha75Billing = '75.23-hf27';
   box.append(el('h4', 'Sustitución / facturación'));
   const body = el('div', null, 'a66-substitution-body');
   box.append(body);
