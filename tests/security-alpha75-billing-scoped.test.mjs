@@ -209,9 +209,16 @@ for (const [label, start, end, reference, km] of scenarios) {
   const load = path => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
   assert.match(load('r1-alpha75/src/card-operational.js'), /from '\.\/substitution-billing-hf2\.js'/);
   for (const name of ['hotel-native', 'history-native']) assert.match(load(`r1-alpha75/src/${name}.js`), /invalidateSubstitutionBilling\(\);/);
-  assert.match(load('r1-alpha75/index.html'), /hotel-native\.js\?v=75\.23-hf25/);
-  assert.match(load('r1-alpha75/index.html'), /history-native\.js\?v=75\.23-hf25/);
+  assert.match(load('r1-alpha75/index.html'), /hotel-native\.js\?v=75\.23-hf26/);
+  assert.match(load('r1-alpha75/index.html'), /history-native\.js\?v=75\.23-hf26/);
   assert.match(candidate, /generation !== billingReader\.generation/);
   assert.doesNotMatch(candidate, /loadBillingData|byStop|byTracking|localStorage|sessionStorage/);
   assert.match(baseline, /let billingDataPromise = null/);
+});
+
+
+test('Histórico permite la media manual de sustitución solo a través del control protegido', () => {
+  const source = fs.readFileSync(new URL('../r1-alpha75/src/history-card.js', import.meta.url), 'utf8');
+  assert.match(source, /createSubstitutionBilling\(row, \{ allowManual: true \}\)/);
+  assert.doesNotMatch(source, /from\(['\"]ajustes_sustitucion_parada['\"]\)\.update/);
 });
