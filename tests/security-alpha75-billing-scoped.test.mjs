@@ -217,8 +217,8 @@ for (const [label, start, end, reference, km] of scenarios) {
   assert.match(load('r1-alpha75/src/card-operational.js'), /from '\.\/substitution-billing-hf2\.js\?v=75\.23-hf28'/);
   for (const name of ['hotel-native', 'history-native']) assert.match(load(`r1-alpha75/src/${name}.js`), /invalidateSubstitutionBilling\(\);/);
   const boot = load('r1-alpha75/src/boot75.js');
-  assert.match(boot, /hotel-native\.js\?v=75\.24/);
-  assert.match(boot, /history-native\.js\?v=75\.24/);
+  assert.match(boot, /hotel-native\.js\?v=75\.25/);
+  assert.match(boot, /history-native\.js\?v=75\.25/);
   assert.match(candidate, /generation !== billingReader\.generation/);
   assert.doesNotMatch(candidate, /loadBillingData|byStop|byTracking|localStorage|sessionStorage/);
   assert.match(baseline, /let billingDataPromise = null/);
