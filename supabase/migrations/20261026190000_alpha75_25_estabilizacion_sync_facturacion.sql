@@ -115,25 +115,30 @@ begin
     v_fecha_i := nullif(v_item->>'fecha_programada','')::date;
     v_fecha_j := nullif(v_item->>'fecha_parada','')::date;
     v_fecha_k := nullif(v_item->>'fecha_k','')::date;
-    if v_fecha_j is null or v_fecha_k is null then
-      raise exception 'El cierre de la fila % requiere J y K',
-        coalesce(v_item->>'fila','?');
-    end if;
-    if v_fecha_k < v_fecha_j then
-      raise exception 'K es anterior a J en la fila %',
+    if v_fecha_j is null then
+      raise exception 'El cierre de la fila % requiere J',
         coalesce(v_item->>'fila','?');
     end if;
 
+    -- J identifica el tramo y desambigua el año. Si K sigue vacía porque la
+    -- recuperación física aún no existe, el cierre contable usa el último día
+    -- del periodo, exactamente como TANCAMENT.
     select c.* into v_periodo
     from public.cierres_facturacion c
-    where v_fecha_k between c.fecha_inicio and c.fecha_cierre
+    where v_fecha_j between c.fecha_inicio and c.fecha_cierre
       and v_tancament =
         'TANCAMENT ' || (split_part(c.periodo,'-',2)::integer)::text
     order by c.fecha_inicio desc
     limit 1;
     if not found then
-      raise exception 'No se puede resolver el periodo de % / K=% en fila %',
-        v_tancament, v_fecha_k, coalesce(v_item->>'fila','?');
+      raise exception 'No se puede resolver el periodo de % / J=% en fila %',
+        v_tancament, v_fecha_j, coalesce(v_item->>'fila','?');
+    end if;
+
+    v_fecha_k := coalesce(v_fecha_k, v_periodo.fecha_cierre);
+    if v_fecha_k < v_fecha_j or v_fecha_k > v_periodo.fecha_cierre then
+      raise exception 'Fin contable inválido en fila %: J=% K=% cierre=%',
+        coalesce(v_item->>'fila','?'), v_fecha_j, v_fecha_k, v_periodo.fecha_cierre;
     end if;
 
     v_dias := nullif(v_item->>'dias_parada','')::integer;
