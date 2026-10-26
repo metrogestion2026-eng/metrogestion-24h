@@ -27,7 +27,7 @@ async function forceUpdate() {
 
   setStatus('Abriendo la versión actual…');
   const target = new URL('./', window.location.href);
-  target.searchParams.set('v', '75.23-hf30');
+  target.searchParams.set('v', '75.23-hf31');
   target.searchParams.set('_reset', String(Date.now()));
   window.location.replace(target.toString());
 }

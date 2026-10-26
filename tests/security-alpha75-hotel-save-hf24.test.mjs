@@ -123,7 +123,7 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
   assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.23-hf28/);
   const html = source('r1-alpha75/index.html');
   for (const name of ['app', 'hotel-native', 'history-native']) {
-    assert.ok(html.includes(`${name}.js?v=75.23-hf30`));
+    assert.ok(html.includes(`${name}.js?v=75.23-hf31`));
   }
 });
 
@@ -145,13 +145,13 @@ test('la 75 comprueba versión publicada sin caché y fuerza una entrada nueva s
   const html = source('r1-alpha75/index.html');
   const refresh = source('r1-alpha75/src/version-refresh.js');
   const manifest = JSON.parse(source('r1-alpha75/manifest.webmanifest'));
-  assert.ok(html.includes('version-refresh.js?v=75.23-hf30'));
+  assert.ok(html.includes('version-refresh.js?v=75.23-hf31'));
   assert.match(html, /Cache-Control/);
   assert.match(refresh, /cache:\s*'no-store'/);
   assert.match(refresh, /new URL\('\.\/app\.js', import\.meta\.url\)/);
   assert.match(refresh, /const VERSION =/);
   assert.match(refresh, /window\.location\.replace/);
-  assert.equal(manifest.start_url, './?v=75.23-hf30');
+  assert.equal(manifest.start_url, './?v=75.23-hf31');
 });
 
 
@@ -160,6 +160,17 @@ test('solo app.js puede escribir la versión visible de Metrogestión 75', () =>
   const jsFiles = readdirSync(srcUrl).filter(name => name.endsWith('.js'));
   const writers = jsFiles.filter(name => /querySelector\(['"]#app-version['"]\)/.test(source(`r1-alpha75/src/${name}`)));
   assert.deepEqual(writers, ['app.js']);
-  assert.match(source('r1-alpha75/src/app.js'), /r1\.0\.0-alpha\.75\.23-hf30/);
+  assert.match(source('r1-alpha75/src/app.js'), /r1\.0\.0-alpha\.75\.23-hf31/);
   assert.doesNotMatch(source('r1-alpha75/src/hotel-native.js'), /#app-version|alpha75VersionNode/);
+});
+
+
+test('Listados 75 carga bajo demanda y evita el panel R duplicado', () => {
+  const source75 = source('r1-alpha75/src/listados-native-hf31.js');
+  assert.match(source75, /\.eq\('periodo', period\)/);
+  assert.doesNotMatch(source75, /Promise\.all\([\s\S]*facturacion_dfm_periodos[\s\S]*facturacion_r_sustituciones[\s\S]*listado_paradas_operativas/);
+  assert.doesNotMatch(source75, /\.select\('\*'\)/);
+  assert.match(source75, /alpha31-r-config/);
+  assert.match(source75, /event\.stopImmediatePropagation\(\)/);
+  assert.match(source('r1-alpha75/src/app.js'), /listados-native-hf31\.js\?v=75\.23-hf31/);
 });
