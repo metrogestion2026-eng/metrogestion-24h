@@ -131,6 +131,11 @@ begin
     order by c.fecha_inicio desc
     limit 1;
     if not found then
+      if v_fecha_j < (select min(c.fecha_inicio) from public.cierres_facturacion c) then
+        -- Histórico anterior al calendario de cierres configurado: se conserva
+        -- en MANTENIMENT pero no se incorpora a esta capa contable.
+        continue;
+      end if;
       raise exception 'No se puede resolver el periodo de % / J=% en fila %',
         v_tancament, v_fecha_j, coalesce(v_item->>'fila','?');
     end if;
