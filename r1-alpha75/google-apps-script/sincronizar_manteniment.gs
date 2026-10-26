@@ -553,9 +553,6 @@ function metrogestionNotaParadaId_(note) {
 // UUID: la ausencia de identidad operativa no puede sacar una fila de factura.
 function metrogestionLeerCierresFacturacion_(values, notes) {
   const result = [];
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 400);
-  const cutoffIso = metrogestionFechaIsoDesdeDate_(cutoff);
 
   for (let index = 1; index < values.length; index += 1) {
     const row = values[index];
@@ -565,7 +562,6 @@ function metrogestionLeerCierresFacturacion_(values, notes) {
 
     const fechaJ = metrogestionFechaIso_(row[9], `de inicio de tramo de la fila ${index + 1}`);
     if (!fechaJ) throw new Error(`La fila TANCAMENT ${index + 1} no tiene fecha J.`);
-    if (fechaJ < cutoffIso) continue;
     const fechaK = metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 1}`);
     const periodoAbierto = !fechaK;
 
