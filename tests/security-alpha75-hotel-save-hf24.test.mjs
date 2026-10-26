@@ -122,8 +122,10 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
   }
   assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.23-hf28/);
   const html = source('r1-alpha75/index.html');
+  const boot = source('r1-alpha75/src/boot75.js');
+  assert.ok(html.includes('boot75.js?v=75.24'));
   for (const name of ['app', 'hotel-native', 'history-native']) {
-    assert.ok(html.includes(`${name}.js?v=75.23-hf32`));
+    assert.ok(boot.includes(`${name}.js?v=75.24`));
   }
 });
 
@@ -141,46 +143,65 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 });
 
 
-test('la 75 comprueba versión publicada sin caché y fuerza una entrada nueva si queda antigua', () => {
+test('la 75.24 comprueba versión publicada sin caché y usa un solo arranque', () => {
   const html = source('r1-alpha75/index.html');
   const refresh = source('r1-alpha75/src/version-refresh.js');
   const manifest = JSON.parse(source('r1-alpha75/manifest.webmanifest'));
-  assert.ok(html.includes('version-refresh.js?v=75.23-hf32'));
+  assert.ok(html.includes('version-refresh.js?v=75.24'));
+  assert.ok(html.includes('boot75.js?v=75.24'));
+  assert.doesNotMatch(html, /src\/app\.js\?v=|hotel-native\.js\?v=|history-native\.js\?v=|panel-native-hf23\.js\?v=/);
   assert.match(html, /Cache-Control/);
   assert.match(refresh, /cache:\s*'no-store'/);
   assert.match(refresh, /new URL\('\.\/app\.js', import\.meta\.url\)/);
   assert.match(refresh, /const VERSION =/);
   assert.match(refresh, /window\.location\.replace/);
-  assert.equal(manifest.start_url, './?v=75.23-hf32');
+  assert.equal(manifest.start_url, './?v=75.24');
 });
 
-
-test('solo app.js puede escribir la versión visible de Metrogestión 75', () => {
+test('solo app.js puede escribir la versión visible de Metrogestión 75.24', () => {
   const srcUrl = new URL('../r1-alpha75/src/', import.meta.url);
   const jsFiles = readdirSync(srcUrl).filter(name => name.endsWith('.js'));
   const writers = jsFiles.filter(name => /querySelector\(['"]#app-version['"]\)/.test(source(`r1-alpha75/src/${name}`)));
   assert.deepEqual(writers, ['app.js']);
-  assert.match(source('r1-alpha75/src/app.js'), /r1\.0\.0-alpha\.75\.23-hf32/);
+  assert.match(source('r1-alpha75/src/app.js'), /r1\.0\.0-alpha\.75\.24/);
   assert.doesNotMatch(source('r1-alpha75/src/hotel-native.js'), /#app-version|alpha75VersionNode/);
 });
 
-
-test('Listados 75 carga bajo demanda y evita el panel R duplicado', () => {
-  const source75 = source('r1-alpha75/src/listados-native-hf31.js');
-  assert.match(source75, /\.eq\('periodo', period\)/);
-  assert.doesNotMatch(source75, /Promise\.all\([\s\S]*facturacion_dfm_periodos[\s\S]*facturacion_r_sustituciones[\s\S]*listado_paradas_operativas/);
-  assert.doesNotMatch(source75, /\.select\('\*'\)/);
-  assert.match(source75, /alpha31-r-config/);
-  assert.match(source75, /data-alpha75-listados/);
-  assert.match(source('r1-alpha75/src/app.js'), /listados-native-hf31\.js\?v=75\.23-hf32/);
+test('75.24 declara propiedad de Listados antes de cargar la herencia', () => {
+  const boot = source('r1-alpha75/src/boot75.js');
+  const ownerAt = boot.indexOf("listados: 'alpha75'");
+  const appAt = boot.indexOf("import('./app.js?v=75.24')");
+  assert.ok(ownerAt >= 0);
+  assert.ok(appAt > ownerAt);
+  for (const legacy of ['r1-alpha29','r1-alpha30','r1-alpha31','r1-alpha50']) {
+    assert.match(boot, new RegExp(legacy));
+  }
 });
 
+test('los Listados heredados ceden su propiedad cuando alpha75 es el dueño', () => {
+  const sources = {
+    a29: source('r1-alpha29/src/app.js'),
+    a30: source('r1-alpha30/src/app.js'),
+    a31: source('r1-alpha31/src/app.js'),
+    a50: source('r1-alpha50/src/app.js'),
+  };
+  for (const value of Object.values(sources)) {
+    assert.match(value, /LISTADOS_OWNED_BY_ALPHA75/);
+  }
+  assert.match(sources.a29, /if\(nav&&!LISTADOS_OWNED_BY_ALPHA75\)/);
+  assert.match(sources.a30, /if\(nav&&!LISTADOS_OWNED_BY_ALPHA75\)/);
+  assert.match(sources.a31, /enhanceListados\(\)\{if\(LISTADOS_OWNED_BY_ALPHA75\)return;/);
+  assert.match(sources.a50, /if\(!LISTADOS_OWNED_BY_ALPHA75\)nav\?\.addEventListener/);
+});
 
-test('Listados 75 usa botón propio y retira el heredado de la navegación', () => {
-  const source75 = source('r1-alpha75/src/listados-native-hf31.js');
-  assert.match(source75, /data-alpha75-listados/);
-  assert.match(source75, /querySelectorAll\('\[data-alpha29-listados\]'\)/);
-  assert.match(source75, /button\.hidden = true/);
-  assert.match(source75, /nav\.append\(own\)/);
-  assert.doesNotMatch(source75, /closest\?\.\('\[data-alpha29-listados\]'\)/);
+test('Listados 75.24 es una única implementación integrada y bajo demanda', () => {
+  const listados = source('r1-alpha75/src/listados-module.js');
+  const app = source('r1-alpha75/src/app.js');
+  assert.match(app, /listados-module\.js\?v=75\.24/);
+  assert.match(listados, /\.eq\('periodo', period\)/);
+  assert.doesNotMatch(listados, /\.select\('\*'\)/);
+  assert.doesNotMatch(listados, /Promise\.all\([\s\S]*(facturacion_dfm_periodos|facturacion_r_sustituciones|listado_paradas_operativas)/);
+  assert.equal((listados.match(/Precio fijo por sustitución R/g) || []).length, 1);
+  for (const view of ["['dfm'", "['r'", "['paradas'", "['24h'"]) assert.ok(listados.includes(view));
+  assert.match(listados, /dataset\.alpha75Listados = '1'/);
 });

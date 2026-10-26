@@ -5,6 +5,7 @@ const VERSION='r1.0.0-alpha.30';
 const versionNode=document.querySelector('#app-version');if(versionNode)versionNode.textContent=VERSION;
 const nav=document.querySelector('#module-nav');
 const content=document.querySelector('#module-content');
+const LISTADOS_OWNED_BY_ALPHA75=globalThis.__METROGESTION_MODULE_OWNERS__?.listados==='alpha75';
 
 function el(tag,text,cls){const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n;}
 function fmtDate(v){if(!v)return '—';const [y,m,d]=String(v).slice(0,10).split('-');return y&&m&&d?`${d}/${m}/${y}`:String(v);}
@@ -84,4 +85,4 @@ async function renderListados30(){ensureStyle();content.replaceChildren();
   [mode,period,search,from,to].forEach(i=>{i.addEventListener('input',apply);i.addEventListener('change',apply);});apply();
 }
 
-if(nav){nav.addEventListener('click',e=>{const b=e.target.closest('[data-alpha29-listados]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();[...nav.querySelectorAll('button')].forEach(x=>x.classList.remove('active'));b.classList.add('active');renderListados30();},true);}
+if(nav&&!LISTADOS_OWNED_BY_ALPHA75){nav.addEventListener('click',e=>{const b=e.target.closest('[data-alpha29-listados]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();[...nav.querySelectorAll('button')].forEach(x=>x.classList.remove('active'));b.classList.add('active');renderListados30();},true);}
