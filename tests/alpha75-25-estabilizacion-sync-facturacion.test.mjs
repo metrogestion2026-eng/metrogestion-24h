@@ -38,7 +38,7 @@ test('el feed contable incluye TANCAMENT cerrados aunque no tengan UUID', () => 
   const header = Array(17).fill('');
   const manual = Array(17).fill('');
   manual[0] = '2746';
-  manual[1] = '7349NKN';
+  manual[1] = 'TEST-MAT-2746';
   manual[6] = '2745';
   manual[7] = 'PARADA';
   manual[8] = value;
@@ -51,7 +51,7 @@ test('el feed contable incluye TANCAMENT cerrados aunque no tengan UUID', () => 
 
   const linked = manual.slice();
   linked[0] = '2444';
-  linked[1] = '0763MCK';
+  linked[1] = 'TEST-MAT-2444';
   linked[4] = 'PA-2600191';
   linked[15] = '230';
 
