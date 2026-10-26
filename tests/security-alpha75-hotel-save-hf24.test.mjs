@@ -123,9 +123,9 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
   assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.23-hf28/);
   const html = source('r1-alpha75/index.html');
   const boot = source('r1-alpha75/src/boot75.js');
-  assert.ok(html.includes('boot75.js?v=75.24'));
+  assert.ok(html.includes('boot75.js?v=75.25'));
   for (const name of ['app', 'hotel-native', 'history-native']) {
-    assert.ok(boot.includes(`${name}.js?v=75.24`));
+    assert.ok(boot.includes(`${name}.js?v=75.25`));
   }
 });
 
@@ -143,34 +143,34 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 });
 
 
-test('la 75.24 comprueba versión publicada sin caché y usa un solo arranque', () => {
+test('la 75.25 comprueba versión publicada sin caché y usa un solo arranque', () => {
   const html = source('r1-alpha75/index.html');
   const refresh = source('r1-alpha75/src/version-refresh.js');
   const manifest = JSON.parse(source('r1-alpha75/manifest.webmanifest'));
-  assert.ok(html.includes('version-refresh.js?v=75.24'));
-  assert.ok(html.includes('boot75.js?v=75.24'));
+  assert.ok(html.includes('version-refresh.js?v=75.25'));
+  assert.ok(html.includes('boot75.js?v=75.25'));
   assert.doesNotMatch(html, /src\/app\.js\?v=|hotel-native\.js\?v=|history-native\.js\?v=|panel-native-hf23\.js\?v=/);
   assert.match(html, /Cache-Control/);
   assert.match(refresh, /cache:\s*'no-store'/);
   assert.match(refresh, /new URL\('\.\/app\.js', import\.meta\.url\)/);
   assert.match(refresh, /const VERSION =/);
   assert.match(refresh, /window\.location\.replace/);
-  assert.equal(manifest.start_url, './?v=75.24');
+  assert.equal(manifest.start_url, './?v=75.25');
 });
 
-test('solo app.js puede escribir la versión visible de Metrogestión 75.24', () => {
+test('solo app.js puede escribir la versión visible de Metrogestión 75.25', () => {
   const srcUrl = new URL('../r1-alpha75/src/', import.meta.url);
   const jsFiles = readdirSync(srcUrl).filter(name => name.endsWith('.js'));
   const writers = jsFiles.filter(name => /querySelector\(['"]#app-version['"]\)/.test(source(`r1-alpha75/src/${name}`)));
   assert.deepEqual(writers, ['app.js']);
-  assert.match(source('r1-alpha75/src/app.js'), /r1\.0\.0-alpha\.75\.24/);
+  assert.match(source('r1-alpha75/src/app.js'), /r1\.0\.0-alpha\.75\.25/);
   assert.doesNotMatch(source('r1-alpha75/src/hotel-native.js'), /#app-version|alpha75VersionNode/);
 });
 
-test('75.24 declara propiedad de Listados antes de cargar la herencia', () => {
+test('75.25 declara propiedad de Listados antes de cargar la herencia', () => {
   const boot = source('r1-alpha75/src/boot75.js');
   const ownerAt = boot.indexOf("listados: 'alpha75'");
-  const appAt = boot.indexOf("import('./app.js?v=75.24')");
+  const appAt = boot.indexOf("import('./app.js?v=75.25')");
   assert.ok(ownerAt >= 0);
   assert.ok(appAt > ownerAt);
   for (const legacy of ['r1-alpha29','r1-alpha30','r1-alpha31','r1-alpha50']) {
@@ -194,11 +194,14 @@ test('los Listados heredados ceden su propiedad cuando alpha75 es el dueño', ()
   assert.match(sources.a50, /if\(!LISTADOS_OWNED_BY_ALPHA75\)nav\?\.addEventListener/);
 });
 
-test('Listados 75.24 es una única implementación integrada y bajo demanda', () => {
+test('Listados 75.25 es una única implementación integrada, bajo demanda y muestra km del periodo', () => {
   const listados = source('r1-alpha75/src/listados-module.js');
   const app = source('r1-alpha75/src/app.js');
-  assert.match(app, /listados-module\.js\?v=75\.24/);
+  assert.match(app, /listados-module\.js\?v=75\.25/);
   assert.match(listados, /\.eq\('periodo', period\)/);
+  assert.match(listados, /km_facturables/);
+  assert.match(listados, /KM sustitución periodo/);
+  assert.match(listados, /metric\('KM sustitución'/);
   assert.doesNotMatch(listados, /\.select\('\*'\)/);
   assert.doesNotMatch(listados, /Promise\.all\([\s\S]*(facturacion_dfm_periodos|facturacion_r_sustituciones|listado_paradas_operativas)/);
   assert.equal((listados.match(/Precio fijo por sustitución R/g) || []).length, 1);
