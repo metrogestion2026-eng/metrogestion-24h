@@ -160,5 +160,5 @@ test('solo app.js puede escribir la versión visible de Metrogestión 75', () =>
   const writers = jsFiles.filter(name => /querySelector\(['"]#app-version['"]\)/.test(source(`r1-alpha75/src/${name}`)));
   assert.deepEqual(writers, ['app.js']);
   assert.match(source('r1-alpha75/src/app.js'), /r1\.0\.0-alpha\.75\.23-hf29/);
-  assert.doesNotMatch(source('r1-alpha75/src/hotel-native.js'), /hf25|#app-version/);
+  assert.doesNotMatch(source('r1-alpha75/src/hotel-native.js'), /#app-version|alpha75VersionNode/);
 });
