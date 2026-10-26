@@ -4,6 +4,7 @@ import { supabase } from '../../r1-alpha17/src/supabase.js';
 const VERSION='r1.0.0-alpha.29';
 const versionNode=document.querySelector('#app-version');if(versionNode)versionNode.textContent=VERSION;
 const nav=document.querySelector('#module-nav');const content=document.querySelector('#module-content');
+const LISTADOS_OWNED_BY_ALPHA75=globalThis.__METROGESTION_MODULE_OWNERS__?.listados==='alpha75';
 const HIDE_LABELS=['Hotel real · Previa','Transformación · Previa','Revisión manual','Estados y colores'];
 
 function ensureStyle(){if(document.querySelector('#alpha29-style'))return;const s=document.createElement('style');s.id='alpha29-style';s.textContent=`
@@ -22,4 +23,4 @@ function apply(){let filtered=rows.slice();if(month.value){filtered=filtered.fil
 [month,from,to,search,workshop].forEach(i=>{i.addEventListener('input',apply);i.addEventListener('change',apply);});apply();}
 
 function prepareNav(){if(!nav)return;[...nav.querySelectorAll('button')].forEach(b=>{if(HIDE_LABELS.some(x=>b.textContent.includes(x)))b.remove();});let listBtn=nav.querySelector('[data-alpha29-listados]');if(!listBtn){listBtn=document.createElement('button');listBtn.type='button';listBtn.className='button secondary';listBtn.dataset.alpha29Listados='1';listBtn.textContent='📋 Listados';listBtn.addEventListener('click',e=>{e.preventDefault();[...nav.querySelectorAll('button')].forEach(b=>b.classList.remove('active'));listBtn.classList.add('active');renderListados();});nav.append(listBtn);} }
-if(nav){const obs=new MutationObserver(prepareNav);obs.observe(nav,{childList:true,subtree:false});prepareNav();nav.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!b.dataset.alpha29Listados)queueMicrotask(()=>{nav.querySelector('[data-alpha29-listados]')?.classList.remove('active');});});}
+if(nav&&!LISTADOS_OWNED_BY_ALPHA75){const obs=new MutationObserver(prepareNav);obs.observe(nav,{childList:true,subtree:false});prepareNav();nav.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!b.dataset.alpha29Listados)queueMicrotask(()=>{nav.querySelector('[data-alpha29-listados]')?.classList.remove('active');});});}
