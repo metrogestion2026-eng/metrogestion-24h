@@ -135,6 +135,10 @@ begin
         v_tancament, v_fecha_j, coalesce(v_item->>'fila','?');
     end if;
 
+    if v_fecha_k is null and v_periodo.fecha_cierre >= (now() at time zone 'Europe/Madrid')::date then
+      -- Periodo todavía abierto: no se congela en el histórico contable.
+      continue;
+    end if;
     v_fecha_k := coalesce(v_fecha_k, v_periodo.fecha_cierre);
     if v_fecha_k < v_fecha_j or v_fecha_k > v_periodo.fecha_cierre then
       raise exception 'Fin contable inválido en fila %: J=% K=% cierre=%',
