@@ -313,14 +313,36 @@ function renderListados() {
   })();
 }
 
+function ensureAlpha75ListadosButton() {
+  if (!nav) return;
+
+  const inherited = [...nav.querySelectorAll('[data-alpha29-listados]')];
+  inherited.forEach(button => {
+    button.hidden = true;
+    button.setAttribute('aria-hidden', 'true');
+    button.tabIndex = -1;
+  });
+
+  let own = nav.querySelector('[data-alpha75-listados]');
+  if (!own) {
+    own = document.createElement('button');
+    own.type = 'button';
+    own.className = 'button secondary';
+    own.dataset.alpha75Listados = '1';
+    own.textContent = '📋 Listados';
+    own.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      [...nav.querySelectorAll('button')].forEach(item => item.classList.remove('active'));
+      own.classList.add('active');
+      renderListados();
+    });
+    nav.append(own);
+  }
+}
+
 if (nav) {
-  nav.addEventListener('click', event => {
-    const button = event.target.closest?.('[data-alpha29-listados]');
-    if (!button) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    [...nav.querySelectorAll('button')].forEach(item => item.classList.remove('active'));
-    button.classList.add('active');
-    renderListados();
-  }, true);
+  const navObserver = new MutationObserver(() => queueMicrotask(ensureAlpha75ListadosButton));
+  navObserver.observe(nav, { childList: true });
+  ensureAlpha75ListadosButton();
 }
