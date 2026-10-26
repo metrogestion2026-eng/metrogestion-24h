@@ -563,10 +563,11 @@ function metrogestionLeerCierresFacturacion_(values, notes) {
     const tancament = metrogestionPeriodoTancament_(row[16], index + 1);
     if (!tancament) continue;
 
-    const fechaK = metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 1}`);
-    if (!fechaK || fechaK < cutoffIso) continue;
     const fechaJ = metrogestionFechaIso_(row[9], `de inicio de tramo de la fila ${index + 1}`);
     if (!fechaJ) throw new Error(`La fila TANCAMENT ${index + 1} no tiene fecha J.`);
+    if (fechaJ < cutoffIso) continue;
+    const fechaK = metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 1}`);
+    const periodoAbierto = !fechaK;
 
     result.push({
       fila: index + 1,
@@ -581,9 +582,9 @@ function metrogestionLeerCierresFacturacion_(values, notes) {
       fecha_programada: metrogestionFechaIso_(row[8], `programada de la fila ${index + 1}`),
       fecha_parada: fechaJ,
       fecha_k: fechaK,
-      dias_parada: metrogestionNumero_(row[11], `Los días del cierre de la fila ${index + 1}`, false),
+      dias_parada: metrogestionNumero_(row[11], `Los días del cierre de la fila ${index + 1}`, periodoAbierto),
       marca: row[14],
-      km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, false),
+      km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, periodoAbierto),
       tancament,
     });
   }
