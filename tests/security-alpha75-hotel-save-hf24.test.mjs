@@ -172,7 +172,7 @@ test('Listados 75 carga bajo demanda y evita el panel R duplicado', () => {
   assert.doesNotMatch(source75, /\.select\('\*'\)/);
   assert.match(source75, /alpha31-r-config/);
   assert.match(source75, /data-alpha75-listados/);
-  assert.match(source('r1-alpha75/src/app.js'), /listados-native-hf31\.js\?v=75\.23-hf31/);
+  assert.match(source('r1-alpha75/src/app.js'), /listados-native-hf31\.js\?v=75\.23-hf32/);
 });
 
 
