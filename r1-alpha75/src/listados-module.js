@@ -112,7 +112,7 @@ async function readDfm(period, from, to) {
   if (!period) return [];
   let query = supabase
     .from('facturacion_dfm_periodos')
-    .select('seguimiento_id,numero_parada,dfm,matricula,sustituto,periodo,tramo_inicio,tramo_fin,dias_facturables,km_dia,km_dia_fuente,estado')
+    .select('seguimiento_id,numero_parada,dfm,matricula,sustituto,periodo,tramo_inicio,tramo_fin,dias_facturables,km_dia,km_dia_fuente,km_facturables,estado')
     .eq('periodo', period)
     .order('tramo_inicio', { ascending: true });
   if (from) query = query.gte('tramo_fin', from);
@@ -339,10 +339,15 @@ function renderListados() {
     if (state.view === 'dfm') {
       const rows = searchRows(state.rows, search.value, ['dfm','matricula','numero_parada','sustituto']);
       const days = rows.reduce((total,row) => total + Number(row.dias_facturables || 0), 0);
-      summary.append(metric('Paradas', rows.length), metric('Días facturables', fmtNum(days)));
+      const km = rows.reduce((total,row) => total + Number(row.km_facturables || 0), 0);
+      summary.append(
+        metric('Paradas', rows.length),
+        metric('Días facturables', fmtNum(days)),
+        metric('KM sustitución', `${fmtNum(km)} km`)
+      );
       renderTable(
         tableHost,
-        ['Periodo','Inicio','Fin','DFM','Matrícula','Parada','Sustituto','Días','Media km/día','Fuente','Estado'],
+        ['Periodo','Inicio','Fin','DFM','Matrícula','Parada','Sustituto','Días','Media km/día','KM sustitución periodo','Fuente','Estado'],
         rows.map(row => [
           row.periodo,
           fmtDate(row.tramo_inicio),
@@ -353,6 +358,7 @@ function renderListados() {
           row.sustituto,
           fmtNum(row.dias_facturables),
           row.km_dia == null ? '—' : fmtNum(row.km_dia),
+          row.km_facturables == null ? '—' : `${fmtNum(row.km_facturables)} km`,
           row.km_dia_fuente || '—',
           row.estado || '—',
         ])
