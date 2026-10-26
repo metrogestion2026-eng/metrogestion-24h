@@ -492,8 +492,8 @@ with snapshot as (
     f.fecha_inicio_tramo as tramo_inicio,
     f.fecha_fin_tramo as tramo_fin,
     f.dias_facturables,
-    null::numeric as km_dia_automatico,
-    null::numeric as km_dia_manual,
+    null::numeric(12,3) as km_dia_automatico,
+    null::numeric(10,3) as km_dia_manual,
     case when coalesce(f.dias_facturables,0)>0 and f.km_facturables is not null
       then round(f.km_facturables/f.dias_facturables,3) end as km_dia,
     'TANCAMENT'::text as km_dia_fuente,
