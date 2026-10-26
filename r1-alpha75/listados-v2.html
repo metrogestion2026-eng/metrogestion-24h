@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#075985">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://aemoouldgguyjsxrfuwo.supabase.co wss://aemoouldgguyjsxrfuwo.supabase.co; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; upgrade-insecure-requests">
+  <title>Metrogestión · Listados V2</title>
+  <link rel="icon" type="image/svg+xml" href="../r1-alpha22/icon-metrogestion.svg">
+  <link rel="stylesheet" href="../r1-alpha17/app.css">
+  <link rel="stylesheet" href="./listados-v2.css">
+</head>
+<body>
+  <main class="v2-shell">
+    <header class="v2-header">
+      <div class="v2-brand">
+        <img src="../r1-alpha22/icon-metrogestion.svg" alt="">
+        <div>
+          <p class="eyebrow">Metrogestión · laboratorio aislado</p>
+          <h1>Listados V2</h1>
+          <p class="muted">Módulo nuevo. No utiliza los Listados heredados de alpha29–alpha50.</p>
+        </div>
+      </div>
+      <div class="v2-version"><span>Versión</span><strong>listados-v2.lab.1</strong></div>
+    </header>
+
+    <section class="v2-session">
+      <div>
+        <strong id="v2-user">Verificando sesión…</strong>
+        <span id="v2-role" class="muted"></span>
+      </div>
+      <a class="button secondary compact" href="./">Volver a Metrogestión</a>
+    </section>
+
+    <section id="v2-auth-warning" class="notice danger hidden">
+      No hay una sesión válida de Metrogestión en este navegador. Abre Metrogestión, inicia sesión y vuelve a Listados V2.
+    </section>
+
+    <section id="v2-app" class="hidden">
+      <nav id="v2-tabs" class="v2-tabs" aria-label="Tipo de listado">
+        <button type="button" class="button secondary active" data-view="dfm">🚛 Facturación DFM</button>
+        <button type="button" class="button secondary" data-view="r">🛻 Sustituciones R</button>
+        <button type="button" class="button secondary" data-view="paradas">📋 Paradas</button>
+        <button type="button" class="button secondary" data-view="24h">🚨 Incidencias 24H</button>
+      </nav>
+
+      <section class="v2-card">
+        <div class="v2-toolbar">
+          <div>
+            <p class="eyebrow">Informes operativos y facturación</p>
+            <h2 id="v2-title">Facturación DFM</h2>
+          </div>
+          <div class="v2-actions">
+            <button id="v2-print" type="button" class="button secondary compact">🖨 Imprimir / PDF</button>
+            <button id="v2-csv" type="button" class="button secondary compact">⬇ Hoja de cálculo</button>
+          </div>
+        </div>
+
+        <div id="v2-r-config" class="v2-r-config hidden"></div>
+
+        <div class="v2-filters">
+          <label id="v2-period-wrap">Periodo facturación
+            <select id="v2-period"></select>
+          </label>
+          <label>Desde
+            <input id="v2-from" type="date">
+          </label>
+          <label>Hasta
+            <input id="v2-to" type="date">
+          </label>
+          <label>Buscar
+            <input id="v2-search" type="search" placeholder="DFM, R, matrícula, parada, INC…">
+          </label>
+          <button id="v2-refresh" type="button" class="button secondary">↻ Actualizar</button>
+        </div>
+
+        <div id="v2-status" class="notice warning">Preparando Listados V2…</div>
+        <div id="v2-summary" class="v2-summary"></div>
+        <div id="v2-table"></div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="./src/listados-v2.js?v=lab1"></script>
+</body>
+</html>
