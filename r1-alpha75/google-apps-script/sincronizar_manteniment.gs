@@ -4,7 +4,7 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.10.17.1',
+  scriptVersion: 'alpha75-2026.10.26.1',
   escrituraSeguraManual: true,
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
@@ -180,6 +180,7 @@ for (let index = 1; index < values.length; index += 1) {
   });
 }
 const paradas = metrogestionLeerParadasVinculadas_(values, notes);
+const cierresFacturacion = metrogestionLeerCierresFacturacion_(values, notes);
 const trabajos = metrogestionLeerTrabajos_(
   values,
   workNotes,
@@ -201,10 +202,11 @@ const payload = {
   archivo_modificado_en: modifiedAt.toISOString(),
   filas: rows,
   paradas,
+  cierres_facturacion: cierresFacturacion,
   trabajos,
   pendientes,
 };
-payload.checksum = metrogestionSha256_(JSON.stringify({ filas: rows, paradas, trabajos, pendientes }));
+payload.checksum = metrogestionSha256_(JSON.stringify({ filas: rows, paradas, cierres_facturacion: cierresFacturacion, trabajos, pendientes }));
 const response = UrlFetchApp.fetch(METROGESTION.syncUrl, {
   method: 'post',
   contentType: 'application/json',
@@ -536,6 +538,53 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
       marca: row[14],
       km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, periodoAbierto),
       tancament: metrogestionPeriodoTancament_(row[16], index + 1),
+    });
+  }
+  return result;
+}
+
+
+function metrogestionNotaParadaId_(note) {
+  const match = String(note || '').match(/(?:^|\n)METROGESTION_PARADA:([0-9a-f-]{36})(?:\n|$)/i);
+  return match ? match[1] : '';
+}
+
+// Feed contable de solo lectura. Incluye también PARADA históricas/manuales sin
+// UUID: la ausencia de identidad operativa no puede sacar una fila de factura.
+function metrogestionLeerCierresFacturacion_(values, notes) {
+  const result = [];
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 400);
+  const cutoffIso = metrogestionFechaIsoDesdeDate_(cutoff);
+
+  for (let index = 1; index < values.length; index += 1) {
+    const row = values[index];
+    if (metrogestionNormalizar_(row[7]) !== 'PARADA') continue;
+    const tancament = metrogestionPeriodoTancament_(row[16], index + 1);
+    if (!tancament) continue;
+
+    const fechaK = metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 1}`);
+    if (!fechaK || fechaK < cutoffIso) continue;
+    const fechaJ = metrogestionFechaIso_(row[9], `de inicio de tramo de la fila ${index + 1}`);
+    if (!fechaJ) throw new Error(`La fila TANCAMENT ${index + 1} no tiene fecha J.`);
+
+    result.push({
+      fila: index + 1,
+      sync_id: metrogestionNotaParadaId_(notes[index]?.[0]),
+      dfm: row[0],
+      matricula: row[1],
+      tipo: row[2],
+      upc: row[3],
+      numero_parada: row[4],
+      sustituto: row[6],
+      estado: 'PARADA',
+      fecha_programada: metrogestionFechaIso_(row[8], `programada de la fila ${index + 1}`),
+      fecha_parada: fechaJ,
+      fecha_k: fechaK,
+      dias_parada: metrogestionNumero_(row[11], `Los días del cierre de la fila ${index + 1}`, false),
+      marca: row[14],
+      km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, false),
+      tancament,
     });
   }
   return result;
@@ -1027,11 +1076,15 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
         trabajos_creados: createdWorks,
       };
     }
-    let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, sheetState);
+    const rolloverSourceRow = metrogestionCerrarPeriodoAnterior_(sheet, payload, syncId, sheetState);
+    let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, payload, sheetState);
     if (!rowNumber) rowNumber = metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState);
     const nuevaFila = !rowNumber;
     if (nuevaFila) rowNumber = metrogestionInsertarFilaParada_(sheet, payload, sheetState);
     metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuevaFila, sheetState);
+    if (nuevaFila && rolloverSourceRow) {
+      metrogestionCopiarFormulasCortePeriodo_(sheet, rolloverSourceRow, rowNumber);
+    }
     const createdWorks = metrogestionCrearTrabajosDesdeHotel_(
       sheet,
       Array.isArray(payload.trabajos_crear) ? payload.trabajos_crear : [],
@@ -1526,14 +1579,56 @@ function metrogestionEscribirFilaAlta_(sheet, rowNumber, payload, vehicleId, she
   if (sheetState?.notesA) sheetState.notesA[rowNumber - 1] = `METROGESTION_ALTA:${vehicleId}`;
 }
 
-function metrogestionBuscarFilaPorSyncId_(sheet, syncId, sheetState) {
+function metrogestionBuscarFilaPorSyncId_(sheet, syncId, payload, sheetState) {
   const lastRow = sheetState?.values?.length || sheet.getLastRow();
   if (lastRow < 2) return 0;
-  const expected = `METROGESTION_PARADA:${syncId}`.toUpperCase();
+  const values = sheetState?.values?.slice(1)
+    || sheet.getRange(2, 1, lastRow - 1, 17).getDisplayValues();
   const notes = sheetState?.notesA?.slice(1)
     || sheet.getRange(2, 1, lastRow - 1, 1).getNotes().map(item => String(item[0] || ''));
-  const index = notes.findIndex(item => String(item || '').trim().toUpperCase() === expected);
-  return index < 0 ? 0 : index + 2;
+
+  let candidates = [];
+  notes.forEach((note, index) => {
+    if (metrogestionNotaParadaId_(note)?.toLowerCase() !== String(syncId || '').toLowerCase()) return;
+    const row = values[index];
+    candidates.push({
+      rowNumber: index + 2,
+      tancament: metrogestionNormalizar_(row[16]),
+      sustituto: metrogestionNormalizar_(row[6]),
+      fechaK: String(row[10] || '').trim(),
+      fechaKIso: metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 2}`),
+    });
+  });
+  if (!candidates.length) return 0;
+
+  const tancament = metrogestionNormalizar_(payload?.tancament);
+  if (tancament) {
+    const samePeriod = candidates.filter(item => item.tancament === tancament);
+    if (!samePeriod.length) return 0;
+    candidates = samePeriod;
+  }
+
+  const sustituto = metrogestionNormalizar_(payload?.sustituto);
+  if (sustituto) {
+    const sameSubstitute = candidates.filter(item => item.sustituto === sustituto);
+    if (sameSubstitute.length) candidates = sameSubstitute;
+  }
+
+  const fechaK = metrogestionFechaIso_(payload?.fecha_k, 'de recuperación o corte recibida');
+  if (fechaK) {
+    const sameClosingDate = candidates.filter(item => item.fechaKIso === fechaK);
+    if (sameClosingDate.length === 1) return sameClosingDate[0].rowNumber;
+    if (sameClosingDate.length > 1) candidates = sameClosingDate;
+  }
+
+  const openPeriods = candidates.filter(item => !item.fechaK);
+  if (openPeriods.length === 1) return openPeriods[0].rowNumber;
+  if (openPeriods.length > 1) candidates = openPeriods;
+  if (candidates.length === 1) return candidates[0].rowNumber;
+
+  throw new Error(
+    `La parada ${payload?.numero_parada || ''} mantiene varias filas del mismo periodo para el identificador ${syncId}; no se ha modificado ninguna.`
+  );
 }
 
 function metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState) {
@@ -1600,6 +1695,65 @@ function metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState) {
   throw new Error(
     `La actuación ${payload.numero_parada} del DFM ${payload.dfm} mantiene varias filas igualmente válidas; no se ha creado ni modificado ninguna.`
   );
+}
+
+
+function metrogestionCerrarPeriodoAnterior_(sheet, payload, syncId, sheetState) {
+  const cierre = payload?.cierre_periodo_anterior;
+  if (!cierre || typeof cierre !== 'object') return 0;
+  const tancament = metrogestionNormalizar_(cierre.tancament);
+  const fechaK = metrogestionFechaIso_(cierre.fecha_k, 'de cierre del periodo anterior');
+  if (!tancament || !fechaK) throw new Error('El cambio de periodo no contiene un cierre anterior válido.');
+
+  const lastRow = sheetState?.values?.length || sheet.getLastRow();
+  const values = sheetState?.values || sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
+  const notes = sheetState?.notesA || sheet.getRange(1, 1, lastRow, 1).getNotes().map(r => String(r[0] || ''));
+  const dfm = metrogestionNormalizar_(payload.dfm);
+  const stop = metrogestionClaveNumeroParada_(payload.numero_parada);
+
+  let matches = [];
+  for (let index = 1; index < values.length; index += 1) {
+    const row = values[index];
+    if (metrogestionNormalizar_(row[7]) !== 'PARADA') continue;
+    if (metrogestionNormalizar_(row[16]) !== tancament) continue;
+    const linked = metrogestionNotaParadaId_(notes[index]);
+    const sameIdentity = linked?.toLowerCase() === String(syncId).toLowerCase();
+    const fallback = metrogestionNormalizar_(row[0]) === dfm
+      && metrogestionClaveNumeroParada_(row[4]) === stop;
+    if (sameIdentity || fallback) {
+      matches.push({
+        rowNumber: index + 1,
+        fechaK: metrogestionFechaIso_(row[10], `de K de la fila ${index + 1}`),
+      });
+    }
+  }
+  if (!matches.length) {
+    throw new Error(`No se encuentra el tramo ${tancament} que debe cerrarse antes de abrir ${payload.tancament}.`);
+  }
+
+  const alreadyClosed = matches.filter(item => item.fechaK === fechaK);
+  if (alreadyClosed.length === 1) return alreadyClosed[0].rowNumber;
+  const open = matches.filter(item => !item.fechaK);
+  if (open.length !== 1) {
+    throw new Error(`El tramo ${tancament} no tiene una única fila abierta; no se ha realizado el cambio de periodo.`);
+  }
+
+  const rowNumber = open[0].rowNumber;
+  sheet.getRange(rowNumber, 11).setValue(metrogestionDate_(fechaK)).setNumberFormat('dd/MM/yyyy');
+  if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][10] = fechaK;
+  return rowNumber;
+}
+
+function metrogestionCopiarFormulasCortePeriodo_(sheet, sourceRow, targetRow) {
+  [12, 16].forEach(column => {
+    const source = sheet.getRange(sourceRow, column);
+    if (!source.getFormula()) return;
+    source.copyTo(
+      sheet.getRange(targetRow, column),
+      SpreadsheetApp.CopyPasteType.PASTE_FORMULA,
+      false
+    );
+  });
 }
 
 function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
