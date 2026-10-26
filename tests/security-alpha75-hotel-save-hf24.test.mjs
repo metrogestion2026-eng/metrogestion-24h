@@ -171,7 +171,7 @@ test('Listados 75 carga bajo demanda y evita el panel R duplicado', () => {
   assert.doesNotMatch(source75, /Promise\.all\([\s\S]*facturacion_dfm_periodos[\s\S]*facturacion_r_sustituciones[\s\S]*listado_paradas_operativas/);
   assert.doesNotMatch(source75, /\.select\('\*'\)/);
   assert.match(source75, /alpha31-r-config/);
-  assert.match(source75, /event\.stopImmediatePropagation\(\)/);
+  assert.match(source75, /data-alpha75-listados/);
   assert.match(source('r1-alpha75/src/app.js'), /listados-native-hf31\.js\?v=75\.23-hf31/);
 });
 
