@@ -301,9 +301,9 @@ declare
   v_sync app_private.manteniment_parada_sync%rowtype;
   v_ficha record;
   v_resumen record;
-  v_periodo record;
-  v_periodo_sync record;
-  v_periodo_siguiente record;
+  v_periodo public.cierres_facturacion%rowtype;
+  v_periodo_sync public.cierres_facturacion%rowtype;
+  v_periodo_siguiente public.cierres_facturacion%rowtype;
   v_fecha_k date;
   v_dias integer;
   v_km numeric;
