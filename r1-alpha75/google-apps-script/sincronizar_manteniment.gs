@@ -5,6 +5,7 @@ const METROGESTION = Object.freeze({
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
   scriptVersion: 'alpha75-2026.10.26.1',
+  preflightVersion: 'alpha75-preflight-2026.10.27.1',
   escrituraSeguraManual: true,
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
@@ -136,8 +137,159 @@ function metrogestionVerEstadoLocal() {
     `Disparador activo: ${triggers ? 'sí' : 'no'}`,
     `Última ejecución: ${lastAt}`,
     `Resultado: ${lastResult}`,
-    `Último paso: ${diagnostic.paso} (${diagnostic.fecha || 'sin fecha'})`,
+    `Último paso guardado: ${diagnostic.paso} (${diagnostic.fecha || 'sin fecha'}; versión del registro: ${diagnostic.version_ultimo_paso || 'sin registro'})`,
   ].join('\n'));
+}
+
+function metrogestionTextoPreflightSeguro_(value) {
+  return typeof value === 'string'
+    ? value.replace(/mg_[0-9a-f]{64}/ig, '[clave omitida]').slice(0, 300)
+    : '';
+}
+
+function metrogestionClavesPreflightExactas_(value, keys) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).length === keys.length
+    && keys.every(key => Object.prototype.hasOwnProperty.call(value, key));
+}
+
+// Consulta explícita e independiente del motor de sincronización. Solo lee la
+// clave de las propiedades y envía identidad declarada; no abre la hoja, no
+// registra progreso, no toca activadores y no solicita ni confirma órdenes.
+function metrogestionComprobarInstalacionSoloLectura() {
+  const token = metrogestionLeerToken_();
+  if (!/^mg_[0-9a-f]{64}$/i.test(token)) {
+    throw new Error('No hay una clave de conexión válida guardada. No se ha iniciado ninguna sincronización.');
+  }
+
+  let response;
+  try {
+    response = UrlFetchApp.fetch(METROGESTION.syncUrl, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        action: 'preflight',
+        token,
+        payload: {
+          version_script: METROGESTION.scriptVersion,
+          version_preflight: METROGESTION.preflightVersion,
+          escritura_segura_manual: METROGESTION.escrituraSeguraManual,
+          spreadsheet_id: METROGESTION.spreadsheetId,
+        },
+      }),
+      muteHttpExceptions: true,
+      followRedirects: false,
+    });
+  } catch (_) {
+    // Las excepciones de transporte pueden incluir el envío: nunca se reflejan.
+    throw new Error('No se ha podido conectar con la comprobación de solo lectura. No se ha iniciado ninguna sincronización.');
+  }
+
+  const code = response.getResponseCode();
+  if (code < 200 || code >= 300) {
+    throw new Error(`La comprobación de solo lectura ha respondido HTTP ${code}. No se ha iniciado ninguna sincronización.`);
+  }
+  let result;
+  try {
+    const body = response.getContentText();
+    if (body.length > 32000) throw new Error('Respuesta demasiado grande');
+    result = JSON.parse(body);
+  } catch (_) {
+    throw new Error('La comprobación de solo lectura no ha devuelto un resultado válido.');
+  }
+
+  const preflight = result?.preflight;
+  const barriers = preflight?.barreras;
+  const booleanFields = [
+    'compatible', 'cliente_escritura_segura_manual', 'archivo_coincide',
+    'receptor_coincide', 'barreras_cerradas',
+  ];
+  const versionFields = [
+    'version_preflight', 'version_script_recibida', 'version_script_esperada',
+    'version_preflight_recibida',
+  ];
+  const barrierFields = [
+    'solo_lectura_manual_protegida', 'escritura_segura_manual', 'pausa_importacion_identidad',
+  ];
+  const allowedReasons = [
+    'VERSION_SCRIPT_DISTINTA', 'VERSION_PREFLIGHT_DISTINTA', 'CLIENTE_SIN_ESCRITURA_SEGURA',
+    'ARCHIVO_DISTINTO', 'RECEPTOR_NO_VERIFICADO', 'BARRERAS_NO_CERRADAS',
+  ];
+  if (
+    !metrogestionClavesPreflightExactas_(result, ['ok', 'preflight', 'recibido_en'])
+    || !metrogestionClavesPreflightExactas_(preflight, [
+      'protocolo', 'solo_lectura', 'barreras', 'sincronizacion_autorizada', 'motivos',
+      ...booleanFields, ...versionFields,
+    ])
+    || !metrogestionClavesPreflightExactas_(barriers, barrierFields)
+    || result.ok !== true || preflight.protocolo !== 'manteniment-preflight-v1'
+    || preflight.solo_lectura !== true || preflight.sincronizacion_autorizada !== false
+    || !booleanFields.every(key => typeof preflight[key] === 'boolean')
+    || !versionFields.every(key => typeof preflight[key] === 'string'
+      && /^[a-z0-9][a-z0-9._-]{0,95}$/i.test(preflight[key])
+      && !/mg_[0-9a-f]{64}/i.test(preflight[key]))
+    || !barrierFields.every(key => barriers[key] === null || typeof barriers[key] === 'boolean')
+    || !Array.isArray(preflight.motivos) || preflight.motivos.length > allowedReasons.length
+    || !preflight.motivos.every(value => allowedReasons.includes(value))
+    || new Set(preflight.motivos).size !== preflight.motivos.length
+    || typeof result.recibido_en !== 'string'
+    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(result.recibido_en)
+    || !Number.isFinite(Date.parse(result.recibido_en))
+    || new Date(result.recibido_en).toISOString() !== result.recibido_en
+  ) {
+    throw new Error('La respuesta no acredita el protocolo de solo lectura. No se ha iniciado ninguna sincronización.');
+  }
+
+  const compatibleDeclarado = preflight.version_script_recibida === preflight.version_script_esperada
+    && preflight.version_preflight_recibida === preflight.version_preflight
+    && preflight.cliente_escritura_segura_manual === true
+    && preflight.archivo_coincide === true && preflight.receptor_coincide === true;
+  const barrerasCerradasLocalmente = barriers.solo_lectura_manual_protegida === true
+    && barriers.escritura_segura_manual === false
+    && barriers.pausa_importacion_identidad === true;
+  const motivosEsperados = [];
+  if (preflight.version_script_recibida !== preflight.version_script_esperada) motivosEsperados.push('VERSION_SCRIPT_DISTINTA');
+  if (preflight.version_preflight_recibida !== preflight.version_preflight) motivosEsperados.push('VERSION_PREFLIGHT_DISTINTA');
+  if (!preflight.cliente_escritura_segura_manual) motivosEsperados.push('CLIENTE_SIN_ESCRITURA_SEGURA');
+  if (!preflight.archivo_coincide) motivosEsperados.push('ARCHIVO_DISTINTO');
+  if (!preflight.receptor_coincide) motivosEsperados.push('RECEPTOR_NO_VERIFICADO');
+  if (!barrerasCerradasLocalmente) motivosEsperados.push('BARRERAS_NO_CERRADAS');
+  if (preflight.compatible !== compatibleDeclarado
+    || preflight.barreras_cerradas !== barrerasCerradasLocalmente
+    || preflight.motivos.length !== motivosEsperados.length
+    || !preflight.motivos.every(value => motivosEsperados.includes(value))) {
+    throw new Error('La respuesta de solo lectura contiene resultados incoherentes. No se ha iniciado ninguna sincronización.');
+  }
+
+  // Una respuesta con campos adicionales, órdenes o datos operativos ya se ha
+  // rechazado. Solo este contrato validado puede pasar al informe y al registro.
+  const server = {
+    protocolo: preflight.protocolo,
+    solo_lectura: true,
+    barreras: {},
+    sincronizacion_autorizada: false,
+    motivos: preflight.motivos.map(metrogestionTextoPreflightSeguro_),
+  };
+  booleanFields.forEach(key => { server[key] = preflight[key]; });
+  versionFields.forEach(key => { server[key] = metrogestionTextoPreflightSeguro_(preflight[key]); });
+  barrierFields.forEach(key => { server.barreras[key] = barriers[key]; });
+  const compatibleLocalmente = compatibleDeclarado
+    && preflight.version_script_recibida === METROGESTION.scriptVersion
+    && preflight.version_script_esperada === METROGESTION.scriptVersion
+    && preflight.version_preflight_recibida === METROGESTION.preflightVersion
+    && preflight.version_preflight === METROGESTION.preflightVersion;
+  const report = {
+    comprobacion: 'instalacion_solo_lectura',
+    version_script_actual: METROGESTION.scriptVersion,
+    version_preflight_actual: METROGESTION.preflightVersion,
+    diagnostico_apto: preflight.compatible && compatibleLocalmente
+      && preflight.barreras_cerradas && barrerasCerradasLocalmente,
+    sincronizacion_autorizada: false,
+    preflight: server,
+    recibido_en: metrogestionTextoPreflightSeguro_(result.recibido_en),
+  };
+  Logger.log(JSON.stringify(report));
+  return report;
 }
 
 function metrogestionSolicitarCiclo_(sheet, modo, token) {
@@ -2410,7 +2562,12 @@ function metrogestionRegistrarPaso_(paso) {
 
 function metrogestionDiagnosticoSincronizacion() {
   const saved = PropertiesService.getScriptProperties().getProperty('METROGESTION_PASO');
-  return saved ? JSON.parse(saved) : { paso: 'Sin paso registrado', version: METROGESTION.scriptVersion };
+  const previous = saved ? JSON.parse(saved) : null;
+  return {
+    ...(previous || { paso: 'Sin paso registrado', version: METROGESTION.scriptVersion }),
+    version_actual: METROGESTION.scriptVersion,
+    version_ultimo_paso: previous?.version || null,
+  };
 }
 
 function metrogestionLeerCiclo_() {
@@ -2664,7 +2821,7 @@ function metrogestionSincronizarAhora() {
           const message = e.message + ' El avance guardado se conserva. Pulsa Reintentar para retomar.';
           estado.textContent = message; retomar.hidden = false;
           google.script.run.withSuccessHandler(function(d) {
-            if (!ejecutando && intento === intentos) estado.textContent = message + ' Último paso: ' + d.paso + ' (' + d.version + ').';
+            if (!ejecutando && intento === intentos) estado.textContent = message + ' Último paso guardado: ' + d.paso + ' (versión del registro: ' + (d.version_ultimo_paso || 'sin registro') + '; versión actual: ' + d.version_actual + ').';
           }).withFailureHandler(function() {}).metrogestionDiagnosticoSincronizacion();
         }).metrogestionContinuarSincronizacion(ciclo);
       }

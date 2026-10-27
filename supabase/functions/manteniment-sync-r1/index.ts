@@ -13,6 +13,83 @@ function reply(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
+const preflightProtocol = "manteniment-preflight-v1";
+const preflightRevision = "alpha75-preflight-2026.10.27.1";
+const preflightReasons = [
+  "VERSION_SCRIPT_DISTINTA", "VERSION_PREFLIGHT_DISTINTA", "CLIENTE_SIN_ESCRITURA_SEGURA",
+  "ARCHIVO_DISTINTO", "RECEPTOR_NO_VERIFICADO", "BARRERAS_NO_CERRADAS",
+];
+
+function objectRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function exactKeys(value: Record<string, unknown>, keys: string[]) {
+  const actual = Object.keys(value);
+  return actual.length === keys.length && actual.every(key => keys.includes(key));
+}
+
+function preflightVersionValid(value: unknown) {
+  return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$/.test(value)
+    && !/mg_[0-9a-f]{64}/i.test(value);
+}
+
+function preflightRequestValid(body: Record<string, unknown>, client: unknown) {
+  if (!exactKeys(body, ["action", "token", "payload"])
+    || body.action !== "preflight" || typeof body.token !== "string"
+    || !objectRecord(client)
+    || !exactKeys(client, ["version_script", "version_preflight", "escritura_segura_manual", "spreadsheet_id"])) return false;
+  return preflightVersionValid(client.version_script) && preflightVersionValid(client.version_preflight)
+    && typeof client.escritura_segura_manual === "boolean"
+    && typeof client.spreadsheet_id === "string"
+    && /^[A-Za-z0-9_-]{20,150}$/.test(client.spreadsheet_id);
+}
+
+// The preflight response is a diagnostic contract, never permission to sync.
+// Reject malformed/expanded responses rather than forward RPC output blindly.
+function preflightResultValid(value: unknown, client: Record<string, unknown>, secrets: string[]) {
+  if (!objectRecord(value) || !exactKeys(value, [
+    "protocolo", "version_preflight", "solo_lectura", "compatible",
+    "version_script_recibida", "version_script_esperada", "version_preflight_recibida",
+    "cliente_escritura_segura_manual", "archivo_coincide", "receptor_coincide",
+    "barreras", "barreras_cerradas", "sincronizacion_autorizada", "motivos",
+  ])) return false;
+  if (value.protocolo !== preflightProtocol || value.version_preflight !== preflightRevision
+    || !preflightVersionValid(value.version_script_esperada)
+    || value.solo_lectura !== true || value.sincronizacion_autorizada !== false
+    || value.version_script_recibida !== client.version_script
+    || value.version_preflight_recibida !== client.version_preflight
+    || value.cliente_escritura_segura_manual !== client.escritura_segura_manual
+    || typeof value.compatible !== "boolean" || typeof value.archivo_coincide !== "boolean"
+    || typeof value.receptor_coincide !== "boolean" || typeof value.barreras_cerradas !== "boolean") return false;
+  const barriers = value.barreras;
+  if (!objectRecord(barriers) || !exactKeys(barriers, [
+    "solo_lectura_manual_protegida", "escritura_segura_manual", "pausa_importacion_identidad",
+  ]) || Object.values(barriers).some(flag => flag !== null && typeof flag !== "boolean")) return false;
+  const closed = barriers.solo_lectura_manual_protegida === true
+    && barriers.escritura_segura_manual === false && barriers.pausa_importacion_identidad === true;
+  const compatible = client.version_script === value.version_script_esperada
+    && client.version_preflight === preflightRevision && client.escritura_segura_manual === true
+    && value.archivo_coincide === true && value.receptor_coincide === true;
+  if (value.barreras_cerradas !== closed || value.compatible !== compatible) return false;
+  if (!Array.isArray(value.motivos) || value.motivos.length > preflightReasons.length
+    || new Set(value.motivos).size !== value.motivos.length
+    || value.motivos.some(reason => typeof reason !== "string" || !preflightReasons.includes(reason))) return false;
+  const expectedReasons: string[] = [];
+  if (client.version_script !== value.version_script_esperada) expectedReasons.push("VERSION_SCRIPT_DISTINTA");
+  if (client.version_preflight !== preflightRevision) expectedReasons.push("VERSION_PREFLIGHT_DISTINTA");
+  if (client.escritura_segura_manual !== true) expectedReasons.push("CLIENTE_SIN_ESCRITURA_SEGURA");
+  if (!value.archivo_coincide) expectedReasons.push("ARCHIVO_DISTINTO");
+  if (!value.receptor_coincide) expectedReasons.push("RECEPTOR_NO_VERIFICADO");
+  if (!closed) expectedReasons.push("BARRERAS_NO_CERRADAS");
+  if (value.motivos.length !== expectedReasons.length
+    || value.motivos.some(reason => !expectedReasons.includes(reason))) return false;
+  const serialized = JSON.stringify(value);
+  return !/mg_[0-9a-f]{64}/i.test(serialized)
+    && !/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(serialized)
+    && !secrets.some(secret => secret && serialized.includes(secret));
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method !== "POST") {
     return reply(405, { ok: false, error: "Método no permitido." });
@@ -44,8 +121,11 @@ Deno.serve(async (request: Request) => {
   if (!/^mg_[0-9a-f]{64}$/i.test(token)) {
     return reply(401, { ok: false, error: "Clave de conexión no válida." });
   }
-  if (!["sync", "ack"].includes(action)) {
+  if (!["sync", "ack", "preflight"].includes(action)) {
     return reply(400, { ok: false, error: "Acción de sincronización no válida." });
+  }
+  if (action === "preflight" && !preflightRequestValid(body, payload)) {
+    return reply(400, { ok: false, error: "Solicitud de comprobación previa no válida." });
   }
   if (action === "sync" && (!payload || !rows)) {
     return reply(400, { ok: false, error: "No se ha recibido una fotografía válida de MANTENIMENT." });
@@ -63,6 +143,33 @@ Deno.serve(async (request: Request) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceRoleKey) {
     return reply(500, { ok: false, error: "Configuración segura incompleta." });
+  }
+
+  // Return before the sync/ack branch. This route calls only a read-only RPC.
+  if (action === "preflight") {
+    try {
+      const diagnostic = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data, error } = await diagnostic.rpc("preflight_manteniment", {
+        p_token: token,
+        p_cliente: payload,
+      });
+      if (error) {
+        return reply(error.code === "28000" ? 401 : 400, {
+          ok: false,
+          error: error.code === "28000"
+            ? "Clave de conexión no válida para la comprobación previa."
+            : "No se pudo completar la comprobación previa de solo lectura.",
+        });
+      }
+      if (!preflightResultValid(data, payload!, [token, serviceRoleKey])) {
+        return reply(502, { ok: false, error: "El servidor no confirmó una comprobación previa válida de solo lectura." });
+      }
+      return reply(200, { ok: true, preflight: data, recibido_en: new Date().toISOString() });
+    } catch {
+      return reply(502, { ok: false, error: "No se pudo completar la comprobación previa de solo lectura." });
+    }
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -85,6 +192,24 @@ Deno.serve(async (request: Request) => {
       ok: false,
       error: error.message || "No se pudo aplicar la actualización de MANTENIMENT.",
     });
+  }
+
+  // Preserve the deployed v6 behavior: an RPC success is not an import success.
+  if (action === "sync") {
+    const result = data && typeof data === "object" && !Array.isArray(data)
+      ? data as Record<string, unknown>
+      : null;
+    if (!result || result.ok !== true) {
+      const rejected = result?.ok === false;
+      return reply(rejected ? 400 : 502, {
+        ok: false,
+        error: rejected && typeof result.error === "string" && result.error.trim()
+          ? result.error
+          : "El servidor no confirmó la importación de MANTENIMENT.",
+        ...(rejected ? { resultado: result } : {}),
+        recibido_en: new Date().toISOString(),
+      });
+    }
   }
 
   return reply(200, action === "ack"
