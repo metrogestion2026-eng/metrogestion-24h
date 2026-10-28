@@ -352,6 +352,23 @@ begin
 
   v_saved:=public.guardar_ficha_hotel_edicion_core(p_registro_id,p_version,p_ficha,p_etapas,p_request_id);
 
+  -- Comprobar también la ruta de pizarra archivada: un error revierte
+  -- el guardado completo en la misma transacción, sin cambios parciales.
+  if exists (
+    select 1 from public.registros_hotel r
+    where r.id = p_registro_id
+      and r.estado in ('recuperado','reserva_liberada')
+  ) and exists (
+    select 1 from public.etapas_hotel e
+    where e.registro_hotel_id = p_registro_id
+      and not e.cancelado
+      and e.tipo_etapa = 'entrada_taller'
+      and e.fecha_inicio_real is not null
+      and e.fecha_real is null
+  ) then
+    raise exception 'La parada tiene una entrada de taller activa: no puede quedar Recuperado ni Reserva liberada';
+  end if;
+
   v_prop_rows:=app_private.propagar_correcciones_globales_parada(p_registro_id,to_jsonb(v_before));
   v_prop_stages:=app_private.propagar_detalles_t_parada(p_registro_id);
   v_norm:=app_private.normalizar_orden_t_parada(p_registro_id);
