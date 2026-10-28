@@ -100,23 +100,41 @@ function historicalCard(page, number) {
     .filter({ has: page.getByText(`Actuación ${number}`, { exact: true }) });
 }
 
-async function waitHistory(page) {
-  await page.waitForFunction(() => {
+async function waitHistory(page, dateInput = null) {
+  await page.waitForFunction(expectedInput => {
+    const currentInput = document.querySelector('input[aria-label="Fecha de la pizarra"]');
     const button = [...document.querySelectorAll('button')].find(node => node.textContent === 'Buscar día');
-    return button && !button.disabled;
-  });
+    return (!expectedInput || (expectedInput.isConnected && currentInput === expectedInput))
+      && button && !button.disabled;
+  }, dateInput);
   const errors = (await page.locator('[data-history-results] > .notice.danger').allTextContents())
     .filter(text => !text.includes('PIZARRA ANTERIOR'));
   assert.deepEqual(errors, []);
 }
 
 async function openHistoryDay(page, date) {
-  await page.locator('[data-module="historico"]').click();
-  await page.getByRole('button', { name: 'Buscar día', exact: true }).waitFor();
-  await waitHistory(page);
-  await page.getByLabel('Fecha de la pizarra', { exact: true }).fill(date);
-  await page.getByRole('button', { name: 'Buscar día', exact: true }).click();
-  await waitHistory(page);
+  const input = page.getByLabel('Fecha de la pizarra', { exact: true });
+  const previousInput = await input.count() ? await input.elementHandle() : null;
+  let currentInput;
+  try {
+    await page.locator('[data-module="historico"]').click();
+    // Permission lookup precedes renderHistoryNative's clear(container). An
+    // enabled button can still belong to the previous search during that await.
+    await page.waitForFunction(previous => {
+      const current = document.querySelector('input[aria-label="Fecha de la pizarra"]');
+      return current && current !== previous && (!previous || !previous.isConnected);
+    }, previousInput);
+    currentInput = await input.elementHandle();
+    await waitHistory(page, currentInput);
+    await input.fill(date);
+    await page.getByRole('button', { name: 'Buscar día', exact: true }).click();
+    await waitHistory(page, currentInput);
+    assert.equal(await currentInput.evaluate(node => node.value), date,
+      'The requested date must remain on the newly loaded History form');
+  } finally {
+    await previousInput?.dispose();
+    await currentInput?.dispose();
+  }
 }
 
 async function searchHistory(page, term, from = '', to = '') {
@@ -308,7 +326,15 @@ test('Recuperación explícita e Histórico reales → PostgreSQL17 aislado', { 
       assert.match(await mixed.textContent(), /Dato manual protegido/);
       assert.match(await mixed.textContent(), /Estancia taller manual/);
       assert.equal(await mixed.locator('.a67-quick-button').count(), 0);
+      const previousDateInput = await page.getByLabel('Fecha de la pizarra', { exact: true }).elementHandle();
+      // openHistory awaits permissions while the previous form is still
+      // connected and enabled. Force that order instead of relying on CI load.
+      server.controls.delayNextHistoryAccess = 1000;
       await openHistoryDay(page, '2026-09-30');
+      assert.equal(server.controls.delayNextHistoryAccess, 0, 'The delayed permission query must have been exercised');
+      assert.equal(await previousDateInput.evaluate(node => node.isConnected), false,
+        'History navigation must finish on a new form, not the still-enabled previous form');
+      await previousDateInput.dispose();
       const historical = historicalCard(page, 'SINT-2637');
       assert.equal(await historical.count(), 1);
       assert.match(await historical.textContent(), /Identidad y medias manuales/);

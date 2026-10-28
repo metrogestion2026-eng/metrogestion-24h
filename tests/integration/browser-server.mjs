@@ -50,7 +50,7 @@ const html = `<!doctype html><html lang="es"><meta charset="utf-8"><title>Metrog
 
 export async function startBrowserServer(db, { recoveryHistory = false } = {}) {
   const calls = [], queries = [], readTables = [], failures = [], doubledRpcs = [];
-  const controls = { delayNextSave: 0, loseNextCreateResponse: false };
+  const controls = { delayNextSave: 0, loseNextCreateResponse: false, delayNextHistoryAccess: 0 };
   let origin;
   const server = createServer(async (request, response) => {
     response.setHeader('Cache-Control', 'no-store');
@@ -74,6 +74,11 @@ export async function startBrowserServer(db, { recoveryHistory = false } = {}) {
         if (url.pathname === '/__test/query') {
           readTables.push(data.table);
           queries.push(structuredClone(data));
+          if (recoveryHistory && data.table === 'usuarios' && data.columns === 'activo,tipo_usuario,permisos') {
+            const delay = controls.delayNextHistoryAccess;
+            controls.delayNextHistoryAccess = 0;
+            if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+          }
           result = await readQuery(db, data, recoveryHistory);
         } else if (url.pathname === '/__test/rpc') {
           if (recoveryHistory && data.name === 'listar_ordenes_manteniment_pendientes_alpha74') {
