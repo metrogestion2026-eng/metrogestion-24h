@@ -314,6 +314,17 @@ export function hasStageDrivenSituation(ficha = {}, stages = []) {
 
 export function deriveHotelOperationalState(ficha = {}, stages = []) {
   if (ficha.cancelado) return 'anulado';
+  // Una entrada de taller posterior y físicamente abierta prevalece sobre
+  // un estado de recogida/recuperación heredado de una 24H terminada.
+  // Solo afecta a la presentación: no cambia los hechos ni los datos manuales.
+  const activeWorkshop = (Array.isArray(stages) ? stages : [])
+    .filter(stage => !stage?.cancelado && normalized(stage.estado) !== 'anulada')
+    .filter(stage => normalized(stage.tipo_etapa) === 'entrada_taller'
+      && Boolean(stage.fecha_inicio_real) && !stage.fecha_real)
+    .sort((a, b) => stagePosition(a) - stagePosition(b)).at(-1);
+  if (activeWorkshop) {
+    return activeWorkshop.fecha_fin_real ? 'terminado_pendiente_recogida' : 'en_taller';
+  }
   if (['recuperado', 'reserva_liberada'].includes(normalized(ficha.estado))) {
     return normalized(ficha.estado);
   }
