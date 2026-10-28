@@ -3,7 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node alpha75-ui-postgres.test.mjs"
+    "test": "node alpha75-ui-postgres.test.mjs && node alpha75-recovery-history.test.mjs && node alpha75-boot-cache.test.mjs",
+    "test:assistance": "node alpha75-ui-postgres.test.mjs",
+    "test:recovery-history": "node alpha75-recovery-history.test.mjs",
+    "test:boot": "node alpha75-boot-cache.test.mjs"
   },
   "engines": { "node": ">=24" },
   "devDependencies": { "playwright": "1.62.1" }

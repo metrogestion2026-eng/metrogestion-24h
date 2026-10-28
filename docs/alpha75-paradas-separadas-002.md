@@ -38,6 +38,12 @@ de una solución de tramos. Esta protección no constituye esa solución, ni
 recalcula facturación, cierres contables o medias. Tampoco transforma fichas
 históricas ni crea PA retroactivas.
 
+La regla aprobada del día del cambio corresponde al cambio de sustituto dentro
+de una PA; no decide el traspaso de imputación del mismo sustituto entre PA
+distintas. Hay una [propuesta concreta pendiente de Metro](alpha75-continuidad-sustitucion-propuesta.md)
+que usa la entrada real al taller y asigna su día a la PA de destino. No es una
+norma vigente ni una funcionalidad implementada.
+
 ## Migración y compatibilidad
 
 La migración `20261028174243_alpha75_24h_paradas_independientes.sql` se prepara
@@ -75,7 +81,9 @@ Resultado local del 28/10/2026:
 | Frontend seleccionado | 104 casos aprobados | Controladores, fechas, confirmación, reintentos y prioridades |
 | SQL con PGlite 0.3.16 / PostgreSQL 17.5 | 19 escenarios aprobados | Reglas de negocio y cascadas críticas en una sesión |
 | PostgreSQL 17.11 nativo | 6 carreras aprobadas | Dos sesiones de trabajo, observador y bloqueos reales bajo `READ COMMITTED` |
-| Navegador real y PostgreSQL 17.11 | 4 recorridos aprobados | Formularios reales, RPC pública, Hotel y Panel con transporte local |
+| Recuperación en PostgreSQL 17.11 nativo | 5 escenarios aprobados | RPC vigente, commit, lectura desde otra conexión y conservación de actuaciones |
+| Navegador real y PostgreSQL 17.11 | 9 recorridos aprobados | Cuatro de asistencia y cinco de recuperación/Histórico con transporte local |
+| Arranque publicado y caché HTTP real | 3 escenarios aprobados | Index candidato, sesión nula, caché previa del asistente y fallo de precarga |
 
 También pasan los controles existentes de seguridad, sintaxis y construcción
 pública. El control de publicación verifica cuatro casos y genera 946 archivos
@@ -129,6 +137,34 @@ seguimiento y las paradas de taller sin relación con 24H conservan sus
 excepciones. Preparación, matriz y límites:
 [`tests/sql/README-native-concurrency.md`](../tests/sql/README-native-concurrency.md).
 
+### Recuperación explícita
+
+Cinco escenarios adicionales ejecutan la RPC vigente
+`public.marcar_t_realizada_rapida` y comprueban los efectos después del commit
+desde otra conexión. Recuperar una PA de taller independiente conserva
+exactamente la 24H abierta del mismo vehículo y su PA. Una recuperación
+expresamente aplicable en una PA24H tampoco cierra por sí sola la asistencia ni
+realiza otras T. Este segundo escenario utiliza una modalidad manual declarada
+en la semilla; no representa la modalidad predeterminada de una nueva 24H.
+
+La recuperación registra la hora real del servidor, retira la PA seleccionada
+y libera la disponibilidad de la reserva, conservando sus identificadores
+históricos en la PA. Si la reserva tiene pendientes, queda disponible con
+pendientes. Se conserva un trámite aún sin realizar incluso si se retira esa
+PA; no se interpreta recuperación como finalización de todas sus T.
+
+También se comprueban rechazos atómicos por versión antigua, repetición,
+actor/dispositivo/administrador no válidos y modalidad que no requiere
+recuperación. Las ramas de autorización de la RPC son reales, pero sus
+identidades y helpers son sintéticos: no se acredita una sesión JWT/RLS.
+
+El fixture específico sustituye siete dobles críticos por definiciones runtime
+con huellas comprobadas. En particular, el helper real de liberación conserva
+los campos históricos de sustitución; la simplificación anterior del fixture
+no se utiliza para estos escenarios. La migración de producto permanece
+intacta. Matriz, procedencia y límites:
+[`tests/sql/README-native-recovery.md`](../tests/sql/README-native-recovery.md).
+
 ### Formularios y lecturas en navegador
 
 Playwright 1.62.1 conduce un navegador Chromium real, con zona Europe/Madrid,
@@ -138,7 +174,7 @@ controladores y formularios de la aplicación, el adaptador Alpha75, el diálogo
 de seguimiento y los módulos reales de Hotel y Panel. Las vistas SQL de Hotel
 proceden de las definiciones revisadas mediante lectura del catálogo.
 
-Los cuatro recorridos comprueban:
+Los cuatro recorridos iniciales comprueban:
 
 1. Alta completa, doble clic, PA independiente de un taller previo, rechazo de
    fin anterior al inicio y cierre por traslado sin afirmar reparación.
@@ -157,18 +193,55 @@ formulario coincide con la guardada.
 
 El shell, la autenticación y el transporte Supabase/PostgREST tienen dobles
 locales declarados. Facturación y documentos utilizan respuestas vacías y no
-se certifican con estos recorridos. Tampoco se prueban una sesión con RLS,
-Histórico completo, sincronización, publicación, cachés ni el arranque integral
-de la aplicación. La prueba es funcional; no constituye una aceptación visual
-del shell ni sustituye la validación de Metro. Ejecución y límites:
+se certifican con estos recorridos.
+
+Otros cinco recorridos cargan los módulos completos de Hotel75, Histórico75 y
+Panel, con su navegación inicial sintética. Ejercitan el botón real de
+recuperación, sus dos pulsaciones y un rechazo del servidor por versión antigua.
+El Histórico consulta la vista vigente `hotel_por_dia`, muestra las PA
+independientes y la recuperación sin borrar otras T, y abre el detalle real de
+la actuación con trabajos y notas manuales. La búsqueda global recorre más de
+200 registros, exige una segunda página y filtra por DFM, PA, periodo, trabajo
+y anotación. Las consultas de Histórico no generan escrituras y los centinelas
+sintéticos de 2556/2637 permanecen idénticos.
+
+No se prueban una sesión con RLS, PostgREST, sincronización, guardado del editor
+completo ni resolución del aviso de datos pendientes de un marcado rápido.
+La prueba es funcional; no constituye una aceptación visual del shell ni
+sustituye la validación de Metro. Ejecución y límites:
 [`tests/integration/README.md`](../tests/integration/README.md).
+
+### Arranque y caché
+
+Un ensayo separado construye los archivos públicos y abre el index real de
+Alpha75, sin sustituir su shell ni los controladores heredados. La frontera de
+autenticación devuelve una sesión nula y rechaza llamadas de datos. El
+arranque frío conserva la pantalla de identificación y mantiene oculta la
+aplicación protegida.
+
+Con la caché HTTP habilitada y en el mismo origen/contexto se almacena el
+asistente Alpha34 anterior a PARADAS-002. Una lectura idéntica sin petición al
+servidor acredita que estaba en caché. El index candidato renueva después ese
+archivo incluso con un cuerpo retrasado; se verifica el SHA256 actual y que
+el módulo anterior no se ejecuta. Ante una precarga HTTP 503, el cargador de
+módulos obtiene la candidata mediante otra petición. Los tres escenarios pasan
+sin cambios de producto motivados por esta hipótesis.
+
+El ensayo presupone que se recibe el index candidato. No acredita renovación
+automática de un index anterior: `version-refresh` compara sólo la versión
+visible 75.25, idéntica entre revisiones. Tampoco acredita cabeceras del
+alojamiento desplegado, una sesión autenticada ni Alpha80test. La aceptación
+futura debe comenzar con recarga completa y comprobación de revisión.
+Comandos, procedencia y frontera:
+[`tests/integration/README-boot-cache.md`](../tests/integration/README-boot-cache.md).
 
 ### Comprobación continua
 
 El flujo de CI también comprueba seguridad, sintaxis JavaScript, privacidad,
 paradas externas, exclusión de archivos internos y construcción pública. Un
-segundo job ejecuta las seis carreras y los cuatro recorridos de navegador en
-Ubuntu 24.04, con paquetes oficiales PostgreSQL fijados y verificados por SHA256.
+segundo job ejecuta las seis carreras, cinco escenarios de recuperación, nueve
+recorridos funcionales de navegador y tres escenarios de arranque en Ubuntu
+24.04, con paquetes oficiales PostgreSQL fijados y verificados por SHA256.
 El servidor admite únicamente su socket Unix dedicado, no escucha TCP y se
 detiene al terminar. Las pruebas SQL no se conectan a Supabase ni ejecutan
 sincronización.
@@ -182,12 +255,14 @@ entrega modifica esa cadena de carga; sus tres casos funcionales se conservan.
 
 ## Aceptación funcional pendiente
 
-Queda la aceptación con Metro en un entorno de prueba autorizado: sesión y
-permisos reales, arranque y cachés, recuperación explícita y lectura completa de
-Asistencias, Hotel, Histórico y Panel. Las altas, reintentos y cierres descritos
-ya tienen evidencia automatizada en navegador y PostgreSQL nativos; eso no
-autoriza instalarlos en el backend operativo. El reparto de una sustitución
-continua entre distintas PA sigue pendiente de la solución explícita de tramos.
+Queda la aceptación con Metro en un entorno de prueba autorizado: sesión,
+dispositivo y permisos reales, servicios externos, guardado completo del editor
+y comprobación de la revisión servida por el alojamiento. Altas, reintentos,
+cierres, recuperación explícita, consultas de Histórico y arranque candidato
+con caché previa ya tienen evidencia automatizada dentro de las fronteras
+descritas; eso no autoriza instalarlos en el backend operativo. El reparto de
+una sustitución continua entre distintas PA sigue pendiente de la decisión de
+Metro sobre el hecho de traspaso y su día, y de su posterior implementación.
 
 El preflight de instalación autenticado ya constaba como APTO; su alcance es
 compatibilidad de instalación. El posterior ensayo de órdenes seguía NO APTO.

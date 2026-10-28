@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node alpha75-24h-paradas.test.mjs",
-    "test:concurrency": "node alpha75-24h-concurrency.test.mjs"
+    "test:concurrency": "node alpha75-24h-concurrency.test.mjs",
+    "test:recovery": "node alpha75-recovery-explicit.test.mjs"
   },
   "engines": {
     "node": ">=24"

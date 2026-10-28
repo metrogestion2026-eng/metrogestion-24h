@@ -5,6 +5,10 @@ import path from 'node:path';
 
 const repo = fileURLToPath(new URL('../../', import.meta.url));
 const REAL_READS = new Set(['pizarras', 'hotel_actual_detalle', 'etapas_hotel', 'activaciones_24h', 'vehiculos', 'reservas_hotel', 'usuarios']);
+const RECOVERY_HISTORY_READS = new Set(['hotel_por_dia', 'registros_hotel', 'hotel_edicion_piloto',
+  'trabajos_etapa_hotel', 'anotaciones_manuales_hotel', 'anotaciones_generadas_hotel_anuladas',
+  'catalogo_tipos_trabajo']);
+const RECOVERY_HISTORY_EMPTY_READS = new Set(['documentos_gestion', 'dispositivos_usuario']);
 // Financial/document services are outside this test. They return an explicit
 // empty fixture; no metrics or claims about these services are asserted.
 const EMPTY_READS = new Set(['cierres_facturacion', 'facturacion_dfm_periodos', 'facturacion_r_sustituciones',
@@ -14,14 +18,18 @@ const identifier = value => {
   return `"${value}"`;
 };
 
-async function readQuery(db, spec) {
-  if (EMPTY_READS.has(spec.table)) return { data: spec.single ? null : [], error: null };
-  if (!REAL_READS.has(spec.table)) throw new Error(`Unexpected fixture read: ${spec.table}`);
+async function readQuery(db, spec, recoveryHistory) {
+  const actual = REAL_READS.has(spec.table) || (recoveryHistory && RECOVERY_HISTORY_READS.has(spec.table));
+  if (!actual && (EMPTY_READS.has(spec.table) || (recoveryHistory && RECOVERY_HISTORY_EMPTY_READS.has(spec.table)))) {
+    return { data: spec.single ? null : [], error: null };
+  }
+  if (!actual) throw new Error(`Unexpected fixture read: ${spec.table}`);
   const columns = spec.columns === '*' ? '*' : String(spec.columns).split(',').map(identifier).join(',');
   const values = [];
   const filters = spec.filters.map(filter => {
     values.push(filter.value);
     if (filter.operator === 'eq') return `${identifier(filter.column)} = $${values.length}`;
+    if (filter.operator === 'gt') return `${identifier(filter.column)} > $${values.length}`;
     if (filter.operator === 'in') return `${identifier(filter.column)} = ANY($${values.length})`;
     throw new Error('Unsupported fixture filter');
   });
@@ -40,8 +48,8 @@ const html = `<!doctype html><html lang="es"><meta charset="utf-8"><title>Metrog
 <span id="app-version"></span><nav id="module-nav"><button data-module="resumen">Panel</button><button id="fixture-hotel-button" data-module="hotel">Hotel</button><button id="fixture-incidents-button">Asistencias</button></nav><main id="module-content"></main>
 <script type="module" src="/tests/integration/browser-app.js"></script></html>`;
 
-export async function startBrowserServer(db) {
-  const calls = [], readTables = [], failures = [];
+export async function startBrowserServer(db, { recoveryHistory = false } = {}) {
+  const calls = [], queries = [], readTables = [], failures = [], doubledRpcs = [];
   const controls = { delayNextSave: 0, loseNextCreateResponse: false };
   let origin;
   const server = createServer(async (request, response) => {
@@ -65,17 +73,30 @@ export async function startBrowserServer(db) {
         let result;
         if (url.pathname === '/__test/query') {
           readTables.push(data.table);
-          result = await readQuery(db, data);
+          queries.push(structuredClone(data));
+          result = await readQuery(db, data, recoveryHistory);
         } else if (url.pathname === '/__test/rpc') {
-          if (data.name !== 'guardar_activacion_24h') throw new Error(`Unexpected fixture RPC: ${data.name}`);
+          if (recoveryHistory && data.name === 'listar_ordenes_manteniment_pendientes_alpha74') {
+            // Read-only Panel dependency; no MANTENIMENT queue is connected.
+            doubledRpcs.push(data.name);
+            response.setHeader('Content-Type', 'application/json');
+            response.end(JSON.stringify({ data: [], error: null })); return;
+          }
+          if (data.name !== 'guardar_activacion_24h'
+              && !(recoveryHistory && data.name === 'marcar_t_realizada_rapida')) {
+            throw new Error(`Unexpected fixture RPC: ${data.name}`);
+          }
           calls.push(structuredClone(data));
           const wait = controls.delayNextSave;
           controls.delayNextSave = 0;
           if (wait) await new Promise(resolve => setTimeout(resolve, wait));
           const args = data.args;
-          const saved = await db.query('SELECT public.guardar_activacion_24h($1::uuid,$2::jsonb,$3::text) AS value',
-            [args.p_id, JSON.stringify(args.p_payload), args.p_request_id]);
-          if (!args.p_id && controls.loseNextCreateResponse) {
+          const saved = data.name === 'marcar_t_realizada_rapida'
+            ? await db.query('SELECT public.marcar_t_realizada_rapida($1::uuid,$2::integer,$3::text) AS value',
+              [args.p_etapa_id, args.p_version, args.p_request_id])
+            : await db.query('SELECT public.guardar_activacion_24h($1::uuid,$2::jsonb,$3::text) AS value',
+              [args.p_id, JSON.stringify(args.p_payload), args.p_request_id]);
+          if (data.name === 'guardar_activacion_24h' && !args.p_id && controls.loseNextCreateResponse) {
             controls.loseNextCreateResponse = false;
             // Deliver headers and an incomplete JSON body after commit. A bare
             // socket reset may be transparently retried by Chromium itself.
@@ -91,11 +112,15 @@ export async function startBrowserServer(db) {
       if (request.method !== 'GET') { response.writeHead(405).end(); return; }
       if (url.pathname === '/') {
         response.setHeader('Content-Type', 'text/html; charset=utf-8');
-        response.end(html); return;
+        response.end(recoveryHistory
+          ? html.replace('<button id="fixture-incidents-button">Asistencias</button>', '<button data-module="historico">Histórico</button>')
+            .replace('browser-app.js', 'browser-recovery-history-app.js')
+          : html);
+        return;
       }
       const relative = decodeURIComponent(url.pathname).slice(1);
       if (!/^(r1-alpha\d+\/|shared\/|tests\/integration\/browser-)/.test(relative)
-          || !relative.endsWith('.js') || relative.split('/').includes('..')) {
+          || !/\.m?js$/.test(relative) || relative.split('/').includes('..')) {
         response.writeHead(404).end(); return;
       }
       let source;
@@ -124,7 +149,7 @@ export async function startBrowserServer(db) {
   server.on('connect', (_request, socket) => socket.destroy());
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   origin = `http://127.0.0.1:${server.address().port}`;
-  return { origin, calls, readTables, failures, controls,
+  return { origin, calls, queries, readTables, failures, doubledRpcs, controls,
     async close() { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); },
   };
 }

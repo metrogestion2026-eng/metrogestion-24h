@@ -13,6 +13,7 @@ class Query {
   constructor(table) { this.spec = { table, columns: '*', filters: [], orders: [] }; }
   select(columns) { this.spec.columns = columns; return this; }
   eq(column, value) { this.spec.filters.push({ operator: 'eq', column, value }); return this; }
+  gt(column, value) { this.spec.filters.push({ operator: 'gt', column, value }); return this; }
   in(column, value) { this.spec.filters.push({ operator: 'in', column, value }); return this; }
   order(column, options = {}) { this.spec.orders.push({ column, ...options }); return this; }
   limit(value) { this.spec.limit = value; return this; }

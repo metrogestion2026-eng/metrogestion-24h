@@ -76,9 +76,11 @@ jobs:
         run: python3 .github/scripts/local-postgres17.py start
       - name: Comprobar carreras con dos sesiones y bloqueos observados
         run: npm run test:concurrency --prefix tests/sql
+      - name: Comprobar recuperación explícita y conservación de otras actuaciones
+        run: npm run test:recovery --prefix tests/sql
       - name: Preparar navegador de prueba
         run: node tests/integration/node_modules/playwright/cli.js install --with-deps chromium
-      - name: Comprobar formularios y vistas con navegador y PostgreSQL reales
+      - name: Comprobar formularios, Histórico y caché con navegador real
         run: npm test --prefix tests/integration
       - name: Detener PostgreSQL de prueba
         if: always()
