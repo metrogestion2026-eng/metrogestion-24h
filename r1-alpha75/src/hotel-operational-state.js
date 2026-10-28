@@ -328,9 +328,9 @@ export function deriveHotelOperationalState(ficha = {}, stages = []) {
   if (['recuperado', 'reserva_liberada'].includes(normalized(ficha.estado))) {
     return normalized(ficha.estado);
   }
-  // Las fichas legacy conservan selección manual de Situación operativa.
-  // Sus T son histórico/guía y no deben sobreescribir automáticamente la
-  // situación elegida por el usuario. Solo entrada_hitos_v1 se deriva por T.
+  // Las fichas legacy conservan selección manual salvo contradicción
+  // demostrada por una entrada de taller físicamente abierta y posterior.
+  // Nunca se altera aquí el registro persistido: solo se deriva la vista.
   return ficha.modelo_flujo_taller === 'entrada_hitos_v1'
     ? deriveNewFlowOperationalState(ficha, stages)
     : (normalized(ficha.estado) || 'pendiente_taller');
