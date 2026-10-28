@@ -32,9 +32,19 @@ export function connectWizard(root = document.querySelector('#module-content')) 
   const current = root?.querySelector('#h24-current-state');
   const result = root?.querySelector('#h24-result');
   if (!current || !result) return;
+  const transferred = root.querySelector('#h24-transfer');
+  const reflectTransfer = () => {
+    if (result.value !== 'trasladado_taller' || !transferred || transferred.checked) return false;
+    transferred.checked = true;
+    // El handler compartido actualiza también el borrador y vuelve a dibujar.
+    transferred.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  };
+  if (reflectTransfer()) return;
   bindAssistanceSituation(current, result);
   if (current.dataset.completionBound) return;
   current.dataset.completionBound = '1';
+  transferred?.addEventListener('change', reflectTransfer);
   const date = root.querySelector('#h24-repair-end-date');
   const time = root.querySelector('#h24-repair-end');
   const transfer = [...result.options].find(option => option.value === 'trasladado_taller');

@@ -3,12 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node alpha75-24h-paradas.test.mjs"
+    "test": "node alpha75-24h-paradas.test.mjs",
+    "test:concurrency": "node alpha75-24h-concurrency.test.mjs"
   },
   "engines": {
     "node": ">=24"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.3.16"
+    "@electric-sql/pglite": "0.3.16",
+    "pg": "8.16.3"
   }
 }

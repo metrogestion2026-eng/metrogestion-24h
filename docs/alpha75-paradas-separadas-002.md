@@ -22,6 +22,9 @@ visible sigue siendo 75.25. No autoriza despliegue, fusión ni sincronización.
   vehículo conserva su propio flujo y no cierra por sí solo la asistencia.
 - El formulario exige confirmación del servidor sobre identidad, estado y
   resultado antes de anunciar el cierre. Un error conserva el borrador.
+- Al elegir el resultado explícito «Trasladado a taller», la casilla de traslado
+  refleja también esa elección y el borrador conserva el mismo hecho. Este
+  ajuste está limitado al adaptador de Alpha75.
 
 ## Sustitución que continúa
 
@@ -65,10 +68,19 @@ en esta candidata.
 
 ## Verificación reproducible
 
-Resultado local del 28/10/2026: 104 casos frontend seleccionados y 19 casos SQL
-aprobados. También pasan los controles existentes de seguridad, sintaxis y
-construcción pública. El control de publicación verifica cuatro casos y genera
-946 archivos estáticos. La validación funcional de Metro sigue pendiente.
+Resultado local del 28/10/2026:
+
+| Capa | Resultado | Alcance |
+| --- | --- | --- |
+| Frontend seleccionado | 104 casos aprobados | Controladores, fechas, confirmación, reintentos y prioridades |
+| SQL con PGlite 0.3.16 / PostgreSQL 17.5 | 19 escenarios aprobados | Reglas de negocio y cascadas críticas en una sesión |
+| PostgreSQL 17.11 nativo | 6 carreras aprobadas | Dos sesiones de trabajo, observador y bloqueos reales bajo `READ COMMITTED` |
+| Navegador real y PostgreSQL 17.11 | 4 recorridos aprobados | Formularios reales, RPC pública, Hotel y Panel con transporte local |
+
+También pasan los controles existentes de seguridad, sintaxis y construcción
+pública. El control de publicación verifica cuatro casos y genera 946 archivos
+estáticos. La aceptación funcional de Metro en el entorno autorizado sigue
+pendiente.
 
 Los casos frontend ejecutan los controladores del asistente y del diálogo con
 respuestas y DOM sintéticos. Cubren finalización independiente, fechas, resultado,
@@ -86,13 +98,80 @@ usa PostgreSQL 17.6. Los dobles de servicios auxiliares se identifican en los
 fixtures. Las pruebas locales no certifican una instalación ni una sesión
 completa en la aplicación operativa.
 
-PGlite no reproduce dos sesiones PostgreSQL concurrentes. Los bloqueos de
-asignación y petición requieren además un ensayo de concurrencia en un entorno
-de prueba autorizado antes de aprobar el despliegue.
+### Concurrencia nativa
+
+La limitación de PGlite se complementa con seis carreras sobre PostgreSQL 17.11
+nativo. Cada caso utiliza tres conexiones distintas a una base sintética nueva:
+A conserva una transacción abierta, B intenta la operación conflictiva y el
+observador acredita la espera de B antes de permitir el commit o rollback de A.
+Se exige `wait_event='advisory'`, el PID de A en `pg_blocking_pids(B)` y la
+coincidencia entre el bloqueo concedido a A y el solicitado por B en `pg_locks`.
+
+Se comprueban el reintento idéntico, la misma petición con contenido diferente,
+la reversión del primer alta, la asignación por DFM frente a matrícula, la
+reversión de la primera asignación y la reactivación de una PA retirada que
+conserva un sustituto ya asignado. No quedan PA, T, activaciones ni peticiones
+huérfanas. En los tres casos de sustitución la reserva termina ocupada.
+
+Los centinelas sintéticos de 2556/2637, las demás T, los valores manuales y la
+barrera de sincronización permanecen idénticos. Se confirma también la
+eliminación de la base efímera. La migración no necesitó modificaciones y
+mantiene su SHA256:
+
+```text
+60cfff3ae8fd99818d88748080073a100ab52582eb4bc8dbcf5c02b8ce548092
+```
+
+Esta evidencia cubre las seis carreras bajo `READ COMMITTED`; no certifica
+otros niveles de aislamiento, carga, cambios simultáneos del catálogo,
+rollover ni todos los intercalados posibles. La continuidad del mismo
+seguimiento y las paradas de taller sin relación con 24H conservan sus
+excepciones. Preparación, matriz y límites:
+[`tests/sql/README-native-concurrency.md`](../tests/sql/README-native-concurrency.md).
+
+### Formularios y lecturas en navegador
+
+Playwright 1.62.1 conduce un navegador Chromium real, con zona Europe/Madrid,
+hacia un servidor HTTP de loopback que ejecuta la RPC pública en PostgreSQL
+nativo. La ejecución local utiliza Google Chrome 156.0.8078.73. Se cargan los
+controladores y formularios de la aplicación, el adaptador Alpha75, el diálogo
+de seguimiento y los módulos reales de Hotel y Panel. Las vistas SQL de Hotel
+proceden de las definiciones revisadas mediante lectura del catálogo.
+
+Los cuatro recorridos comprueban:
+
+1. Alta completa, doble clic, PA independiente de un taller previo, rechazo de
+   fin anterior al inicio y cierre por traslado sin afirmar reparación.
+2. Cierre desde el diálogo de seguimiento con sustitución pendiente, reserva
+   ocupada sin recuperación, nueva PA de taller y rechazo de doble asignación.
+3. Respuesta HTTP perdida después del commit y reintento del usuario con la
+   misma petición, payload e identidad, sin duplicar el alta.
+4. Rechazo real de PostgreSQL ante dos T24H ambiguas, conservando el diálogo,
+   el borrador y la asistencia abierta.
+
+Las lecturas posteriores contrastan estado, sustituto y contadores de Hotel y
+Panel con la base. Se exige conservar los centinelas, no intentar conexiones
+externas y no producir errores JavaScript sin capturar. Las fechas SQL `DATE`
+se transportan como texto de PostgreSQL, y se comprueba que la fecha del
+formulario coincide con la guardada.
+
+El shell, la autenticación y el transporte Supabase/PostgREST tienen dobles
+locales declarados. Facturación y documentos utilizan respuestas vacías y no
+se certifican con estos recorridos. Tampoco se prueban una sesión con RLS,
+Histórico completo, sincronización, publicación, cachés ni el arranque integral
+de la aplicación. La prueba es funcional; no constituye una aceptación visual
+del shell ni sustituye la validación de Metro. Ejecución y límites:
+[`tests/integration/README.md`](../tests/integration/README.md).
+
+### Comprobación continua
 
 El flujo de CI también comprueba seguridad, sintaxis JavaScript, privacidad,
-paradas externas, exclusión de archivos internos y construcción pública. Las
-pruebas SQL no se conectan a Supabase ni ejecutan sincronización.
+paradas externas, exclusión de archivos internos y construcción pública. Un
+segundo job ejecuta las seis carreras y los cuatro recorridos de navegador en
+Ubuntu 24.04, con paquetes oficiales PostgreSQL fijados y verificados por SHA256.
+El servidor admite únicamente su socket Unix dedicado, no escucha TCP y se
+detiene al terminar. Las pruebas SQL no se conectan a Supabase ni ejecutan
+sincronización.
 
 No se declara aprobada toda la colección histórica del repositorio. La base de
 la candidata ya presentaba expectativas incompatibles en
@@ -101,12 +180,14 @@ la candidata ya presentaba expectativas incompatibles en
 aprobadas. La comprobación obsoleta de caché de 2675 sí se actualiza porque esta
 entrega modifica esa cadena de carga; sus tres casos funcionales se conservan.
 
-## Validación funcional pendiente
+## Aceptación funcional pendiente
 
-En un entorno de prueba autorizado deben comprobarse las nuevas altas y sus
-reintentos, el cierre por traslado con reserva que continúa, la creación de la
-PA de taller, la conservación de otras T y la recuperación explícita. Deben
-contrastarse las lecturas de Asistencias, Hotel, Histórico y Panel.
+Queda la aceptación con Metro en un entorno de prueba autorizado: sesión y
+permisos reales, arranque y cachés, recuperación explícita y lectura completa de
+Asistencias, Hotel, Histórico y Panel. Las altas, reintentos y cierres descritos
+ya tienen evidencia automatizada en navegador y PostgreSQL nativos; eso no
+autoriza instalarlos en el backend operativo. El reparto de una sustitución
+continua entre distintas PA sigue pendiente de la solución explícita de tramos.
 
 El preflight de instalación autenticado ya constaba como APTO; su alcance es
 compatibilidad de instalación. El posterior ensayo de órdenes seguía NO APTO.
