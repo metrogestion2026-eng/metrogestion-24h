@@ -6,7 +6,7 @@ import test from 'node:test';
 const source = readFileSync(new URL('../r1-alpha34/src/app.js', import.meta.url), 'utf8');
 // Execute the production handlers with the wizard's surrounding state and RPC
 // boundary supplied by the fixture. No browser or database dependency in CI.
-const handlers = ['const collectPayload=', 'const saveActivation=', 'function validate()', 'next.onclick=']
+const handlers = ['const collectPayload=', 'const saveGuard=', 'const saveActivation=', 'function validate()', 'next.onclick=']
   .map(prefix => {
     const line = source.split('\n').find(line => line.trim().startsWith(prefix));
     assert.ok(line, `Missing wizard handler: ${prefix}`);
@@ -21,6 +21,7 @@ function wizard({ current = 6, activationId = 'existing-activation', state = {} 
     state: { fecha_activacion: '2026-09-22', hora_activacion: '00:01', numero_caso: 'TEST-CASE', ...state },
     vehicle: { dfm: 'TEST-DFM', matricula: 'TEST-PLATE' },
     coverageOk: true,
+    wizardExtension: () => null,
     parseKm: value => Number(value || 0),
     madridToday: () => '2026-09-22',
     requestId: () => 'test-wizard-close',

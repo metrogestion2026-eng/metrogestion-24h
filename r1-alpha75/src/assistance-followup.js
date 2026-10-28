@@ -1,4 +1,5 @@
-import { bindAssistanceSituation } from './assistance-situation.js?v=75.23-hf25';
+import { bindAssistanceSituation } from './assistance-situation.js?v=75.25-paradas-002';
+import { assistanceCompletionError, assistanceCompletionPayload, assistanceSaveError, isAssistanceComplete } from './assistance-completion.js?v=75.25-paradas-002';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 
 const content = document.querySelector('#module-content');
@@ -94,7 +95,7 @@ function openFollowup(row, card, fleet = []) {
   title.textContent = `Seguimiento 24H · DFM ${row.dfm} · ${row.numero_caso || 'sin número'}`;
   const note = document.createElement('div');
   note.className = 'a74-follow-note';
-  note.textContent = 'Para una asistencia ya resuelta indica fecha y hora reales. El traslado conserva las actuaciones de taller pendientes; no equivale a vehículo operativo.';
+  note.textContent = 'Al terminar la asistencia, marca «Asistencia 24H finalizada» e indica su fecha y hora reales. La entrada posterior en taller tiene su propia parada. La sustitución conserva su curso.';
   const grid = document.createElement('div');
   grid.className = 'a74-follow-grid';
 
@@ -111,6 +112,7 @@ function openFollowup(row, card, fleet = []) {
     ['pendiente_autorizacion', 'Pendiente de autorización'],
     ['pendiente_repuestos', 'Pendiente de repuestos'],
     ['en_reparacion', 'En reparación'],
+    ['realizada', 'Asistencia 24H finalizada'],
   ], row.estado_seguimiento || 'en_curso');
   const [resultLabel, result] = select('Resultado', [
     ['seguimiento_abierto', 'Seguimiento abierto'],
@@ -120,8 +122,8 @@ function openFollowup(row, card, fleet = []) {
   ], row.resultado);
   const [workshopLabel, workshop] = field('Taller de traslado', row.taller_traslado || row.proveedor || '');
   const [operationalLabel, operational] = check('Vehículo operativo y reparación finalizada', row.estado_operativo_confirmado);
-  const [finishDateLabel, finishDate] = field('Fecha de fin de reparación', String(row.fecha_fin_reparacion || '').slice(0, 10), 'date');
-  const [finishLabel, finish] = field('Hora de fin de reparación', String(row.hora_fin_reparacion || '').slice(0, 5), 'time');
+  const [finishDateLabel, finishDate] = field('Fecha de fin de asistencia', String(row.fecha_fin_reparacion || '').slice(0, 10), 'date');
+  const [finishLabel, finish] = field('Hora de fin de asistencia', String(row.hora_fin_reparacion || '').slice(0, 5), 'time');
   const [substituteDfmLabel, substituteDfm] = field('DFM del vehículo sustituto', row.vehiculo_sustituto || '');
   const [substitutePlateLabel, substitutePlate] = field('Matrícula del vehículo sustituto', row.matricula_sustituto || '');
   const substituteList = document.createElement('datalist');
@@ -158,17 +160,19 @@ function openFollowup(row, card, fleet = []) {
   const syncVisibility = () => {
     const transfer = result.value === 'trasladado_taller';
     const repaired = result.value === 'operativo_reparado';
+    const complete = isAssistanceComplete({ estado_seguimiento: currentState.value, resultado: result.value });
     workshopLabel.hidden = !transfer;
     substituteDfmLabel.hidden = result.value !== 'necesita_sustitucion';
     substitutePlateLabel.hidden = result.value !== 'necesita_sustitucion';
     operationalLabel.hidden = !repaired;
-    finishDateLabel.hidden = !repaired;
-    finishLabel.hidden = !repaired;
-    if (transfer) operational.checked = false;
+    finishDateLabel.hidden = !complete;
+    finishLabel.hidden = !complete;
   };
   syncVisibility();
   result.onchange = syncVisibility;
   bindAssistanceSituation(currentState, result);
+  currentState.addEventListener('change', syncVisibility);
+  syncVisibility();
   const autofillSubstitute = () => {
     const vehicle = findFleetVehicle(fleet, substituteDfm.value);
     if (!vehicle) return;
@@ -184,6 +188,7 @@ function openFollowup(row, card, fleet = []) {
   });
 
   save.onclick = async () => {
+    if (save.disabled) return;
     const fail = message => {
       error.textContent = message;
       error.hidden = false;
@@ -195,9 +200,18 @@ function openFollowup(row, card, fleet = []) {
     if (diagnosisCheck.checked && !diagnosis.value.trim()) return fail('Escribe el diagnóstico confirmado.');
     if (result.value === 'trasladado_taller' && !workshop.value.trim()) return fail('Indica el taller al que lo lleva la grúa.');
     if (result.value === 'necesita_sustitucion' && !substituteDfm.value.trim() && !substitutePlate.value.trim()) return fail('Indica el DFM o la matrícula del vehículo sustituto.');
-    if (result.value === 'operativo_reparado' && !operational.checked) return fail('Confirma que el vehículo está operativo y reparado.');
-    if (result.value === 'operativo_reparado' && !finishDate.value) return fail('Indica la fecha de fin de reparación.');
-    if (result.value === 'operativo_reparado' && !finish.value) return fail('Indica la hora de fin de reparación.');
+    const completion = {
+      resultado: result.value,
+      estado_seguimiento: currentState.value,
+      estado_operativo_confirmado: operational.checked,
+      taller_traslado: workshop.value.trim(),
+      fecha_activacion: activationDate.value,
+      hora_activacion: activationTime.value,
+      fecha_fin_reparacion: finishDate.value,
+      hora_fin_reparacion: finish.value,
+    };
+    const completionError = assistanceCompletionError(completion);
+    if (completionError) return fail(completionError);
 
     save.disabled = true;
     const payload = {
@@ -215,28 +229,37 @@ function openFollowup(row, card, fleet = []) {
       diagnostico: diagnosis.value.trim(),
       trasladado_taller: String(result.value === 'trasladado_taller'),
       taller_traslado: result.value === 'trasladado_taller' ? workshop.value.trim() : '',
-      estado_operativo_confirmado: String(result.value === 'operativo_reparado' && operational.checked),
-      fecha_fin_reparacion: result.value === 'operativo_reparado' ? finishDate.value : '',
-      hora_fin_reparacion: result.value === 'operativo_reparado' ? finish.value : '',
-      estado_seguimiento: currentState.value,
+      ...assistanceCompletionPayload(completion),
       vehiculo_sustituto: substituteDfm.value.trim(),
       matricula_sustituto: substitutePlate.value.trim().toUpperCase(),
       resultado: result.value,
       seguimiento_nota: reason.value.trim(),
     };
-    const { error: saveError } = await supabase.rpc('guardar_activacion_24h', {
-      p_id: row.id,
-      p_payload: payload,
-      p_request_id: requestId(),
-    });
+    let response;
+    try {
+      response = await supabase.rpc('guardar_activacion_24h', {
+        p_id: row.id,
+        p_payload: payload,
+        p_request_id: requestId(),
+      });
+    } catch (requestError) {
+      save.disabled = false;
+      return fail(`No se pudo confirmar el guardado: ${requestError.message}`);
+    }
+    const { data: saved, error: saveError } = response;
     if (saveError) {
       save.disabled = false;
       return fail(`No se pudo guardar: ${saveError.message}`);
     }
+    const confirmationError = assistanceSaveError(saved, payload, row.id);
+    if (confirmationError) {
+      save.disabled = false;
+      return fail(confirmationError);
+    }
 
     const state = card.querySelector('.a50-state');
     const meta = card.querySelector('.a50-meta');
-    const closed = result.value === 'operativo_reparado';
+    const closed = isAssistanceComplete(completion);
     if (state) {
       state.textContent = closed ? 'CERRADA' : 'ABIERTA';
       state.classList.toggle('closed', closed);
@@ -246,8 +269,8 @@ function openFollowup(row, card, fleet = []) {
     oldSuccess?.remove();
     const success = document.createElement('div');
     success.className = 'a74-follow-success';
-    success.textContent = result.value === 'trasladado_taller'
-      ? 'Traslado guardado. Entrada y Recogida de taller creadas en la parada.'
+    success.textContent = closed
+      ? 'Asistencia 24H finalizada. La sustitución y las actuaciones de taller conservan sus propios estados.'
       : 'Seguimiento 24H guardado correctamente.';
     card.querySelector('.a50-actions')?.after(success);
     overlay.remove();

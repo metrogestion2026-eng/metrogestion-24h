@@ -32,8 +32,20 @@ jobs:
         run: node --test tests/security-*.test.mjs
       - name: Comprobar paradas de vehículos externos y reintentos
         run: node --test tests/alpha75-paradas-externas.test.mjs
-      - name: Comprobar fechas y navegación del asistente 24H
-        run: node --test tests/alpha75-24h-wizard-close.test.mjs
+      - name: Comprobar fechas, navegación y cierre independiente de la asistencia 24H
+        run: >-
+          node --test
+          tests/alpha75-24h-wizard-close.test.mjs
+          tests/alpha75-24h-independent-close.test.mjs
+          tests/alpha75-24h-followup-close.test.mjs
+          tests/alpha75-24h-fecha-fin-reparacion.test.mjs
+          tests/alpha75-24h-parada-completada.test.mjs
+          tests/alpha75-sin-sustitucion-2675.test.mjs
+          tests/alpha75-2556-24h-taller-prioridad.test.mjs
+      - name: Instalar PostgreSQL aislado para probar la candidata
+        run: npm ci --prefix tests/sql --ignore-scripts --no-fund --no-audit
+      - name: Comprobar paradas 24H con funciones y triggers reales
+        run: npm test --prefix tests/sql
       - name: Comprobar exclusión de archivos internos y páginas antiguas
         run: python3 tests/pages-public-files.test.py
       - name: Verificar compilación pública

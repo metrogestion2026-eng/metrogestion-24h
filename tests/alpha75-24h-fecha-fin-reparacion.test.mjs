@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const followups = await Promise.all(['74', '75', '76'].map(version => readFile(
+const followups = await Promise.all(['74', '76'].map(version => readFile(
   new URL(`../r1-alpha${version}/src/assistance-followup.js`, import.meta.url),
   'utf8',
 )));
@@ -11,7 +11,7 @@ const migration = await readFile(
   'utf8',
 );
 
-test('el seguimiento 24H pide fecha y hora reales de finalización', () => {
+test('los seguimientos anteriores conservan la fecha y hora de reparación', () => {
   for (const followup of followups) {
     assert.match(followup, /field\('Fecha de fin de reparación'.*'date'\)/);
     assert.match(followup, /Indica la fecha de fin de reparación/);
