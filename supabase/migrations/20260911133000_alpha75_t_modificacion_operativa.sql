@@ -277,6 +277,23 @@ begin
   update public.etapas_hotel e set posicion=o.new_pos,modificado_por=v_actor
   from tmp_hotel_reconcile_order o where e.id=o.stage_id;
 
+  -- Protección general: nunca confirmar un estado final con una estancia
+  -- físicamente abierta. La T 24H puede estar realizada sin cerrar la PA.
+  -- No se altera automáticamente la identidad, reserva ni los hechos de T.
+  if exists (
+    select 1 from public.etapas_hotel e
+    where e.registro_hotel_id = p_registro_id
+      and not e.cancelado
+      and e.tipo_etapa = 'entrada_taller'
+      and e.fecha_inicio_real is not null
+      and e.fecha_real is null
+  ) and exists (
+    select 1 from public.registros_hotel r
+    where r.id = p_registro_id
+      and r.estado in ('recuperado','reserva_liberada')
+  ) then
+    raise exception 'La parada tiene una entrada de taller activa: no puede quedar Recuperado ni Reserva liberada';
+  end if;
   perform app_private.cerrar_modalidad_hotel_sin_recuperacion(p_registro_id);
   select exists (
     select 1
