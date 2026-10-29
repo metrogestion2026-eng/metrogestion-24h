@@ -33,16 +33,31 @@ async function waitForRpc(page, name, action) {
 }
 
 async function openHotel(page, id, { edit = true } = {}) {
-  await page.locator('[data-module="hotel"]').click();
-  const card = page.locator(`.hotel-card[data-record-id="${id}"]`);
-  await card.waitFor();
-  await page.waitForFunction(() => document.querySelector('#module-content')?.dataset.alpha56HotelNative === '1');
-  if (edit) {
-    const readMode = page.getByRole('button', { name: '🔒 Modo lectura', exact: true });
-    if (await readMode.count()) await readMode.click();
-    await card.getByRole('button', { name: 'Abrir edición completa', exact: true }).waitFor();
+  const heading = page.locator('#module-content > .module-heading');
+  const previousHeading = await heading.count() ? await heading.elementHandle() : null;
+  try {
+    await page.locator('[data-module="hotel"]').click();
+    // Permission lookup leaves the previous cards and ready marker visible.
+    // After clear(), the new heading starts with a provisional read-mode label
+    // before data and event handlers are ready. Require one completed NEW view
+    // before inspecting its mode; neither an old card nor its marker suffices.
+    await page.waitForFunction(previous => {
+      const container = document.querySelector('#module-content');
+      const current = container?.querySelector(':scope > .module-heading');
+      return current && current !== previous && (!previous || !previous.isConnected)
+        && container.dataset.alpha56HotelNative === '1';
+    }, previousHeading);
+    const card = page.locator(`.hotel-card[data-record-id="${id}"]`);
+    await card.waitFor();
+    if (edit) {
+      const readMode = page.getByRole('button', { name: '🔒 Modo lectura', exact: true });
+      if (await readMode.count()) await readMode.click();
+      await card.getByRole('button', { name: 'Abrir edición completa', exact: true }).waitFor();
+    }
+    return card;
+  } finally {
+    await previousHeading?.dispose();
   }
-  return card;
 }
 
 async function editorFrom(page, card, id, { historical = false } = {}) {
@@ -346,7 +361,17 @@ test('Editor completo de Hotel → cadena SQL real, continuidad y fechas precisa
     });
 
     await t.test('modificación explícita de la entrada protegida: rechazo atómico, sin añadir la nota ni alterar el vínculo', async () => {
+      // Re-enter Hotel from its previous read-only instance. Permission lookup
+      // leaves that instance visible; the next data read exposes the provisional
+      // mode button before the new instance has attached its handlers.
+      const editMode = page.getByRole('button', { name: '✏️ Lectura y edición', exact: true });
+      if (await editMode.count()) await editMode.click();
+      await page.getByRole('button', { name: '🔒 Modo lectura', exact: true }).waitFor();
+      server.controls.delayNextHistoryAccess = 20;
+      server.controls.delayNextHotelRead = 900;
       const { dialog } = await openEditor(page, protectedDate.destination.id);
+      assert.equal(server.controls.delayNextHistoryAccess, 0, 'The delayed permission lookup must be consumed');
+      assert.equal(server.controls.delayNextHotelRead, 0, 'The delayed Hotel data read must be consumed');
       await addNote(dialog, 'Esta nota acompaña un cambio de entrada rechazado');
       await expandStages(dialog);
       await entryCard(dialog, protectedDate).getByLabel('Fecha entrada', { exact: true }).fill(`${protectedDate.dates.entry}T11:01`);

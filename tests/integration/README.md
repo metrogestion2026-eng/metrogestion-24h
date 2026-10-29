@@ -167,6 +167,15 @@ Los dos casos inciertos también despachan un evento de clic pese al botón
 deshabilitado y exigen que no vuelva a aparecer la confirmación ni se envíe
 otra RPC. Se verifica así la guarda de escritura, además de la presentación.
 
+Al volver a Hotel, el ensayo espera una cabecera nueva, la retirada de la
+anterior y el marcador de carga terminada antes de consultar el modo. El quinto
+recorrido demora el acceso 20 ms y la lectura de `hotel_actual_detalle` 900 ms:
+con esas mismas demoras se reprodujo la carrera de la primera CI, que podía
+consultar la vista anterior o pulsar el botón provisional de la nueva. La espera
+corregida supera los ocho recorridos sin ampliar el timeout de 10 segundos ni
+retirar aserciones. Los controles se consumen una sola vez y sólo afectan al
+transporte sintético del ensayo; el arreglo de esta carrera no cambia producto.
+
 Antes del arreglo se reprodujeron el rechazo de fechas al guardar una nota y la
 reactivación incorrecta del guardado ante el error de transporte devuelto como
 valor. Las correcciones conservan las aserciones exactas; sólo se alineó el

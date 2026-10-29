@@ -59,7 +59,7 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
   if (editor) continuity = true;
   if (continuity) recoveryHistory = true;
   const calls = [], queries = [], readTables = [], failures = [], doubledRpcs = [];
-  const controls = { delayNextSave: 0, loseNextCreateResponse: false, delayNextHistoryAccess: 0,
+  const controls = { delayNextSave: 0, loseNextCreateResponse: false, delayNextHistoryAccess: 0, delayNextHotelRead: 0,
     delayNextContinuityConfirmation: 0, loseNextContinuityResponse: false,
     delayNextEditorSave: 0, loseNextEditorSaveResponse: false,
     editorSaveNetworkErrorAsValue: false, omitEditorDateContract: false };
@@ -89,6 +89,11 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
           if (recoveryHistory && data.table === 'usuarios' && data.columns === 'activo,tipo_usuario,permisos') {
             const delay = controls.delayNextHistoryAccess;
             controls.delayNextHistoryAccess = 0;
+            if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          if (editor && data.table === 'hotel_actual_detalle') {
+            const delay = controls.delayNextHotelRead;
+            controls.delayNextHotelRead = 0;
             if (delay) await new Promise(resolve => setTimeout(resolve, delay));
           }
           result = await readQuery(db, data, recoveryHistory, continuity, editor);
