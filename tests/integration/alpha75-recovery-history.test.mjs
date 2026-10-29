@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, mkdir } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { createLocalFixture, FIXTURE_ACTOR, one, snapshotProtectedFacts } from '../sql/local-postgres-harness.mjs';
-import { loadRecoveryRuntime, seedRecoveryScenario, recoveryInventory } from '../sql/recovery-scenarios.mjs';
+import { FIXTURE_ACTOR, one, snapshotProtectedFacts } from '../sql/local-postgres-harness.mjs';
+import { createContinuityFixture } from '../sql/continuity-scenarios.mjs';
+import { seedRecoveryScenario, recoveryInventory } from '../sql/recovery-scenarios.mjs';
 import { startBrowserServer } from './browser-server.mjs';
 
 const require = createRequire(import.meta.url);
@@ -19,9 +20,6 @@ async function capture(page, name) {
 }
 
 async function seedUi(db) {
-  await db.query(await readFile(new URL('./fixtures/hotel-views.sql', import.meta.url), 'utf8'));
-  await db.query(await readFile(new URL('./fixtures/history-view.sql', import.meta.url), 'utf8'));
-  await loadRecoveryRuntime(db);
   await db.query(`INSERT INTO public.usuarios(id,nombre,apellidos,correo,tipo_usuario,permisos,activo)
     VALUES($1,'Persona','Sintética','fixture@example.invalid','administrador_principal','{}',true)`, [FIXTURE_ACTOR]);
   await db.query(`INSERT INTO public.catalogo_tipos_trabajo(codigo,nombre)
@@ -53,7 +51,12 @@ async function seedUi(db) {
     md5(pg_get_viewdef(c.oid,true)) AS digest FROM pg_class c
     WHERE c.oid='public.hotel_por_dia'::regclass`);
   assert.deepEqual(view.reloptions, ['security_invoker=true']);
-  assert.equal(view.digest, '75d9b2d85366dff38e45d3c8e713769d', 'The historical view must match the catalog definition');
+  // createContinuityFixture verifies the captured view before applying the
+  // candidate. Its added ownership columns must remain on this final view.
+  const columns = (await db.query(`SELECT attname FROM pg_attribute
+    WHERE attrelid='public.hotel_por_dia'::regclass AND attnum>0 AND NOT attisdropped`)).rows.map(row => row.attname);
+  assert.ok(columns.includes('sustitucion_vigente'));
+  assert.ok(columns.includes('propietario_sustitucion_seguimiento_id'));
   return { recovered, stale, note };
 }
 
@@ -151,7 +154,7 @@ async function notesSnapshot(db) {
 }
 
 test('Recuperación explícita e Histórico reales → PostgreSQL17 aislado', { timeout: 180000 }, async t => {
-  const fixture = await createLocalFixture({ prefix: 'ui_history' });
+  const fixture = await createContinuityFixture({ prefix: 'ui_history' });
   let server, browser;
   const denied = [], pageErrors = [];
   try {

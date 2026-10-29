@@ -9,8 +9,11 @@ const RECOVERY_HISTORY_READS = new Set(['hotel_por_dia', 'registros_hotel', 'hot
   'trabajos_etapa_hotel', 'anotaciones_manuales_hotel', 'anotaciones_generadas_hotel_anuladas',
   'catalogo_tipos_trabajo']);
 const RECOVERY_HISTORY_EMPTY_READS = new Set(['documentos_gestion', 'dispositivos_usuario']);
-// Financial/document services are outside this test. They return an explicit
-// empty fixture; no metrics or claims about these services are asserted.
+const CONTINUITY_READS = new Set(['cierres_facturacion', 'facturacion_dfm_periodos', 'facturacion_r_sustituciones',
+  'paradas_sustitucion_resumen', 'config_facturacion_sustituciones']);
+// Legacy assistance/recovery journeys use explicit empty financial fixtures.
+// Continuity journeys opt into the real financial views in CONTINUITY_READS.
+// Documents remain outside all of these test boundaries.
 const EMPTY_READS = new Set(['cierres_facturacion', 'facturacion_dfm_periodos', 'facturacion_r_sustituciones',
   'paradas_sustitucion_resumen', 'config_facturacion_sustituciones', 'anotaciones_manuales_hotel', 'anotaciones_generadas_hotel_anuladas']);
 const identifier = value => {
@@ -18,8 +21,9 @@ const identifier = value => {
   return `"${value}"`;
 };
 
-async function readQuery(db, spec, recoveryHistory) {
-  const actual = REAL_READS.has(spec.table) || (recoveryHistory && RECOVERY_HISTORY_READS.has(spec.table));
+async function readQuery(db, spec, recoveryHistory, continuity) {
+  const actual = REAL_READS.has(spec.table) || (recoveryHistory && RECOVERY_HISTORY_READS.has(spec.table))
+    || (continuity && CONTINUITY_READS.has(spec.table));
   if (!actual && (EMPTY_READS.has(spec.table) || (recoveryHistory && RECOVERY_HISTORY_EMPTY_READS.has(spec.table)))) {
     return { data: spec.single ? null : [], error: null };
   }
@@ -30,6 +34,8 @@ async function readQuery(db, spec, recoveryHistory) {
     values.push(filter.value);
     if (filter.operator === 'eq') return `${identifier(filter.column)} = $${values.length}`;
     if (filter.operator === 'gt') return `${identifier(filter.column)} > $${values.length}`;
+    if (filter.operator === 'gte') return `${identifier(filter.column)} >= $${values.length}`;
+    if (filter.operator === 'lte') return `${identifier(filter.column)} <= $${values.length}`;
     if (filter.operator === 'in') return `${identifier(filter.column)} = ANY($${values.length})`;
     throw new Error('Unsupported fixture filter');
   });
@@ -48,9 +54,11 @@ const html = `<!doctype html><html lang="es"><meta charset="utf-8"><title>Metrog
 <span id="app-version"></span><nav id="module-nav"><button data-module="resumen">Panel</button><button id="fixture-hotel-button" data-module="hotel">Hotel</button><button id="fixture-incidents-button">Asistencias</button></nav><main id="module-content"></main>
 <script type="module" src="/tests/integration/browser-app.js"></script></html>`;
 
-export async function startBrowserServer(db, { recoveryHistory = false } = {}) {
+export async function startBrowserServer(db, { recoveryHistory = false, continuity = false } = {}) {
+  if (continuity) recoveryHistory = true;
   const calls = [], queries = [], readTables = [], failures = [], doubledRpcs = [];
-  const controls = { delayNextSave: 0, loseNextCreateResponse: false, delayNextHistoryAccess: 0 };
+  const controls = { delayNextSave: 0, loseNextCreateResponse: false, delayNextHistoryAccess: 0,
+    delayNextContinuityConfirmation: 0, loseNextContinuityResponse: false };
   let origin;
   const server = createServer(async (request, response) => {
     response.setHeader('Cache-Control', 'no-store');
@@ -79,7 +87,7 @@ export async function startBrowserServer(db, { recoveryHistory = false } = {}) {
             controls.delayNextHistoryAccess = 0;
             if (delay) await new Promise(resolve => setTimeout(resolve, delay));
           }
-          result = await readQuery(db, data, recoveryHistory);
+          result = await readQuery(db, data, recoveryHistory, continuity);
         } else if (url.pathname === '/__test/rpc') {
           if (recoveryHistory && data.name === 'listar_ordenes_manteniment_pendientes_alpha74') {
             // Read-only Panel dependency; no MANTENIMENT queue is connected.
@@ -87,8 +95,11 @@ export async function startBrowserServer(db, { recoveryHistory = false } = {}) {
             response.setHeader('Content-Type', 'application/json');
             response.end(JSON.stringify({ data: [], error: null })); return;
           }
+          const continuityPreview = continuity && data.name === 'previsualizar_continuidad_sustitucion_alpha75';
+          const continuityConfirm = continuity && data.name === 'confirmar_continuidad_sustitucion_alpha75';
           if (data.name !== 'guardar_activacion_24h'
-              && !(recoveryHistory && data.name === 'marcar_t_realizada_rapida')) {
+              && !(recoveryHistory && data.name === 'marcar_t_realizada_rapida')
+              && !continuityPreview && !continuityConfirm) {
             throw new Error(`Unexpected fixture RPC: ${data.name}`);
           }
           calls.push(structuredClone(data));
@@ -96,11 +107,30 @@ export async function startBrowserServer(db, { recoveryHistory = false } = {}) {
           controls.delayNextSave = 0;
           if (wait) await new Promise(resolve => setTimeout(resolve, wait));
           const args = data.args;
-          const saved = data.name === 'marcar_t_realizada_rapida'
-            ? await db.query('SELECT public.marcar_t_realizada_rapida($1::uuid,$2::integer,$3::text) AS value',
-              [args.p_etapa_id, args.p_version, args.p_request_id])
-            : await db.query('SELECT public.guardar_activacion_24h($1::uuid,$2::jsonb,$3::text) AS value',
+          let saved;
+          if (continuityPreview) {
+            saved = await db.query('SELECT public.previsualizar_continuidad_sustitucion_alpha75($1::uuid,$2::uuid,$3::uuid) AS value',
+              [args.p_destino_id, args.p_origen_id ?? null, args.p_etapa_entrada_id ?? null]);
+          } else if (continuityConfirm) {
+            const confirmationDelay = controls.delayNextContinuityConfirmation;
+            controls.delayNextContinuityConfirmation = 0;
+            if (confirmationDelay) await new Promise(resolve => setTimeout(resolve, confirmationDelay));
+            saved = await db.query('SELECT public.confirmar_continuidad_sustitucion_alpha75($1::uuid,$2::uuid,$3::uuid,$4::integer,$5::integer,$6::integer,$7::text,$8::text) AS value',
+              [args.p_origen_id, args.p_destino_id, args.p_etapa_entrada_id, args.p_version_origen,
+                args.p_version_destino, args.p_version_entrada, args.p_huella_prevision, args.p_request_id]);
+          } else if (data.name === 'marcar_t_realizada_rapida') {
+            saved = await db.query('SELECT public.marcar_t_realizada_rapida($1::uuid,$2::integer,$3::text) AS value',
+              [args.p_etapa_id, args.p_version, args.p_request_id]);
+          } else {
+            saved = await db.query('SELECT public.guardar_activacion_24h($1::uuid,$2::jsonb,$3::text) AS value',
               [args.p_id, JSON.stringify(args.p_payload), args.p_request_id]);
+          }
+          if (continuityConfirm && controls.loseNextContinuityResponse) {
+            controls.loseNextContinuityResponse = false;
+            response.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': '10000' });
+            response.write('{"data":', () => response.destroy());
+            return;
+          }
           if (data.name === 'guardar_activacion_24h' && !args.p_id && controls.loseNextCreateResponse) {
             controls.loseNextCreateResponse = false;
             // Deliver headers and an incomplete JSON body after commit. A bare
@@ -117,7 +147,10 @@ export async function startBrowserServer(db, { recoveryHistory = false } = {}) {
       if (request.method !== 'GET') { response.writeHead(405).end(); return; }
       if (url.pathname === '/') {
         response.setHeader('Content-Type', 'text/html; charset=utf-8');
-        response.end(recoveryHistory
+        response.end(continuity
+          ? html.replace('<button id="fixture-incidents-button">Asistencias</button>', '<button data-module="historico">Histórico</button><button data-module="listados">Listados</button>')
+            .replace('browser-app.js', 'browser-continuity-app.js')
+          : recoveryHistory
           ? html.replace('<button id="fixture-incidents-button">Asistencias</button>', '<button data-module="historico">Histórico</button>')
             .replace('browser-app.js', 'browser-recovery-history-app.js')
           : html);

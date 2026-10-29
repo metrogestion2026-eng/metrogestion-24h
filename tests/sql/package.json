@@ -5,7 +5,10 @@
   "scripts": {
     "test": "node alpha75-24h-paradas.test.mjs",
     "test:concurrency": "node alpha75-24h-concurrency.test.mjs",
-    "test:recovery": "node alpha75-recovery-explicit.test.mjs"
+    "test:recovery": "node alpha75-recovery-explicit.test.mjs",
+    "test:continuity": "node --test alpha75-continuity.test.mjs",
+    "test:continuity-concurrency": "node --test alpha75-continuity-concurrency.test.mjs",
+    "test:continuity-sync": "node --test continuity-sync.test.mjs"
   },
   "engines": {
     "node": ">=24"

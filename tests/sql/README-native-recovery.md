@@ -6,6 +6,13 @@ PostgreSQL 17 local dedicado a las pruebas de concurrencia. No importa datos
 operativos, despliega la migración, modifica cierres contables ni habilita
 sincronización.
 
+Desde el 29/10/2026, los cinco escenarios se repiten sobre la candidata completa
+mediante `createContinuityFixture`, incluidas ambas migraciones de continuidad.
+El runtime capturado se carga antes, sin reinstalar después funciones antiguas
+que sustituyan las guardas nuevas. La migración PARADAS-002 sigue intacta. Los
+casos de recuperación tras un traspaso explícito se describen en
+[README-native-continuity.md](README-native-continuity.md).
+
 ## Ruta que se prueba
 
 Hotel Alpha75 importa el control de `r1-alpha67/src/stage-quick.js`. Para una T

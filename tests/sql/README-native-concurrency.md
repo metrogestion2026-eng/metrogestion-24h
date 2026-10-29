@@ -4,6 +4,13 @@ Este ensayo ejecuta la candidata SQL congelada en **PostgreSQL 17 nativo**, con 
 
 No despliega la candidata, importa datos operativos ni habilita sincronización. El runner crea una base sintética nueva, comprueba los escenarios y elimina únicamente esa base al terminar. La migración se mantiene sin cambios mientras se investiga la concurrencia.
 
+Desde el 29/10/2026, estas seis regresiones cargan la candidata completa mediante
+`createContinuityFixture`: la migración PARADAS-002 conserva sus bytes y se
+aplican después las dos migraciones de continuidad. No se reinstalan funciones
+ni vistas anteriores después de ellas. Las siete carreras nuevas del traspaso
+y las tres de la barrera se documentan en
+[README-native-continuity.md](README-native-continuity.md).
+
 ## Preparación y ejecución
 
 Dependencias del repositorio: Node 24 y `pg@8.16.3`, fijado en `tests/sql/package-lock.json`. Instalar con:

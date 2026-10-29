@@ -1,4 +1,4 @@
-import { createSubstitutionBilling } from './substitution-billing-hf2.js?v=75.23-hf28';
+import { createSubstitutionBilling } from './substitution-billing-hf2.js?v=75.25-continuidad-001';
 
 function el(tag, text = null, className = '') {
   const node = document.createElement(tag);

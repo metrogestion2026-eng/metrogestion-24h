@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
-  createLocalFixture, one, beginReadCommitted, observeAdvisoryWait,
+  one, beginReadCommitted, observeAdvisoryWait,
   snapshotProtectedFacts, FIXTURE_ACTOR,
 } from './local-postgres-harness.mjs';
+import { createContinuityFixture } from './continuity-scenarios.mjs';
 
 const report = { suite: 'MG75-24H-PARADAS-SEPARADAS-002 native concurrency', started_at: new Date().toISOString(), cases: [] };
 let fixture;
 before(async () => {
-  fixture = await createLocalFixture({ prefix: 'concurrency' });
+  fixture = await createContinuityFixture({ prefix: 'concurrency' });
   report.environment = fixture.metadata;
 });
 after(async () => {

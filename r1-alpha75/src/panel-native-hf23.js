@@ -1,6 +1,7 @@
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { createDetailPdf, downloadDetailPdf } from './panel-pdf.js';
 import { openHotelEditor } from './hotel-editor.js?v=75.25-paradas-002';
+import { currentSubstitutionOwners, needsSubstitutionMean, substitutionOwnershipText } from './substitution-imputation.js?v=75.25-continuidad-001';
 
 const nav = document.querySelector('#module-nav');
 const content = document.querySelector('#module-content');
@@ -166,7 +167,7 @@ function hotelItem(row, latestByHotel) {
     lastStage: latestStage
       ? `Última T realizada: ${formatDateTime(latestStage.completedAt)} · ${latestStage.posicion || '—'}T ${latestStage.nombre || 'T sin nombre'}`
       : 'Última T realizada: ninguna registrada',
-    note: [substitute, row.lugar, row.causa, row.incidencia ? `INC ${row.incidencia}` : ''].filter(Boolean).join(' · '),
+    note: [substitute, substitutionOwnershipText(row), row.lugar, row.causa, row.incidencia ? `INC ${row.incidencia}` : ''].filter(Boolean).join(' · '),
     module: 'hotel',
     recordId: row.id,
     actionLabel: 'Abrir ficha completa',
@@ -222,7 +223,7 @@ function reserveItem(row, coverageMap) {
     meta: `${stateLabel(row.estado)}${row.etiqueta ? ` · ${row.etiqueta}` : ''}`,
     note: coverage
       ? `Sustituye a ${coverage.dfm || '—'}${coverage.matricula ? ` · ${coverage.matricula}` : ''} · ${coverage.numero_parada || ''}`
-      : [row.ubicacion, row.pendientes].filter(Boolean).join(' · ') || 'Sin ocupación ni trabajos pendientes',
+      : [row.ubicacion, row.pendientes].filter(Boolean).join(' · ') || 'Sin asignación vigente acreditada en Hotel',
     module: 'reservas',
     actionLabel: 'Abrir Reservas',
   };
@@ -485,14 +486,14 @@ async function renderPanel({ automatic = false } = {}) {
     const canFleet = can24h || moduleAccess(profile, 'resumen').view;
 
     const [hotelResult, reservesResult, incidentsResult, vehiclesResult, periodsResult, dfmBillingResult, rBillingResult, substitutionsResult, usersResult, devicesResult, mantenimentOrdersResult] = await Promise.all([
-      canHotel ? readQuery('Hotel', supabase.from('hotel_actual_detalle').select('id,seguimiento_id,numero_parada,dfm,matricula,sustituto,matricula_sustituto,tipo_sustituto,tipo_movimiento,estado,lugar,causa,incidencia,prioridad,proximo,t_pendientes,actualizado_en').order('orden', { ascending: true })) : skipped('Hotel'),
+      canHotel ? readQuery('Hotel', supabase.from('hotel_actual_detalle').select('id,seguimiento_id,numero_parada,dfm,matricula,sustituto,matricula_sustituto,tipo_sustituto,propietario_sustitucion_seguimiento_id,sustitucion_vigente,tipo_movimiento,estado,lugar,causa,incidencia,prioridad,proximo,t_pendientes,actualizado_en').order('orden', { ascending: true })) : skipped('Hotel'),
       canReservations ? readQuery('Reservas', supabase.from('reservas_hotel').select('id,vehiculo_codigo,matricula,etiqueta,estado,ubicacion,pendientes,activo,actualizado_en').eq('activo', true).order('vehiculo_codigo')) : skipped('Reservas'),
       can24h ? readQuery('24H', supabase.from('activaciones_24h').select('id,dfm,matricula,numero_caso,estado,resultado,averia,proveedor,creado_en,actualizado_en,creado_por').order('creado_en', { ascending: false })) : skipped('24H'),
       canFleet ? readQuery('Contratos', supabase.from('vehiculos').select('dfm,matricula,categoria,clase_vehiculo,marca,modelo,km_actual,fin_contrato_km,fin_contrato_fecha,activo').eq('activo', true).order('dfm')) : skipped('Contratos'),
       canBilling ? readQuery('Periodos', supabase.from('cierres_facturacion').select('periodo,fecha_inicio,fecha_cierre').order('periodo', { ascending: false })) : skipped('Periodos'),
       canBilling ? readQuery('Facturación DFM', supabase.from('facturacion_dfm_periodos').select('seguimiento_id,numero_parada,dfm,matricula,sustituto,periodo,tramo_inicio,tramo_fin,dias_facturables,km_dia,estado').order('periodo', { ascending: false })) : skipped('Facturación DFM'),
       canBilling ? readQuery('Facturación R', supabase.from('facturacion_r_sustituciones').select('seguimiento_id,numero_parada,r_sustituido,matricula,r_sustituto,fecha_inicio_parada,fecha_fin_parada,dias_parada_total,unidades,precio_r_unidad,importe').order('fecha_inicio_parada', { ascending: false })) : skipped('Facturación R'),
-      canBilling ? readQuery('Sustituciones', supabase.from('paradas_sustitucion_resumen').select('seguimiento_id,numero_parada,unidad,matricula,sustituto,estado,fecha_fin_parada,clase_facturacion,km_dia')) : skipped('Sustituciones'),
+      canBilling ? readQuery('Sustituciones', supabase.from('paradas_sustitucion_resumen').select('seguimiento_id,numero_parada,unidad,matricula,sustituto,estado,fecha_inicio_parada,fecha_fin_parada,fecha_inicio_imputacion,fecha_fin_imputacion,dias_imputables_total,continuidad_entrada_id,continuidad_salida_id,clase_facturacion,km_dia')) : skipped('Sustituciones'),
       canUsers ? readQuery('Usuarios', supabase.from('usuarios').select('id,nombre,apellidos,correo,tipo_usuario,permisos,activo,creado_en,actualizado_en').order('creado_en')) : skipped('Usuarios'),
       admin ? readQuery('Dispositivos', supabase.from('dispositivos_usuario').select('id,usuario_id,nombre,estado,solicitado_en,ultimo_acceso_en,observaciones').order('solicitado_en', { ascending: false })) : skipped('Dispositivos'),
       admin ? readQuery('Órdenes MANTENIMENT', supabase.rpc('listar_ordenes_manteniment_pendientes_alpha74')) : skipped('Órdenes MANTENIMENT'),
@@ -527,10 +528,7 @@ async function renderPanel({ automatic = false } = {}) {
     const pendingRecover = hotelRows.filter(row => row.estado === 'recogido_pendiente_ruta');
     const priorityStops = hotelRows.filter(row => Number(row.prioridad) <= 1);
 
-    const coverageMap = new Map();
-    hotelRows.forEach(row => {
-      if (row.sustituto) coverageMap.set(String(row.sustituto).toUpperCase(), row);
-    });
+    const coverageMap = currentSubstitutionOwners(hotelRows);
     const reserveRows = (reservesResult.data || []).filter(row => !String(row.vehiculo_codigo || '').startsWith('TEST-'));
     const freeReserves = reserveRows.filter(row => row.estado === 'libre');
     const pendingReserves = reserveRows.filter(row => row.estado === 'disponible_con_pendientes');
@@ -577,7 +575,7 @@ async function renderPanel({ automatic = false } = {}) {
 
     const dfmRows = period ? (dfmBillingResult.data || []).filter(row => row.periodo === period.periodo) : [];
     const rRows = period ? (rBillingResult.data || []).filter(row => overlapPeriod(row, period)) : [];
-    const missingMedia = (substitutionsResult.data || []).filter(row => row.clase_facturacion === 'DFM' && row.sustituto && row.fecha_fin_parada == null && row.km_dia == null);
+    const missingMedia = (substitutionsResult.data || []).filter(row => needsSubstitutionMean(row, period, today));
     const hotelByTracking = new Map(
       hotelRows.filter(row => row.seguimiento_id).map(row => [String(row.seguimiento_id), row])
     );

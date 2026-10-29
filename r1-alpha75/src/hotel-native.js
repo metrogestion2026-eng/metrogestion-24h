@@ -1,4 +1,4 @@
-import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js?v=75.23-hf28';
+import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js?v=75.25-continuidad-001';
 import { loadEditableHotelRecords } from './hotel-editable-records.js?v=75.23-hf24';
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
@@ -13,7 +13,8 @@ import {
   metric,
   formatBoardDate,
 } from '../../r1-alpha53/src/hotel-utils.js?v=75.2';
-import { renderHotelCard } from './hotel-card.js?v=75.23-hf28';
+import { renderHotelCard } from './hotel-card.js?v=75.25-continuidad-001';
+import { openSubstitutionContinuity } from './substitution-continuity.js?v=75.25-continuidad-001';
 
 ensureNativeHotelStyle();
 
@@ -775,6 +776,9 @@ async function renderHotelNative(container, access) {
             await renderHotelNative(container, access);
           } : null,
           onOpenEditor: async id => openHotelEditor(id, {
+            onSaved: async () => renderHotelNative(container, access),
+          }),
+          onOpenContinuity: id => openSubstitutionContinuity(id, {
             onSaved: async () => renderHotelNative(container, access),
           }),
         });

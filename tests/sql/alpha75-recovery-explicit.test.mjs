@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
-  createLocalFixture, one, snapshotProtectedFacts, beginReadCommitted, FIXTURE_ACTOR,
+  one, snapshotProtectedFacts, beginReadCommitted, FIXTURE_ACTOR,
 } from './local-postgres-harness.mjs';
 import {
-  loadRecoveryRuntime, seedRecoveryScenario, recoveryInventory, markRecovery,
+  seedRecoveryScenario, recoveryInventory, markRecovery,
 } from './recovery-scenarios.mjs';
+import { createContinuityFixture } from './continuity-scenarios.mjs';
 
 const report = {
   suite: 'MG75-24H-PARADAS-SEPARADAS-002 explicit recovery on native PostgreSQL',
@@ -15,12 +16,13 @@ const report = {
 };
 let fixture;
 before(async () => {
-  fixture = await createLocalFixture({ prefix: 'recovery' });
+  fixture = await createContinuityFixture({ prefix: 'recovery' });
   report.environment = {
     ...fixture.metadata,
     scope: 'Synthetic explicit recovery; real public RPC, committed PostgreSQL transactions and independent readback',
   };
-  report.runtime_functions = await loadRecoveryRuntime(fixture.admin);
+  report.runtime_functions = (await fixture.admin.query(`SELECT signature,definition_md5,security_definer,configuration,source_owner
+    FROM app_private.test_recovery_function_manifest ORDER BY signature`)).rows;
   report.runtime_fixture_loaded = true;
   assert.deepEqual(await snapshotProtectedFacts(fixture.admin), fixture.protectedBefore);
 });

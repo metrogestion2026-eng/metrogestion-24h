@@ -120,7 +120,7 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
   for (const path of ['hotel-native.js', 'history-card.js']) {
     assert.match(source(`r1-alpha75/src/${path}`), /hotel-editor\.js\?v=75\.25-paradas-002/);
   }
-  assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.25-paradas-002/);
+  assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.25-continuidad-001/);
   const html = source('r1-alpha75/index.html');
   const boot = source('r1-alpha75/src/boot75.js');
   assert.ok(html.includes('boot75.js?v=75.25'));
@@ -170,7 +170,7 @@ test('solo app.js puede escribir la versión visible de Metrogestión 75.25', ()
 test('75.25 declara propiedad de Listados antes de cargar la herencia', () => {
   const boot = source('r1-alpha75/src/boot75.js');
   const ownerAt = boot.indexOf("listados: 'alpha75'");
-  const appAt = boot.indexOf("import('./app.js?v=75.25-paradas-002')");
+  const appAt = boot.indexOf("import('./app.js?v=75.25-continuidad-001')");
   assert.ok(ownerAt >= 0);
   assert.ok(appAt > ownerAt);
   for (const legacy of ['r1-alpha29','r1-alpha30','r1-alpha31','r1-alpha34','r1-alpha50']) {

@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, mkdir } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { createLocalFixture, FIXTURE_ACTOR, one, snapshotProtectedFacts } from '../sql/local-postgres-harness.mjs';
+import { FIXTURE_ACTOR, one, snapshotProtectedFacts } from '../sql/local-postgres-harness.mjs';
+import { createContinuityFixture } from '../sql/continuity-scenarios.mjs';
 import { startBrowserServer } from './browser-server.mjs';
 
 const require = createRequire(import.meta.url);
@@ -18,7 +19,6 @@ async function capture(page, name) {
 }
 
 async function seedUi(db) {
-  await db.query(await readFile(new URL('./fixtures/hotel-views.sql', import.meta.url), 'utf8'));
   for (const [dfm, plate, reserve] of [
     ['TEST-UI-TRANSFER', 'TESTUI01', false], ['TEST-UI-FOLLOWUP', 'TESTUI02', false],
     ['TEST-UI-RETRY', 'TESTUI03', false], ['R-TEST', 'TEST123', true],
@@ -115,7 +115,7 @@ async function assertPanelReadback(page, db, record) {
 }
 
 test('Chromium real → RPC pública PostgreSQL17 → vistas Hotel y Panel', { timeout: 180000 }, async t => {
-  const fixture = await createLocalFixture({ prefix: 'ui' });
+  const fixture = await createContinuityFixture({ prefix: 'ui' });
   let server, browser;
   const denied = [], pageErrors = [];
   try {

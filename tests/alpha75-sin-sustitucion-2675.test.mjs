@@ -45,6 +45,6 @@ test('la candidata carga la derivación actual y conserva la validación del edi
   const boot = await readFile('r1-alpha75/src/boot75.js', 'utf8');
   assert.match(main, /hotel-operational-state\.js\?v=75\.25-paradas-002/);
   assert.match(editor, /hotel-editor-validation\.js\?v=75\.23-hf18/);
-  assert.match(html, /boot75\.js\?v=75\.25-paradas-002/);
-  assert.match(boot, /hotel-native\.js\?v=75\.25-paradas-002/);
+  assert.match(html, /boot75\.js\?v=75\.25-continuidad-001/);
+  assert.match(boot, /hotel-native\.js\?v=75\.25-continuidad-001/);
 });

@@ -1,8 +1,8 @@
-import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js?v=75.23-hf28';
+import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js?v=75.25-continuidad-001';
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
-import { renderHistoricalCard } from './history-card.js?v=75.25-paradas-002';
+import { renderHistoricalCard } from './history-card.js?v=75.25-continuidad-001';
 import { safeHistorySearch, searchHistoricalRecords } from '../../shared/history-query.mjs?v=20260921';
 
 function madridDate(date) {

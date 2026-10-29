@@ -2,7 +2,8 @@ import { detail, element } from '../../r1-alpha17/src/dom.js';
 import { createStagesToggle } from './stages-collapse.js?v=75.18';
 import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
-import { createOperationalDates, createSubstitutionBilling } from './card-operational.js?v=75.23-hf28';
+import { createOperationalDates, createSubstitutionBilling } from './card-operational.js?v=75.25-continuidad-001';
+import { substitutionOwnershipText } from './substitution-imputation.js?v=75.25-continuidad-001';
 import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
 import { createStageReopenControl } from './stage-reopen.js';
 import { renderAnnotationsChronology, renderQuickAnnotationComposer } from './annotations.js';
@@ -182,6 +183,7 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
   onDeleteNote,
   onAnnulGeneratedNote,
   onOpenEditor,
+  onOpenContinuity,
 }) {
   const badges = element('div', { className: 'hotel-card-badges' }, [
     element('span', { className: 'badge', text: `Prioridad ${row.prioridad ?? '—'}` }),
@@ -209,6 +211,9 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
       element('div', {}, [
         element('h3', { text: vehicleLabel(row) }),
         element('div', { className: 'hotel-substitute-line', text: substituteText(row) }),
+        substitutionOwnershipText(row)
+          ? element('div', { className: 'muted a75-substitution-owner', text: substitutionOwnershipText(row) })
+          : null,
       ]),
       badges,
     ]),
@@ -290,6 +295,15 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
     });
     button.addEventListener('click', () => onOpenEditor(row.id));
     card.append(button);
+    if (typeof onOpenContinuity === 'function') {
+      const continuity = element('button', {
+        className: 'button secondary a75-open-continuity',
+        type: 'button',
+        text: 'Continuar sustitución desde otra PA',
+      });
+      continuity.addEventListener('click', () => onOpenContinuity(row.id));
+      card.append(continuity);
+    }
   }
 
   return card;

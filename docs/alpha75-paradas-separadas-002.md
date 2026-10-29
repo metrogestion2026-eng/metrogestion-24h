@@ -1,8 +1,10 @@
 # Alpha75.25: asistencias 24H y paradas independientes
 
 Estado: candidata en PR #90, sujeta a validación funcional. Esta corrección
-implementa MG75-24H-PARADAS-SEPARADAS-002 para las nuevas operaciones. La versión
-visible sigue siendo 75.25. No autoriza despliegue, fusión ni sincronización.
+implementa MG75-24H-PARADAS-SEPARADAS-002 para las nuevas operaciones y añade
+MG75-CONTINUIDAD-SUSTITUCION-ENTRE-PA-001, aprobada por Metro el 29/10/2026.
+La versión visible sigue siendo 75.25. No autoriza despliegue, fusión ni
+sincronización.
 
 ## Comportamiento previsto
 
@@ -28,21 +30,31 @@ visible sigue siendo 75.25. No autoriza despliegue, fusión ni sincronización.
 
 ## Sustitución que continúa
 
-La candidata impide asignar de nuevo el mismo sustituto a otra PA activa cuando
-alguna de las dos corresponde a una 24H. Permite crear la PA de taller sin
-duplicar esa asignación. Conserva la imputación existente y no inventa una fecha
-de recuperación o un corte de días/km.
+La entrada real y confirmada al taller inicia el tramo de la nueva PA. Ese día
+se imputa íntegramente a taller; el tramo de asistencia termina el día anterior,
+incluso cuando el origen queda con cero días. La fecha procede de una T de
+entrada ya guardada. El formulario exige seleccionar ambas PA, la entrada y
+confirmar una previsión calculada por el servidor. Véase el
+[criterio aprobado](alpha75-continuidad-sustitucion-propuesta.md).
 
-El reparto explícito de una sustitución continua entre varias PA sigue pendiente
-de una solución de tramos. Esta protección no constituye esa solución, ni
-recalcula facturación, cierres contables o medias. Tampoco transforma fichas
-históricas ni crea PA retroactivas.
+El sustituto conserva su identidad histórica en ambas PA y tiene un único
+propietario vigente. No se crea una recuperación intermedia, no se libera la
+reserva durante el traspaso y no se completan otras T. La recuperación posterior
+continúa siendo expresa y requiere los hitos reales del taller.
 
-La regla aprobada del día del cambio corresponde al cambio de sustituto dentro
-de una PA; no decide el traspaso de imputación del mismo sustituto entre PA
-distintas. Hay una [propuesta concreta pendiente de Metro](alpha75-continuidad-sustitucion-propuesta.md)
-que usa la entrada real al taller y asigna su día a la PA de destino. No es una
-norma vigente ni una funcionalidad implementada.
+El reparto añade límites de imputación separados de las fechas físicas. Hotel,
+Histórico, Panel y Listados leen esos límites y la propiedad vigente. Se
+conservan las medias manuales propias de cada PA, los totales manuales y los
+cierres ya fijados; los conflictos que impedirían conservarlos bloquean la
+operación. Las unidades afectadas R quedan fuera de este traspaso: su cobro por
+unidad conserva la regla existente. Un sustituto de reserva con código R sí
+puede continuar cubriendo una unidad DFM.
+
+La protección previa contra doble asignación continúa vigente. El traspaso
+requiere una operación específica, atómica e idempotente; no se obtiene
+editando por separado los campos de sustituto. No se crean PA retroactivas ni
+se alteran fichas históricas. MANTENIMENT mantiene sus barreras y las PA
+enlazadas no se exportan ni importan mediante el protocolo anterior.
 
 ## Migración y compatibilidad
 
@@ -64,8 +76,9 @@ formulario. Una petición repetida con otro contenido se rechaza. La protección
 frente a doble asignación serializa las identidades del sustituto conocidas por
 DFM y matrícula.
 
-Los recursos de la candidata usan `75.25-paradas-002`, y el arranque refresca el
-asistente compartido antes de cargarlo. Las extensiones se registran desde los
+Los módulos modificados para continuidad usan `75.25-continuidad-001`; los
+módulos de asistencia que no cambian conservan `75.25-paradas-002`. El arranque
+refresca el asistente compartido antes de cargarlo. Las extensiones se registran desde los
 módulos de Alpha75; Alpha80test también los hereda al importar esa aplicación.
 Las versiones sin adaptador, incluida Alpha76, mantienen su comportamiento.
 La validación funcional futura deberá comenzar con una recarga completa.
@@ -74,20 +87,24 @@ en esta candidata.
 
 ## Verificación reproducible
 
-Resultado local del 28/10/2026:
+Evidencia local acumulada, ampliada el 29/10/2026:
 
 | Capa | Resultado | Alcance |
 | --- | --- | --- |
-| Frontend seleccionado | 104 casos aprobados | Controladores, fechas, confirmación, reintentos y prioridades |
-| SQL con PGlite 0.3.16 / PostgreSQL 17.5 | 19 escenarios aprobados | Reglas de negocio y cascadas críticas en una sesión |
-| PostgreSQL 17.11 nativo | 6 carreras aprobadas | Dos sesiones de trabajo, observador y bloqueos reales bajo `READ COMMITTED` |
+| Frontend previo de paradas | 104 casos aprobados en el seguimiento anterior | Controladores, fechas, confirmación, reintentos y prioridades |
+| Frontend de continuidad | 40 casos nuevos y 39 de seguridad/compatibilidad aprobados | Contrato, diálogo, cero días, propiedad, reintento y lector financiero |
+| SQL con PGlite 0.3.16 / PostgreSQL 17.5 | 19 escenarios aprobados | Migración congelada PARADAS-002 y cascadas críticas en una sesión |
+| PostgreSQL 17.11 nativo | 6 carreras previas conservadas | Dos sesiones de trabajo, observador y bloqueos reales bajo `READ COMMITTED` |
 | Recuperación en PostgreSQL 17.11 nativo | 5 escenarios aprobados | RPC vigente, commit, lectura desde otra conexión y conservación de actuaciones |
-| Navegador real y PostgreSQL 17.11 | 9 recorridos aprobados | Cuatro de asistencia y cinco de recuperación/Histórico con transporte local |
-| Arranque publicado y caché HTTP real | 3 escenarios aprobados | Index candidato, sesión nula, caché previa del asistente y fallo de precarga |
+| Núcleo de continuidad en PostgreSQL 17.11 | 13 escenarios aprobados | Vínculo, reparto, manuales, cierre físico, permisos, copias por seguimiento y rechazo de deriva de instalación |
+| Concurrencia de continuidad en PostgreSQL 17.11 | 7 carreras aprobadas | Confirmación, reintento, rollback, otra asignación, recuperación y rollover con bloqueos observados |
+| Barrera MANTENIMENT/TANCAMENT en PostgreSQL 17.11 | 13 escenarios aprobados | Entrega/ACK, legado, retención de ambas PA y snapshots, y tres carreras con el receptor |
+| Navegador real y PostgreSQL 17.11 | 14 recorridos aprobados | Cuatro de asistencia, cinco de recuperación/Histórico y cinco de continuidad con cuatro lecturas reales |
+| Arranque publicado y caché HTTP real | 4 escenarios aprobados | Index candidato, sesión nula, caché previa del asistente y lector financiero, y fallo de precarga |
 
 También pasan los controles existentes de seguridad, sintaxis y construcción
-pública. El control de publicación verifica cuatro casos y genera 946 archivos
-estáticos. La aceptación funcional de Metro en el entorno autorizado sigue
+pública. El control de publicación verifica cuatro casos y construye los
+archivos estáticos. La aceptación funcional de Metro en el entorno autorizado sigue
 pendiente.
 
 Los casos frontend ejecutan los controladores del asistente y del diálogo con
@@ -134,7 +151,8 @@ Esta evidencia cubre las seis carreras bajo `READ COMMITTED`; no certifica
 otros niveles de aislamiento, carga, cambios simultáneos del catálogo,
 rollover ni todos los intercalados posibles. La continuidad del mismo
 seguimiento y las paradas de taller sin relación con 24H conservan sus
-excepciones. Preparación, matriz y límites:
+excepciones. Los traspasos entre PA tienen sus escenarios específicos.
+Preparación, matriz y límites:
 [`tests/sql/README-native-concurrency.md`](../tests/sql/README-native-concurrency.md).
 
 ### Recuperación explícita
@@ -211,6 +229,43 @@ La prueba es funcional; no constituye una aceptación visual del shell ni
 sustituye la validación de Metro. Ejecución y límites:
 [`tests/integration/README.md`](../tests/integration/README.md).
 
+### Continuidad, contabilidad y barrera
+
+Las dos migraciones del 29/10 añaden el registro privado de vínculos, las RPC
+de previsión/confirmación, las guardas de hechos e identidad y las proyecciones
+de imputación y propietario. Se conservan las fechas físicas, los snapshots
+cerrados y la vista R. El historial de una copia antigua sigue reflejando su
+estado de entonces; la propiedad vigente se presenta por separado.
+
+Los escenarios nativos incluyen cambios concurrentes de versión/media, origen
+ya recuperado, modalidad incompatible, totales manuales protegidos, cierre
+físico, replay posterior y copias del seguimiento. La recuperación acreditada
+no se puede mover a otra PA, sustituir por otra fecha ni reabrir con una copia
+activa. Los casos ordinarios sin continuidad conservan su propietario y su
+lectura anterior.
+
+La barrera conserva entregas por revisión aparte de la outbox y valida sus
+confirmaciones exactas. Todo seguimiento previo requiere reconciliación,
+incluso si su última revisión estaba confirmada. No se presume que una cola
+vacía esté libre de entregas anteriores. Una nueva PA se acredita por un
+registro de nacimiento instalado por la migración, conservado en rollover.
+PARADA tiene como máximo una entrega por revisión; una respuesta perdida deja
+incertidumbre explícita. El ACK legado no firma una huella de cliente.
+
+Las PA enlazadas retienen los intercambios incompatibles de PARADA y TANCAMENT;
+los sobres exclusivamente de trabajos mantienen su flujo sin convertir su ACK
+en recuperación física. Los flags globales permanecen cerrados. Las carreras
+con el receptor y la confirmación exigen bloqueos reales observados y prueban
+commit y rollback. Matrices, procedencia y límites:
+[`README-native-continuity.md`](../tests/sql/README-native-continuity.md).
+
+Cinco recorridos nuevos de navegador completan la evidencia: traspaso con
+selección explícita y doble clic; origen cero; respuesta perdida y replay tras
+recuperación posterior; previsión antigua rechazada; y recuperación desde
+Hotel. Hotel, Panel, Listados e Histórico leen las vistas candidatas reales.
+Las dos suites anteriores mantienen los dobles financieros vacíos que ya
+tenían; esta nueva suite consulta las cifras SQL y los datos manuales exactos.
+
 ### Arranque y caché
 
 Un ensayo separado construye los archivos públicos y abre el index real de
@@ -224,8 +279,10 @@ asistente Alpha34 anterior a PARADAS-002. Una lectura idéntica sin petición al
 servidor acredita que estaba en caché. El index candidato renueva después ese
 archivo incluso con un cuerpo retrasado; se verifica el SHA256 actual y que
 el módulo anterior no se ejecuta. Ante una precarga HTTP 503, el cargador de
-módulos obtiene la candidata mediante otra petición. Los tres escenarios pasan
-sin cambios de producto motivados por esta hipótesis.
+módulos obtiene la candidata mediante otra petición. Estos tres escenarios se
+conservan. Un cuarto almacena el lector financiero anterior a CONTINUIDAD-001,
+acredita la lectura desde caché y comprueba que el index candidato obtiene y
+ejecuta el lector actual mediante la revisión `75.25-continuidad-001`.
 
 El ensayo presupone que se recibe el index candidato. No acredita renovación
 automática de un index anterior: `version-refresh` compara sólo la versión
@@ -239,8 +296,9 @@ Comandos, procedencia y frontera:
 
 El flujo de CI también comprueba seguridad, sintaxis JavaScript, privacidad,
 paradas externas, exclusión de archivos internos y construcción pública. Un
-segundo job ejecuta las seis carreras, cinco escenarios de recuperación, nueve
-recorridos funcionales de navegador y tres escenarios de arranque en Ubuntu
+segundo job ejecuta las seis carreras anteriores, cinco escenarios de
+recuperación, las suites nativas de continuidad y barrera, catorce
+recorridos funcionales de navegador y cuatro escenarios de arranque en Ubuntu
 24.04, con paquetes oficiales PostgreSQL fijados y verificados por SHA256.
 El servidor admite únicamente su socket Unix dedicado, no escucha TCP y se
 detiene al terminar. Las pruebas SQL no se conectan a Supabase ni ejecutan
@@ -260,9 +318,10 @@ dispositivo y permisos reales, servicios externos, guardado completo del editor
 y comprobación de la revisión servida por el alojamiento. Altas, reintentos,
 cierres, recuperación explícita, consultas de Histórico y arranque candidato
 con caché previa ya tienen evidencia automatizada dentro de las fronteras
-descritas; eso no autoriza instalarlos en el backend operativo. El reparto de
-una sustitución continua entre distintas PA sigue pendiente de la decisión de
-Metro sobre el hecho de traspaso y su día, y de su posterior implementación.
+descritas; eso no autoriza instalarlos en el backend operativo. El criterio de
+continuidad entre PA ya está aprobado y registrado. Su implementación y sus
+pruebas forman parte de esta candidata, manteniendo pendiente la aceptación
+con sesión y servicios reales en el entorno expresamente autorizado.
 
 El preflight de instalación autenticado ya constaba como APTO; su alcance es
 compatibilidad de instalación. El posterior ensayo de órdenes seguía NO APTO.

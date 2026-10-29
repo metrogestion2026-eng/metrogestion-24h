@@ -1,8 +1,9 @@
-# Recorridos UI → PostgreSQL de PARADAS-SEPARADAS-002
+# Recorridos UI → PostgreSQL de paradas y continuidad
 
 Estas pruebas abren un navegador nuevo, recorren los formularios reales de 24H
-y el control explícito de recuperación, ejecutan las RPC públicas en una base
-efímera y vuelven a leer Hotel, Panel e Histórico. Usan exclusivamente datos
+y los controles explícitos de recuperación y continuidad, ejecutan las RPC
+públicas en una base efímera y vuelven a leer Hotel, Panel, Histórico y Listados.
+Usan exclusivamente datos
 sintéticos. No instalan la candidata en Supabase, no utilizan cuentas operativas
 y no ejecutan sincronización.
 
@@ -36,16 +37,18 @@ oficial de Chrome, porque la descarga del navegador de Playwright llegó inváli
 Sin esa variable, se utiliza el Chromium instalado por Playwright.
 
 `METROGESTION_UI_SCREENSHOT_DIR=/tmp/metrogestion-ui-review` guarda opcionalmente
-seis capturas sintéticas: asistente, Hotel, Panel, diálogo de seguimiento,
-confirmación de recuperación e Histórico de la PA recuperada.
+capturas sintéticas: asistente, Hotel, Panel, diálogo de seguimiento,
+confirmación de recuperación, Histórico de la PA recuperada y previsiones de
+continuidad normal y con cero días.
 No se incluyen en el repositorio ni en el sitio publicado.
 
-Los dos recorridos con PostgreSQL también se ejecutan por separado, con las
+Las tres suites con PostgreSQL también se ejecutan por separado, con las
 mismas variables de entorno:
 
 ```bash
 node tests/integration/alpha75-ui-postgres.test.mjs
 node tests/integration/alpha75-recovery-history.test.mjs
+node tests/integration/alpha75-substitution-continuity.test.mjs
 ```
 
 ## Asistencia y paradas separadas: cuatro recorridos
@@ -101,6 +104,35 @@ no interpreta la recuperación como confirmación de que todas las T terminaron.
 También conserva la identidad del sustituto en la ficha histórica y el aviso
 de datos pendientes del marcado rápido. No se ensaya completar ese aviso.
 
+## Continuidad entre PA: cinco recorridos
+
+1. Selección expresa de origen y T de entrada, sin fecha editable ni candidatos
+   preseleccionados. La previsión muestra un día de origen y dos de destino.
+   Dos clics de confirmación producen una única RPC y un vínculo. Se comprueba
+   desde otra conexión que no se han creado ni completado T, que la reserva
+   sigue ocupada y que las fechas físicas y las dos medias manuales permanecen
+   exactas. Hotel, Panel, Listados e Histórico se contrastan con las vistas SQL.
+   El detalle histórico muestra el vínculo sin habilitar su confirmación.
+2. Entrega y entrada en el mismo día: origen con cero días, destino con todo el
+   día de entrada. El origen conserva su fecha física sin recuperación, y el
+   Panel atribuye la cobertura al destino. Los días facturables no se solapan.
+3. La respuesta HTTP se trunca después del commit. La UI conserva la petición,
+   mantiene bloqueada la selección y permite comprobarla. Antes del reintento,
+   otro cliente registra finalización, recogida y recuperación reales
+   sintéticas. El replay conserva el vínculo, reconoce al propietario en el
+   momento de confirmar y admite que ahora ya no exista propietario vigente.
+4. Una edición concurrente cambia la versión después de previsualizar. SQL
+   rechaza la confirmación sin efectos. La UI conserva ambas selecciones,
+   desmarca la confirmación y exige una previsión nueva.
+5. La recuperación desde el botón real de Hotel exige sus dos pulsaciones y
+   sus hitos previos. Libera la reserva del destino, mantiene la PA origen y
+   la asistencia 24H, conserva el vínculo y no inventa un fin físico del origen.
+
+La pizarra sintética de esta suite utiliza el día actual en Europe/Madrid para
+comparar la referencia de Hotel con el periodo de Listados. Las pruebas previas
+conservan sus fechas históricas. Las medias decimales se comprueban en SQL; la
+presentación de la tarjeta conserva su redondeo anterior a km enteros.
+
 ## Piezas reales y dobles
 
 - Se sirve el archivo completo del asistente Alpha34, suprimiendo únicamente su
@@ -115,12 +147,20 @@ de datos pendientes del marcado rápido. No se ensaya completar ese aviso.
   controles, render y refrescos son los de producto. El botón de recuperación y
   el detalle de T son los módulos Alpha67 importados por Alpha75. No se abre ni
   guarda el editor completo de Hotel.
+- La suite de continuidad añade el módulo real de Listados y el diálogo real
+  de continuidad. Su transporte permite exactamente las dos RPC públicas nuevas
+  con sus argumentos explícitos. Las tablas y vistas financieras dejan de ser
+  dobles vacíos en esta suite: `cierres_facturacion`,
+  `paradas_sustitucion_resumen`, `facturacion_dfm_periodos`,
+  `facturacion_r_sustituciones` y configuración se consultan en PostgreSQL.
 - El módulo Panel completo realiza sus lecturas, clasificación, contadores y
   detalles. Las vistas `hotel_actual` y `hotel_actual_detalle` se crean a partir
   de sus definiciones operativas revisadas el 28/10/2026, conservadas literalmente
   con sus huellas en `fixtures/hotel-views.sql` y `security_invoker=true`.
   `fixtures/history-view.sql` conserva la definición literal de `hotel_por_dia`;
-  la prueba comprueba su huella de catálogo y `security_invoker=true`.
+  el fixture comprueba su huella de catálogo antes de aplicar ambas migraciones
+  de continuidad y conserva `security_invoker=true`. Las tres suites cargan la
+  candidata completa. No reinstalan después las vistas antiguas.
 - La RPC `public.guardar_activacion_24h`, la migración congelada y sus funciones
   y triggers se ejecutan en PostgreSQL nativo. Las altas de taller del escenario
   se hacen mediante la RPC pública, sin simular un formulario de taller.
@@ -135,7 +175,9 @@ de datos pendientes del marcado rápido. No se ensaya completar ese aviso.
   conservar fechas `DATE` literales; no se convierten mediante la zona de Node.
   Usuario, sesión y catálogos son sintéticos. Las tablas auxiliares de anotaciones
   se crean con filas sintéticas; se ejercen su consulta y render, no su guardado.
-  Facturación, documentos y dispositivos tienen respuestas vacías delimitadas.
+  Las dos suites anteriores mantienen sus respuestas financieras vacías; la
+  suite de continuidad usa vistas reales. Documentos y dispositivos mantienen
+  respuestas vacías delimitadas.
   La consulta de órdenes MANTENIMENT del Panel administrador recibe una lista
   vacía explícita; ninguna cola externa está conectada. Auditoría, autorización
   y efectos de sincronización conservan los dobles declarados por el fixture SQL.
@@ -148,16 +190,17 @@ usa contexto nuevo, service workers bloqueados, un proxy local que no reenvía,
 resolución externa deshabilitada y una lista de origen permitido. Cualquier
 petición de la página fuera del harness hace fallar la prueba.
 
-Estas dos suites con PostgreSQL no prueban Supabase Auth, RLS de usuarios
+Estas tres suites con PostgreSQL no prueban Supabase Auth, RLS de usuarios
 reales, PostgREST ni el SDK de Supabase. Tampoco certifican una sesión completa,
-el arranque entre versiones, cachés, instalación, documentos, facturación o
-sincronización. El shell y sus estilos son de prueba; las capturas no certifican
-la presentación completa de la app. El ajuste de la casilla de traslado fue el
-único cambio de producto del ensayo previo de asistencia. La ampliación de
-recuperación e Histórico sólo añade pruebas y fixtures.
+el arranque entre versiones, cachés, instalación, documentos ni sincronización
+contra una hoja. La facturación cubierta se limita a la proyección de los
+tramos DFM sintéticos y la conservación de los valores expresamente probados;
+no acredita cierres contables operativos. El shell y sus estilos son de prueba;
+las capturas no certifican la presentación completa de la app. Las carreras y
+el protocolo de entrega/ACK de MANTENIMENT tienen pruebas nativas separadas.
 
-`npm test --prefix tests/integration` ejecuta ambas suites y, después, los tres
+`npm test --prefix tests/integration` ejecuta las tres suites y, después, los cuatro
 escenarios de arranque descritos en [README-boot-cache.md](README-boot-cache.md).
-Los scripts `test:assistance`, `test:recovery-history` y `test:boot` permiten
+Los scripts `test:assistance`, `test:recovery-history`, `test:continuity` y `test:boot` permiten
 ejecutarlos por separado. La prueba de caché mantiene habilitada la caché HTTP
 y conserva sus propios límites de sesión nula e index candidato recién servido.

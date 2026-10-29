@@ -1,7 +1,7 @@
 // 75.23-hf2: bounded, identity-scoped reads. The server still enforces RLS.
 // Only concurrent requests are shared; completed financial data is not cached.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const STOP_FIELDS = 'seguimiento_id,numero_parada,unidad,matricula,sustituto,matricula_sustituto,tipo_sustituto,fecha_inicio_parada,fecha_fin_parada,dias_parada_total,clase_facturacion,km_dia_automatico,km_dia_manual,km_dia,km_dia_fuente,ajuste_observaciones,km_sustitucion_total';
+const STOP_FIELDS = 'seguimiento_id,numero_parada,unidad,matricula,sustituto,matricula_sustituto,tipo_sustituto,fecha_inicio_parada,fecha_fin_parada,dias_parada_total,fecha_inicio_imputacion,fecha_fin_imputacion,dias_imputables_total,fin_imputacion_motivo,continuidad_entrada_id,continuidad_salida_id,continuidad_origen_seguimiento_id,continuidad_origen_numero_parada,continuidad_destino_seguimiento_id,continuidad_destino_numero_parada,propietario_sustitucion_seguimiento_id,sustitucion_vigente,clase_facturacion,km_dia_automatico,km_dia_manual,km_dia,km_dia_fuente,ajuste_observaciones,km_sustitucion_total';
 
 export function createBillingReader(client, { concurrency = 3 } = {}) {
   if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 4) {

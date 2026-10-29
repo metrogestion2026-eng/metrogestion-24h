@@ -1,8 +1,8 @@
 # Arranque publicado y caché de Alpha75
 
 Este ensayo cubre un riesgo distinto de las pruebas de formularios: que la
-entrada candidata llegue a ejecutar un asistente compartido anterior conservado
-en la caché HTTP. Construye los archivos públicos con el mismo script de
+entrada candidata llegue a ejecutar un asistente compartido o un lector
+financiero anterior conservado en la caché HTTP. Construye los archivos públicos con el mismo script de
 publicación y abre el `r1-alpha75/index.html` resultante en un navegador nuevo.
 No publica esos archivos ni utiliza una sesión operativa.
 
@@ -17,10 +17,10 @@ npm run test:boot --prefix tests/integration
 ```
 
 También acepta `METROGESTION_BROWSER_EXECUTABLE` para un ejecutable local
-compatible. La ejecución local del 28/10/2026 utilizó Chrome 156.0.8078.73 y zona
+compatible. La ejecución local del 29/10/2026 utilizó Chrome 156.0.8078.73 y zona
 Europe/Madrid. No necesita PostgreSQL.
 
-## Tres escenarios
+## Cuatro escenarios
 
 1. **Arranque frío:** se carga el index publicado y su grafo real de módulos,
    incluida la cadena heredada completa. Se comprueba la versión visible,
@@ -35,11 +35,18 @@ Europe/Madrid. No necesita PostgreSQL.
 3. **Fallo de precarga:** con el asistente antiguo acreditado en caché, se
    devuelve HTTP 503 a su precarga. Se exige observar ese fallo y otra petición
    de módulo que descarga exactamente la candidata, sin ejecutar la anterior.
+4. **Lector financiero anterior:** en un contexto nuevo se almacena el lector
+   previo a CONTINUIDAD-001 bajo su URL sin revisión. Una segunda lectura
+   idéntica sin petición HTTP demuestra que está en caché. El arranque candidato
+   debe obtener los bytes actuales mediante `?v=75.25-continuidad-001` y no
+   ejecutar el lector anterior. Se comprueba también la revisión nueva de
+   Hotel, Histórico y Panel, manteniendo la versión visible 75.25.
 
 El tercer escenario comprueba la recuperación observada del cargador de módulos.
 No demuestra que toda indisponibilidad de red pueda recuperarse ni que exista
-un modo sin conexión. No se ha reproducido una mezcla de revisiones que exija
-cambiar código de producto en estos escenarios.
+un modo sin conexión. La cadena de importación de los módulos modificados para
+la continuidad se renueva expresamente; la prueba acredita ese recorrido bajo
+un index candidato recién servido.
 
 ## Procedencia del asistente anterior
 
@@ -54,6 +61,18 @@ d48844d48691ddfdc514aca257a98a65c343f0eb4d70b55fef20907b8c126c13
 El servidor agrega a esa respuesta antigua una marca de ejecución de prueba.
 La respuesta candidata conserva los bytes exactos del archivo construido.
 Los fixtures no forman parte del sitio publicado.
+
+`fixtures/alpha75-billing-before-continuidad001.js` conserva los bytes de
+`r1-alpha75/src/billing-data-hf2.js` del commit
+`c5324299d09140549b9cf4d068e9d7ffb23497ec`, con SHA256:
+
+```text
+894860b836d294b83a8e5536372a98919efcc26c726a7e40774e7adc0c09d455
+```
+
+Su respuesta antigua también recibe una marca de ejecución de prueba. La
+respuesta actual se contrasta con el archivo construido, no con una copia
+simulada del lector.
 
 ## Aislamiento y límites
 

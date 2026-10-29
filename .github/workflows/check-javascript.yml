@@ -42,6 +42,11 @@ jobs:
           tests/alpha75-24h-parada-completada.test.mjs
           tests/alpha75-sin-sustitucion-2675.test.mjs
           tests/alpha75-2556-24h-taller-prioridad.test.mjs
+      - name: Comprobar continuidad, reparto de días y respuesta incierta
+        run: >-
+          node --test
+          tests/alpha75-substitution-continuity.test.mjs
+          tests/alpha75-substitution-imputation.test.mjs
       - name: Instalar PostgreSQL aislado para probar la candidata
         run: npm ci --prefix tests/sql --ignore-scripts --no-fund --no-audit
       - name: Comprobar paradas 24H con funciones y triggers reales
@@ -78,6 +83,12 @@ jobs:
         run: npm run test:concurrency --prefix tests/sql
       - name: Comprobar recuperación explícita y conservación de otras actuaciones
         run: npm run test:recovery --prefix tests/sql
+      - name: Comprobar continuidad, imputación y conservación de hechos reales
+        run: npm run test:continuity --prefix tests/sql
+      - name: Comprobar concurrencia del traspaso entre PA
+        run: npm run test:continuity-concurrency --prefix tests/sql
+      - name: Comprobar barrera de continuidad, entregas pendientes y confirmaciones MANTENIMENT
+        run: npm run test:continuity-sync --prefix tests/sql
       - name: Preparar navegador de prueba
         run: node tests/integration/node_modules/playwright/cli.js install --with-deps chromium
       - name: Comprobar formularios, Histórico y caché con navegador real
