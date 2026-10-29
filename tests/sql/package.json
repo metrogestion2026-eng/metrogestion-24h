@@ -8,7 +8,9 @@
     "test:recovery": "node alpha75-recovery-explicit.test.mjs",
     "test:continuity": "node --test alpha75-continuity.test.mjs",
     "test:continuity-concurrency": "node --test alpha75-continuity-concurrency.test.mjs",
-    "test:continuity-sync": "node --test continuity-sync.test.mjs"
+    "test:continuity-sync": "node --test continuity-sync.test.mjs",
+    "test:editor": "node --test alpha75-editor.test.mjs",
+    "test:editor-timestamps": "node --test alpha75-editor-timestamps.test.mjs"
   },
   "engines": {
     "node": ">=24"

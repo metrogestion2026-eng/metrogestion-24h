@@ -11,6 +11,7 @@ const RECOVERY_HISTORY_READS = new Set(['hotel_por_dia', 'registros_hotel', 'hot
 const RECOVERY_HISTORY_EMPTY_READS = new Set(['documentos_gestion', 'dispositivos_usuario']);
 const CONTINUITY_READS = new Set(['cierres_facturacion', 'facturacion_dfm_periodos', 'facturacion_r_sustituciones',
   'paradas_sustitucion_resumen', 'config_facturacion_sustituciones']);
+const EDITOR_READS = new Set(['vehiculos_hotel_autocompletar']);
 // Legacy assistance/recovery journeys use explicit empty financial fixtures.
 // Continuity journeys opt into the real financial views in CONTINUITY_READS.
 // Documents remain outside all of these test boundaries.
@@ -21,9 +22,9 @@ const identifier = value => {
   return `"${value}"`;
 };
 
-async function readQuery(db, spec, recoveryHistory, continuity) {
+async function readQuery(db, spec, recoveryHistory, continuity, editor) {
   const actual = REAL_READS.has(spec.table) || (recoveryHistory && RECOVERY_HISTORY_READS.has(spec.table))
-    || (continuity && CONTINUITY_READS.has(spec.table));
+    || (continuity && CONTINUITY_READS.has(spec.table)) || (editor && EDITOR_READS.has(spec.table));
   if (!actual && (EMPTY_READS.has(spec.table) || (recoveryHistory && RECOVERY_HISTORY_EMPTY_READS.has(spec.table)))) {
     return { data: spec.single ? null : [], error: null };
   }
@@ -54,11 +55,14 @@ const html = `<!doctype html><html lang="es"><meta charset="utf-8"><title>Metrog
 <span id="app-version"></span><nav id="module-nav"><button data-module="resumen">Panel</button><button id="fixture-hotel-button" data-module="hotel">Hotel</button><button id="fixture-incidents-button">Asistencias</button></nav><main id="module-content"></main>
 <script type="module" src="/tests/integration/browser-app.js"></script></html>`;
 
-export async function startBrowserServer(db, { recoveryHistory = false, continuity = false } = {}) {
+export async function startBrowserServer(db, { recoveryHistory = false, continuity = false, editor = false } = {}) {
+  if (editor) continuity = true;
   if (continuity) recoveryHistory = true;
   const calls = [], queries = [], readTables = [], failures = [], doubledRpcs = [];
   const controls = { delayNextSave: 0, loseNextCreateResponse: false, delayNextHistoryAccess: 0,
-    delayNextContinuityConfirmation: 0, loseNextContinuityResponse: false };
+    delayNextContinuityConfirmation: 0, loseNextContinuityResponse: false,
+    delayNextEditorSave: 0, loseNextEditorSaveResponse: false,
+    editorSaveNetworkErrorAsValue: false, omitEditorDateContract: false };
   let origin;
   const server = createServer(async (request, response) => {
     response.setHeader('Cache-Control', 'no-store');
@@ -87,7 +91,7 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
             controls.delayNextHistoryAccess = 0;
             if (delay) await new Promise(resolve => setTimeout(resolve, delay));
           }
-          result = await readQuery(db, data, recoveryHistory, continuity);
+          result = await readQuery(db, data, recoveryHistory, continuity, editor);
         } else if (url.pathname === '/__test/rpc') {
           if (recoveryHistory && data.name === 'listar_ordenes_manteniment_pendientes_alpha74') {
             // Read-only Panel dependency; no MANTENIMENT queue is connected.
@@ -97,9 +101,11 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
           }
           const continuityPreview = continuity && data.name === 'previsualizar_continuidad_sustitucion_alpha75';
           const continuityConfirm = continuity && data.name === 'confirmar_continuidad_sustitucion_alpha75';
+          const editorRead = editor && data.name === 'obtener_ficha_hotel_edicion_alpha72';
+          const editorSave = editor && data.name === 'guardar_ficha_hotel_edicion_alpha73';
           if (data.name !== 'guardar_activacion_24h'
               && !(recoveryHistory && data.name === 'marcar_t_realizada_rapida')
-              && !continuityPreview && !continuityConfirm) {
+              && !continuityPreview && !continuityConfirm && !editorRead && !editorSave) {
             throw new Error(`Unexpected fixture RPC: ${data.name}`);
           }
           calls.push(structuredClone(data));
@@ -108,7 +114,22 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
           if (wait) await new Promise(resolve => setTimeout(resolve, wait));
           const args = data.args;
           let saved;
-          if (continuityPreview) {
+          if (editorRead) {
+            saved = await db.query('SELECT public.obtener_ficha_hotel_edicion_alpha72($1::uuid) AS value',
+              [args.p_registro_id]);
+            if (controls.omitEditorDateContract) {
+              // Explicit compatibility fault: preserve the real detail, remove
+              // only the advertised parser contract to represent an older API.
+              delete saved.rows[0].value.contrato_fechas_editor;
+            }
+          } else if (editorSave) {
+            const editorDelay = controls.delayNextEditorSave;
+            controls.delayNextEditorSave = 0;
+            if (editorDelay) await new Promise(resolve => setTimeout(resolve, editorDelay));
+            saved = await db.query('SELECT public.guardar_ficha_hotel_edicion_alpha73($1::uuid,$2::integer,$3::jsonb,$4::jsonb,$5::jsonb,$6::text) AS value',
+              [args.p_registro_id, args.p_version, JSON.stringify(args.p_ficha), JSON.stringify(args.p_etapas),
+                JSON.stringify(args.p_identidad), args.p_request_id]);
+          } else if (continuityPreview) {
             saved = await db.query('SELECT public.previsualizar_continuidad_sustitucion_alpha75($1::uuid,$2::uuid,$3::uuid) AS value',
               [args.p_destino_id, args.p_origen_id ?? null, args.p_etapa_entrada_id ?? null]);
           } else if (continuityConfirm) {
@@ -131,6 +152,24 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
             response.write('{"data":', () => response.destroy());
             return;
           }
+          if (editorSave && controls.loseNextEditorSaveResponse) {
+            controls.loseNextEditorSaveResponse = false;
+            response.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': '10000' });
+            response.write('{"data":', () => response.destroy());
+            return;
+          }
+          if (editorSave && controls.editorSaveNetworkErrorAsValue) {
+            controls.editorSaveNetworkErrorAsValue = false;
+            // Supabase/PostgREST without throwOnError resolves a network failure
+            // as a value. The SQL above has committed; this distinct injected
+            // reply checks the product handler, not the SDK or real transport.
+            response.setHeader('Content-Type', 'application/json');
+            response.end(JSON.stringify({ data: null, error: {
+              code: '', message: 'TypeError: Failed to fetch',
+              details: 'Synthetic SDK network failure after committed editor RPC', hint: '',
+            }, status: 0, statusText: '' }));
+            return;
+          }
           if (data.name === 'guardar_activacion_24h' && !args.p_id && controls.loseNextCreateResponse) {
             controls.loseNextCreateResponse = false;
             // Deliver headers and an incomplete JSON body after commit. A bare
@@ -147,18 +186,33 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
       if (request.method !== 'GET') { response.writeHead(405).end(); return; }
       if (url.pathname === '/') {
         response.setHeader('Content-Type', 'text/html; charset=utf-8');
-        response.end(continuity
+        let fixtureHtml = continuity
           ? html.replace('<button id="fixture-incidents-button">Asistencias</button>', '<button data-module="historico">Histórico</button><button data-module="listados">Listados</button>')
             .replace('browser-app.js', 'browser-continuity-app.js')
           : recoveryHistory
           ? html.replace('<button id="fixture-incidents-button">Asistencias</button>', '<button data-module="historico">Histórico</button>')
             .replace('browser-app.js', 'browser-recovery-history-app.js')
-          : html);
+          : html;
+        if (editor) {
+          // Keep the test navigation explicit, but render the complete editor
+          // with the candidate's actual styles instead of the fixture styles.
+          const candidate = await readFile(path.join(repo, 'r1-alpha75/index.html'), 'utf8');
+          const stylesheetLinks = [...candidate.matchAll(/<link\b[^>]*rel="stylesheet"[^>]*>/g)]
+            .map(([tag]) => tag.replace(/href="([^"]+)"/, (_match, href) => {
+              const asset = new URL(href, `${origin}/r1-alpha75/index.html`);
+              if (asset.origin !== origin) throw new Error('Editor fixture requires local candidate styles');
+              return `href="${asset.pathname}${asset.search}"`;
+            })).join('\n');
+          if (!stylesheetLinks.includes('/r1-alpha17/hotel-editor.css')) throw new Error('Candidate editor stylesheet missing');
+          fixtureHtml = fixtureHtml.replace(/<style>[\s\S]*?<\/style>/, stylesheetLinks)
+            .replace('browser-continuity-app.js', 'browser-editor-app.js');
+        }
+        response.end(fixtureHtml);
         return;
       }
       const relative = decodeURIComponent(url.pathname).slice(1);
       if (!/^(r1-alpha\d+\/|shared\/|tests\/integration\/browser-)/.test(relative)
-          || !/\.m?js$/.test(relative) || relative.split('/').includes('..')) {
+          || !(/\.m?js$/.test(relative) || (editor && /\.css$/.test(relative))) || relative.split('/').includes('..')) {
         response.writeHead(404).end(); return;
       }
       let source;
@@ -174,7 +228,7 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
           source = source.replace(inherited, '// Synthetic application shell provided by this fixture.');
         }
       }
-      response.setHeader('Content-Type', 'text/javascript; charset=utf-8');
+      response.setHeader('Content-Type', relative.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8');
       response.end(source);
     } catch (error) {
       failures.push({ path: request.url, message: error.message });

@@ -4,7 +4,7 @@ import '/r1-alpha75/src/assistance-situation.js?v=75.25-paradas-002';
 import '/r1-alpha75/src/assistance-followup.js?v=75.25-paradas-002';
 import { renderHotelCard } from '/r1-alpha75/src/hotel-card.js?v=75.23-hf28';
 import { deriveHotelOperationalState } from '/r1-alpha75/src/hotel-operational-state.js?v=75.25-paradas-002';
-import '/r1-alpha75/src/panel-native-hf23.js?v=75.25-paradas-002';
+import '/r1-alpha75/src/panel-native-hf23.js?v=75.25-editor-fechas-001';
 
 const content = document.querySelector('#module-content');
 

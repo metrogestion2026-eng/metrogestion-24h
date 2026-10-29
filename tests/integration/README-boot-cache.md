@@ -1,8 +1,8 @@
 # Arranque publicado y caché de Alpha75
 
 Este ensayo cubre un riesgo distinto de las pruebas de formularios: que la
-entrada candidata llegue a ejecutar un asistente compartido o un lector
-financiero anterior conservado en la caché HTTP. Construye los archivos públicos con el mismo script de
+entrada candidata llegue a ejecutar un asistente compartido, un lector
+financiero o un editor anterior conservado en la caché HTTP. Construye los archivos públicos con el mismo script de
 publicación y abre el `r1-alpha75/index.html` resultante en un navegador nuevo.
 No publica esos archivos ni utiliza una sesión operativa.
 
@@ -20,7 +20,7 @@ También acepta `METROGESTION_BROWSER_EXECUTABLE` para un ejecutable local
 compatible. La ejecución local del 29/10/2026 utilizó Chrome 156.0.8078.73 y zona
 Europe/Madrid. No necesita PostgreSQL.
 
-## Cuatro escenarios
+## Cinco escenarios
 
 1. **Arranque frío:** se carga el index publicado y su grafo real de módulos,
    incluida la cadena heredada completa. Se comprueba la versión visible,
@@ -40,7 +40,12 @@ Europe/Madrid. No necesita PostgreSQL.
    idéntica sin petición HTTP demuestra que está en caché. El arranque candidato
    debe obtener los bytes actuales mediante `?v=75.25-continuidad-001` y no
    ejecutar el lector anterior. Se comprueba también la revisión nueva de
-   Hotel, Histórico y Panel, manteniendo la versión visible 75.25.
+   los módulos que lo importan, manteniendo la versión visible 75.25.
+5. **Editor anterior:** se acredita en caché la URL real
+   `hotel-editor.js?v=75.25-paradas-002`, con los bytes del commit `18ba1e8`.
+   El index candidato debe obtener la huella exacta del editor corregido y su
+   helper de fechas con `75.25-editor-fechas-001`, sin ejecutar el editor anterior.
+   La cadena de Hotel, Histórico y Panel usa esta misma revisión.
 
 El tercer escenario comprueba la recuperación observada del cargador de módulos.
 No demuestra que toda indisponibilidad de red pueda recuperarse ni que exista
@@ -73,6 +78,17 @@ Los fixtures no forman parte del sitio publicado.
 Su respuesta antigua también recibe una marca de ejecución de prueba. La
 respuesta actual se contrasta con el archivo construido, no con una copia
 simulada del lector.
+
+`fixtures/alpha75-editor-before-fechas001.js` conserva los 22.408 bytes de
+`r1-alpha75/src/hotel-editor.js` del commit
+`18ba1e87739b6cf22b644ffa01c44bc01d65e29c`, con SHA256:
+
+```text
+b3db99af9cb4e663909ab04032826fae50644394b523e6487722ce728f1b020d
+```
+
+La respuesta antigua recibe únicamente la marca de ejecución del ensayo. La
+respuesta candidata se contrasta con los bytes de la construcción pública.
 
 ## Aislamiento y límites
 

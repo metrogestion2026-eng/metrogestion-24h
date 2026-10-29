@@ -268,6 +268,14 @@ tenían; esta nueva suite consulta las cifras SQL y los datos manuales exactos.
 
 ### Arranque y caché
 
+La ampliación del 29/10 añade el guardado completo de Hotel y corrige la pérdida
+de precisión al reenviar fechas no editadas. Seis escenarios SQL del editor,
+ocho del parser y ocho recorridos de navegador ejercitan la persistencia real
+de T, trabajos y anotaciones. La operación conserva microsegundos y las dos
+horas repetidas del cambio de horario. Un contrato del lector bloquea el editor
+ante un backend incompatible. Detalle, migración, evidencias y límites:
+[`alpha75-editor-fechas-exactas-001.md`](alpha75-editor-fechas-exactas-001.md).
+
 Un ensayo separado construye los archivos públicos y abre el index real de
 Alpha75, sin sustituir su shell ni los controladores heredados. La frontera de
 autenticación devuelve una sesión nula y rechaza llamadas de datos. El
@@ -283,6 +291,8 @@ módulos obtiene la candidata mediante otra petición. Estos tres escenarios se
 conservan. Un cuarto almacena el lector financiero anterior a CONTINUIDAD-001,
 acredita la lectura desde caché y comprueba que el index candidato obtiene y
 ejecuta el lector actual mediante la revisión `75.25-continuidad-001`.
+Un quinto escenario acredita el editor previo en su URL real de caché y exige
+la huella del editor corregido por la revisión `75.25-editor-fechas-001`.
 
 El ensayo presupone que se recibe el index candidato. No acredita renovación
 automática de un index anterior: `version-refresh` compara sólo la versión
@@ -297,12 +307,15 @@ Comandos, procedencia y frontera:
 El flujo de CI también comprueba seguridad, sintaxis JavaScript, privacidad,
 paradas externas, exclusión de archivos internos y construcción pública. Un
 segundo job ejecuta las seis carreras anteriores, cinco escenarios de
-recuperación, las suites nativas de continuidad y barrera, catorce
-recorridos funcionales de navegador y cuatro escenarios de arranque en Ubuntu
+recuperación, las suites nativas de continuidad y barrera y las dos suites
+nuevas del editor: 58 escenarios nativos en total. Ejecuta 22
+recorridos funcionales de navegador y cinco escenarios de arranque en Ubuntu
 24.04, con paquetes oficiales PostgreSQL fijados y verificados por SHA256.
 El servidor admite únicamente su socket Unix dedicado, no escucha TCP y se
 detiene al terminar. Las pruebas SQL no se conectan a Supabase ni ejecutan
-sincronización.
+sincronización. Los 44 escenarios nativos anteriores conservan su runtime de
+continuidad; sólo los 14 nuevos del editor cargan el core completo y la nueva
+migración de fechas. La matriz distingue ambos alcances.
 
 No se declara aprobada toda la colección histórica del repositorio. La base de
 la candidata ya presentaba expectativas incompatibles en
@@ -314,8 +327,10 @@ entrega modifica esa cadena de carga; sus tres casos funcionales se conservan.
 ## Aceptación funcional pendiente
 
 Queda la aceptación con Metro en un entorno de prueba autorizado: sesión,
-dispositivo y permisos reales, servicios externos, guardado completo del editor
-y comprobación de la revisión servida por el alojamiento. Altas, reintentos,
+dispositivo y permisos reales, servicios externos y comprobación de la revisión
+servida por el alojamiento. El guardado completo del editor ya tiene ocho
+recorridos automatizados con persistencia SQL real y los límites documentados.
+Altas, reintentos,
 cierres, recuperación explícita, consultas de Histórico y arranque candidato
 con caché previa ya tienen evidencia automatizada dentro de las fronteras
 descritas; eso no autoriza instalarlos en el backend operativo. El criterio de

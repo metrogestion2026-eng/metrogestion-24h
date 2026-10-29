@@ -47,6 +47,8 @@ jobs:
           node --test
           tests/alpha75-substitution-continuity.test.mjs
           tests/alpha75-substitution-imputation.test.mjs
+          tests/alpha75-editor-timestamps.test.mjs
+          tests/alpha75-editor-save-result.test.mjs
       - name: Instalar PostgreSQL aislado para probar la candidata
         run: npm ci --prefix tests/sql --ignore-scripts --no-fund --no-audit
       - name: Comprobar paradas 24H con funciones y triggers reales
@@ -89,9 +91,13 @@ jobs:
         run: npm run test:continuity-concurrency --prefix tests/sql
       - name: Comprobar barrera de continuidad, entregas pendientes y confirmaciones MANTENIMENT
         run: npm run test:continuity-sync --prefix tests/sql
+      - name: Comprobar lectura y guardado completo del editor sobre continuidad
+        run: npm run test:editor --prefix tests/sql
+      - name: Comprobar precisión de fechas, cambio de horario y compatibilidad del editor
+        run: npm run test:editor-timestamps --prefix tests/sql
       - name: Preparar navegador de prueba
         run: node tests/integration/node_modules/playwright/cli.js install --with-deps chromium
-      - name: Comprobar formularios, Histórico y caché con navegador real
+      - name: Comprobar formularios, editor completo, Histórico y caché con navegador real
         run: npm test --prefix tests/integration
       - name: Detener PostgreSQL de prueba
         if: always()

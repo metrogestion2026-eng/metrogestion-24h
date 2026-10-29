@@ -134,6 +134,12 @@ operativo completo de rollover. Tampoco se certifican carga, todos los
 intercalados, otros niveles de aislamiento, cambios simultáneos de catálogo,
 otros consumidores de la cola, una sesión JWT real ni la hoja de Google.
 
+La ampliación posterior del editor se ejecuta en un fixture distinto, documentado
+en [README-native-editor.md](README-native-editor.md). Los 44 escenarios nativos
+anteriores no cargan la nueva migración de fechas: su core simplificado no es la
+definición que acepta su preflight. Las dos suites nuevas ejercitan el runtime
+real completo y mantienen separada esa cobertura.
+
 Los cinco recorridos reales de navegador y las cuatro lecturas están descritos
 en [README de integración](../integration/README.md). La aceptación con Metro,
 el alojamiento y los servicios reales requiere un entorno autorizado. El

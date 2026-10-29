@@ -1,7 +1,8 @@
-# Recorridos UI → PostgreSQL de paradas y continuidad
+# Recorridos UI → PostgreSQL de paradas, continuidad y editor
 
 Estas pruebas abren un navegador nuevo, recorren los formularios reales de 24H
-y los controles explícitos de recuperación y continuidad, ejecutan las RPC
+y los controles explícitos de recuperación y continuidad y el editor completo,
+ejecutan las RPC
 públicas en una base efímera y vuelven a leer Hotel, Panel, Histórico y Listados.
 Usan exclusivamente datos
 sintéticos. No instalan la candidata en Supabase, no utilizan cuentas operativas
@@ -39,16 +40,18 @@ Sin esa variable, se utiliza el Chromium instalado por Playwright.
 `METROGESTION_UI_SCREENSHOT_DIR=/tmp/metrogestion-ui-review` guarda opcionalmente
 capturas sintéticas: asistente, Hotel, Panel, diálogo de seguimiento,
 confirmación de recuperación, Histórico de la PA recuperada y previsiones de
-continuidad normal y con cero días.
+continuidad normal y con cero días. La suite del editor captura su overlay a
+1440 × 1000 y 390 × 844 con los CSS del index candidato.
 No se incluyen en el repositorio ni en el sitio publicado.
 
-Las tres suites con PostgreSQL también se ejecutan por separado, con las
+Las cuatro suites con PostgreSQL también se ejecutan por separado, con las
 mismas variables de entorno:
 
 ```bash
 node tests/integration/alpha75-ui-postgres.test.mjs
 node tests/integration/alpha75-recovery-history.test.mjs
 node tests/integration/alpha75-substitution-continuity.test.mjs
+node tests/integration/alpha75-hotel-editor.test.mjs
 ```
 
 ## Asistencia y paradas separadas: cuatro recorridos
@@ -133,6 +136,42 @@ comparar la referencia de Hotel con el periodo de Listados. Las pruebas previas
 conservan sus fechas históricas. Las medias decimales se comprueban en SQL; la
 presentación de la tarjeta conserva su redondeo anterior a km enteros.
 
+## Editor completo: ocho recorridos
+
+Se abre el formulario real mediante los botones de Hotel e Histórico y se
+envían todas sus T y trabajos a la cadena SQL real de guardado. El fixture
+incluye las 26 definiciones verificadas y la migración de fechas exactas,
+documentados en [README-native-editor.md](../sql/README-native-editor.md).
+
+1. Anotación en el origen después del vínculo, con doble clic y una sola
+   escritura. Después de cerrar su 24H por la RPC real, se guarda otra anotación
+   desde el editor histórico sin alterar taller, reserva ni fechas.
+2. Diagnóstico de un trabajo existente y anotación del destino: se mantienen IDs,
+   entrada con seis decimales, propietario y medias manuales distintas de ambas PA.
+3. Acabado y Recogido desde el formulario, recuperación por el botón real y
+   anotación posterior desde Histórico, conservando el instante de recuperación.
+4. Versión obsoleta: rechazo SQL específico, borrador en pantalla e inventario
+   persistido idéntico.
+5. Cambio deliberado de la entrada protegida: rollback de la operación completa,
+   incluida la nota que acompañaba al cambio.
+6. Respuesta HTTP truncada después del commit: estado incierto, ninguna nueva
+   escritura y una sola anotación comprobada al reabrir.
+7. Lector sin contrato de fechas: no se construye el formulario y no se envía
+   ninguna RPC de escritura.
+8. Error de transporte devuelto como valor, con `status: 0` y código vacío,
+   después de un commit real: mantiene el mismo bloqueo persistente que la
+   excepción. Es la forma documentada del SDK, reproducida por el transporte
+   controlado; no se presenta como ejecución del SDK real.
+
+Los dos casos inciertos también despachan un evento de clic pese al botón
+deshabilitado y exigen que no vuelva a aparecer la confirmación ni se envíe
+otra RPC. Se verifica así la guarda de escritura, además de la presentación.
+
+Antes del arreglo se reprodujeron el rechazo de fechas al guardar una nota y la
+reactivación incorrecta del guardado ante el error de transporte devuelto como
+valor. Las correcciones conservan las aserciones exactas; sólo se alineó el
+catálogo sintético `24H` con el código creado por la RPC.
+
 ## Piezas reales y dobles
 
 - Se sirve el archivo completo del asistente Alpha34, suprimiendo únicamente su
@@ -159,8 +198,10 @@ presentación de la tarjeta conserva su redondeo anterior a km enteros.
   con sus huellas en `fixtures/hotel-views.sql` y `security_invoker=true`.
   `fixtures/history-view.sql` conserva la definición literal de `hotel_por_dia`;
   el fixture comprueba su huella de catálogo antes de aplicar ambas migraciones
-  de continuidad y conserva `security_invoker=true`. Las tres suites cargan la
-  candidata completa. No reinstalan después las vistas antiguas.
+  de continuidad y conserva `security_invoker=true`. Las cuatro suites cargan
+  esas migraciones sin reinstalar después las vistas antiguas. La del editor
+  añade el runtime completo de persistencia y la migración de fechas; las tres
+  anteriores mantienen sus dobles explícitos del editor.
 - La RPC `public.guardar_activacion_24h`, la migración congelada y sus funciones
   y triggers se ejecutan en PostgreSQL nativo. Las altas de taller del escenario
   se hacen mediante la RPC pública, sin simular un formulario de taller.
@@ -174,7 +215,9 @@ presentación de la tarjeta conserva su redondeo anterior a km enteros.
   permitidas explícitamente. PostgreSQL genera el JSON de las lecturas para
   conservar fechas `DATE` literales; no se convierten mediante la zona de Node.
   Usuario, sesión y catálogos son sintéticos. Las tablas auxiliares de anotaciones
-  se crean con filas sintéticas; se ejercen su consulta y render, no su guardado.
+  se crean con filas sintéticas; las tres suites anteriores ejercen su consulta
+  y render. La suite del editor sí guarda anotaciones mediante las funciones
+  reales y comprueba la lectura desde otra conexión.
   Las dos suites anteriores mantienen sus respuestas financieras vacías; la
   suite de continuidad usa vistas reales. Documentos y dispositivos mantienen
   respuestas vacías delimitadas.
@@ -190,17 +233,20 @@ usa contexto nuevo, service workers bloqueados, un proxy local que no reenvía,
 resolución externa deshabilitada y una lista de origen permitido. Cualquier
 petición de la página fuera del harness hace fallar la prueba.
 
-Estas tres suites con PostgreSQL no prueban Supabase Auth, RLS de usuarios
+Estas cuatro suites con PostgreSQL no prueban Supabase Auth, RLS de usuarios
 reales, PostgREST ni el SDK de Supabase. Tampoco certifican una sesión completa,
 el arranque entre versiones, cachés, instalación, documentos ni sincronización
 contra una hoja. La facturación cubierta se limita a la proyección de los
 tramos DFM sintéticos y la conservación de los valores expresamente probados;
-no acredita cierres contables operativos. El shell y sus estilos son de prueba;
-las capturas no certifican la presentación completa de la app. Las carreras y
+no acredita cierres contables operativos. La navegación sigue siendo sintética;
+la suite del editor carga los estilos de producto y las otras conservan los
+estilos auxiliares anteriores. Las capturas no certifican la presentación
+completa de la app ni un dispositivo físico. Las carreras y
 el protocolo de entrega/ACK de MANTENIMENT tienen pruebas nativas separadas.
 
-`npm test --prefix tests/integration` ejecuta las tres suites y, después, los cuatro
+`npm test --prefix tests/integration` ejecuta los 22 recorridos de las cuatro
+suites y, después, los cinco
 escenarios de arranque descritos en [README-boot-cache.md](README-boot-cache.md).
-Los scripts `test:assistance`, `test:recovery-history`, `test:continuity` y `test:boot` permiten
+Los scripts `test:assistance`, `test:recovery-history`, `test:continuity`, `test:editor` y `test:boot` permiten
 ejecutarlos por separado. La prueba de caché mantiene habilitada la caché HTTP
 y conserva sus propios límites de sesión nula e index candidato recién servido.

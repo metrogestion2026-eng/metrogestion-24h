@@ -11,6 +11,7 @@ const repo = fileURLToPath(new URL('../../', import.meta.url));
 const run = promisify(execFile);
 export const SHARED_WIZARD = '/r1-alpha34/src/app.js';
 export const BILLING_READER = '/r1-alpha75/src/billing-data-hf2.js';
+export const HOTEL_EDITOR = '/r1-alpha75/src/hotel-editor.js';
 
 export async function startBootServer() {
   const published = await mkdtemp(path.join(os.tmpdir(), 'metrogestion-boot-static-'));
@@ -24,6 +25,8 @@ export async function startBootServer() {
   const oldWizard = await readFile(new URL('./fixtures/alpha34-before-paradas002.js', import.meta.url), 'utf8');
   const currentBilling = await readFile(path.join(published, BILLING_READER), 'utf8');
   const oldBilling = await readFile(new URL('./fixtures/alpha75-billing-before-continuidad001.js', import.meta.url), 'utf8');
+  const currentEditor = await readFile(path.join(published, HOTEL_EDITOR), 'utf8');
+  const oldEditor = await readFile(new URL('./fixtures/alpha75-editor-before-fechas001.js', import.meta.url), 'utf8');
   if (createHash('sha256').update(oldWizard).digest('hex') !== 'd48844d48691ddfdc514aca257a98a65c343f0eb4d70b55fef20907b8c126c13') {
     await rm(published, { recursive: true, force: true });
     throw new Error('The previous wizard fixture no longer matches commit 8d0138e');
@@ -32,8 +35,12 @@ export async function startBootServer() {
     await rm(published, { recursive: true, force: true });
     throw new Error('The previous billing reader no longer matches commit c5324299');
   }
+  if (createHash('sha256').update(oldEditor).digest('hex') !== 'b3db99af9cb4e663909ab04032826fae50644394b523e6487722ce728f1b020d') {
+    await rm(published, { recursive: true, force: true });
+    throw new Error('The previous Hotel editor no longer matches commit 18ba1e8');
+  }
   const calls = [], failures = [], denied = [];
-  const controls = { oldWizard: false, delayWizardBody: 0, failWizardRefresh: false, oldBilling: false };
+  const controls = { oldWizard: false, delayWizardBody: 0, failWizardRefresh: false, oldBilling: false, oldEditor: false };
   let origin;
   const server = createServer(async (request, response) => {
     try {
@@ -83,6 +90,9 @@ export async function startBootServer() {
       } else if (url.pathname === BILLING_READER) {
         source = Buffer.from(controls.oldBilling ? oldBilling + '\nglobalThis.__BOOT_STALE_BILLING__ = true;\n' : currentBilling);
         entry.sha256 = createHash('sha256').update(source).digest('hex');
+      } else if (url.pathname === HOTEL_EDITOR) {
+        source = Buffer.from(controls.oldEditor ? oldEditor + '\nglobalThis.__BOOT_STALE_EDITOR__ = true;\n' : currentEditor);
+        entry.sha256 = createHash('sha256').update(source).digest('hex');
       }
       const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
         '.css': 'text/css', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
@@ -106,6 +116,7 @@ export async function startBootServer() {
   return { origin, calls, failures, denied, controls,
     currentWizardSha256: createHash('sha256').update(currentWizard).digest('hex'),
     currentBillingSha256: createHash('sha256').update(currentBilling).digest('hex'),
+    currentEditorSha256: createHash('sha256').update(currentEditor).digest('hex'),
     async close() {
       server.closeAllConnections();
       await new Promise(resolve => server.close(resolve));

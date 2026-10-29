@@ -2,6 +2,8 @@ import { installVehicleCorrection, substituteLabel } from './hotel-vehicle-corre
 import { bindRecoveryPreview } from './hotel-operational-state.js?v=75.25-paradas-002';
 import { element } from '../../r1-alpha17/src/dom.js';
 import { refreshConfirmedHotelSave } from './hotel-save-completion.js?v=75.23-hf24';
+import { createEditorTimestampRestorer, EDITOR_TIMESTAMP_CONTRACT } from './hotel-editor-timestamps.js?v=75.25-editor-fechas-001';
+import { classifyHotelEditorSave } from './hotel-editor-save-result.js?v=75.25-editor-fechas-001';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js?v=75.25-paradas-002';
@@ -144,6 +146,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
   let loadedIdentity;
   let dirty = false;
   let saving = false;
+  let resultUncertain = false;
   let pendingDocumentRetry = null;
 
   const overlay = element('div', {
@@ -220,7 +223,15 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     return;
   }
 
+  if (detailResult.data.contrato_fechas_editor !== EDITOR_TIMESTAMP_CONTRACT) {
+    status.className = 'hotel-editor-status error';
+    status.textContent = 'No se puede abrir la edición: la aplicación y el servidor tienen revisiones incompatibles. '
+      + 'Deben actualizarse conjuntamente para conservar las fechas exactas. No se ha modificado la ficha.';
+    return;
+  }
+
   detail = prepareDetail(detailResult.data);
+  const restoreTimestamps = createEditorTimestampRestorer(detailResult.data, detail);
   let documentsByGroup = new Map();
   let documentsWarning = '';
   try {
@@ -292,10 +303,11 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     getIdentity: () => loadedIdentity,
     acceptIdentity: ficha => { loadedIdentity = Object.freeze(editionIdentity(ficha)); },
     rpc: (name, args) => supabase.rpc(name, args),
-    isSaving: () => saving,
+    isSaving: () => saving || resultUncertain,
     setSaving: (busy, uncertain = false) => {
       saving = busy;
-      saveButton.disabled = busy || uncertain;
+      resultUncertain ||= uncertain;
+      saveButton.disabled = busy || resultUncertain;
       discardButton.disabled = busy;
       closeButton.disabled = busy;
     },
@@ -309,8 +321,22 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     },
   });
 
+  function showUncertainSave(reference) {
+    resultUncertain = true;
+    saving = false;
+    saveButton.disabled = true;
+    discardButton.disabled = false;
+    closeButton.disabled = false;
+    saveButton.textContent = 'Resultado sin confirmar';
+    status.className = 'hotel-editor-status error';
+    status.textContent = 'No se ha podido confirmar el resultado. Conserva los cambios '
+      + 'y vuelve a abrir esta ficha para comprobarla antes de repetir el guardado. '
+      + `Referencia ${reference}.`;
+  }
+
   saveButton.addEventListener('click', async () => {
     if (saving) return;
+    if (resultUncertain) return;
 
     if (pendingDocumentRetry) {
       saving = true;
@@ -381,32 +407,34 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     status.textContent = 'Guardando ficha y T. La escritura en MANTENIMENT depende de la sincronización autorizada…';
 
     const saveRequestId = requestId();
+    const timestampPayload = restoreTimestamps(detail,
+      alpha72FichaPayload(detail.ficha, detail), stagesPayloadWithCatalogues(detail.etapas));
     let saveResult;
     try {
       saveResult = await supabase.rpc('guardar_ficha_hotel_edicion_alpha73', {
       p_registro_id: detail.ficha.id,
       p_version: Number(detail.ficha.version),
-      p_ficha: alpha72FichaPayload(detail.ficha, detail),
-      p_etapas: stagesPayloadWithCatalogues(detail.etapas),
+      p_ficha: timestampPayload.ficha,
+      p_etapas: timestampPayload.etapas,
       p_identidad: loadedIdentity,
       p_request_id: saveRequestId
       });
     } catch (error) {
       // Un fallo de transporte no demuestra que el servidor haya cancelado.
       // No repetir automáticamente ni habilitar otra creación con un ID nuevo.
-      saving = false;
-      discardButton.disabled = false;
-      closeButton.disabled = false;
-      saveButton.textContent = 'Resultado sin confirmar';
-      status.className = 'hotel-editor-status error';
-      status.textContent = 'No se ha podido confirmar el resultado. Conserva los cambios '
-        + 'y vuelve a abrir esta ficha para comprobarla antes de repetir el guardado. '
-        + `Referencia ${saveRequestId}.`;
+      showUncertainSave(saveRequestId);
       return;
     }
-    const { data: saved, error: saveError } = saveResult;
+    const outcome = classifyHotelEditorSave(saveResult, {
+      requestId: saveRequestId, version: Number(detail.ficha.version), identity: loadedIdentity,
+    });
+    if (outcome.state === 'uncertain') {
+      showUncertainSave(saveRequestId);
+      return;
+    }
+    const { saved, error: saveError } = outcome;
 
-    if (saveError || !saved?.ok) {
+    if (outcome.state === 'rejected') {
       const fieldIssues = saveErrorIssues(detail, saveError);
       renderErrors(errorsHost, fieldIssues.length ? fieldIssues : [saveError?.message || 'No se pudo guardar la ficha.']);
       const focused = showValidationIssues(form, fieldIssues);

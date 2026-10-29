@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { SHARED_WIZARD, BILLING_READER, startBootServer } from './boot-server.mjs';
+import { SHARED_WIZARD, BILLING_READER, HOTEL_EDITOR, startBootServer } from './boot-server.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -48,7 +48,7 @@ test('Alpha75 published index and warm HTTP cache', { timeout: 60000 }, async t 
         assert.ok(server.calls.some(call => call.path === `/r1-alpha75/src/${file}` && call.query === '?v=75.25-paradas-002'), file);
       }
       for (const file of ['hotel-native.js', 'history-native.js', 'panel-native-hf23.js']) {
-        assert.ok(server.calls.some(call => call.path === `/r1-alpha75/src/${file}` && call.query === '?v=75.25-continuidad-001'), file);
+        assert.ok(server.calls.some(call => call.path === `/r1-alpha75/src/${file}` && call.query === '?v=75.25-editor-fechas-001'), file);
       }
       assert.ok((await page.evaluate(() => globalThis.__BOOT_AUTH_CALLS__)).includes('getSession'));
       assert.deepEqual(errors, []);
@@ -128,6 +128,41 @@ test('Alpha75 published index and warm HTTP cache', { timeout: 60000 }, async t 
         'The actual candidate graph must retrieve the current reader with the new revision');
         assert.deepEqual(errors, []);
       } finally {
+        await fresh.close();
+      }
+    });
+
+    await t.test('the editor graph replaces the precise previous version retained in HTTP cache', async () => {
+      const fresh = await browser.newContext({ timezoneId: 'Europe/Madrid', locale: 'es-ES', serviceWorkers: 'block' });
+      fresh.on('request', request => {
+        if (new URL(request.url()).origin !== server.origin) externalPageRequests.push(request.url());
+      });
+      try {
+        const editorPage = await fresh.newPage();
+        editorPage.setDefaultTimeout(10000);
+        editorPage.on('pageerror', error => errors.push(error.message));
+        await editorPage.goto(server.origin + '/__boot/prime');
+        const previousUrl = HOTEL_EDITOR + '?v=75.25-paradas-002';
+        server.controls.oldEditor = true;
+        const old = await editorPage.evaluate(async url => (await fetch(url, { cache: 'reload' })).text(), previousUrl);
+        assert.match(old, /__BOOT_STALE_EDITOR__/);
+        server.controls.oldEditor = false;
+        const before = server.calls.filter(call => call.path === HOTEL_EDITOR).length;
+        assert.equal(await editorPage.evaluate(async url => (await fetch(url)).text(), previousUrl), old);
+        assert.equal(server.calls.filter(call => call.path === HOTEL_EDITOR).length, before,
+          'The actual previous editor URL must be cached without a second HTTP request');
+        await editorPage.goto(server.origin + ENTRY);
+        await awaitBoot(editorPage);
+        assert.equal(await editorPage.evaluate(() => globalThis.__BOOT_STALE_EDITOR__), undefined);
+        const loaded = server.calls.filter(call => call.path === HOTEL_EDITOR).slice(before);
+        assert.ok(loaded.some(call => call.query === '?v=75.25-editor-fechas-001'
+          && call.sha256 === server.currentEditorSha256 && call.bodyEndedAt),
+        'The candidate must retrieve the exact corrected editor through its new graph');
+        assert.ok(server.calls.some(call => call.path === '/r1-alpha75/src/hotel-editor-timestamps.js'
+          && call.query === '?v=75.25-editor-fechas-001'));
+        assert.deepEqual(errors, []);
+      } finally {
+        server.controls.oldEditor = false;
         await fresh.close();
       }
     });

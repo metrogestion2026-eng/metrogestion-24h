@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node alpha75-ui-postgres.test.mjs && node alpha75-recovery-history.test.mjs && node alpha75-substitution-continuity.test.mjs && node alpha75-boot-cache.test.mjs",
+    "test": "node alpha75-ui-postgres.test.mjs && node alpha75-recovery-history.test.mjs && node alpha75-substitution-continuity.test.mjs && node alpha75-hotel-editor.test.mjs && node alpha75-boot-cache.test.mjs",
     "test:assistance": "node alpha75-ui-postgres.test.mjs",
     "test:recovery-history": "node alpha75-recovery-history.test.mjs",
     "test:continuity": "node alpha75-substitution-continuity.test.mjs",
+    "test:editor": "node alpha75-hotel-editor.test.mjs",
     "test:boot": "node alpha75-boot-cache.test.mjs"
   },
   "engines": { "node": ">=24" },
