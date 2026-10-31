@@ -1,7 +1,9 @@
 // 75.23-hf27: la media km/día es un dato propio de la parada.
  // No se multiplica por días para inventar km de periodo ni km totales.
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { createBillingReader } from './billing-data-hf2.js';
+import { createBillingReader } from './billing-data-hf2.js?v=75.25-continuidad-001';
+import { substitutionImputationBounds, substitutionOwnershipText } from './substitution-imputation.js?v=75.25-continuidad-001';
+import { openSubstitutionContinuity } from './substitution-continuity.js?v=75.25-continuidad-001';
 
 const DAY_MS = 86400000;
 const billingReader = createBillingReader(supabase);
@@ -127,8 +129,9 @@ function findPeriod(periods, referenceDate) {
 
 function billingSnapshot(row, stop, periods) {
   const referenceDate = dateOnly(row?.fecha_pizarra) || madridToday();
-  const startDate = dateOnly(stop?.fecha_inicio_parada) || dateOnly(row?.fecha_parada);
-  const declaredEnd = dateOnly(stop?.fecha_fin_parada);
+  const imputation = substitutionImputationBounds(stop, row?.fecha_parada);
+  const startDate = imputation.start;
+  const declaredEnd = imputation.end;
   const endDate = declaredEnd ? minDate(declaredEnd, referenceDate) : referenceDate;
   const totalDays = inclusiveDays(startDate, endDate);
   const period = findPeriod(periods, referenceDate);
@@ -151,6 +154,7 @@ function billingSnapshot(row, stop, periods) {
     periodDays,
     media,
     historical,
+    imputation,
   };
 }
 
@@ -271,13 +275,15 @@ async function renderBillingBody(body, row, allowManual) {
     const stop = data.stop;
     const snapshot = billingSnapshot(row, stop, data.periods);
     const type = billingClass(stop, row);
-    const periodLabel = snapshot.historical ? 'Días del periodo de la ficha' : 'Días del periodo actual';
+    const periodLabel = snapshot.imputation.linked
+      ? (snapshot.historical ? 'Días imputables del periodo de la ficha' : 'Días imputables del periodo actual')
+      : (snapshot.historical ? 'Días del periodo de la ficha' : 'Días del periodo actual');
     const periodNameLabel = snapshot.historical ? 'Periodo de la ficha' : 'Periodo actual';
 
     const grid = el('div', null, 'subst-grid a66-billing-grid');
     grid.append(
       metric(
-        'Días totales desde parada',
+        snapshot.imputation.linked ? 'Días imputables totales' : 'Días totales desde parada',
         formatNumber(snapshot.totalDays),
         snapshot.startDate
           ? `${formatDate(snapshot.startDate)}–${formatDate(snapshot.endDate)}`
@@ -315,6 +321,26 @@ async function renderBillingBody(body, row, allowManual) {
       'subst-period a66-billing-period'
     ));
 
+    if (snapshot.imputation.linked) {
+      body.append(el('div',
+        `Fechas físicas: parada ${formatDate(snapshot.imputation.physicalStart)} · fin ${snapshot.imputation.physicalEnd ? formatDate(snapshot.imputation.physicalEnd) : 'sin fecha de fin físico'}.`,
+        'a66-billing-note'));
+      if (stop.continuidad_entrada_id) body.append(el('p',
+        `Continuidad recibida de PA ${stop.continuidad_origen_numero_parada || '—'} · inicio de imputación ${formatDate(stop.fecha_inicio_imputacion)}.`,
+        'a75-continuity-summary'));
+      if (stop.continuidad_salida_id) body.append(el('p',
+        `Continuidad hacia PA ${stop.continuidad_destino_numero_parada || '—'} · fin de imputación ${formatDate(stop.fecha_fin_imputacion)}${snapshot.totalDays === 0 ? ' · 0 días imputables' : ''}.`,
+        'a75-continuity-summary'));
+      const ownership = substitutionOwnershipText(stop);
+      if (ownership) body.append(el('p', ownership, 'a75-continuity-ownership'));
+      if (row?.id) {
+        const showLink = el('button', 'Ver continuidad', 'button secondary compact');
+        showLink.type = 'button';
+        showLink.addEventListener('click', () => openSubstitutionContinuity(row.id, { readOnly: true }));
+        body.append(showLink);
+      }
+    }
+
     if (allowManual && type === 'DFM' && stop.seguimiento_id && await isPrimaryAdmin()) {
       if (!body.isConnected || generation !== billingReader.generation || renderId !== billingRenders.get(body)) return;
       body.append(createManualEditor(row, stop, snapshot, () => renderBillingBody(body, row, allowManual)));
@@ -348,7 +374,7 @@ export function createSubstitutionBilling(row, { allowManual = false } = {}) {
   // Evita que el enriquecedor antiguo vuelva a controlar este componente nativo.
   box.dataset.alpha31 = '1';
   box.dataset.alpha66Billing = '1';
-  box.dataset.alpha75Billing = '75.23-hf27';
+  box.dataset.alpha75Billing = '75.25-continuidad-001';
   box.append(el('h4', 'Sustitución / facturación'));
   const body = el('div', null, 'a66-substitution-body');
   box.append(body);

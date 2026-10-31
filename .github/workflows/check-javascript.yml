@@ -32,9 +32,77 @@ jobs:
         run: node --test tests/security-*.test.mjs
       - name: Comprobar paradas de vehículos externos y reintentos
         run: node --test tests/alpha75-paradas-externas.test.mjs
-      - name: Comprobar fechas y navegación del asistente 24H
-        run: node --test tests/alpha75-24h-wizard-close.test.mjs
+      - name: Comprobar planificación, autorización y reanudación de órdenes de sincronización
+        run: node --test tests/alpha75-sync-executor*.test.mjs
+      - name: Comprobar fechas, navegación y cierre independiente de la asistencia 24H
+        run: >-
+          node --test
+          tests/alpha75-24h-wizard-close.test.mjs
+          tests/alpha75-24h-independent-close.test.mjs
+          tests/alpha75-24h-followup-close.test.mjs
+          tests/alpha75-24h-fecha-fin-reparacion.test.mjs
+          tests/alpha75-24h-parada-completada.test.mjs
+          tests/alpha75-sin-sustitucion-2675.test.mjs
+          tests/alpha75-2556-24h-taller-prioridad.test.mjs
+      - name: Comprobar continuidad, reparto de días y respuesta incierta
+        run: >-
+          node --test
+          tests/alpha75-substitution-continuity.test.mjs
+          tests/alpha75-substitution-imputation.test.mjs
+          tests/alpha75-editor-timestamps.test.mjs
+          tests/alpha75-editor-save-result.test.mjs
+      - name: Instalar PostgreSQL aislado para probar la candidata
+        run: npm ci --prefix tests/sql --ignore-scripts --no-fund --no-audit
+      - name: Comprobar paradas 24H con funciones y triggers reales
+        run: npm test --prefix tests/sql
       - name: Comprobar exclusión de archivos internos y páginas antiguas
         run: python3 tests/pages-public-files.test.py
       - name: Verificar compilación pública
         run: python3 .github/scripts/build-pages.py _site
+
+  native-integration:
+    runs-on: ubuntu-24.04
+    env:
+      METROGESTION_LOCAL_PG_DSN: 'postgresql://metrogestion_test@localhost/postgres?host=/tmp/metrogestion-pg17-native/socket&port=55473'
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Preparar Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Instalar bibliotecas del PostgreSQL aislado
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libicu74 libxml2 libpam0g libssl3t64 libldap2 libsystemd0 libreadline8t64 liblz4-1 libzstd1 libxslt1.1 libgssapi-krb5-2 libselinux1 libuuid1
+      - name: Instalar dependencias de pruebas fijadas
+        run: |
+          npm ci --prefix tests/sql --ignore-scripts --no-fund --no-audit
+          npm ci --prefix tests/integration --ignore-scripts --no-fund --no-audit
+      - name: Arrancar PostgreSQL17 sin conexiones de red
+        run: python3 .github/scripts/local-postgres17.py start
+      - name: Comprobar carreras con dos sesiones y bloqueos observados
+        run: npm run test:concurrency --prefix tests/sql
+      - name: Comprobar recuperación explícita y conservación de otras actuaciones
+        run: npm run test:recovery --prefix tests/sql
+      - name: Comprobar continuidad, imputación y conservación de hechos reales
+        run: npm run test:continuity --prefix tests/sql
+      - name: Comprobar concurrencia del traspaso entre PA
+        run: npm run test:continuity-concurrency --prefix tests/sql
+      - name: Comprobar barrera de continuidad, entregas pendientes y confirmaciones MANTENIMENT
+        run: npm run test:continuity-sync --prefix tests/sql
+      - name: Comprobar lectura y guardado completo del editor sobre continuidad
+        run: npm run test:editor --prefix tests/sql
+      - name: Comprobar precisión de fechas, cambio de horario y compatibilidad del editor
+        run: npm run test:editor-timestamps --prefix tests/sql
+      - name: Comprobar autorización exacta de órdenes y acuses de sincronización
+        run: npm run test:sync-execution --prefix tests/sql
+      - name: Preparar navegador de prueba
+        run: node tests/integration/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Comprobar formularios, editor completo, Histórico y caché con navegador real
+        run: npm test --prefix tests/integration
+      - name: Detener PostgreSQL de prueba
+        if: always()
+        run: python3 .github/scripts/local-postgres17.py stop

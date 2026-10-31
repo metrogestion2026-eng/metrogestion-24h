@@ -1,0 +1,1343 @@
+-- Isolated synthetic sync boundary. No operational rows or external writes.
+-- Eleven definitions below are literal schema-only runtime captures (29/10/2026).
+-- Outbox shape/constraints are real; authentication is the harness actor double.
+-- Dependencies outside PARADA dispatch/ACK/import are labelled doubles below.
+BEGIN;
+SET LOCAL check_function_bodies=off;
+CREATE SCHEMA IF NOT EXISTS extensions;
+-- PostgreSQL-native SHA-256 adapter for pgcrypto.digest(text,text); same bytes,
+-- no extension install, network or credential lookup in this test database.
+CREATE FUNCTION extensions.digest(text,text) RETURNS bytea LANGUAGE sql IMMUTABLE
+ SET search_path=pg_catalog AS $$ SELECT CASE WHEN $2='sha256' THEN sha256(convert_to($1,'UTF8')) ELSE NULL END $$;
+ALTER TABLE app_private.manteniment_parada_sync
+ ADD COLUMN fecha_inicio_parada_origen date,
+ ADD COLUMN fila_manteniment integer,
+ ADD COLUMN ultimo_payload_confirmado jsonb NOT NULL DEFAULT '{}',
+ ADD COLUMN tancament_supervisado_por uuid,
+ ADD COLUMN tancament_supervisado_en timestamptz,
+ ADD COLUMN creado_en timestamptz NOT NULL DEFAULT clock_timestamp(),
+ ADD COLUMN actualizado_en timestamptz NOT NULL DEFAULT clock_timestamp();
+ALTER TABLE app_private.manteniment_parada_sync ADD CONSTRAINT fixture_sync_id_uq UNIQUE(sync_id);
+ALTER TABLE public.vehiculos ADD COLUMN IF NOT EXISTS activo boolean DEFAULT true,
+ ADD COLUMN baja_manual_bloquea_sync boolean DEFAULT false,
+ ADD COLUMN IF NOT EXISTS fecha_matriculacion date,
+ ADD COLUMN fuente_manteniment_fila integer,
+ ADD COLUMN fuente_manteniment_actualizado_en timestamptz;
+CREATE TABLE app_private.manteniment_parada_outbox(
+ seguimiento_id uuid NOT NULL PRIMARY KEY,sync_id uuid NOT NULL,revision integer NOT NULL DEFAULT 1,
+ estado text NOT NULL DEFAULT 'pendiente',payload jsonb NOT NULL,
+ intentos integer NOT NULL DEFAULT 0,creado_en timestamptz NOT NULL DEFAULT clock_timestamp(),
+ actualizado_en timestamptz NOT NULL DEFAULT clock_timestamp(),confirmado_en timestamptz,
+ ultimo_error text NOT NULL DEFAULT '',
+ CONSTRAINT manteniment_parada_outbox_estado_check CHECK(estado=ANY(ARRAY['pendiente','confirmado','retenida_manual']))
+);
+ALTER TABLE app_private.manteniment_parada_outbox ENABLE ROW LEVEL SECURITY;
+CREATE TABLE app_private.manteniment_activo_outbox(
+ vehiculo_id uuid PRIMARY KEY,revision integer NOT NULL DEFAULT 1,estado text NOT NULL DEFAULT 'pendiente',
+ payload jsonb NOT NULL,intentos integer NOT NULL DEFAULT 0,actualizado_en timestamptz DEFAULT clock_timestamp(),
+ confirmado_en timestamptz,ultimo_error text NOT NULL DEFAULT ''
+);
+CREATE TABLE app_private.manteniment_sync_config(
+ id integer PRIMARY KEY,token_activo boolean,token_hash text,spreadsheet_id text,
+ pausa_importacion_identidad boolean,solo_lectura_manual_protegida boolean,escritura_segura_manual boolean,
+ ultima_version_script text,ultima_version_script_en timestamptz,actualizado_en timestamptz
+);
+-- Synthetic token only; production tokens and flags are never read by tests.
+INSERT INTO app_private.manteniment_sync_config VALUES(1,true,
+ encode(extensions.digest('mg_'||repeat('a',64),'sha256'),'hex'),'SYNTHETIC_SHEET_CONTINUITY_75',true,true,false,NULL,NULL,NULL);
+CREATE TABLE public.manteniment_sync_ejecuciones(
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),detalle jsonb DEFAULT '{}',mensaje text DEFAULT '',filas_con_avisos integer DEFAULT 0
+);
+CREATE TABLE app_private.manteniment_t_trabajos(
+ seguimiento_id uuid,sync_id uuid,fuentes jsonb,actualizado_en timestamptz
+);
+-- Explicit doubles: fleet/master import and predictive work ingestion are outside
+-- this PARADA protocol. The real wrapper, filters, queue, ACK and PARADA importer
+-- below execute against real synthetic PostgreSQL tables.
+CREATE FUNCTION app_private.aplicar_snapshot_manteniment_base(jsonb,text,uuid,text) RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE x uuid; BEGIN INSERT INTO public.manteniment_sync_ejecuciones DEFAULT VALUES RETURNING id INTO x;
+ RETURN jsonb_build_object('ok',true,'ejecucion_id',x,'mensaje','Fixture synthetic snapshot'); END $$;
+CREATE FUNCTION app_private.manteniment_importar_trabajos(jsonb) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$;
+CREATE FUNCTION app_private.manteniment_guardar_pendientes_lectura(jsonb,timestamptz,boolean) RETURNS void LANGUAGE plpgsql AS $$ BEGIN RETURN; END $$;
+CREATE TABLE app_private.fixture_sync_works(seguimiento_id uuid PRIMARY KEY,asignados jsonb DEFAULT '[]',crear jsonb DEFAULT '[]',ajuste jsonb);
+CREATE FUNCTION app_private.manteniment_trabajos_asignados(uuid) RETURNS jsonb LANGUAGE sql STABLE AS $$
+ SELECT coalesce((SELECT asignados FROM app_private.fixture_sync_works WHERE seguimiento_id=$1),'[]') $$;
+CREATE FUNCTION app_private.manteniment_trabajos_por_crear(uuid) RETURNS jsonb LANGUAGE sql STABLE AS $$
+ SELECT coalesce((SELECT crear FROM app_private.fixture_sync_works WHERE seguimiento_id=$1),'[]') $$;
+CREATE FUNCTION app_private.manteniment_ajuste_24h(uuid) RETURNS jsonb LANGUAGE sql STABLE AS $$
+ SELECT ajuste FROM app_private.fixture_sync_works WHERE seguimiento_id=$1 $$;
+
+-- Literal runtime MD5: 992a216d5739ad6334cdc38837f98a23 (app_private.aplicar_snapshot_manteniment(jsonb,text,uuid,text))
+CREATE OR REPLACE FUNCTION app_private.aplicar_snapshot_manteniment(p_payload jsonb, p_modo text DEFAULT 'programada'::text, p_actor uuid DEFAULT NULL::uuid, p_origen text DEFAULT 'google_apps_script'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'app_private'
+AS $function$
+declare
+  v_payload jsonb := p_payload;
+  v_filas jsonb := '[]'::jsonb;
+  v_result jsonb;
+  v_bloqueadas integer := 0;
+  v_paradas integer := 0;
+  v_trabajos jsonb := '{}'::jsonb;
+  v_comandos jsonb := '[]'::jsonb;
+begin
+  -- MG20: pause both directions before any side effect; missing state is closed.
+  if coalesce((select c.pausa_importacion_identidad from app_private.manteniment_sync_config c where c.id = 1), true) then
+    raise exception using errcode = '55000',
+      message = 'MG_SYNC_PAUSADA_IDENTIDAD: Sincronización detenida hasta completar la revisión de identidad; no reenviar ni confirmar órdenes.';
+  end if;
+
+  if jsonb_typeof(p_payload) = 'object' and jsonb_typeof(p_payload->'filas') = 'array' then
+    select coalesce(jsonb_agg(f.value order by f.ordinality) filter (where not f.bloqueada), '[]'::jsonb),
+           count(*) filter (where f.bloqueada)
+      into v_filas, v_bloqueadas
+    from (
+      select e.value, e.ordinality,
+             exists (
+               select 1 from public.vehiculos v
+               where v.baja_manual_bloquea_sync = true
+                 and v.dfm = regexp_replace(upper(btrim(coalesce(e.value->>'dfm', ''))), '[[:space:]]+', '', 'g')
+             ) as bloqueada
+      from jsonb_array_elements(p_payload->'filas') with ordinality e(value, ordinality)
+    ) f;
+    v_payload := jsonb_set(p_payload, '{filas}', v_filas, true);
+  end if;
+
+  create temp table if not exists tmp_manteniment_cambios_maestro (
+    dfm text not null,
+    campo text not null,
+    cambio_en timestamptz not null,
+    primary key (dfm,campo)
+  ) on commit drop;
+  truncate tmp_manteniment_cambios_maestro;
+
+  insert into tmp_manteniment_cambios_maestro(dfm,campo,cambio_en)
+  select
+    regexp_replace(upper(btrim(coalesce(f.value->>'dfm',''))), '[[:space:]]+', '', 'g'),
+    c.key,
+    c.value::timestamptz
+  from jsonb_array_elements(v_filas) f(value)
+  cross join lateral jsonb_each_text(coalesce(f.value->'cambios_maestro','{}'::jsonb)) c
+  where c.key in (
+    'matricula','tipo_manteniment','upc','telefono','contrato_texto',
+    'fecha_matriculacion','fecha_alta_manteniment','asignacion_manteniment',
+    'marca','bastidor'
+  )
+    and c.value ~ '^\\d{4}-\\d{2}-\\d{2}T'
+  on conflict (dfm,campo) do update
+  set cambio_en=greatest(tmp_manteniment_cambios_maestro.cambio_en,excluded.cambio_en);
+
+  perform set_config('app.manteniment_importando_altas', '1', true);
+  v_result := app_private.aplicar_snapshot_manteniment_base(v_payload, p_modo, p_actor, p_origen);
+  if not coalesce((v_result->>'ok')::boolean, false) then
+    perform set_config('app.manteniment_importando_altas', '0', true);
+    return v_result;
+  end if;
+
+  update public.vehiculos v
+  set fecha_matriculacion = x.fecha_matriculacion::date
+  from jsonb_to_recordset(v_filas) as x(dfm text, fecha_matriculacion text)
+  where v.dfm = regexp_replace(upper(btrim(coalesce(x.dfm, ''))), '[[:space:]]+', '', 'g')
+    and btrim(coalesce(x.fecha_matriculacion, '')) ~ '^\d{4}-\d{2}-\d{2}$'
+    and v.fecha_matriculacion is distinct from x.fecha_matriculacion::date;
+  perform set_config('app.manteniment_importando_altas', '0', true);
+
+  v_paradas := app_private.manteniment_importar_paradas(p_payload->'paradas');
+  v_trabajos := app_private.manteniment_importar_trabajos(p_payload->'trabajos');
+
+  -- Keep the complete read-only feed apart from predictive order creation.
+  -- Legacy scripts already send the overdue/next-month window in trabajos.
+  if p_modo <> 'prueba' then
+    perform app_private.manteniment_guardar_pendientes_lectura(
+      case when p_payload ? 'pendientes' then p_payload->'pendientes' else p_payload->'trabajos' end,
+      (p_payload->>'generado_en')::timestamptz,
+      p_payload ? 'pendientes'
+    );
+  end if;
+
+
+  perform app_private.manteniment_encolar_parada(v.seguimiento_id)
+  from public.paradas_sustitucion_resumen v
+  join app_private.manteniment_parada_sync s using (seguimiento_id)
+  where v.clase_facturacion = 'DFM'
+    and v.sustituto is not null
+    and v.fecha_fin_parada is null
+    and s.fila_manteniment is not null;
+
+  -- Retira órdenes antiguas que quedaron pendientes antes de registrar la baja.
+  delete from app_private.manteniment_parada_outbox o
+  using public.vehiculos v
+  where o.estado='pendiente'
+    and v.dfm=regexp_replace(upper(btrim(o.payload->>'dfm')),'[[:space:]]+','','g')
+    and not v.activo and v.baja_manual_bloquea_sync;
+
+  -- Una baja manual explícita debe llegar a MANTENIMENT aunque la fila ALTA
+  -- ya no figure en la fotografía actual. La orden se conserva hasta que el
+  -- Apps Script la escriba y confirme, evitando perder la BAJA al archivar.
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'tipo', c.tipo,
+    'vehiculo_id', c.vehiculo_id,
+    'sync_id', c.sync_id,
+    'revision', c.revision,
+    'payload', c.payload
+  ) order by c.actualizado_en, c.tipo, c.clave), '[]'::jsonb)
+  into v_comandos
+  from (
+    select 'alta'::text as tipo, o.vehiculo_id, null::uuid as sync_id,
+           o.revision, o.payload, o.actualizado_en, o.vehiculo_id::text as clave
+    from app_private.manteniment_activo_outbox o
+    where o.estado = 'pendiente'
+    union all
+    select 'parada'::text, null::uuid, o.sync_id,
+           o.revision, o.payload, o.actualizado_en, o.sync_id::text
+    from app_private.manteniment_parada_outbox o
+    where o.estado = 'pendiente'
+    order by actualizado_en, tipo, clave
+    limit 200
+  ) c;
+
+  if v_bloqueadas > 0 then
+    update public.manteniment_sync_ejecuciones
+    set detalle = jsonb_set(coalesce(detalle, '{}'::jsonb), '{bajas_manuales_protegidas}', to_jsonb(v_bloqueadas), true),
+        mensaje = concat_ws(' ', mensaje, format('%s baja(s) manual(es) protegida(s).', v_bloqueadas))
+    where id = (v_result->>'ejecucion_id')::uuid;
+  end if;
+
+  -- The installed Apps Script already displays resultado.mensaje.
+  -- Include the rejected count there and retain row details in the run log.
+  if jsonb_array_length(coalesce(v_trabajos->'vinculos_rechazados','[]'::jsonb)) > 0 then
+    v_result := jsonb_set(v_result,'{mensaje}',to_jsonb(concat_ws(' ',v_result->>'mensaje',
+      format('%s vínculo(s) de otro vehículo omitido(s); revisar el detalle de sincronización.',
+        jsonb_array_length(v_trabajos->'vinculos_rechazados')))),true);
+    update public.manteniment_sync_ejecuciones
+    set mensaje=v_result->>'mensaje',
+        filas_con_avisos=coalesce(filas_con_avisos,0)+jsonb_array_length(v_trabajos->'vinculos_rechazados')
+    where id=(v_result->>'ejecucion_id')::uuid;
+  end if;
+
+  update public.manteniment_sync_ejecuciones
+  set detalle = coalesce(detalle, '{}'::jsonb) || jsonb_build_object(
+    'paradas_recibidas', v_paradas,
+    'trabajos_predictivos', v_trabajos,
+    'comandos_manteniment_pendientes', jsonb_array_length(v_comandos)
+  )
+  where id = (v_result->>'ejecucion_id')::uuid;
+
+  return v_result || jsonb_build_object(
+    'bajas_manuales_protegidas', v_bloqueadas,
+    'paradas_recibidas', v_paradas,
+    'trabajos_predictivos', v_trabajos,
+    'comandos_manteniment', v_comandos
+  );
+end;
+$function$;
+REVOKE ALL ON FUNCTION app_private.aplicar_snapshot_manteniment(jsonb,text,uuid,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION app_private.aplicar_snapshot_manteniment(jsonb,text,uuid,text) TO service_role;
+
+-- Literal runtime MD5: 9674d26e7fbd8204a9473a5e628bdcd2 (app_private.aplicar_snapshot_manteniment_7525(jsonb,text,uuid,text))
+CREATE OR REPLACE FUNCTION app_private.aplicar_snapshot_manteniment_7525(p_payload jsonb, p_modo text DEFAULT 'programada'::text, p_actor uuid DEFAULT NULL::uuid, p_origen text DEFAULT 'google_apps_script'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'app_private'
+AS $function$
+declare
+  v_result jsonb;
+  v_cierres jsonb;
+begin
+  v_result := app_private.aplicar_snapshot_manteniment(p_payload,p_modo,p_actor,p_origen);
+  if not coalesce((v_result->>'ok')::boolean,false) then
+    return v_result;
+  end if;
+
+  if p_payload ? 'cierres_facturacion' then
+    v_cierres := app_private.manteniment_importar_cierres_facturacion(
+      p_payload->'cierres_facturacion',
+      coalesce(nullif(p_payload->>'generado_en','')::timestamptz,now())
+    );
+  else
+    v_cierres := jsonb_build_object('recibidos',0,'actualizados',0);
+  end if;
+
+  update public.manteniment_sync_ejecuciones
+  set detalle=coalesce(detalle,'{}'::jsonb)
+      || jsonb_build_object('cierres_facturacion',v_cierres)
+  where id=(v_result->>'ejecucion_id')::uuid;
+
+  return v_result || jsonb_build_object('cierres_facturacion',v_cierres);
+end;
+$function$;
+REVOKE ALL ON FUNCTION app_private.aplicar_snapshot_manteniment_7525(jsonb,text,uuid,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION app_private.aplicar_snapshot_manteniment_7525(jsonb,text,uuid,text) TO service_role;
+
+-- Literal runtime MD5: b873346ac5887945dac0b6f674cb3c0a (app_private.manteniment_confirmar_comandos(text,jsonb))
+CREATE OR REPLACE FUNCTION app_private.manteniment_confirmar_comandos(p_token text, p_confirmaciones jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'app_private', 'extensions'
+AS $function$
+declare
+  v_config app_private.manteniment_sync_config%rowtype;
+  v_hash text;
+  v_item jsonb;
+  v_created jsonb;
+  v_seguimiento_id uuid;
+  v_payload jsonb;
+  v_count integer := 0;
+begin
+  select * into v_config from app_private.manteniment_sync_config where id = 1;
+  if not found or not v_config.token_activo or v_config.token_hash = '' then
+    raise exception 'La actualización automática de MANTENIMENT no está activada';
+  end if;
+  v_hash := encode(extensions.digest(p_token, 'sha256'), 'hex');
+  if v_hash is distinct from v_config.token_hash then raise exception 'Clave de conexión no válida'; end if;
+  -- MG20: pause both directions before any side effect; missing state is closed.
+  if coalesce(v_config.pausa_importacion_identidad, true) then
+    raise exception using errcode = '55000',
+      message = 'MG_SYNC_PAUSADA_IDENTIDAD: Sincronización detenida hasta completar la revisión de identidad; no reenviar ni confirmar órdenes.';
+  end if;
+
+  if jsonb_typeof(p_confirmaciones) <> 'array' or jsonb_array_length(p_confirmaciones) > 500 then
+    raise exception 'Las confirmaciones no tienen un formato válido';
+  end if;
+
+  perform set_config('app.manteniment_importando_altas', '1', true);
+  perform set_config('app.manteniment_importando_paradas', '1', true);
+  for v_item in select value from jsonb_array_elements(p_confirmaciones)
+  loop
+    if coalesce(v_item->>'estado', '') <> 'aplicado' then continue; end if;
+
+    if coalesce(v_item->>'tipo', 'parada') = 'alta' then
+      update app_private.manteniment_activo_outbox o
+      set estado = 'confirmado', confirmado_en = clock_timestamp(), intentos = intentos + 1
+      where o.vehiculo_id = (v_item->>'vehiculo_id')::uuid
+        and o.revision = (v_item->>'revision')::integer
+        and o.estado = 'pendiente';
+      if found then
+        update public.vehiculos
+        set fuente_manteniment_fila = nullif(v_item->>'fila', '')::integer,
+            fuente_manteniment_actualizado_en = clock_timestamp()
+        where id = (v_item->>'vehiculo_id')::uuid;
+        v_count := v_count + 1;
+      end if;
+    else
+      v_seguimiento_id := null;
+      v_payload := null;
+      update app_private.manteniment_parada_outbox o
+      set estado = 'confirmado', confirmado_en = clock_timestamp(), intentos = intentos + 1
+      where o.sync_id = (v_item->>'sync_id')::uuid
+        and o.revision = (v_item->>'revision')::integer
+        and o.estado = 'pendiente'
+      returning o.seguimiento_id, o.payload into v_seguimiento_id, v_payload;
+
+      if v_seguimiento_id is not null then
+        if jsonb_typeof(v_item->'trabajos_creados') = 'array' then
+          for v_created in select value from jsonb_array_elements(v_item->'trabajos_creados')
+          loop
+            if coalesce(v_created->>'trabajo_sync_id','') !~* '^[0-9a-f-]{36}$'
+               or coalesce(v_created->>'fila','') !~ '^[0-9]{1,6}$'
+            then
+              raise exception 'La confirmación de una necesidad creada no contiene identificador o fila válidos';
+            end if;
+
+            update app_private.manteniment_t_trabajos w
+            set fuentes = jsonb_build_array(jsonb_build_object(
+                  'fila', (v_created->>'fila')::integer,
+                  'clave_fila', coalesce(v_created->>'clave_fila','')
+                )),
+                actualizado_en = clock_timestamp()
+            where w.seguimiento_id = v_seguimiento_id
+              and w.sync_id = (v_created->>'trabajo_sync_id')::uuid;
+          end loop;
+        end if;
+
+        update app_private.manteniment_parada_sync s
+        set ultimo_payload_confirmado = v_payload,
+            fila_manteniment = nullif(v_item->>'fila', '')::integer
+        where s.seguimiento_id = v_seguimiento_id;
+        v_count := v_count + 1;
+      end if;
+    end if;
+  end loop;
+  perform set_config('app.manteniment_importando_paradas', '0', true);
+  perform set_config('app.manteniment_importando_altas', '0', true);
+  return jsonb_build_object('ok', true, 'confirmados', v_count);
+end;
+$function$;
+REVOKE ALL ON FUNCTION app_private.manteniment_confirmar_comandos(text,jsonb) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION app_private.manteniment_confirmar_comandos(text,jsonb) TO service_role;
+
+-- Literal runtime MD5: d91ede52a2d083ce33aaedb3cf35fd0f (app_private.manteniment_construir_payload_parada(uuid))
+CREATE OR REPLACE FUNCTION app_private.manteniment_construir_payload_parada(p_seguimiento_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'app_private'
+AS $function$
+declare
+  v_sync app_private.manteniment_parada_sync%rowtype;
+  v_ficha record;
+  v_resumen record;
+  v_periodo public.cierres_facturacion%rowtype;
+  v_periodo_sync public.cierres_facturacion%rowtype;
+  v_periodo_siguiente public.cierres_facturacion%rowtype;
+  v_fecha_k date;
+  v_dias integer;
+  v_km numeric;
+  v_hoy date := (now() at time zone 'Europe/Madrid')::date;
+  v_inicio date;
+  v_fin date;
+  v_anulada boolean;
+  v_tancament_payload text;
+  v_fecha_parada_payload date;
+  v_cierre_periodo_anterior jsonb := null;
+begin
+  select * into v_sync
+  from app_private.manteniment_parada_sync
+  where seguimiento_id=p_seguimiento_id;
+  if not found then return null; end if;
+
+  select r.*,p.fecha as fecha_pizarra
+  into v_ficha
+  from public.registros_hotel r
+  join public.pizarras p on p.id=r.pizarra_id
+  where r.seguimiento_id=p_seguimiento_id
+  order by (p.estado='en_curso') desc,p.fecha desc,r.actualizado_en desc,r.id desc
+  limit 1;
+  if not found then return null; end if;
+
+  if btrim(coalesce(v_ficha.vehiculo_reserva,''))='' then
+    return null;
+  end if;
+
+  select * into v_resumen
+  from public.paradas_sustitucion_resumen
+  where seguimiento_id=p_seguimiento_id;
+
+  v_anulada := coalesce(v_ficha.cancelado,false) or v_ficha.estado='anulado';
+  v_tancament_payload := btrim(coalesce(v_sync.tancament,''));
+  v_fecha_parada_payload := coalesce(v_sync.fecha_inicio_tramo,v_ficha.fecha_parada);
+
+  if v_tancament_payload<>'' then
+    select c.* into v_periodo_sync
+    from public.cierres_facturacion c
+    where v_tancament_payload=
+          'TANCAMENT '||(split_part(c.periodo,'-',2)::integer)::text
+      and (
+        v_sync.fecha_inicio_tramo between c.fecha_inicio and c.fecha_cierre
+        or v_sync.fecha_corte between c.fecha_inicio and c.fecha_cierre
+      )
+    order by c.fecha_inicio desc
+    limit 1;
+  end if;
+
+  if v_periodo_sync.periodo is not null
+     and not v_anulada
+     and coalesce(v_resumen.fecha_fin_parada,v_hoy+1)>v_periodo_sync.fecha_cierre
+  then
+    select c.* into v_periodo_siguiente
+    from public.cierres_facturacion c
+    where c.fecha_inicio>v_periodo_sync.fecha_cierre
+      and c.fecha_inicio<=v_hoy
+    order by c.fecha_inicio
+    limit 1;
+
+    if v_periodo_siguiente.periodo is not null then
+      v_cierre_periodo_anterior := jsonb_build_object(
+        'tancament',v_tancament_payload,
+        'fecha_k',v_periodo_sync.fecha_cierre
+      );
+      v_tancament_payload :=
+        'TANCAMENT '||(split_part(v_periodo_siguiente.periodo,'-',2)::integer)::text;
+      v_fecha_parada_payload := v_periodo_siguiente.fecha_inicio;
+      v_periodo := v_periodo_siguiente;
+
+      if v_resumen.fecha_fin_parada is not null then
+        v_fecha_k := least(v_resumen.fecha_fin_parada,v_periodo_siguiente.fecha_cierre);
+      elsif v_hoy>v_periodo_siguiente.fecha_cierre then
+        v_fecha_k := v_periodo_siguiente.fecha_cierre;
+      else
+        v_fecha_k := null;
+      end if;
+    end if;
+  end if;
+
+  if v_tancament_payload='' and not v_anulada then
+    select c.* into v_periodo
+    from public.cierres_facturacion c
+    where v_hoy between c.fecha_inicio and c.fecha_cierre
+    order by c.fecha_inicio desc
+    limit 1;
+    if v_periodo.periodo is not null then
+      v_tancament_payload :=
+        'TANCAMENT '||(split_part(v_periodo.periodo,'-',2)::integer)::text;
+    end if;
+  end if;
+
+  if v_cierre_periodo_anterior is null then
+    v_fecha_k := case
+      when v_ficha.retirado_hotel_activo
+           or v_ficha.estado in ('recuperado','reserva_liberada')
+        then coalesce(v_sync.fecha_corte,v_ficha.fecha_retirado_hotel::date,v_ficha.fecha_pizarra)
+      when btrim(coalesce(v_sync.tancament,''))<>'' then v_sync.fecha_corte
+      else null
+    end;
+  end if;
+
+  if v_periodo.periodo is null and v_tancament_payload<>'' then
+    select c.* into v_periodo
+    from public.cierres_facturacion c
+    where v_tancament_payload=
+          'TANCAMENT '||(split_part(c.periodo,'-',2)::integer)::text
+      and coalesce(v_fecha_parada_payload,v_hoy) between c.fecha_inicio and c.fecha_cierre
+    order by c.fecha_inicio desc
+    limit 1;
+  end if;
+
+  if v_sync.calculo_periodo_automatico and not v_sync.tancament_supervisado then
+    v_inicio := coalesce(v_fecha_parada_payload,v_resumen.fecha_inicio_parada);
+    v_fin := least(coalesce(v_fecha_k,v_hoy),coalesce(v_periodo.fecha_cierre,v_hoy),v_hoy);
+    v_dias := case when v_inicio is null then 0 else
+      greatest(0,v_fin-greatest(v_inicio,coalesce(v_periodo.fecha_inicio,v_inicio))+1)
+    end;
+    v_km := case when v_resumen.km_dia is not null
+      then round(v_dias::numeric*v_resumen.km_dia,2) end;
+  else
+    if v_sync.dias_parada_manual is not null and v_cierre_periodo_anterior is null then
+      v_dias := v_sync.dias_parada_manual;
+    elsif v_fecha_k is not null then
+      v_dias := greatest(
+        0,
+        v_fecha_k-greatest(
+          coalesce(v_fecha_parada_payload,v_resumen.fecha_inicio_parada,v_ficha.fecha_parada,v_ficha.fecha_pizarra),
+          coalesce(v_periodo.fecha_inicio,coalesce(v_fecha_parada_payload,v_resumen.fecha_inicio_parada,v_ficha.fecha_parada,v_ficha.fecha_pizarra))
+        )+1
+      );
+    else
+      v_dias := coalesce(v_resumen.dias_parada_total,0);
+    end if;
+    v_km := coalesce(
+      case when v_cierre_periodo_anterior is null then v_sync.km_facturables_manual end,
+      case when v_resumen.km_dia is not null then round(v_dias::numeric*v_resumen.km_dia,2) end
+    );
+  end if;
+
+  return jsonb_strip_nulls(jsonb_build_object(
+    'sync_id',v_sync.sync_id,
+    'seguimiento_id',p_seguimiento_id,
+    'dfm',coalesce(v_ficha.vehiculo_sustituido,''),
+    'matricula',coalesce(v_ficha.matricula_sustituido,''),
+    'tipo',coalesce(v_ficha.tipo_unidad,''),
+    'upc',coalesce(v_ficha.upc,''),
+    'numero_parada',case
+      when btrim(coalesce(v_ficha.numero_parada,''))='' then ''
+      else 'PA-'||btrim(v_ficha.numero_parada)
+    end,
+    'sustituto',coalesce(v_ficha.vehiculo_reserva,''),
+    'estado',case when v_anulada then 'ANULADA' else 'PARADA' end,
+    'fecha_programada',v_sync.fecha_programada_parada,
+    'fecha_parada',v_fecha_parada_payload,
+    'fecha_k',v_fecha_k,
+    'dias_parada',v_dias,
+    'marca',coalesce(v_ficha.marca,''),
+    'km_facturables',v_km,
+    'tancament',v_tancament_payload,
+    'tancament_supervisado',case
+      when v_cierre_periodo_anterior is not null then false
+      when btrim(coalesce(v_sync.tancament,''))='' then false
+      else v_sync.tancament_supervisado
+    end,
+    'cierre_periodo_anterior',v_cierre_periodo_anterior
+  ));
+end;
+$function$;
+REVOKE ALL ON FUNCTION app_private.manteniment_construir_payload_parada(uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION app_private.manteniment_construir_payload_parada(uuid) TO service_role;
+
+-- Literal runtime MD5: 990b85b6945b785ea3f1bfc3d508b2a4 (app_private.manteniment_importar_paradas(jsonb))
+CREATE OR REPLACE FUNCTION app_private.manteniment_importar_paradas(p_paradas jsonb)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'app_private'
+AS $function$
+declare
+  v_item jsonb;
+  v_sync app_private.manteniment_parada_sync%rowtype;
+  v_ficha public.registros_hotel%rowtype;
+  v_registro_id uuid;
+  v_k date;
+  v_q text;
+  v_fecha_parada date;
+  v_fecha_tramo date;
+  v_estado text;
+  v_cancelada boolean;
+  v_count integer := 0;
+begin
+  if p_paradas is null then return 0; end if;
+  if jsonb_typeof(p_paradas) <> 'array' or jsonb_array_length(p_paradas) > 500 then
+    raise exception 'El bloque PARADA no tiene un formato válido';
+  end if;
+
+  perform set_config('app.manteniment_importando_paradas', '1', true);
+  for v_item in select value from jsonb_array_elements(p_paradas)
+  loop
+    if coalesce(v_item->>'sync_id', '') !~ '^[0-9a-fA-F-]{36}$' then
+      raise exception 'Una fila PARADA no contiene un identificador válido';
+    end if;
+
+    select * into v_sync
+    from app_private.manteniment_parada_sync
+    where sync_id = (v_item->>'sync_id')::uuid
+    for update;
+    if not found then
+      raise exception 'Una fila PARADA no pertenece a Metrogestión';
+    end if;
+
+    v_estado := upper(btrim(coalesce(v_item->>'estado', '')));
+    if v_estado not in ('PARADA', 'ANULADA') then
+      raise exception 'Una fila vinculada debe conservar MANTENIMENT = PARADA o ANULADA';
+    end if;
+
+    select r.* into v_ficha
+    from public.registros_hotel r
+    join public.pizarras p on p.id = r.pizarra_id
+    where r.seguimiento_id = v_sync.seguimiento_id
+    order by (p.estado = 'en_curso') desc, p.fecha desc, r.actualizado_en desc, r.id desc
+    limit 1
+    for update of r;
+    if not found then
+      raise exception 'La PARADA vinculada ya no tiene ficha en Metrogestión';
+    end if;
+
+    v_cancelada := coalesce(v_ficha.cancelado, false) or v_ficha.estado = 'anulado';
+    if v_cancelada then
+      update app_private.manteniment_parada_sync
+      set fila_manteniment = nullif(v_item->>'fila', '')::integer
+      where seguimiento_id = v_sync.seguimiento_id;
+
+      perform set_config('app.manteniment_importando_paradas', '0', true);
+      perform app_private.manteniment_encolar_parada(v_sync.seguimiento_id);
+      perform set_config('app.manteniment_importando_paradas', '1', true);
+      v_count := v_count + 1;
+      continue;
+    end if;
+
+    if v_estado <> 'PARADA' then
+      raise exception 'Metrogestión mantiene activa esta fila; MANTENIMENT debe conservar PARADA';
+    end if;
+
+    v_fecha_tramo := nullif(v_item->>'fecha_parada', '')::date;
+    -- J puede ser un cambio de reserva o un corte: no reinicia la parada.
+    v_fecha_parada := coalesce(nullif(v_item->>'fecha_inicio_parada','')::date,
+      v_sync.fecha_inicio_parada_origen, v_fecha_tramo);
+    v_q := upper(btrim(coalesce(v_item->>'tancament', '')));
+    if v_q <> '' and v_q !~ '^TANCAMENT [0-9]{1,3}$' then
+      raise exception 'TANCAMENT debe ir seguido del número de periodo';
+    end if;
+    v_k := nullif(v_item->>'fecha_k', '')::date;
+    if v_q = '' and v_k is not null and v_fecha_parada is null then
+      raise exception 'Antes de recuperar en K debe indicarse la fecha real de parada en J';
+    end if;
+
+    update app_private.manteniment_parada_sync
+    set fecha_inicio_parada_origen = coalesce(nullif(v_item->>'fecha_inicio_parada','')::date,v_sync.fecha_inicio_parada_origen),
+        fecha_inicio_tramo = v_fecha_tramo,
+        fecha_programada_parada = nullif(v_item->>'fecha_programada', '')::date,
+        fecha_corte = case when v_q <> '' then v_k else null end,
+        tancament = v_q,
+        tancament_supervisado = case
+          when v_q is distinct from v_sync.tancament or v_k is distinct from v_sync.fecha_corte then false
+          else v_sync.tancament_supervisado
+        end,
+        tancament_supervisado_por = case
+          when v_q is distinct from v_sync.tancament or v_k is distinct from v_sync.fecha_corte then null
+          else v_sync.tancament_supervisado_por
+        end,
+        tancament_supervisado_en = case
+          when v_q is distinct from v_sync.tancament or v_k is distinct from v_sync.fecha_corte then null
+          else v_sync.tancament_supervisado_en
+        end,
+        dias_parada_manual = case
+          when v_sync.calculo_periodo_automatico and not v_sync.tancament_supervisado then null
+          when v_item ? 'dias_parada' then nullif(v_item->>'dias_parada', '')::integer
+          else v_sync.dias_parada_manual
+        end,
+        km_facturables_manual = case
+          when v_sync.calculo_periodo_automatico and not v_sync.tancament_supervisado then null
+          when v_item ? 'km_facturables' then nullif(v_item->>'km_facturables', '')::numeric
+          else v_sync.km_facturables_manual
+        end,
+        fila_manteniment = nullif(v_item->>'fila', '')::integer
+    where seguimiento_id = v_sync.seguimiento_id;
+
+    update public.registros_hotel r
+    set fecha_parada = v_fecha_parada,
+        version = coalesce(r.version, 0) + 1,
+        actualizado_en = clock_timestamp(),
+        modificado_por = coalesce(r.modificado_por, r.creado_por)
+    where r.seguimiento_id = v_sync.seguimiento_id
+      and not r.cancelado
+      and r.fecha_parada is distinct from v_fecha_parada;
+
+    v_registro_id := v_ficha.id;
+    if v_q = '' and v_k is not null then
+      update public.registros_hotel
+      set retirado_hotel_activo = true,
+          fecha_retirado_hotel = v_k::timestamp at time zone 'Europe/Madrid',
+          estado = case
+            when estado not in ('reserva_liberada', 'recuperado') then 'recuperado'
+            else estado
+          end,
+          version = coalesce(version, 0) + 1,
+          actualizado_en = clock_timestamp(),
+          modificado_por = coalesce(modificado_por, creado_por)
+      where id = v_registro_id
+        and (
+          not retirado_hotel_activo
+          or fecha_retirado_hotel::date is distinct from v_k
+          or estado not in ('reserva_liberada', 'recuperado')
+        );
+    end if;
+
+    perform set_config('app.manteniment_importando_paradas', '0', true);
+    perform app_private.manteniment_encolar_parada(v_sync.seguimiento_id);
+    perform set_config('app.manteniment_importando_paradas', '1', true);
+    v_count := v_count + 1;
+  end loop;
+  perform set_config('app.manteniment_importando_paradas', '0', true);
+  return v_count;
+end;
+$function$;
+REVOKE ALL ON FUNCTION app_private.manteniment_importar_paradas(jsonb) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION app_private.manteniment_importar_paradas(jsonb) TO service_role;
+
+-- Literal runtime MD5: f38b1c222134441f8338e4e949c10ab8 (app_private.recibir_snapshot_manteniment_7525(text,jsonb))
+CREATE OR REPLACE FUNCTION app_private.recibir_snapshot_manteniment_7525(p_token text, p_payload jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'app_private', 'extensions'
+AS $function$
+declare
+  v_config app_private.manteniment_sync_config%rowtype;
+  v_hash text;
+  v_mode text;
+  v_result jsonb;
+  v_retenidas_parada integer := 0;
+  v_retenidas_alta integer := 0;
+  v_safe_commands jsonb := '[]'::jsonb;
+  v_safe_count integer := 0;
+  v_script_version text := btrim(coalesce(p_payload->>'version_script',''));
+  v_version_validada constant text := 'alpha75-2026.10.26.1';
+begin
+  select * into v_config
+  from app_private.manteniment_sync_config
+  where id=1;
+
+  if not found or not v_config.token_activo or v_config.token_hash='' then
+    raise exception 'La actualización automática de MANTENIMENT no está activada';
+  end if;
+  if length(coalesce(p_token,''))<40 then
+    raise exception 'Clave de conexión no válida';
+  end if;
+
+  v_hash := encode(extensions.digest(p_token,'sha256'),'hex');
+  if v_hash is distinct from v_config.token_hash then
+    raise exception 'Clave de conexión no válida';
+  end if;
+
+  -- No bypass: the identity pause still blocks both directions.
+  if coalesce(v_config.pausa_importacion_identidad,true) then
+    raise exception using errcode='55000',
+      message='MG_SYNC_PAUSADA_IDENTIDAD: Sincronización detenida hasta completar la revisión de identidad; no reenviar ni confirmar órdenes.';
+  end if;
+
+  update app_private.manteniment_sync_config
+     set ultima_version_script=nullif(v_script_version,''),
+         ultima_version_script_en=clock_timestamp(),
+         actualizado_en=clock_timestamp()
+   where id=1;
+
+  v_mode := lower(btrim(coalesce(p_payload->>'modo','programada')));
+  if v_mode not in ('manual','programada','prueba') then
+    v_mode := 'programada';
+  end if;
+
+  v_result := app_private.aplicar_snapshot_manteniment_7525(
+    p_payload,v_mode,null,'google_apps_script'
+  );
+
+  if coalesce(v_config.solo_lectura_manual_protegida,false) then
+    update app_private.manteniment_parada_outbox
+       set estado='retenida_manual',
+           ultimo_error='Retenida: MANTENIMENT en modo lectura protegida; requiere revisión antes de escribir sobre datos manuales.',
+           actualizado_en=clock_timestamp()
+     where estado='pendiente';
+    get diagnostics v_retenidas_parada=row_count;
+
+    update app_private.manteniment_activo_outbox
+       set estado='retenida_manual',
+           ultimo_error='Retenida: MANTENIMENT en modo lectura protegida; requiere revisión antes de escribir sobre datos manuales.',
+           actualizado_en=clock_timestamp()
+     where estado='pendiente';
+    get diagnostics v_retenidas_alta=row_count;
+
+    v_result := jsonb_set(v_result,'{comandos_manteniment}','[]'::jsonb,true);
+    v_result := jsonb_set(
+      v_result,'{mensaje}',
+      to_jsonb(concat_ws(' ',
+        nullif(v_result->>'mensaje',''),
+        format('Modo lectura protegida: %s orden(es) retenida(s); no se ha escrito automáticamente en MANTENIMENT.',
+          v_retenidas_parada+v_retenidas_alta)
+      )),true
+    );
+    v_result := v_result || jsonb_build_object(
+      'solo_lectura_manual_protegida',true,
+      'escritura_segura_manual',false,
+      'version_script_recibida',nullif(v_script_version,''),
+      'version_script_validada',v_script_version=v_version_validada,
+      'ordenes_retenidas',v_retenidas_parada+v_retenidas_alta
+    );
+
+  elsif coalesce(v_config.escritura_segura_manual,false) then
+    if v_script_version<>v_version_validada then
+      update app_private.manteniment_parada_outbox
+         set estado='retenida_manual',
+             ultimo_error=format(
+               'Retenida: el Apps Script %s no incorpora la estabilización 75.25 validada.',
+               coalesce(nullif(v_script_version,''),'sin versión')
+             ),
+             actualizado_en=clock_timestamp()
+       where estado='pendiente';
+      get diagnostics v_retenidas_parada=row_count;
+
+      update app_private.manteniment_activo_outbox
+         set estado='retenida_manual',
+             ultimo_error=format(
+               'Retenida: el Apps Script %s no incorpora la estabilización 75.25 validada.',
+               coalesce(nullif(v_script_version,''),'sin versión')
+             ),
+             actualizado_en=clock_timestamp()
+       where estado='pendiente';
+      get diagnostics v_retenidas_alta=row_count;
+
+      v_result := jsonb_set(v_result,'{comandos_manteniment}','[]'::jsonb,true);
+      v_result := jsonb_set(
+        v_result,'{mensaje}',
+        to_jsonb(concat_ws(' ',
+          nullif(v_result->>'mensaje',''),
+          format('Escritura segura bloqueada: Apps Script %s no validado; %s orden(es) retenida(s).',
+            coalesce(nullif(v_script_version,''),'sin versión'),
+            v_retenidas_parada+v_retenidas_alta)
+        )),true
+      );
+    else
+      -- ALTA and destructive flows remain retained. Period rollover is not
+      -- classified as destructive because it only fills K in the previous
+      -- billing segment and creates a new period row.
+      update app_private.manteniment_activo_outbox
+         set estado='retenida_manual',
+             ultimo_error='Retenida por escritura segura: ALTA no se modifica automáticamente.',
+             actualizado_en=clock_timestamp()
+       where estado='pendiente';
+      get diagnostics v_retenidas_alta=row_count;
+
+      update app_private.manteniment_parada_outbox
+         set estado='retenida_manual',
+             ultimo_error='Retenida por escritura segura: AV24H/reapertura puede borrar o reorganizar datos existentes.',
+             actualizado_en=clock_timestamp()
+       where estado='pendiente'
+         and (
+           coalesce(jsonb_typeof(payload->'ajuste_24h'),'null')='object'
+           or coalesce((payload #>> '{reversion_t,limpiar_fecha_entrada}')::boolean,false)
+           or coalesce((payload #>> '{reversion_t,limpiar_fecha_salida}')::boolean,false)
+           or coalesce((payload #>> '{reversion_t,limpiar_k_parada}')::boolean,false)
+         );
+      get diagnostics v_retenidas_parada=row_count;
+
+      select coalesce(jsonb_agg(cmd),'[]'::jsonb),count(*)::integer
+      into v_safe_commands,v_safe_count
+      from jsonb_array_elements(coalesce(v_result->'comandos_manteniment','[]'::jsonb)) cmd
+      where coalesce(cmd->>'tipo','parada')<>'alta'
+        and coalesce(jsonb_typeof(cmd #> '{payload,ajuste_24h}'),'null')<>'object'
+        and not coalesce((cmd #>> '{payload,reversion_t,limpiar_fecha_entrada}')::boolean,false)
+        and not coalesce((cmd #>> '{payload,reversion_t,limpiar_fecha_salida}')::boolean,false)
+        and not coalesce((cmd #>> '{payload,reversion_t,limpiar_k_parada}')::boolean,false);
+
+      v_result := jsonb_set(v_result,'{comandos_manteniment}',v_safe_commands,true);
+      v_result := jsonb_set(
+        v_result,'{mensaje}',
+        to_jsonb(concat_ws(' ',
+          nullif(v_result->>'mensaje',''),
+          format('Escritura segura 75.25 activa: %s orden(es) apta(s); %s orden(es) destructiva(s)/ALTA retenida(s).',
+            v_safe_count,v_retenidas_parada+v_retenidas_alta)
+        )),true
+      );
+    end if;
+
+    v_result := v_result || jsonb_build_object(
+      'solo_lectura_manual_protegida',false,
+      'escritura_segura_manual',true,
+      'version_script_recibida',nullif(v_script_version,''),
+      'version_script_validada',v_script_version=v_version_validada,
+      'ordenes_retenidas',v_retenidas_parada+v_retenidas_alta,
+      'ordenes_seguras',v_safe_count
+    );
+  end if;
+
+  return v_result;
+end;
+$function$;
+REVOKE ALL ON FUNCTION app_private.recibir_snapshot_manteniment_7525(text,jsonb) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION app_private.recibir_snapshot_manteniment_7525(text,jsonb) TO service_role;
+
+-- Literal runtime MD5: bfcf82b05f9e9c3e4846b898d3c2e151 (public.confirmar_comandos_manteniment(text,jsonb))
+CREATE OR REPLACE FUNCTION public.confirmar_comandos_manteniment(p_token text, p_confirmaciones jsonb)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO 'pg_catalog', 'app_private'
+AS $function$
+  select app_private.manteniment_confirmar_comandos($1, $2);
+$function$;
+REVOKE ALL ON FUNCTION public.confirmar_comandos_manteniment(text,jsonb) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.confirmar_comandos_manteniment(text,jsonb) TO service_role;
+
+-- Literal runtime MD5: e2fdb5553bcb90cbd7f9baada8bf90c9 (app_private.manteniment_preflight_solo_lectura(text,jsonb))
+CREATE OR REPLACE FUNCTION app_private.manteniment_preflight_solo_lectura(p_token text, p_cliente jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog'
+AS $function$
+declare
+  v_config record;
+  v_wrapper oid;
+  v_receptor oid;
+  v_wrapper_sha text;
+  v_receptor_sha text;
+  v_receptor_ok boolean := false;
+  v_archivo_ok boolean := false;
+  v_barreras_ok boolean := false;
+  v_compatible boolean := false;
+  v_motivos jsonb := '[]'::jsonb;
+  v_version_script constant text := 'alpha75-2026.10.26.1';
+  v_version_preflight constant text := 'alpha75-preflight-2026.10.27.1';
+begin
+  -- La configuración es privada. SECURITY DEFINER solo permite esta lectura;
+  -- ambas funciones están restringidas a service_role y exigen el token activo.
+  select token_activo, token_hash, spreadsheet_id,
+         solo_lectura_manual_protegida, escritura_segura_manual,
+         pausa_importacion_identidad
+    into v_config
+    from app_private.manteniment_sync_config
+   where id = 1;
+
+  if not found
+     or v_config.token_activo is distinct from true
+     or coalesce(v_config.token_hash, '') !~ '^[0-9a-f]{64}$'
+     or coalesce(p_token, '') !~* '^mg_[0-9a-f]{64}$'
+     or encode(extensions.digest(p_token, 'sha256'), 'hex')
+        is distinct from v_config.token_hash then
+    raise exception using errcode = '28000',
+      message = 'Clave de conexión no válida.';
+  end if;
+
+  if jsonb_typeof(p_cliente) is distinct from 'object' then
+    raise exception using errcode = '22023',
+      message = 'Metadatos de comprobación no válidos.';
+  end if;
+  if exists (
+       select 1 from jsonb_object_keys(p_cliente) as k(key)
+        where k.key not in ('version_script', 'version_preflight',
+                            'escritura_segura_manual', 'spreadsheet_id')
+     )
+     or jsonb_typeof(p_cliente->'version_script') is distinct from 'string'
+     or jsonb_typeof(p_cliente->'version_preflight') is distinct from 'string'
+     or jsonb_typeof(p_cliente->'spreadsheet_id') is distinct from 'string'
+     or jsonb_typeof(p_cliente->'escritura_segura_manual') is distinct from 'boolean'
+     or (p_cliente->>'version_script') !~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$'
+     or (p_cliente->>'version_preflight') !~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$'
+     or (p_cliente->>'spreadsheet_id') !~ '^[A-Za-z0-9_-]{20,150}$'
+     or (p_cliente->>'version_script') ~* 'mg_[0-9a-f]{64}'
+     or (p_cliente->>'version_preflight') ~* 'mg_[0-9a-f]{64}' then
+    raise exception using errcode = '22023',
+      message = 'Metadatos de comprobación no válidos.';
+  end if;
+
+  -- Solo catálogo: nunca se ejecutan receptor, importador ni confirmador.
+  v_wrapper := to_regprocedure('public.recibir_snapshot_manteniment(text,jsonb)');
+  v_receptor := to_regprocedure('app_private.recibir_snapshot_manteniment_7525(text,jsonb)');
+  if v_wrapper is not null and v_receptor is not null then
+    v_wrapper_sha := encode(extensions.digest(pg_get_functiondef(v_wrapper), 'sha256'), 'hex');
+    v_receptor_sha := encode(extensions.digest(pg_get_functiondef(v_receptor), 'sha256'), 'hex');
+    v_receptor_ok := coalesce(
+      v_wrapper_sha = '2e7bd5cb02bb5f582b9eaa241cc7d2db8b36879fe8b048de71e150aeee9defbd'
+      and v_receptor_sha = 'd5f484eee92b433ae9e8a176e16a4ce1727f0909692628cca65414080511e494'
+      and not has_function_privilege('anon', v_wrapper, 'EXECUTE')
+      and not has_function_privilege('authenticated', v_wrapper, 'EXECUTE')
+      and has_function_privilege('service_role', v_wrapper, 'EXECUTE')
+      and not has_function_privilege('anon', v_receptor, 'EXECUTE')
+      and not has_function_privilege('authenticated', v_receptor, 'EXECUTE')
+      and has_function_privilege('service_role', v_receptor, 'EXECUTE'), false
+    );
+  end if;
+
+  v_archivo_ok := coalesce(
+    nullif(v_config.spreadsheet_id, '') = p_cliente->>'spreadsheet_id', false
+  );
+  v_barreras_ok := v_config.solo_lectura_manual_protegida is true
+    and v_config.escritura_segura_manual is false
+    and v_config.pausa_importacion_identidad is true;
+  v_compatible := (p_cliente->>'version_script') = v_version_script
+    and (p_cliente->>'version_preflight') = v_version_preflight
+    and p_cliente->'escritura_segura_manual' = 'true'::jsonb
+    and v_archivo_ok and v_receptor_ok;
+
+  if p_cliente->>'version_script' <> v_version_script then
+    v_motivos := v_motivos || '["VERSION_SCRIPT_DISTINTA"]'::jsonb;
+  end if;
+  if p_cliente->>'version_preflight' <> v_version_preflight then
+    v_motivos := v_motivos || '["VERSION_PREFLIGHT_DISTINTA"]'::jsonb;
+  end if;
+  if p_cliente->'escritura_segura_manual' <> 'true'::jsonb then
+    v_motivos := v_motivos || '["CLIENTE_SIN_ESCRITURA_SEGURA"]'::jsonb;
+  end if;
+  if not v_archivo_ok then
+    v_motivos := v_motivos || '["ARCHIVO_DISTINTO"]'::jsonb;
+  end if;
+  if not v_receptor_ok then
+    v_motivos := v_motivos || '["RECEPTOR_NO_VERIFICADO"]'::jsonb;
+  end if;
+  if not v_barreras_ok then
+    v_motivos := v_motivos || '["BARRERAS_NO_CERRADAS"]'::jsonb;
+  end if;
+
+  return jsonb_build_object(
+    'protocolo', 'manteniment-preflight-v1',
+    'version_preflight', v_version_preflight,
+    'solo_lectura', true,
+    'compatible', v_compatible,
+    'version_script_recibida', p_cliente->>'version_script',
+    'version_script_esperada', v_version_script,
+    'version_preflight_recibida', p_cliente->>'version_preflight',
+    'cliente_escritura_segura_manual', p_cliente->'escritura_segura_manual',
+    'archivo_coincide', v_archivo_ok,
+    'receptor_coincide', v_receptor_ok,
+    'barreras', jsonb_build_object(
+      'solo_lectura_manual_protegida', v_config.solo_lectura_manual_protegida,
+      'escritura_segura_manual', v_config.escritura_segura_manual,
+      'pausa_importacion_identidad', v_config.pausa_importacion_identidad
+    ),
+    'barreras_cerradas', v_barreras_ok,
+    'sincronizacion_autorizada', false,
+    'motivos', v_motivos
+  );
+end;
+$function$;
+REVOKE ALL ON FUNCTION app_private.manteniment_preflight_solo_lectura(text,jsonb) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION app_private.manteniment_preflight_solo_lectura(text,jsonb) TO service_role;
+
+-- Literal runtime MD5: 4c45ec5bd66f0b16c1f0b891016ac272 (public.recibir_snapshot_manteniment(text,jsonb))
+CREATE OR REPLACE FUNCTION public.recibir_snapshot_manteniment(p_token text, p_payload jsonb)
+ RETURNS jsonb
+ LANGUAGE sql
+ SET search_path TO 'pg_catalog', 'app_private'
+AS $function$
+  select app_private.recibir_snapshot_manteniment_7525(p_token,p_payload);
+$function$;
+REVOKE ALL ON FUNCTION public.recibir_snapshot_manteniment(text,jsonb) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.recibir_snapshot_manteniment(text,jsonb) TO service_role;
+
+-- Literal runtime MD5: e5471f0afa4761619421f50501d74e10 (app_private.manteniment_encolar_parada(uuid))
+CREATE OR REPLACE FUNCTION app_private.manteniment_encolar_parada(p_seguimiento_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'app_private'
+AS $function$
+declare
+  v_payload jsonb;
+  v_trabajos jsonb;
+  v_trabajos_crear jsonb;
+  v_ajuste_24h jsonb;
+  v_sync_id uuid;
+  v_numero_parada text;
+begin
+  if exists (
+    select 1 from public.vehiculos v
+    join lateral (
+      select r.vehiculo_sustituido from public.registros_hotel r
+      join public.pizarras p on p.id=r.pizarra_id
+      where r.seguimiento_id=p_seguimiento_id
+      order by (p.estado='en_curso') desc,p.fecha desc,r.actualizado_en desc,r.id desc
+      limit 1
+    ) ficha on v.dfm=regexp_replace(upper(btrim(ficha.vehiculo_sustituido)),'[[:space:]]+','','g')
+    where not v.activo and v.baja_manual_bloquea_sync
+  ) then
+    delete from app_private.manteniment_parada_outbox where seguimiento_id=p_seguimiento_id;
+    return;
+  end if;
+
+  v_trabajos := app_private.manteniment_trabajos_asignados(p_seguimiento_id);
+  v_trabajos_crear := app_private.manteniment_trabajos_por_crear(p_seguimiento_id);
+  v_ajuste_24h := app_private.manteniment_ajuste_24h(p_seguimiento_id);
+  v_payload := app_private.manteniment_construir_payload_parada(p_seguimiento_id);
+
+  if v_payload is null then
+    if jsonb_array_length(v_trabajos) = 0
+       and jsonb_array_length(v_trabajos_crear) = 0
+       and v_ajuste_24h is null
+    then
+      delete from app_private.manteniment_parada_outbox
+      where seguimiento_id = p_seguimiento_id;
+      return;
+    end if;
+
+    select s.sync_id,
+           nullif(btrim(coalesce(r.numero_parada, '')), '')
+      into v_sync_id, v_numero_parada
+    from app_private.manteniment_parada_sync s
+    join lateral (
+      select h.numero_parada
+      from public.registros_hotel h
+      join public.pizarras p on p.id = h.pizarra_id
+      where h.seguimiento_id = p_seguimiento_id
+      order by (p.estado = 'en_curso') desc, p.fecha desc,
+               h.actualizado_en desc, h.id desc
+      limit 1
+    ) r on true
+    where s.seguimiento_id = p_seguimiento_id;
+
+    if v_sync_id is null or v_numero_parada is null then return; end if;
+    v_payload := jsonb_build_object(
+      'sync_id', v_sync_id,
+      'seguimiento_id', p_seguimiento_id,
+      'numero_parada', 'PA-' || v_numero_parada,
+      'solo_trabajos', true,
+      'trabajos_asignados', v_trabajos,
+      'trabajos_crear', v_trabajos_crear
+    );
+  else
+    v_payload := jsonb_set(v_payload, '{solo_trabajos}', 'false'::jsonb, true);
+    v_payload := jsonb_set(v_payload, '{trabajos_asignados}', v_trabajos, true);
+    v_payload := jsonb_set(v_payload, '{trabajos_crear}', v_trabajos_crear, true);
+    v_sync_id := (v_payload->>'sync_id')::uuid;
+  end if;
+
+  if v_ajuste_24h is not null then
+    v_payload := jsonb_set(v_payload, '{ajuste_24h}', v_ajuste_24h, true);
+  end if;
+
+  insert into app_private.manteniment_parada_outbox(
+    seguimiento_id, sync_id, revision, estado, payload,
+    actualizado_en, confirmado_en, ultimo_error
+  ) values (
+    p_seguimiento_id, v_sync_id, 1, 'pendiente', v_payload,
+    clock_timestamp(), null, ''
+  )
+  on conflict (seguimiento_id) do update
+  set sync_id = excluded.sync_id,
+      revision = app_private.manteniment_parada_outbox.revision + 1,
+      estado = 'pendiente',
+      payload = excluded.payload,
+      actualizado_en = clock_timestamp(),
+      confirmado_en = null,
+      ultimo_error = '';
+end;
+$function$;
+REVOKE ALL ON FUNCTION app_private.manteniment_encolar_parada(uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION app_private.manteniment_encolar_parada(uuid) TO service_role;
+
+-- Literal runtime MD5: 823e6232b5204250a31de63b4a8b00ff (app_private.manteniment_importar_cierres_facturacion(jsonb,timestamp with time zone))
+CREATE OR REPLACE FUNCTION app_private.manteniment_importar_cierres_facturacion(p_cierres jsonb, p_generado_en timestamp with time zone DEFAULT now())
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'app_private'
+AS $function$
+declare
+  v_item jsonb;
+  v_sync_id uuid;
+  v_seguimiento_id uuid;
+  v_tancament text;
+  v_periodo public.cierres_facturacion%rowtype;
+  v_fecha_i date;
+  v_fecha_j date;
+  v_fecha_k date;
+  v_dias integer;
+  v_km numeric;
+  v_source_key text;
+  v_count integer := 0;
+begin
+  if p_cierres is null then
+    return jsonb_build_object('recibidos',0,'actualizados',0);
+  end if;
+  if jsonb_typeof(p_cierres) <> 'array' then
+    raise exception 'cierres_facturacion debe ser un array JSON';
+  end if;
+  if jsonb_array_length(p_cierres) > 2500 then
+    raise exception 'cierres_facturacion supera el máximo de 2500 filas';
+  end if;
+
+  create temp table if not exists tmp_facturacion_tancament_keys (
+    source_key text primary key,
+    periodo text not null
+  ) on commit drop;
+  truncate tmp_facturacion_tancament_keys;
+
+  for v_item in select value from jsonb_array_elements(p_cierres)
+  loop
+    if upper(btrim(coalesce(v_item->>'estado',''))) <> 'PARADA' then
+      continue;
+    end if;
+
+    v_tancament := upper(btrim(coalesce(v_item->>'tancament','')));
+    if v_tancament !~ '^TANCAMENT [0-9]+$' then
+      raise exception 'TANCAMENT no válido en fila %: %',
+        coalesce(v_item->>'fila','?'), v_item->>'tancament';
+    end if;
+
+    v_fecha_i := nullif(v_item->>'fecha_programada','')::date;
+    v_fecha_j := nullif(v_item->>'fecha_parada','')::date;
+    v_fecha_k := nullif(v_item->>'fecha_k','')::date;
+    if v_fecha_j is null then
+      raise exception 'El cierre de la fila % requiere J',
+        coalesce(v_item->>'fila','?');
+    end if;
+
+    -- J identifica el tramo y desambigua el año. Si K sigue vacía porque la
+    -- recuperación física aún no existe, el cierre contable usa el último día
+    -- del periodo, exactamente como TANCAMENT.
+    select c.* into v_periodo
+    from public.cierres_facturacion c
+    where v_fecha_j between c.fecha_inicio and c.fecha_cierre
+      and v_tancament =
+        'TANCAMENT ' || (split_part(c.periodo,'-',2)::integer)::text
+    order by c.fecha_inicio desc
+    limit 1;
+    if not found then
+      if v_fecha_j < (select min(c.fecha_inicio) from public.cierres_facturacion c) then
+        -- Histórico anterior al calendario de cierres configurado: se conserva
+        -- en MANTENIMENT pero no se incorpora a esta capa contable.
+        continue;
+      end if;
+      raise exception 'No se puede resolver el periodo de % / J=% en fila %',
+        v_tancament, v_fecha_j, coalesce(v_item->>'fila','?');
+    end if;
+
+    if v_fecha_k is null and v_periodo.fecha_cierre >= (now() at time zone 'Europe/Madrid')::date then
+      -- Periodo todavía abierto: no se congela en el histórico contable.
+      continue;
+    end if;
+    v_fecha_k := coalesce(v_fecha_k, v_periodo.fecha_cierre);
+    if v_fecha_k < v_fecha_j or v_fecha_k > v_periodo.fecha_cierre then
+      raise exception 'Fin contable inválido en fila %: J=% K=% cierre=%',
+        coalesce(v_item->>'fila','?'), v_fecha_j, v_fecha_k, v_periodo.fecha_cierre;
+    end if;
+
+    v_dias := nullif(v_item->>'dias_parada','')::integer;
+    v_km := nullif(v_item->>'km_facturables','')::numeric;
+    if v_dias is not null and v_dias < 0 then
+      raise exception 'Días negativos en cierre de fila %', coalesce(v_item->>'fila','?');
+    end if;
+    if v_km is not null and v_km < 0 then
+      raise exception 'KM negativos en cierre de fila %', coalesce(v_item->>'fila','?');
+    end if;
+
+    v_sync_id := case
+      when coalesce(v_item->>'sync_id','') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then (v_item->>'sync_id')::uuid
+      else null
+    end;
+    v_seguimiento_id := null;
+    if v_sync_id is not null then
+      select s.seguimiento_id into v_seguimiento_id
+      from app_private.manteniment_parada_sync s
+      where s.sync_id = v_sync_id;
+    end if;
+
+    if v_sync_id is not null then
+      v_source_key := concat_ws('|',
+        'SYNC',v_sync_id::text,v_periodo.periodo,
+        v_fecha_j::text,
+        upper(btrim(coalesce(v_item->>'sustituto','')))
+      );
+    else
+      v_source_key := concat_ws('|',
+        'MANTENIMENT',
+        regexp_replace(upper(btrim(coalesce(v_item->>'dfm',''))),'[[:space:]]+','','g'),
+        regexp_replace(upper(btrim(coalesce(v_item->>'matricula',''))),'[[:space:]]+','','g'),
+        upper(btrim(coalesce(v_item->>'numero_parada',''))),
+        upper(btrim(coalesce(v_item->>'sustituto',''))),
+        v_periodo.periodo,
+        v_fecha_j::text,
+        coalesce(v_fecha_i,v_fecha_j)::text
+      );
+    end if;
+
+    insert into public.facturacion_tancament_cierres (
+      source_key,sync_id,seguimiento_id,fila_manteniment,
+      dfm,matricula,numero_parada,sustituto,tancament,periodo,
+      fecha_programada,fecha_inicio_tramo,fecha_fin_tramo,
+      dias_facturables,km_facturables,marca,presente_en_manteniment,
+      payload_hash,capturado_en,actualizado_en
+    ) values (
+      v_source_key,v_sync_id,v_seguimiento_id,
+      nullif(v_item->>'fila','')::integer,
+      btrim(coalesce(v_item->>'dfm','')),
+      btrim(coalesce(v_item->>'matricula','')),
+      nullif(btrim(coalesce(v_item->>'numero_parada','')),''),
+      nullif(btrim(coalesce(v_item->>'sustituto','')),''),
+      v_tancament,v_periodo.periodo,
+      v_fecha_i,v_fecha_j,v_fecha_k,
+      v_dias,v_km,nullif(btrim(coalesce(v_item->>'marca','')),''),
+      true,md5(v_item::text),coalesce(p_generado_en,now()),now()
+    )
+    on conflict (source_key) do update
+    set sync_id=excluded.sync_id,
+        seguimiento_id=coalesce(excluded.seguimiento_id,public.facturacion_tancament_cierres.seguimiento_id),
+        fila_manteniment=excluded.fila_manteniment,
+        dfm=excluded.dfm,
+        matricula=excluded.matricula,
+        numero_parada=excluded.numero_parada,
+        sustituto=excluded.sustituto,
+        tancament=excluded.tancament,
+        periodo=excluded.periodo,
+        fecha_programada=excluded.fecha_programada,
+        fecha_inicio_tramo=excluded.fecha_inicio_tramo,
+        fecha_fin_tramo=excluded.fecha_fin_tramo,
+        dias_facturables=excluded.dias_facturables,
+        km_facturables=excluded.km_facturables,
+        marca=excluded.marca,
+        presente_en_manteniment=true,
+        payload_hash=excluded.payload_hash,
+        actualizado_en=now();
+
+    insert into tmp_facturacion_tancament_keys(source_key,periodo)
+    values (v_source_key,v_periodo.periodo)
+    on conflict (source_key) do nothing;
+
+    v_count := v_count + 1;
+  end loop;
+
+  update public.facturacion_tancament_cierres f
+  set presente_en_manteniment=false,
+      actualizado_en=now()
+  where f.periodo in (select distinct periodo from tmp_facturacion_tancament_keys)
+    and f.presente_en_manteniment
+    and not exists (
+      select 1 from tmp_facturacion_tancament_keys k
+      where k.source_key=f.source_key
+    );
+
+  return jsonb_build_object('recibidos',jsonb_array_length(p_cierres),'actualizados',v_count);
+end;
+$function$;
+REVOKE ALL ON FUNCTION app_private.manteniment_importar_cierres_facturacion(jsonb,timestamptz) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION app_private.manteniment_importar_cierres_facturacion(jsonb,timestamptz) TO service_role;
+COMMIT;

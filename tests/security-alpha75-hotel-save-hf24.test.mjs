@@ -118,9 +118,9 @@ const row = registro_hotel_id => ({ registro_hotel_id });
 const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
  test('Pizarra e Histórico cargan exactamente el mismo editor corregido', () => {
   for (const path of ['hotel-native.js', 'history-card.js']) {
-    assert.match(source(`r1-alpha75/src/${path}`), /hotel-editor\.js\?v=75\.23-hf25/);
+    assert.match(source(`r1-alpha75/src/${path}`), /hotel-editor\.js\?v=75\.25-editor-fechas-001/);
   }
-  assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.23-hf28/);
+  assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.25-editor-fechas-001/);
   const html = source('r1-alpha75/index.html');
   const boot = source('r1-alpha75/src/boot75.js');
   assert.ok(html.includes('boot75.js?v=75.25'));
@@ -170,10 +170,10 @@ test('solo app.js puede escribir la versión visible de Metrogestión 75.25', ()
 test('75.25 declara propiedad de Listados antes de cargar la herencia', () => {
   const boot = source('r1-alpha75/src/boot75.js');
   const ownerAt = boot.indexOf("listados: 'alpha75'");
-  const appAt = boot.indexOf("import('./app.js?v=75.25')");
+  const appAt = boot.indexOf("import('./app.js?v=75.25-continuidad-001')");
   assert.ok(ownerAt >= 0);
   assert.ok(appAt > ownerAt);
-  for (const legacy of ['r1-alpha29','r1-alpha30','r1-alpha31','r1-alpha50']) {
+  for (const legacy of ['r1-alpha29','r1-alpha30','r1-alpha31','r1-alpha34','r1-alpha50']) {
     assert.match(boot, new RegExp(legacy));
   }
 });

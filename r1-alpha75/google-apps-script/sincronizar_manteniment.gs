@@ -4,7 +4,9 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
-  scriptVersion: 'alpha75-2026.10.17.1',
+  scriptVersion: 'alpha75-2026.10.26.1',
+  executorVersion: 'MG75-EJECUCION-ORDEN-001',
+  preflightVersion: 'alpha75-preflight-2026.10.27.1',
   escrituraSeguraManual: true,
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
   triggerHandler: 'metrogestionSincronizarProgramada',
@@ -75,6 +77,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Metrogestión')
     .addItem('Guardar clave de conexión', 'metrogestionGuardarClave')
+    .addItem('Seleccionar alcance exacto de órdenes', 'metrogestionSeleccionarAlcanceOrdenes')
     .addItem('Sincronizar ahora', 'metrogestionSincronizarAhora')
     .addSeparator()
     .addItem('Instalar actualización cada 6 horas', 'metrogestionInstalarActualizacion')
@@ -136,12 +139,164 @@ function metrogestionVerEstadoLocal() {
     `Disparador activo: ${triggers ? 'sí' : 'no'}`,
     `Última ejecución: ${lastAt}`,
     `Resultado: ${lastResult}`,
-    `Último paso: ${diagnostic.paso} (${diagnostic.fecha || 'sin fecha'})`,
+    `Último paso guardado: ${diagnostic.paso} (${diagnostic.fecha || 'sin fecha'}; versión del registro: ${diagnostic.version_ultimo_paso || 'sin registro'})`,
   ].join('\n'));
 }
 
+function metrogestionTextoPreflightSeguro_(value) {
+  return typeof value === 'string'
+    ? value.replace(/mg_[0-9a-f]{64}/ig, '[clave omitida]').slice(0, 300)
+    : '';
+}
+
+function metrogestionClavesPreflightExactas_(value, keys) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).length === keys.length
+    && keys.every(key => Object.prototype.hasOwnProperty.call(value, key));
+}
+
+// Consulta explícita e independiente del motor de sincronización. Solo lee la
+// clave de las propiedades y envía identidad declarada; no abre la hoja, no
+// registra progreso, no toca activadores y no solicita ni confirma órdenes.
+function metrogestionComprobarInstalacionSoloLectura() {
+  const token = metrogestionLeerToken_();
+  if (!/^mg_[0-9a-f]{64}$/i.test(token)) {
+    throw new Error('No hay una clave de conexión válida guardada. No se ha iniciado ninguna sincronización.');
+  }
+
+  let response;
+  try {
+    response = UrlFetchApp.fetch(METROGESTION.syncUrl, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        action: 'preflight',
+        token,
+        payload: {
+          version_script: METROGESTION.scriptVersion,
+          version_preflight: METROGESTION.preflightVersion,
+          escritura_segura_manual: METROGESTION.escrituraSeguraManual,
+          spreadsheet_id: METROGESTION.spreadsheetId,
+        },
+      }),
+      muteHttpExceptions: true,
+      followRedirects: false,
+    });
+  } catch (_) {
+    // Las excepciones de transporte pueden incluir el envío: nunca se reflejan.
+    throw new Error('No se ha podido conectar con la comprobación de solo lectura. No se ha iniciado ninguna sincronización.');
+  }
+
+  const code = response.getResponseCode();
+  if (code < 200 || code >= 300) {
+    throw new Error(`La comprobación de solo lectura ha respondido HTTP ${code}. No se ha iniciado ninguna sincronización.`);
+  }
+  let result;
+  try {
+    const body = response.getContentText();
+    if (body.length > 32000) throw new Error('Respuesta demasiado grande');
+    result = JSON.parse(body);
+  } catch (_) {
+    throw new Error('La comprobación de solo lectura no ha devuelto un resultado válido.');
+  }
+
+  const preflight = result?.preflight;
+  const barriers = preflight?.barreras;
+  const booleanFields = [
+    'compatible', 'cliente_escritura_segura_manual', 'archivo_coincide',
+    'receptor_coincide', 'barreras_cerradas',
+  ];
+  const versionFields = [
+    'version_preflight', 'version_script_recibida', 'version_script_esperada',
+    'version_preflight_recibida',
+  ];
+  const barrierFields = [
+    'solo_lectura_manual_protegida', 'escritura_segura_manual', 'pausa_importacion_identidad',
+  ];
+  const allowedReasons = [
+    'VERSION_SCRIPT_DISTINTA', 'VERSION_PREFLIGHT_DISTINTA', 'CLIENTE_SIN_ESCRITURA_SEGURA',
+    'ARCHIVO_DISTINTO', 'RECEPTOR_NO_VERIFICADO', 'BARRERAS_NO_CERRADAS',
+  ];
+  if (
+    !metrogestionClavesPreflightExactas_(result, ['ok', 'preflight', 'recibido_en'])
+    || !metrogestionClavesPreflightExactas_(preflight, [
+      'protocolo', 'solo_lectura', 'barreras', 'sincronizacion_autorizada', 'motivos',
+      ...booleanFields, ...versionFields,
+    ])
+    || !metrogestionClavesPreflightExactas_(barriers, barrierFields)
+    || result.ok !== true || preflight.protocolo !== 'manteniment-preflight-v1'
+    || preflight.solo_lectura !== true || preflight.sincronizacion_autorizada !== false
+    || !booleanFields.every(key => typeof preflight[key] === 'boolean')
+    || !versionFields.every(key => typeof preflight[key] === 'string'
+      && /^[a-z0-9][a-z0-9._-]{0,95}$/i.test(preflight[key])
+      && !/mg_[0-9a-f]{64}/i.test(preflight[key]))
+    || !barrierFields.every(key => barriers[key] === null || typeof barriers[key] === 'boolean')
+    || !Array.isArray(preflight.motivos) || preflight.motivos.length > allowedReasons.length
+    || !preflight.motivos.every(value => allowedReasons.includes(value))
+    || new Set(preflight.motivos).size !== preflight.motivos.length
+    || typeof result.recibido_en !== 'string'
+    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(result.recibido_en)
+    || !Number.isFinite(Date.parse(result.recibido_en))
+    || new Date(result.recibido_en).toISOString() !== result.recibido_en
+  ) {
+    throw new Error('La respuesta no acredita el protocolo de solo lectura. No se ha iniciado ninguna sincronización.');
+  }
+
+  const compatibleDeclarado = preflight.version_script_recibida === preflight.version_script_esperada
+    && preflight.version_preflight_recibida === preflight.version_preflight
+    && preflight.cliente_escritura_segura_manual === true
+    && preflight.archivo_coincide === true && preflight.receptor_coincide === true;
+  const barrerasCerradasLocalmente = barriers.solo_lectura_manual_protegida === true
+    && barriers.escritura_segura_manual === false
+    && barriers.pausa_importacion_identidad === true;
+  const motivosEsperados = [];
+  if (preflight.version_script_recibida !== preflight.version_script_esperada) motivosEsperados.push('VERSION_SCRIPT_DISTINTA');
+  if (preflight.version_preflight_recibida !== preflight.version_preflight) motivosEsperados.push('VERSION_PREFLIGHT_DISTINTA');
+  if (!preflight.cliente_escritura_segura_manual) motivosEsperados.push('CLIENTE_SIN_ESCRITURA_SEGURA');
+  if (!preflight.archivo_coincide) motivosEsperados.push('ARCHIVO_DISTINTO');
+  if (!preflight.receptor_coincide) motivosEsperados.push('RECEPTOR_NO_VERIFICADO');
+  if (!barrerasCerradasLocalmente) motivosEsperados.push('BARRERAS_NO_CERRADAS');
+  if (preflight.compatible !== compatibleDeclarado
+    || preflight.barreras_cerradas !== barrerasCerradasLocalmente
+    || preflight.motivos.length !== motivosEsperados.length
+    || !preflight.motivos.every(value => motivosEsperados.includes(value))) {
+    throw new Error('La respuesta de solo lectura contiene resultados incoherentes. No se ha iniciado ninguna sincronización.');
+  }
+
+  // Una respuesta con campos adicionales, órdenes o datos operativos ya se ha
+  // rechazado. Solo este contrato validado puede pasar al informe y al registro.
+  const server = {
+    protocolo: preflight.protocolo,
+    solo_lectura: true,
+    barreras: {},
+    sincronizacion_autorizada: false,
+    motivos: preflight.motivos.map(metrogestionTextoPreflightSeguro_),
+  };
+  booleanFields.forEach(key => { server[key] = preflight[key]; });
+  versionFields.forEach(key => { server[key] = metrogestionTextoPreflightSeguro_(preflight[key]); });
+  barrierFields.forEach(key => { server.barreras[key] = barriers[key]; });
+  const compatibleLocalmente = compatibleDeclarado
+    && preflight.version_script_recibida === METROGESTION.scriptVersion
+    && preflight.version_script_esperada === METROGESTION.scriptVersion
+    && preflight.version_preflight_recibida === METROGESTION.preflightVersion
+    && preflight.version_preflight === METROGESTION.preflightVersion;
+  const report = {
+    comprobacion: 'instalacion_solo_lectura',
+    version_script_actual: METROGESTION.scriptVersion,
+    version_preflight_actual: METROGESTION.preflightVersion,
+    diagnostico_apto: preflight.compatible && compatibleLocalmente
+      && preflight.barreras_cerradas && barrerasCerradasLocalmente,
+    sincronizacion_autorizada: false,
+    preflight: server,
+    recibido_en: metrogestionTextoPreflightSeguro_(result.recibido_en),
+  };
+  Logger.log(JSON.stringify(report));
+  return report;
+}
+
 function metrogestionSolicitarCiclo_(sheet, modo, token) {
-metrogestionPrepararHoja_(sheet);
+const alcance = metrogestionLeerAlcanceOrdenes_();
+metrogestionExigirAlcance_(alcance);
 const lastRow = sheet.getLastRow();
 if (lastRow < 2) throw new Error('MANTENIMENT no contiene filas de datos.');
 const values = sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
@@ -180,6 +335,7 @@ for (let index = 1; index < values.length; index += 1) {
   });
 }
 const paradas = metrogestionLeerParadasVinculadas_(values, notes);
+const cierresFacturacion = metrogestionLeerCierresFacturacion_(values, notes);
 const trabajos = metrogestionLeerTrabajos_(
   values,
   workNotes,
@@ -197,14 +353,17 @@ const payload = {
   hoja: METROGESTION.sheetName,
   modo,
   version_script: METROGESTION.scriptVersion,
+  version_ejecucion: METROGESTION.executorVersion,
   generado_en: generatedAt.toISOString(),
   archivo_modificado_en: modifiedAt.toISOString(),
   filas: rows,
   paradas,
+  cierres_facturacion: cierresFacturacion,
   trabajos,
   pendientes,
 };
-payload.checksum = metrogestionSha256_(JSON.stringify({ filas: rows, paradas, trabajos, pendientes }));
+payload.checksum = metrogestionSha256_(JSON.stringify({ filas: rows, paradas, cierres_facturacion: cierresFacturacion, trabajos, pendientes }));
+const solicitudEntrega = metrogestionIniciarSolicitudEntrega_();
 const response = UrlFetchApp.fetch(METROGESTION.syncUrl, {
   method: 'post',
   contentType: 'application/json',
@@ -224,6 +383,9 @@ if (code < 200 || code >= 300) {
   throw new Error(result.message || result.error || `Error HTTP ${code}.`);
 }
 if (result?.ok !== true) throw new Error(result?.error || 'La base de datos rechazó la sincronización.');
+// Conservar TODA la entrega antes de validar o seleccionar una orden. Algunas
+// revisiones PARADA sólo se entregan una vez: no se descartan las no elegidas.
+metrogestionConservarEntregaCompleta_(solicitudEntrega, result);
 const syncResult = result.resultado || {};
 return { syncResult, trabajos };
 }
@@ -541,6 +703,50 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
   return result;
 }
 
+
+function metrogestionNotaParadaId_(note) {
+  const match = String(note || '').match(/(?:^|\n)METROGESTION_PARADA:([0-9a-f-]{36})(?:\n|$)/i);
+  return match ? match[1] : '';
+}
+
+// Feed contable de solo lectura. Incluye también PARADA históricas/manuales sin
+// UUID: la ausencia de identidad operativa no puede sacar una fila de factura.
+function metrogestionLeerCierresFacturacion_(values, notes) {
+  const result = [];
+
+  for (let index = 1; index < values.length; index += 1) {
+    const row = values[index];
+    if (metrogestionNormalizar_(row[7]) !== 'PARADA') continue;
+    const tancament = metrogestionPeriodoTancament_(row[16], index + 1);
+    if (!tancament) continue;
+
+    const fechaJ = metrogestionFechaIso_(row[9], `de inicio de tramo de la fila ${index + 1}`);
+    if (!fechaJ) throw new Error(`La fila TANCAMENT ${index + 1} no tiene fecha J.`);
+    const fechaK = metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 1}`);
+    const periodoAbierto = !fechaK;
+
+    result.push({
+      fila: index + 1,
+      sync_id: metrogestionNotaParadaId_(notes[index]?.[0]),
+      dfm: row[0],
+      matricula: row[1],
+      tipo: row[2],
+      upc: row[3],
+      numero_parada: row[4],
+      sustituto: row[6],
+      estado: 'PARADA',
+      fecha_programada: metrogestionFechaIso_(row[8], `programada de la fila ${index + 1}`),
+      fecha_parada: fechaJ,
+      fecha_k: fechaK,
+      dias_parada: metrogestionNumero_(row[11], `Los días del cierre de la fila ${index + 1}`, periodoAbierto),
+      marca: row[14],
+      km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, periodoAbierto),
+      tancament,
+    });
+  }
+  return result;
+}
+
 function metrogestionNotaTrabajoId_(note) {
   const match = String(note || '').match(/(?:^|\n)METROGESTION_T:([0-9a-f-]{36})(?:\n|$)/i);
   return match ? match[1] : '';
@@ -839,6 +1045,7 @@ function metrogestionSiguienteCaducidadItv_(fechaCaducidadIso, fechaRealizadaIso
 
 
 function metrogestionCrearTrabajosDesdeHotel_(sheet, works, sheetState) {
+  if (sheet?.metrogestionSoloMemoria) return metrogestionCrearTrabajosSeguros_(sheet, works, sheetState);
   if (!Array.isArray(works) || !works.length) return [];
   const created = [];
   const used = new Set();
@@ -972,6 +1179,9 @@ function metrogestionCrearTrabajosDesdeHotel_(sheet, works, sheetState) {
 }
 
 function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks) {
+  if (!sheet?.metrogestionSoloMemoria) {
+    throw new Error('Las órdenes completas deben planificarse y autorizarse antes de escribir. No se ha aplicado esta orden.');
+  }
   return commands.map(command => {
     if (METROGESTION.escrituraSeguraManual && command?.tipo === 'alta') {
       throw new Error('La actualización automática de ALTA está bloqueada en modo protegido. No se ha modificado MANTENIMENT.');
@@ -1027,11 +1237,15 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
         trabajos_creados: createdWorks,
       };
     }
-    let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, sheetState);
+    const rolloverSourceRow = metrogestionCerrarPeriodoAnterior_(sheet, payload, syncId, sheetState);
+    let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, payload, sheetState);
     if (!rowNumber) rowNumber = metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState);
     const nuevaFila = !rowNumber;
     if (nuevaFila) rowNumber = metrogestionInsertarFilaParada_(sheet, payload, sheetState);
     metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuevaFila, sheetState);
+    if (nuevaFila && rolloverSourceRow) {
+      metrogestionCopiarFormulasCortePeriodo_(sheet, rolloverSourceRow, rowNumber);
+    }
     const createdWorks = metrogestionCrearTrabajosDesdeHotel_(
       sheet,
       Array.isArray(payload.trabajos_crear) ? payload.trabajos_crear : [],
@@ -1158,6 +1372,7 @@ function metrogestionObtenerCarpetaParada_(dfm, numeroParada, preferredUrls) {
 }
 
 function metrogestionEnlazarArchivoParada_(sheet, numeroParada, dfm, sheetState) {
+  if (sheet?.metrogestionSoloMemoria) return metrogestionPlanificarEnlacesArchivo_(sheet, numeroParada, dfm, sheetState);
   const stopKey = metrogestionClaveNumeroParada_(numeroParada);
   if (!stopKey) return 0;
   const canonicalStop = `PA-${stopKey}`;
@@ -1316,7 +1531,7 @@ function metrogestionResolverAsignacion_(assignment, rows, expectedStop, usedRow
   const found = candidates[0];
   // Una referencia retirada o sustituida por otro UUID no autoriza a escribir
   // sobre la fila que ahora ocupa su posición ni sobre una nota copiada a otra H.
-  if (!found) return { rowNumber: 0, syncId, alreadyLinked: true };
+  if (!found) throw new Error('La identidad del trabajo ya no corresponde a una única fila actual. La orden requiere revisión.');
   if (found.stop && found.stop !== expectedStop) {
     throw new Error(`La fila ${found.rowNumber} ya pertenece a otra actuación. No se ha reasignado.`);
   }
@@ -1358,6 +1573,13 @@ function metrogestionAplicarAsignacionesTrabajos_(
     const syncId = String(assignment?.trabajo_sync_id || '').trim();
     if (!/^[0-9a-f-]{36}$/i.test(syncId)) throw new Error('Supabase devolvió una T sin identificador válido.');
     return metrogestionResolverAsignacion_(assignment, rows, expectedStop, usedRows);
+  });
+
+  // La orden completa se contrasta antes de escribir sus primeros vínculos.
+  planned.forEach((item, index) => {
+    const actual = values[item.rowNumber - 1], assignment = assignments[index];
+    metrogestionPlanRellenoSeguro_(actual[9], assignment.fecha_entrada, 'J del trabajo', 'fecha');
+    metrogestionPlanRellenoSeguro_(actual[10], assignment.fecha_salida, 'K del trabajo', 'fecha');
   });
 
   planned.filter(item => !item.alreadyLinked && item.rowNumber).forEach(({ rowNumber, syncId }) => {
@@ -1526,14 +1748,56 @@ function metrogestionEscribirFilaAlta_(sheet, rowNumber, payload, vehicleId, she
   if (sheetState?.notesA) sheetState.notesA[rowNumber - 1] = `METROGESTION_ALTA:${vehicleId}`;
 }
 
-function metrogestionBuscarFilaPorSyncId_(sheet, syncId, sheetState) {
+function metrogestionBuscarFilaPorSyncId_(sheet, syncId, payload, sheetState) {
   const lastRow = sheetState?.values?.length || sheet.getLastRow();
   if (lastRow < 2) return 0;
-  const expected = `METROGESTION_PARADA:${syncId}`.toUpperCase();
+  const values = sheetState?.values?.slice(1)
+    || sheet.getRange(2, 1, lastRow - 1, 17).getDisplayValues();
   const notes = sheetState?.notesA?.slice(1)
     || sheet.getRange(2, 1, lastRow - 1, 1).getNotes().map(item => String(item[0] || ''));
-  const index = notes.findIndex(item => String(item || '').trim().toUpperCase() === expected);
-  return index < 0 ? 0 : index + 2;
+
+  let candidates = [];
+  notes.forEach((note, index) => {
+    if (metrogestionNotaParadaId_(note)?.toLowerCase() !== String(syncId || '').toLowerCase()) return;
+    const row = values[index];
+    candidates.push({
+      rowNumber: index + 2,
+      tancament: metrogestionNormalizar_(row[16]),
+      sustituto: metrogestionNormalizar_(row[6]),
+      fechaK: String(row[10] || '').trim(),
+      fechaKIso: metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 2}`),
+    });
+  });
+  if (!candidates.length) return 0;
+
+  const tancament = metrogestionNormalizar_(payload?.tancament);
+  if (tancament) {
+    const samePeriod = candidates.filter(item => item.tancament === tancament);
+    if (!samePeriod.length) return 0;
+    candidates = samePeriod;
+  }
+
+  const sustituto = metrogestionNormalizar_(payload?.sustituto);
+  if (sustituto) {
+    const sameSubstitute = candidates.filter(item => item.sustituto === sustituto);
+    if (sameSubstitute.length) candidates = sameSubstitute;
+  }
+
+  const fechaK = metrogestionFechaIso_(payload?.fecha_k, 'de recuperación o corte recibida');
+  if (fechaK) {
+    const sameClosingDate = candidates.filter(item => item.fechaKIso === fechaK);
+    if (sameClosingDate.length === 1) return sameClosingDate[0].rowNumber;
+    if (sameClosingDate.length > 1) candidates = sameClosingDate;
+  }
+
+  const openPeriods = candidates.filter(item => !item.fechaK);
+  if (openPeriods.length === 1) return openPeriods[0].rowNumber;
+  if (openPeriods.length > 1) candidates = openPeriods;
+  if (candidates.length === 1) return candidates[0].rowNumber;
+
+  throw new Error(
+    `La parada ${payload?.numero_parada || ''} mantiene varias filas del mismo periodo para el identificador ${syncId}; no se ha modificado ninguna.`
+  );
 }
 
 function metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState) {
@@ -1562,8 +1826,6 @@ function metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState) {
   });
 
   if (matches.length === 0) return 0;
-  if (matches.length === 1) return matches[0].rowNumber;
-
   let candidates = matches;
   const tancament = metrogestionNormalizar_(payload.tancament);
   if (tancament) {
@@ -1600,6 +1862,65 @@ function metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState) {
   throw new Error(
     `La actuación ${payload.numero_parada} del DFM ${payload.dfm} mantiene varias filas igualmente válidas; no se ha creado ni modificado ninguna.`
   );
+}
+
+
+function metrogestionCerrarPeriodoAnterior_(sheet, payload, syncId, sheetState) {
+  const cierre = payload?.cierre_periodo_anterior;
+  if (!cierre || typeof cierre !== 'object') return 0;
+  const tancament = metrogestionNormalizar_(cierre.tancament);
+  const fechaK = metrogestionFechaIso_(cierre.fecha_k, 'de cierre del periodo anterior');
+  if (!tancament || !fechaK) throw new Error('El cambio de periodo no contiene un cierre anterior válido.');
+
+  const lastRow = sheetState?.values?.length || sheet.getLastRow();
+  const values = sheetState?.values || sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
+  const notes = sheetState?.notesA || sheet.getRange(1, 1, lastRow, 1).getNotes().map(r => String(r[0] || ''));
+  const dfm = metrogestionNormalizar_(payload.dfm);
+  const stop = metrogestionClaveNumeroParada_(payload.numero_parada);
+
+  let matches = [];
+  for (let index = 1; index < values.length; index += 1) {
+    const row = values[index];
+    if (metrogestionNormalizar_(row[7]) !== 'PARADA') continue;
+    if (metrogestionNormalizar_(row[16]) !== tancament) continue;
+    const linked = metrogestionNotaParadaId_(notes[index]);
+    const sameIdentity = linked?.toLowerCase() === String(syncId).toLowerCase();
+    const fallback = metrogestionNormalizar_(row[0]) === dfm
+      && metrogestionClaveNumeroParada_(row[4]) === stop;
+    if (fallback && (!linked || sameIdentity)) {
+      matches.push({
+        rowNumber: index + 1,
+        fechaK: metrogestionFechaIso_(row[10], `de K de la fila ${index + 1}`),
+      });
+    }
+  }
+  if (!matches.length) {
+    throw new Error(`No se encuentra el tramo ${tancament} que debe cerrarse antes de abrir ${payload.tancament}.`);
+  }
+
+  const alreadyClosed = matches.filter(item => item.fechaK === fechaK);
+  if (alreadyClosed.length === 1) return alreadyClosed[0].rowNumber;
+  const open = matches.filter(item => !item.fechaK);
+  if (open.length !== 1) {
+    throw new Error(`El tramo ${tancament} no tiene una única fila abierta; no se ha realizado el cambio de periodo.`);
+  }
+
+  const rowNumber = open[0].rowNumber;
+  sheet.getRange(rowNumber, 11).setValue(metrogestionDate_(fechaK)).setNumberFormat('dd/MM/yyyy');
+  if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][10] = fechaK;
+  return rowNumber;
+}
+
+function metrogestionCopiarFormulasCortePeriodo_(sheet, sourceRow, targetRow) {
+  [12, 16].forEach(column => {
+    const source = sheet.getRange(sourceRow, column);
+    if (!source.getFormula()) return;
+    source.copyTo(
+      sheet.getRange(targetRow, column),
+      SpreadsheetApp.CopyPasteType.PASTE_FORMULA,
+      false
+    );
+  });
 }
 
 function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
@@ -1645,7 +1966,9 @@ function metrogestionDate_(iso) {
   if (!text) return '';
   const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) throw new Error(`Supabase devolvió una fecha no válida: ${text}`);
-  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (metrogestionFechaIsoDesdeDate_(date) !== text) throw new Error(`Supabase devolvió una fecha inexistente: ${text}`);
+  return date;
 }
 
 function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuevaFila, sheetState) {
@@ -2259,7 +2582,12 @@ function metrogestionRegistrarPaso_(paso) {
 
 function metrogestionDiagnosticoSincronizacion() {
   const saved = PropertiesService.getScriptProperties().getProperty('METROGESTION_PASO');
-  return saved ? JSON.parse(saved) : { paso: 'Sin paso registrado', version: METROGESTION.scriptVersion };
+  const previous = saved ? JSON.parse(saved) : null;
+  return {
+    ...(previous || { paso: 'Sin paso registrado', version: METROGESTION.scriptVersion }),
+    version_actual: METROGESTION.scriptVersion,
+    version_ultimo_paso: previous?.version || null,
+  };
 }
 
 function metrogestionLeerCiclo_() {
@@ -2328,140 +2656,108 @@ function metrogestionEstadoHojaLote_(sheet) {
 }
 
 function metrogestionActualizarCiclo_(sheet, state, modo, token) {
-  if (state.version === METROGESTION.scriptVersion || state.confirmacionPendiente) return false;
-  if (state.fase === 'comandos') {
-    metrogestionRegistrarPaso_('Actualizando las órdenes pendientes con el servidor');
-    const { syncResult } = metrogestionSolicitarCiclo_(sheet, modo, token);
-    if (!Array.isArray(syncResult.comandos_manteniment)) throw new Error('El servidor no devolvió la cola de órdenes pendientes. Se conserva el avance anterior.');
-    // La cola del servidor incluye las revisiones corregidas y conserva allí
-    // las órdenes pendientes que excedan el límite de una respuesta.
-    state.comandos = syncResult.comandos_manteniment;
-    state.totalComandos = state.confirmados + state.comandos.length;
-    if (!state.comandos.length) state.fase = 'necesidades';
+  // Una cola heredada no aporta recibo del nuevo ejecutor ni se transforma
+  // implícitamente en una selección de todas las órdenes del servidor.
+  if (state.version_ejecucion !== METROGESTION.executorVersion || state.version !== METROGESTION.scriptVersion
+      || !Array.isArray(state.comandos) || !['comandos', 'terminado'].includes(state.fase)) {
+    throw new Error('El ciclo guardado pertenece al ejecutor anterior o a necesidades no incluidas en este alcance. Revisión manual obligatoria; se conserva su referencia.');
   }
-  state.trabajos = [];
-  delete state.planNecesidadesAnterior;
-  delete state.tandasNecesidadesRepetidas;
-  state.version = METROGESTION.scriptVersion;
-  metrogestionGuardarCiclo_(state);
-  return true;
+  const selected = metrogestionLeerAlcanceOrdenes_();
+  metrogestionExigirAlcance_(selected);
+  if (JSON.stringify(state.alcance) !== JSON.stringify(selected)) throw new Error('El alcance del ciclo no coincide con la selección manual guardada.');
+  state.comandos.forEach(command => metrogestionExigirOrdenSeleccionada_(command, selected));
+  return false;
 }
 
 function metrogestionProcesarOrdenesLote_(sheet, state, token, deadline) {
-  // Si la hoja ya quedó escrita, un fallo de red solo debe repetir el acuse.
-  if (state.confirmacionPendiente) {
-    metrogestionRegistrarPaso_('Reintentando la confirmación de la orden ya aplicada');
-    metrogestionConfirmarComandos_(token, [state.confirmacionPendiente]);
-    state.comandos.shift();
-    state.confirmados += 1;
-    delete state.confirmacionPendiente;
-    if (!state.comandos.length) state.fase = 'necesidades';
-    metrogestionGuardarCiclo_(state);
+  metrogestionActualizarCiclo_(sheet, state, 'manual', token);
+  if (!state.comandos.length) {
+    if (state.confirmacionPendiente) throw new Error('Hay un acuse legado sin una orden y un recibo nuevo verificables. No se ha confirmado.');
+    state.fase = 'terminado';
     return;
   }
-  metrogestionRegistrarPaso_('Leyendo las filas para aplicar órdenes');
-  const sheetState = metrogestionEstadoHojaLote_(sheet);
-  metrogestionRegistrarPaso_('Preparando el filtro para las órdenes');
-  const filterState = metrogestionSuspenderFiltro_(sheet);
-  let failure = null;
-  let failedStep = '';
-  try {
-    let processed = 0;
-    while (state.comandos.length && processed < METROGESTION_LOTES.comandos && Date.now() < deadline) {
-      const command = state.comandos[0];
-      metrogestionRegistrarPaso_(`Aplicando orden ${state.confirmados + 1} de ${state.totalComandos}`);
-      const confirmation = metrogestionAplicarComandos_(sheet, [command], sheetState, [])[0];
-      metrogestionRegistrarPaso_('Confirmando en la hoja la orden aplicada');
-      SpreadsheetApp.flush();
-      state.confirmacionPendiente = confirmation;
-      metrogestionGuardarCiclo_(state);
-      metrogestionRegistrarPaso_('Confirmando la orden aplicada con el servidor');
-      metrogestionConfirmarComandos_(token, [confirmation]);
-      state.comandos.shift();
-      state.confirmados += 1;
-      delete state.confirmacionPendiente;
-      metrogestionGuardarCiclo_(state);
-      processed += 1;
-    }
-    if (!state.comandos.length) { state.fase = 'necesidades'; state.trabajos = []; }
-  } catch (error) {
-    failure = error;
-    failedStep = metrogestionDiagnosticoSincronizacion().paso;
-    throw error;
-  } finally {
-    // El restablecimiento no debe ocultar el paso ni el error originales.
-    try {
-      if (!failure) metrogestionRegistrarPaso_('Restaurando el filtro después de las órdenes');
-      metrogestionRestaurarFiltro_(sheet, filterState);
-    } catch (filterError) {
-      if (!failure) throw filterError;
-      failure.message += ` Además, no se pudo restaurar el filtro: ${filterError.message}`;
-    }
-    if (failure) metrogestionRegistrarPaso_(failedStep);
+  const command = state.comandos[0];
+  const reference = metrogestionExigirOrdenSeleccionada_(command, state.alcance);
+  metrogestionExigirJournalResuelto_(reference);
+  let record = metrogestionLeerJournalOrden_(reference);
+  if (state.confirmacionPendiente && !record) {
+    throw new Error('El acuse pendiente procede de un ejecutor legado sin prueba de lectura posterior. No se reaplica ni se confirma automáticamente.');
   }
+  if (record?.estado === 'confirmado') { metrogestionAvanzarOrdenConfirmada_(state); return; }
+  if (!record) {
+    if (Date.now() >= deadline) return;
+    const plan = metrogestionPlanificarOrdenCompleta_(sheet, command);
+    const permission = metrogestionAutorizarOrden_(plan.command, state.alcance, token);
+    metrogestionRevalidarPlanOrden_(sheet, plan);
+    if (Date.now() >= deadline) return;
+    record = metrogestionAplicarPlanConJournal_(sheet, plan, permission);
+    state.confirmacionPendiente = record.confirmacion;
+    metrogestionGuardarCiclo_(state);
+  }
+  if (record.estado !== 'aplicado') throw new Error('Resultado incierto: esta orden no permite reaplicación ni acuse automático.');
+  metrogestionVerificarReciboAplicado_(sheet, record);
+  metrogestionConfirmarEjecucion_(token, record);
+  record.estado = 'confirmado';
+  metrogestionGuardarJournalOrden_(record);
+  metrogestionAvanzarOrdenConfirmada_(state);
 }
 
 function metrogestionEjecutarSincronizacion_(modo, expectedCycle) {
-  const inicioEjecucion = Date.now();
-  const deadline = inicioEjecucion + METROGESTION_LOTES.margenMs;
+  // La ausencia de selección falla antes de abrir hoja, preparar filtros,
+  // registrar un ciclo o solicitar una sincronización al servidor.
+  const selected = metrogestionLeerAlcanceOrdenes_();
+  metrogestionExigirAlcance_(selected);
+  const deadline = Date.now() + METROGESTION_LOTES.margenMs;
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) throw new Error('Ya hay otra tanda de sincronización en curso.');
   let state;
   try {
-    metrogestionRegistrarPaso_('Recuperando el avance guardado');
     state = metrogestionLeerCiclo_();
-    if (expectedCycle && state?.id !== expectedCycle) throw new Error('Hay otro ciclo de sincronización. Cierra esta ventana y vuelve a abrir Sincronizar ahora.');
+    if (expectedCycle && state?.id !== expectedCycle) throw new Error('Hay otro ciclo de sincronización. Se conserva el avance anterior.');
+    if (state && state.fase !== 'terminado') metrogestionActualizarCiclo_(null, state, modo, null);
     if (expectedCycle && state?.fase === 'terminado') return metrogestionRespuestaCiclo_(state);
+    const firstReference = state?.comandos?.length ? metrogestionReferenciaOrden_(state.comandos[0]) : null;
+    metrogestionExigirJournalResuelto_(firstReference);
     const token = metrogestionLeerToken_();
     if (!token) throw new Error('No existe una clave de conexión en las Propiedades del script.');
-    metrogestionRegistrarPaso_('Abriendo MANTENIMENT');
     const book = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
     if (book.getName() !== METROGESTION.spreadsheetName) throw new Error('No es el archivo MANTENIMIENTOS esperado.');
     const sheet = book.getSheetByName(METROGESTION.sheetName);
     if (!sheet) throw new Error('No existe la hoja MANTENIMENT.');
     if (!state || state.fase === 'terminado') {
-      metrogestionRegistrarPaso_('Leyendo la hoja y sincronizando con el servidor');
-      const { syncResult } = metrogestionSolicitarCiclo_(sheet, modo, token);
-      const commands = Array.isArray(syncResult.comandos_manteniment) ? syncResult.comandos_manteniment : [];
-      state = { id: Utilities.getUuid(), hoja: METROGESTION.spreadsheetId, fase: commands.length ? 'comandos' : 'necesidades', comandos: commands, trabajos: [], version: METROGESTION.scriptVersion, totalComandos: commands.length, confirmados: 0, creadas: 0, cierres: 0, mensajeBase: syncResult.mensaje || 'Sincronización correcta.' };
+      metrogestionResolverSolicitudEntregaPendiente_();
+      let delivered = metrogestionLeerEntregasConservadas_();
+      let syncResult = { mensaje: 'Entregas conservadas recuperadas para el alcance seleccionado.' };
+      const missing = selected.some(reference => metrogestionLeerJournalOrden_(reference)?.estado !== 'confirmado'
+        && !delivered.some(command => metrogestionMismaReferencia_(command, reference)));
+      if (missing) {
+        syncResult = metrogestionSolicitarCiclo_(sheet, modo, token).syncResult;
+        if (!Array.isArray(syncResult.comandos_manteniment)) throw new Error('El servidor no devolvió una entrega de órdenes válida.');
+        delivered = metrogestionLeerEntregasConservadas_();
+      }
+      delivered.forEach(metrogestionReferenciaOrden_);
+      const commands = [];
+      selected.forEach(reference => {
+        const receipt = metrogestionLeerJournalOrden_(reference);
+        if (receipt?.estado === 'confirmado') return;
+        const matches = delivered.filter(command => metrogestionMismaReferencia_(command, reference));
+        if (matches.length !== 1) throw new Error(`La entrega no acredita una única orden seleccionada ${reference.tipo}/${reference.sync_id}/${reference.revision}. No se amplía el alcance.`);
+        commands.push(matches[0]);
+      });
+      state = { id: Utilities.getUuid(), hoja: METROGESTION.spreadsheetId, fase: commands.length ? 'comandos' : 'terminado',
+        comandos: commands, trabajos: [], version: METROGESTION.scriptVersion, version_ejecucion: METROGESTION.executorVersion,
+        alcance: selected, totalComandos: commands.length, confirmados: 0, creadas: 0, cierres: 0,
+        mensajeBase: syncResult.mensaje || 'Fotografía completa intercambiada; ejecución limitada al alcance seleccionado.' };
       metrogestionGuardarCiclo_(state);
-      // La lectura y el intercambio con Supabase tienen su propia ejecución.
       return metrogestionRespuestaCiclo_(state);
     }
-    // Migrar una cola antigua en una llamada separada, sin borrar su ID ni sus contadores.
-    if (metrogestionActualizarCiclo_(sheet, state, modo, token)) return metrogestionRespuestaCiclo_(state);
-    if (state.fase === 'comandos') {
-      metrogestionProcesarOrdenesLote_(sheet, state, token, deadline);
-    } else if (state.fase === 'necesidades') {
-      // El adaptador suspende el filtro al escribir y verifica cada fila antes
-      // de contabilizarla; después restaura los criterios sin reordenar.
-      const result = metrogestionAplicarReglaAdministrativa_(sheet, { limiteEjecucion: inicioEjecucion + METROGESTION_LOTES.maxNecesidadesMs });
-      metrogestionRegistrarPaso_('Confirmando los cambios de necesidades en la hoja');
-      SpreadsheetApp.flush();
-      state.creadas += result.renovaciones;
-      state.cierres += result.cierres;
-      state.avisos = result.avisos.length;
-      state.pausadas = result.pausadas || false;
-      state.restantes = result.restantes || 0;
-      state.cambiosPendientes = result.cambiosPendientes || 0;
-      state.nuevasPendientes = result.nuevasPendientes || 0;
-      // El número de pendientes puede mantenerse mientras cambia la fila atendida.
-      // Solo se detiene si el plan completo sigue idéntico en tres lecturas.
-      state.tandasNecesidadesRepetidas = result.pendiente && result.firmaPlan === state.planNecesidadesAnterior
-        ? (state.tandasNecesidadesRepetidas || 0) + 1 : 0;
-      state.planNecesidadesAnterior = result.firmaPlan;
-      if (!result.pendiente) state.fase = 'terminado';
-      else if (state.tandasNecesidadesRepetidas >= 2) {
-        metrogestionGuardarCiclo_(state);
-        metrogestionRegistrarPaso_('Sin avance en próximas necesidades: ' + result.detallePendientes);
-        throw new Error('Las próximas necesidades no han cambiado en tres tandas. Se ha detenido la continuación automática para revisar: ' + result.detallePendientes);
-      }
-    } else throw new Error('Fase de sincronización desconocida.');
+    if (state.fase !== 'comandos') throw new Error('La fase guardada no pertenece a una ejecución de órdenes seleccionadas.');
+    metrogestionProcesarOrdenesLote_(sheet, state, token, deadline);
     metrogestionGuardarCiclo_(state);
     return metrogestionRespuestaCiclo_(state);
   } catch (error) {
-    const message = `ERROR${state ? ' en ' + state.fase : ''}: ${error.message}. El avance confirmado se conserva; puedes retomar con Sincronizar ahora.`;
-    PropertiesService.getScriptProperties().setProperty('METROGESTION_ULTIMO_RESULTADO', message);
+    PropertiesService.getScriptProperties().setProperty('METROGESTION_ULTIMO_RESULTADO',
+      `ERROR${state ? ' en ' + state.fase : ''}: ${error.message}. Se conserva el journal; un resultado incierto requiere revisión antes de otra mutación.`);
     throw error;
   } finally { lock.releaseLock(); }
 }
@@ -2477,6 +2773,8 @@ function metrogestionReanudarProgramada() {
 }
 
 function metrogestionLanzarProgramada_(ciclo) {
+  metrogestionExigirAlcance_(metrogestionLeerAlcanceOrdenes_());
+  metrogestionExigirJournalResuelto_(metrogestionLeerCiclo_()?.comandos?.[0]);
   // Solo se usa cuando ya se está ejecutando la modalidad programada. No añade
   // una periodicidad nueva al abrir el menú manual.
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'metrogestionReanudarProgramada').forEach(t => ScriptApp.deleteTrigger(t));
@@ -2510,10 +2808,10 @@ function metrogestionSincronizarAhora() {
         }).withFailureHandler(function(e) {
           ejecutando = false; continuacion.hidden = true;
           document.querySelector('h2').textContent = 'Sincronización detenida';
-          const message = e.message + ' El avance guardado se conserva. Pulsa Reintentar para retomar.';
+          const message = e.message + ' El avance y las referencias se conservan. Si el resultado es incierto, necesita revisión; Reintentar no repetirá sus cambios.';
           estado.textContent = message; retomar.hidden = false;
           google.script.run.withSuccessHandler(function(d) {
-            if (!ejecutando && intento === intentos) estado.textContent = message + ' Último paso: ' + d.paso + ' (' + d.version + ').';
+            if (!ejecutando && intento === intentos) estado.textContent = message + ' Último paso guardado: ' + d.paso + ' (versión del registro: ' + (d.version_ultimo_paso || 'sin registro') + '; versión actual: ' + d.version_actual + ').';
           }).withFailureHandler(function() {}).metrogestionDiagnosticoSincronizacion();
         }).metrogestionContinuarSincronizacion(ciclo);
       }
@@ -2522,3 +2820,883 @@ function metrogestionSincronizarAhora() {
   SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(570).setHeight(350), 'Sincronizar MANTENIMENT');
 }
 // END MOTOR NECESIDADES
+
+// Ejecutor acotado. La selección no es una autorización: cada orden completa
+// requiere una nueva decisión SELECT-only del servidor justo antes de aplicar.
+// El journal es independiente del ciclo y nunca se borra al reiniciarlo.
+const METROGESTION_ALCANCE_ORDENES = 'METROGESTION_ALCANCE_ORDENES_V1';
+const METROGESTION_JOURNAL_ORDEN = 'METROGESTION_ORDEN_V1:';
+const METROGESTION_UUID_ORDEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const METROGESTION_HASH_ORDEN = /^[0-9a-f]{64}$/;
+
+function metrogestionReferenciaOrden_(orden) {
+  const ref = { tipo: orden?.tipo, sync_id: orden?.sync_id, revision: orden?.revision, payload_sha256: orden?.payload_sha256 };
+  if (!['parada', 'trabajos'].includes(ref.tipo) || !METROGESTION_UUID_ORDEN.test(ref.sync_id || '')
+      || !Number.isSafeInteger(ref.revision) || ref.revision < 1 || !METROGESTION_HASH_ORDEN.test(ref.payload_sha256 || '')) {
+    throw new Error('La orden carece de identidad, revisión o huella entregada por el servidor. Una cola legada requiere revisión; no se fabrica su huella.');
+  }
+  return ref;
+}
+
+function metrogestionMismaReferencia_(left, right) {
+  return JSON.stringify(metrogestionReferenciaOrden_(left)) === JSON.stringify(metrogestionReferenciaOrden_(right));
+}
+
+function metrogestionExigirAlcance_(refs) {
+  if (!Array.isArray(refs) || refs.length < 1 || refs.length > 200) {
+    throw new Error('Selecciona manualmente entre 1 y 200 referencias exactas antes de sincronizar. No se ha iniciado ninguna orden.');
+  }
+  const seen = new Set();
+  return refs.map(ref => {
+    if (!metrogestionClavesPreflightExactas_(ref, ['tipo', 'sync_id', 'revision', 'payload_sha256'])) {
+      throw new Error('El alcance sólo admite tipo, sync_id, revision y payload_sha256 por referencia.');
+    }
+    const exact = metrogestionReferenciaOrden_(ref);
+    const key = JSON.stringify(exact);
+    if (seen.has(key)) throw new Error('El alcance contiene una referencia repetida.');
+    seen.add(key);
+    return exact;
+  });
+}
+
+function metrogestionSeleccionarAlcanceOrdenes() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.prompt('Alcance exacto de órdenes',
+    'Pega el array JSON de referencias revisadas: tipo, sync_id, revision y payload_sha256 entregado por el servidor. Una revisión nueva requiere otra selección explícita.', ui.ButtonSet.OK_CANCEL);
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+  let refs;
+  try { refs = JSON.parse(response.getResponseText()); } catch (_) { throw new Error('La selección no contiene un array JSON válido.'); }
+  metrogestionGuardarAlcanceOrdenes_(refs);
+  ui.alert('Alcance guardado. Cada orden seguirá necesitando autorización actual del servidor; ninguna barrera se ha abierto.');
+}
+
+function metrogestionGuardarAlcanceOrdenes_(refs) {
+  const alcance = metrogestionExigirAlcance_(refs);
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) throw new Error('Hay una ejecución activa. No se ha cambiado el alcance.');
+  try {
+    const state = metrogestionLeerCiclo_();
+    if (state && state.fase !== 'terminado') throw new Error('Hay un ciclo pendiente. Su alcance no puede ampliarse ni sustituirse.');
+    metrogestionExigirJournalResuelto_();
+    const props = PropertiesService.getScriptProperties();
+    const old = props.getProperty(METROGESTION_ALCANCE_ORDENES);
+    const value = JSON.stringify({ version_ejecucion: METROGESTION.executorVersion, spreadsheet_id: METROGESTION.spreadsheetId,
+      seleccionado_en: new Date().toISOString(), alcance });
+    const generation = Utilities.getUuid().replace(/-/g, '');
+    const pieces = Math.ceil(value.length / 7500);
+    for (let i = 0; i < pieces; i++) props.setProperty(`${METROGESTION_ALCANCE_ORDENES}_${generation}_${i}`, value.slice(i * 7500, (i + 1) * 7500));
+    props.setProperty(METROGESTION_ALCANCE_ORDENES, JSON.stringify({ generacion: generation, partes: pieces, sha: metrogestionSha256_(value) }));
+    // La cabecera se publica sólo después de todas las partes. Un fallo no
+    // cambia el alcance anterior por una selección parcial.
+    if (old) {
+      const previous = JSON.parse(old);
+      if (/^[0-9a-f]{32}$/.test(previous.generacion || '') && Number.isInteger(previous.partes)) {
+        for (let i = 0; i < Math.min(previous.partes, 16); i++) props.deleteProperty(`${METROGESTION_ALCANCE_ORDENES}_${previous.generacion}_${i}`);
+      }
+    }
+    return { version_ejecucion: METROGESTION.executorVersion, alcance };
+  } finally { lock.releaseLock(); }
+}
+
+function metrogestionLeerAlcanceOrdenes_() {
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty(METROGESTION_ALCANCE_ORDENES);
+  if (!raw) return null;
+  let manifest, selected;
+  try {
+    manifest = JSON.parse(raw);
+    if (!/^[0-9a-f]{32}$/.test(manifest.generacion || '') || !Number.isInteger(manifest.partes) || manifest.partes < 1 || manifest.partes > 16) throw new Error();
+    let value = '';
+    for (let i = 0; i < manifest.partes; i++) {
+      const part = props.getProperty(`${METROGESTION_ALCANCE_ORDENES}_${manifest.generacion}_${i}`);
+      if (part === null) throw new Error();
+      value += part;
+    }
+    if (metrogestionSha256_(value) !== manifest.sha) throw new Error();
+    selected = JSON.parse(value);
+    if (selected.version_ejecucion !== METROGESTION.executorVersion || selected.spreadsheet_id !== METROGESTION.spreadsheetId) throw new Error();
+  } catch (_) { throw new Error('La selección guardada está incompleta o pertenece a otra revisión. No se ha iniciado ninguna orden.'); }
+  return metrogestionExigirAlcance_(selected.alcance);
+}
+
+function metrogestionExigirOrdenSeleccionada_(command, scope) {
+  const ref = metrogestionReferenciaOrden_(command);
+  if (!metrogestionExigirAlcance_(scope).some(item => metrogestionMismaReferencia_(item, ref))) {
+    throw new Error('La orden no pertenece al alcance exacto seleccionado. No se ha aplicado esta orden.');
+  }
+  return ref;
+}
+
+function metrogestionSolicitudEjecucion_(action, token, payload) {
+  let response;
+  try {
+    response = UrlFetchApp.fetch(METROGESTION.syncUrl, { method: 'post', contentType: 'application/json',
+      payload: JSON.stringify({ action, token, payload }), muteHttpExceptions: true, followRedirects: false });
+  } catch (_) { throw new Error(`No se recibió una respuesta verificable de ${action}. Se conserva la referencia de la orden.`); }
+  const code = response.getResponseCode();
+  let result;
+  try { result = JSON.parse(response.getContentText()); } catch (_) { throw new Error(`Respuesta no válida de ${action} (HTTP ${code}).`); }
+  if (code !== 200 || result?.ok !== true) throw new Error(`El servidor no ha acreditado ${action} (HTTP ${code}).`);
+  return result;
+}
+
+function metrogestionFechaAutorizacion_(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return NaN;
+  const stamp = Date.parse(value);
+  return Number.isFinite(stamp) && new Date(stamp).toISOString() === value ? stamp : NaN;
+}
+
+function metrogestionAutorizarOrden_(command, scope, token) {
+  const ref = metrogestionExigirOrdenSeleccionada_(command, scope);
+  const requestId = Utilities.getUuid().toLowerCase();
+  const startedAt = Date.now();
+  const response = metrogestionSolicitudEjecucion_('authorize', token, {
+    version_script: METROGESTION.scriptVersion, version_ejecucion: METROGESTION.executorVersion,
+    escritura_segura_manual: true, spreadsheet_id: METROGESTION.spreadsheetId, request_id: requestId,
+    alcance: scope, orden: { ...ref, payload: command.payload },
+  });
+  const a = response.autorizacion;
+  const valid = metrogestionClavesPreflightExactas_(response, ['ok', 'autorizacion'])
+    && metrogestionClavesPreflightExactas_(a, ['protocolo', 'version_ejecucion', 'version_script', 'solo_lectura', 'request_id',
+      'spreadsheet_id', 'alcance', 'orden', 'autorizada', 'motivo', 'autorizado_en', 'expira_en'])
+    && a.protocolo === 'manteniment-ejecucion-v1' && a.version_ejecucion === METROGESTION.executorVersion
+    && a.version_script === METROGESTION.scriptVersion && a.solo_lectura === true
+    && a.request_id === requestId && a.spreadsheet_id === METROGESTION.spreadsheetId
+    && JSON.stringify(metrogestionExigirAlcance_(a.alcance)) === JSON.stringify(scope)
+    && metrogestionClavesPreflightExactas_(a.orden, ['tipo', 'sync_id', 'revision', 'payload_sha256'])
+    && metrogestionMismaReferencia_(a.orden, ref) && typeof a.autorizada === 'boolean';
+  if (!valid) throw new Error('La respuesta de autorización no acredita este ejecutor, hoja, alcance y orden. No se ha aplicado esta orden.');
+  const issued = metrogestionFechaAutorizacion_(a.autorizado_en), expires = metrogestionFechaAutorizacion_(a.expira_en);
+  const denied = ['EJECUTOR_NO_COMPATIBLE', 'FUERA_DE_ALCANCE', 'INSTALACION_NO_COMPATIBLE', 'BARRERAS_CERRADAS',
+    'ORDEN_NO_VIGENTE', 'ORDEN_RETENIDA_O_CONFIRMADA', 'ENTREGA_NO_ACREDITADA', 'ORDEN_YA_CONFIRMADA',
+    'ORDEN_NO_COINCIDE', 'CONTINUIDAD_RETENIDA', 'OPERACION_NO_PERMITIDA', 'BAJA_MANUAL_PROTEGIDA'];
+  if (!Number.isFinite(issued) || !Number.isFinite(expires) || issued < startedAt - 5000 || issued > Date.now() + 5000
+      || (a.autorizada ? expires - issued !== 30000 || a.motivo !== 'AUTORIZADA' : expires !== issued || !denied.includes(a.motivo))) {
+    throw new Error('La vigencia o el motivo de autorización no son válidos. No se ha aplicado esta orden.');
+  }
+  if (!a.autorizada) throw new Error(`El servidor ha denegado esta orden: ${a.motivo}. No se ha aplicado esta orden.`);
+  if (expires <= Date.now()) throw new Error('La autorización ha caducado antes de aplicar la orden.');
+  return { expira: expires }; // Sólo memoria de esta llamada; nunca se guarda un permiso.
+}
+
+function metrogestionClaveJournalOrden_(ref) {
+  return METROGESTION_JOURNAL_ORDEN + metrogestionSha256_(JSON.stringify(metrogestionReferenciaOrden_(ref)));
+}
+
+function metrogestionLeerJournalOrden_(ref) {
+  const raw = PropertiesService.getScriptProperties().getProperty(metrogestionClaveJournalOrden_(ref));
+  if (!raw) return null;
+  let saved;
+  try { saved = JSON.parse(raw); } catch (_) { throw new Error('El registro durable de esta orden no es legible. Revisión manual obligatoria.'); }
+  if (saved.version_ejecucion !== METROGESTION.executorVersion || saved.spreadsheet_id !== METROGESTION.spreadsheetId
+      || !metrogestionMismaReferencia_(saved.referencia, ref) || !['aplicando', 'aplicado', 'incierto', 'confirmado'].includes(saved.estado)
+      || !METROGESTION_HASH_ORDEN.test(saved.plan_sha256 || '') || !METROGESTION_HASH_ORDEN.test(saved.fotografia_inicial_sha256 || '')) {
+    throw new Error('El registro durable de esta orden no acredita su identidad. Revisión manual obligatoria.');
+  }
+  if (['aplicado', 'confirmado'].includes(saved.estado)
+      && (!METROGESTION_HASH_ORDEN.test(saved.fotografia_final_sha256 || '') || !Number.isFinite(metrogestionFechaAutorizacion_(saved.verificado_en))
+        || !metrogestionMismaReferencia_(saved.confirmacion, ref) || saved.confirmacion.estado !== 'aplicado')) {
+    throw new Error('No existe un recibo nuevo y verificado de la orden. No se reaplica ni se confirma automáticamente.');
+  }
+  return saved;
+}
+
+function metrogestionGuardarJournalOrden_(record) {
+  const key = metrogestionClaveJournalOrden_(record.referencia);
+  const value = JSON.stringify(record);
+  if (Utilities.newBlob(value).getBytes().length > 8000) throw new Error('El recibo de esta orden supera el tamaño durable permitido. Revisión manual obligatoria.');
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty(key, value);
+  if (props.getProperty(key) !== value) throw new Error('No se ha verificado la persistencia del registro durable de la orden.');
+}
+
+function metrogestionExigirJournalResuelto_(allowedRef) {
+  const all = PropertiesService.getScriptProperties().getProperties();
+  Object.keys(all).filter(key => key.startsWith(METROGESTION_JOURNAL_ORDEN)).forEach(key => {
+    let record;
+    try { record = JSON.parse(all[key]); } catch (_) { throw new Error('Existe un registro de ejecución ilegible. Revisión manual obligatoria.'); }
+    const saved = metrogestionLeerJournalOrden_(record.referencia);
+    if (saved.estado === 'confirmado') return;
+    if (saved.estado === 'aplicado' && allowedRef && metrogestionMismaReferencia_(saved.referencia, allowedRef)) return;
+    throw new Error(`Resultado incierto o pendiente de la orden ${saved.referencia.tipo}/${saved.referencia.sync_id}/${saved.referencia.revision}. No se repetirá ninguna mutación; conserva esta referencia para revisión.`);
+  });
+}
+
+function metrogestionConfirmarEjecucion_(token, record) {
+  if (!['aplicado', 'confirmado'].includes(record?.estado)) throw new Error('Sólo un recibo local nuevo y verificado permite confirmar.');
+  const requestId = Utilities.getUuid().toLowerCase();
+  const result = metrogestionSolicitudEjecucion_('ack_execution', token, { version_ejecucion: METROGESTION.executorVersion,
+    spreadsheet_id: METROGESTION.spreadsheetId, request_id: requestId, confirmacion: record.confirmacion });
+  const ack = result.confirmacion;
+  if (!metrogestionClavesPreflightExactas_(result, ['ok', 'confirmacion'])
+      || !metrogestionClavesPreflightExactas_(ack, ['protocolo', 'version_ejecucion', 'request_id', 'spreadsheet_id', 'confirmada', 'orden'])
+      || ack.protocolo !== 'manteniment-acuse-ejecucion-v1' || ack.version_ejecucion !== METROGESTION.executorVersion
+      || ack.request_id !== requestId || ack.spreadsheet_id !== METROGESTION.spreadsheetId || ack.confirmada !== true
+      || !metrogestionClavesPreflightExactas_(ack.orden, ['tipo', 'sync_id', 'revision', 'payload_sha256'])
+      || !metrogestionMismaReferencia_(ack.orden, record.referencia)) {
+    throw new Error('El acuse no confirma inequívocamente esta orden. Su recibo aplicado se conserva; sólo podrá repetirse el acuse.');
+  }
+}
+
+function metrogestionValorFoto_(value) {
+  if (value instanceof Date) return { fecha: value.toISOString() };
+  if (Array.isArray(value)) return value.map(metrogestionValorFoto_);
+  if (value && typeof value === 'object') {
+    if (typeof value.getA1Notation === 'function') return { rango: value.getA1Notation() };
+    const result = {};
+    Object.keys(value).sort().forEach(key => { if (typeof value[key] !== 'function') result[key] = metrogestionValorFoto_(value[key]); });
+    return result;
+  }
+  return value ?? '';
+}
+
+function metrogestionCriterioFoto_(criterion) {
+  if (!criterion) return null;
+  if (typeof criterion.getCriteriaType !== 'function') return metrogestionValorFoto_(criterion);
+  const result = { tipo: String(criterion.getCriteriaType()), valores: metrogestionValorFoto_(criterion.getCriteriaValues()) };
+  ['getHiddenValues', 'getVisibleValues', 'getAllowInvalid', 'getHelpText'].forEach(name => {
+    if (typeof criterion[name] === 'function') result[name] = metrogestionValorFoto_(criterion[name]());
+  });
+  ['getVisibleBackgroundColor', 'getVisibleForegroundColor'].forEach(name => {
+    if (typeof criterion[name] === 'function') {
+      const color = criterion[name]();
+      result[name] = color ? color.asRgbColor().asHexString() : null;
+    }
+  });
+  return result;
+}
+
+function metrogestionFiltroFoto_(sheet) {
+  const filter = sheet.getFilter();
+  if (!filter) return null;
+  const range = filter.getRange(), criteria = [];
+  for (let column = range.getColumn(); column <= range.getLastColumn(); column++) {
+    criteria.push([column, metrogestionCriterioFoto_(filter.getColumnFilterCriteria(column))]);
+  }
+  return { fila: range.getRow(), columna: range.getColumn(), filas: range.getNumRows(), columnas: range.getNumColumns(), criterios: criteria };
+}
+
+function metrogestionLeerFotografiaOrden_(sheet) {
+  const count = sheet.getLastRow();
+  if (count < 2) throw new Error('MANTENIMENT no contiene filas de datos.');
+  const range = sheet.getRange(1, 1, count, 17);
+  const values = range.getValues(), display = range.getDisplayValues(), notes = range.getNotes();
+  const formulas = range.getFormulas(), r1c1 = range.getFormulasR1C1();
+  const backgrounds = range.getBackgrounds(), formats = range.getNumberFormats();
+  const rich = range.getRichTextValues(), validations = range.getDataValidations();
+  const rows = values.map((row, r) => row.map((value, c) => ({ value, display: display[r][c],
+    formula: formulas[r][c] || '', r1c1: r1c1[r][c] || '', note: notes[r][c] || '',
+    background: backgrounds[r][c], format: formats[r][c], rich: rich[r][c], validation: validations[r][c] })));
+  metrogestionValidarCabeceras_(display[0]);
+  return { rows, maxRows: sheet.getMaxRows(), filter: metrogestionFiltroFoto_(sheet) };
+}
+
+function metrogestionRicosFoto_(cell) {
+  if (cell.formula || typeof cell.value !== 'string' || !cell.value) return [];
+  const rich = cell.rich;
+  if (!rich) return [{ texto: cell.value, url: '' }];
+  const runs = rich.getRuns();
+  return (runs.length ? runs : [rich]).map(run => ({ texto: run.getText(), url: run.getLinkUrl() || '' }));
+}
+
+function metrogestionCanonicaFotoOrden_(photo) {
+  return { maxRows: photo.maxRows, filtro: photo.filter, filas: photo.rows.map(row => row.map(cell => ({
+    dato: cell.formula ? { formula: cell.r1c1 } : metrogestionValorFoto_(cell.value),
+    nota: cell.note, fondo: cell.background, formato: cell.format, enlaces: metrogestionRicosFoto_(cell),
+    validacion: metrogestionCriterioFoto_(cell.validation),
+  }))) };
+}
+
+function metrogestionHuellaFotoOrden_(photo, previa) {
+  const canonical = metrogestionCanonicaFotoOrden_(photo);
+  if (previa) {
+    // También se usaron los resultados visibles al planificar. Una fórmula
+    // idéntica cuyo valor cambió durante authorize invalida el plan previo.
+    canonical.resultados = photo.rows.map(row => row.map(cell => [metrogestionValorFoto_(cell.value), cell.display]));
+  }
+  return metrogestionSha256_(JSON.stringify(canonical));
+}
+
+function metrogestionClonarCeldaOrden_(cell) {
+  return { ...cell, value: cell.value instanceof Date ? new Date(cell.value.getTime()) : cell.value };
+}
+
+function metrogestionCeldaVaciaOrden_() {
+  return { value: '', display: '', formula: '', r1c1: '', note: '', background: '#ffffff', format: '', rich: null, validation: null };
+}
+
+// Este adaptador sólo escribe arrays en memoria. Ningún método conserva una
+// referencia escribible a Sheet/Range; las operaciones se reproducen después
+// de planificar, autorizar y guardar el intento durable.
+function metrogestionHojaEnMemoria_(source, photo) {
+  const memory = { metrogestionSoloMemoria: true, rows: photo.rows.map(row => row.map(metrogestionClonarCeldaOrden_)),
+    maxRows: photo.maxRows, filter: photo.filter, operations: [], drivePlans: [], heights: {}, originalHeights: {},
+    origins: photo.rows.map((_, i) => i + 1), getLastRow() { return this.rows.length; },
+    getMaxRows() { return this.maxRows; }, getName() { return METROGESTION.sheetName; },
+    getRowHeight(row) {
+      if (this.heights[row] !== undefined) return this.heights[row];
+      const original = this.origins[row - 1];
+      if (!original) return 21;
+      if (this.originalHeights[original] === undefined) this.originalHeights[original] = source.getRowHeight(original);
+      return this.originalHeights[original];
+    },
+    setRowHeight(row, height) { this.heights[row] = height; this.operations.push({ method: 'setRowHeight', row, height }); return this; },
+    insertRowAfter(row) {
+      this.rows.splice(row, 0, Array.from({ length: 17 }, metrogestionCeldaVaciaOrden_));
+      this.origins.splice(row, 0, null); this.maxRows++;
+      this.heights = Object.fromEntries(Object.entries(this.heights).map(([r, h]) => [Number(r) > row ? Number(r) + 1 : r, h]));
+      this.operations.push({ method: 'insertRowAfter', row }); return this;
+    },
+    getRange(row, column, height, width) { return metrogestionRangoEnMemoria_(this, row, column, height || 1, width || 1); },
+  };
+  return memory;
+}
+
+function metrogestionRangoEnMemoria_(sheet, row, column, height, width) {
+  if ([row, column, height, width].some(value => !Number.isInteger(value) || value < 1)
+      || column + width - 1 > 17 || row + height - 1 > sheet.rows.length) throw new Error('El plan intenta escribir fuera de A:Q o de una fila acreditada.');
+  const each = fn => Array.from({ length: height }, (_, r) => Array.from({ length: width }, (_, c) => fn(sheet.rows[row + r - 1][column + c - 1], r, c)));
+  const write = (method, args, fn) => { sheet.operations.push({ method, range: [row, column, height, width], args }); each(fn); return range; };
+  const assignValue = (cell, value) => {
+    cell.value = value instanceof Date ? new Date(value.getTime()) : value;
+    cell.display = value instanceof Date ? metrogestionFechaIsoDesdeDate_(value) : String(value ?? '');
+    cell.formula = ''; cell.r1c1 = ''; cell.rich = null;
+  };
+  const range = {
+    getValues: () => each(cell => cell.value), getValue: () => sheet.rows[row - 1][column - 1].value,
+    getDisplayValues: () => each(cell => cell.display), getDisplayValue: () => sheet.rows[row - 1][column - 1].display,
+    getNotes: () => each(cell => cell.note), getNote: () => sheet.rows[row - 1][column - 1].note,
+    getBackgrounds: () => each(cell => cell.background), getBackground: () => sheet.rows[row - 1][column - 1].background,
+    getFormula: () => sheet.rows[row - 1][column - 1].formula,
+    getRichTextValues: () => each(cell => cell.rich),
+    setValue(value) { return write('setValue', [value], cell => assignValue(cell, value)); },
+    setValues(values) { return write('setValues', [values], (cell, r, c) => assignValue(cell, values[r][c])); },
+    setNote(note) { return write('setNote', [note], cell => { cell.note = String(note || ''); }); },
+    setBackground(color) { return write('setBackground', [color], cell => { cell.background = color; }); },
+    setNumberFormat(format) { return write('setNumberFormat', [format], cell => { cell.format = format; }); },
+    clearContent() { return write('clearContent', [], cell => assignValue(cell, '')); },
+    clearNote() { return write('clearNote', [], cell => { cell.note = ''; }); },
+    copyTo(target, type, transposed) {
+      const cells = each(metrogestionClonarCeldaOrden_);
+      sheet.operations.push({ method: 'copyTo', range: [row, column, height, width], target: target.coordinates, type, transposed });
+      const [tr, tc, th, tw] = target.coordinates;
+      for (let r = 0; r < th; r++) for (let c = 0; c < tw; c++) {
+        const from = cells[r % height][c % width], dest = sheet.rows[tr + r - 1][tc + c - 1];
+        if (type === SpreadsheetApp.CopyPasteType.PASTE_FORMULA) { dest.formula = from.formula; dest.r1c1 = from.r1c1; dest.rich = null; }
+        else Object.assign(dest, metrogestionClonarCeldaOrden_(from));
+      }
+      return range;
+    },
+    coordinates: [row, column, height, width],
+  };
+  return range;
+}
+
+function metrogestionExigirFormulasPlanificables_(photo, inserted) {
+  photo.rows.forEach((row, r) => row.forEach((cell, c) => {
+    if (!cell.formula) return;
+    if (!cell.r1c1 || /\b(ARRAYFORMULA|IMPORTRANGE|FILTER|QUERY|SEQUENCE|TRANSPOSE|FLATTEN|SPLIT)\s*\(/i.test(cell.formula)) {
+      throw new Error(`La fórmula de la fila ${r + 1}, columna ${c + 1} requiere revisión antes de aplicar órdenes; no se materializa ni se recorta la fotografía.`);
+    }
+    if (!inserted) return;
+    // Sólo referencias de la misma fila o de la cabecera son demostrables sin
+    // simular el motor de fórmulas Google al insertar. El resto falla cerrado.
+    const formula = cell.r1c1.replace(/"(?:[^"]|"")*"/g, '');
+    const refs = [...formula.matchAll(/(?:^|[^A-Z0-9_])R(\[-?\d+\]|\d+)?C(?:\[-?\d+\]|\d+)?/gi)];
+    if (refs.some(match => match[1] && !['[0]', '1'].includes(match[1]))) {
+      throw new Error(`La inserción afectaría a referencias entre filas en ${r + 1}:${c + 1}. Revisión manual obligatoria antes de escribir.`);
+    }
+  }));
+}
+
+function metrogestionNotaIdentidadOrden_(note, prefix) {
+  const lines = String(note || '').split(/\r?\n/).filter(line => line.toUpperCase().startsWith(prefix + ':'));
+  if (!lines.length) return '';
+  const id = lines[0].slice(prefix.length + 1).trim().toLowerCase();
+  if (lines.length !== 1 || !METROGESTION_UUID_ORDEN.test(id)) throw new Error('Una nota técnica contiene una identidad duplicada o inválida. Revisión manual obligatoria.');
+  return id;
+}
+
+function metrogestionFechaOrden_(value) {
+  if (value === undefined || value === null || value === '') return '';
+  if (typeof value !== 'string') throw new Error('Una fecha de la orden no tiene formato ISO de día.');
+  metrogestionDate_(value);
+  return value;
+}
+
+function metrogestionValidarOrdenCompleta_(command, photo) {
+  const ref = metrogestionReferenciaOrden_(command), payload = command.payload;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+      || payload.sync_id !== ref.sync_id || (ref.tipo === 'trabajos') !== (payload.solo_trabajos === true)) {
+    throw new Error('La identidad o el tipo de la orden no coincide con su payload completo.');
+  }
+  const dfm = metrogestionNormalizar_(payload.dfm), stop = metrogestionNormalizar_(payload.numero_parada);
+  if (!dfm || !metrogestionEsNumeroParada_(stop)) throw new Error('La orden completa no acredita DFM y PA.');
+  if (payload.ajuste_24h || payload.reversion_t?.limpiar_fecha_entrada === true || payload.reversion_t?.limpiar_fecha_salida === true
+      || payload.reversion_t?.limpiar_k_parada === true) throw new Error('La orden contiene una operación destructiva bloqueada en modo protegido.');
+  ['trabajos_crear', 'trabajos_asignados'].forEach(name => {
+    if (payload[name] !== undefined && !Array.isArray(payload[name])) throw new Error('La lista completa de trabajos no es válida.');
+  });
+  ['fecha_programada', 'fecha_parada', 'fecha_k'].forEach(name => metrogestionFechaOrden_(payload[name]));
+  if (payload.fecha_k && payload.fecha_parada && payload.fecha_k < payload.fecha_parada) throw new Error('La fecha de cierre es anterior a la entrada de la parada.');
+  if (payload.cierre_periodo_anterior) {
+    const previous = payload.cierre_periodo_anterior;
+    if (typeof previous !== 'object' || !previous.tancament || !previous.fecha_k
+        || metrogestionNormalizar_(previous.tancament) === metrogestionNormalizar_(payload.tancament)) {
+      throw new Error('El cambio de periodo no identifica dos tramos distintos y un cierre válido.');
+    }
+    metrogestionFechaOrden_(previous.fecha_k);
+  }
+  const values = photo.rows.map(row => row.map(cell => cell.display));
+  const periods = new Set();
+  values.forEach((row, index) => {
+    if (!index) return;
+    const note = photo.rows[index][0].note;
+    const hasOurId = String(note).toLowerCase().includes(ref.sync_id);
+    const sameDfm = metrogestionNormalizar_(row[0]) === dfm;
+    const sameStop = metrogestionNormalizar_(row[4]) === stop;
+    const isStop = ['PARADA', 'ANULADA'].includes(metrogestionNormalizar_(row[7]));
+    if (hasOurId || (sameDfm && sameStop && isStop)) {
+      const linked = metrogestionNotaIdentidadOrden_(note, 'METROGESTION_PARADA');
+      if (!isStop || !sameDfm || !sameStop || (linked && linked !== ref.sync_id)) {
+        throw new Error(`La identidad PARADA de la fila ${index + 1} pertenece a otro DFM, PA o UUID. No se ha aplicado esta orden.`);
+      }
+      const key = `${metrogestionNormalizar_(row[16])}|${metrogestionNormalizar_(row[6])}`;
+      if (periods.has(key)) throw new Error('Hay varias filas PARADA con la misma identidad y periodo. Revisión manual obligatoria.');
+      periods.add(key);
+    }
+    if (isStop && sameDfm && !sameStop) {
+      // Una antigua P-/PA distinta con la misma fecha puede ser el registro
+      // manual original. No se infiere la equivalencia ni se inserta otra fila.
+      const dates = [row[8], row[9]].filter(value => String(value || '').trim()).map(value => metrogestionFechaIso_(value, 'de identidad manual'));
+      if ([payload.fecha_programada, payload.fecha_parada].some(date => date && dates.includes(date))) {
+        throw new Error(`Existe una PARADA manual del mismo DFM y fecha con otra referencia en la fila ${index + 1}. La identidad requiere revisión antes de insertar o vincular.`);
+      }
+    }
+    if (sameStop && !sameDfm) throw new Error('La PA aparece también en otro DFM. No se crearán filas ni enlaces Drive con identidad ambigua.');
+  });
+  const createdIds = new Set(), assignedIds = new Set();
+  (payload.trabajos_crear || []).forEach(work => {
+    if (!work || !METROGESTION_UUID_ORDEN.test(work.trabajo_sync_id || '') || createdIds.has(work.trabajo_sync_id)) {
+      throw new Error('La orden contiene un trabajo nuevo sin UUID válido o repetido.');
+    }
+    createdIds.add(work.trabajo_sync_id);
+    if (metrogestionNormalizar_(work.dfm) !== dfm || metrogestionNormalizar_(work.numero_parada) !== stop
+        || !metrogestionNormalizar_(work.matricula) || !metrogestionNormalizar_(work.designacion)
+        || ['ALTA', 'BAJA', 'PARADA', 'ANULADA'].includes(metrogestionNormalizar_(work.designacion))) {
+      throw new Error('Un trabajo nuevo no pertenece a la identidad completa de la orden.');
+    }
+    if (!work.fecha_necesidad) throw new Error('Un trabajo nuevo no acredita su fecha de necesidad.');
+    ['fecha_necesidad', 'fecha_entrada', 'fecha_salida'].forEach(name => metrogestionFechaOrden_(work[name]));
+    if (work.fecha_salida && work.fecha_entrada && work.fecha_salida < work.fecha_entrada) {
+      throw new Error('La salida del trabajo nuevo es anterior a su entrada. No se ha aplicado esta orden.');
+    }
+    metrogestionValidarNotaTrabajoEnFoto_(work.trabajo_sync_id, metrogestionClaveTrabajoPayload_(work), stop, photo);
+  });
+  (payload.trabajos_asignados || []).forEach(work => {
+    if (!work || !METROGESTION_UUID_ORDEN.test(work.trabajo_sync_id || '') || assignedIds.has(work.trabajo_sync_id)) {
+      throw new Error('La orden contiene una asignación de trabajo sin UUID válido o repetida.');
+    }
+    assignedIds.add(work.trabajo_sync_id);
+    const parts = String(work.clave_fila || '').split('|');
+    if (parts.length !== 6 || parts[0] !== dfm || !parts[1] || !parts[4] || !parts[5]) throw new Error('La asignación no acredita la identidad completa del trabajo.');
+    metrogestionFechaOrden_(parts[5]);
+    ['fecha_entrada', 'fecha_salida'].forEach(name => metrogestionFechaOrden_(work[name]));
+    if (work.fecha_salida && work.fecha_entrada && work.fecha_salida < work.fecha_entrada) throw new Error('La salida del trabajo es anterior a su entrada.');
+    metrogestionValidarNotaTrabajoEnFoto_(work.trabajo_sync_id, work.clave_fila, stop, photo);
+  });
+  return ref;
+}
+
+function metrogestionValidarNotaTrabajoEnFoto_(id, key, stop, photo) {
+  let matches = 0;
+  photo.rows.forEach((row, index) => {
+    if (!index || !String(row[4].note).toLowerCase().includes(id)) return;
+    const linked = metrogestionNotaIdentidadOrden_(row[4].note, 'METROGESTION_T');
+    if (linked !== id) return;
+    matches++;
+    const values = row.map(cell => cell.display);
+    if (!metrogestionCoincideIdentidadTrabajo_(values, key) || metrogestionNormalizar_(values[4]) !== stop
+        || ['ALTA', 'BAJA', 'PARADA', 'ANULADA'].includes(metrogestionNormalizar_(values[7]))) {
+      throw new Error('La nota UUID del trabajo está en una fila de otra identidad o actuación.');
+    }
+  });
+  if (matches > 1) throw new Error('El UUID del trabajo está duplicado en varias filas.');
+}
+
+function metrogestionCrearTrabajosSeguros_(sheet, works, sheetState) {
+  const used = new Set();
+  return (works || []).map(work => {
+    const id = work.trabajo_sync_id;
+    if (used.has(id)) throw new Error('La orden contiene un UUID de trabajo repetido.');
+    used.add(id);
+    const values = sheetState.values, notes = sheetState.notesE;
+    const expectedKey = metrogestionClaveTrabajoPayload_(work), expectedStop = metrogestionNormalizar_(work.numero_parada);
+    const linked = [], equivalent = [], sameStop = [];
+    values.forEach((row, index) => {
+      if (!index || ['ALTA', 'BAJA', 'PARADA', 'ANULADA'].includes(metrogestionNormalizar_(row[7]))) return;
+      if (metrogestionNotaTrabajoId_(notes[index])?.toLowerCase() === id) linked.push(index + 1);
+      if (metrogestionCoincideIdentidadTrabajo_(row, expectedKey)) equivalent.push(index + 1);
+      if (metrogestionNormalizar_(row[0]) === metrogestionNormalizar_(work.dfm)
+          && metrogestionNormalizar_(row[7]) === metrogestionNormalizar_(work.designacion)
+          && metrogestionNormalizar_(row[4]) === expectedStop) sameStop.push(index + 1);
+    });
+    if (linked.length > 1 || equivalent.length > 1) throw new Error('La necesidad tiene varias filas equivalentes o un UUID duplicado.');
+    let rowNumber = linked[0] || equivalent[0] || 0;
+    if (rowNumber) {
+      const row = values[rowNumber - 1], currentId = metrogestionNotaIdentidadOrden_(notes[rowNumber - 1], 'METROGESTION_T');
+      if ((currentId && currentId !== id) || !metrogestionCoincideIdentidadTrabajo_(row, expectedKey)
+          || (row[4] && metrogestionNormalizar_(row[4]) !== expectedStop)) {
+        throw new Error('La fila equivalente pertenece a otro UUID o actuación. No se sustituye su identidad.');
+      }
+    } else if (sameStop.length) throw new Error('La PA ya contiene una necesidad de la misma clase con datos distintos. Revisión manual obligatoria.');
+    const newRow = !rowNumber;
+    if (newRow) rowNumber = metrogestionInsertarFilaParada_(sheet, work, sheetState);
+    const fields = [[1, work.dfm], [2, work.matricula], [3, work.tipo], [4, work.upc], [5, work.numero_parada],
+      [6, work.taller], [7, work.tipo_trabajo], [8, work.designacion], [9, work.fecha_necesidad, 'fecha'],
+      [10, work.fecha_entrada, 'fecha'], [11, work.fecha_salida, 'fecha'], [15, work.marca], [16, work.km_averia, 'numero'], [17, work.expediente]];
+    fields.forEach(([column, expected, type]) => metrogestionPlanRellenoSeguro_(sheetState.values[rowNumber - 1][column - 1], expected, `trabajo, columna ${column}`, type));
+    fields.forEach(([column, expected, type]) => metrogestionCompletarCeldaSegura_(sheet, rowNumber, column, expected,
+      `trabajo, columna ${column}`, sheetState, column - 1, type));
+    if (newRow) {
+      sheet.getRange(rowNumber, 1, 1, 17).setBackground('#ffffff');
+      sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
+      sheet.getRange(rowNumber, 16).setNumberFormat('#,##0');
+    }
+    if (work.fecha_salida) metrogestionPintarCierre_(sheet, rowNumber);
+    sheet.getRange(rowNumber, 5).setBackground('#cfe2f3');
+    const note = metrogestionNotaConTrabajo_(sheetState.notesE[rowNumber - 1], id);
+    sheet.getRange(rowNumber, 5).setNote(note);
+    sheetState.notesE[rowNumber - 1] = note;
+    const detail = [work.motivo_entrada, work.diagnostico_real, work.detalle].filter(Boolean).join('\n');
+    if (detail) {
+      const current = sheet.getRange(rowNumber, 8).getNote();
+      if (current && current !== detail) throw new Error('La nota manual del trabajo difiere del detalle recibido. Se conserva para revisión.');
+      if (!current) sheet.getRange(rowNumber, 8).setNote(detail);
+    }
+    return { trabajo_sync_id: id, fila: rowNumber, clave_fila: metrogestionClaveFilaTrabajo_(sheetState.values[rowNumber - 1], false) };
+  });
+}
+
+function metrogestionPlanArchivoParada_(dfm, stop, preferredUrls) {
+  const root = DriveApp.getFolderById(METROGESTION.archivoFlotaFolderId);
+  let vehicle = metrogestionBuscarCarpetaUnica_(root, dfm);
+  if (!vehicle) {
+    const swap = metrogestionBuscarCarpetaUnica_(root, '7A INTERCAMBIO');
+    if (swap) vehicle = metrogestionBuscarCarpetaUnica_(swap, dfm);
+  }
+  if (!vehicle) throw new Error(`No existe una carpeta inequívoca de archivo para ${dfm}. No se ha aplicado esta orden.`);
+  const groups = metrogestionCarpetasPorNombre_(vehicle, 'PARADAS');
+  const candidates = [];
+  groups.forEach(parent => metrogestionCarpetasPorNombre_(parent, stop).forEach(folder => candidates.push({ parent, folder })));
+  const preferred = new Set((preferredUrls || []).map(metrogestionIdCarpetaDesdeUrl_).filter(Boolean));
+  const linked = candidates.filter(candidate => preferred.has(candidate.folder.getId()));
+  if (linked.length > 1) throw new Error('Varias carpetas canónicas de la misma DFM/PA tienen enlaces existentes contradictorios. Revisión manual obligatoria.');
+  if (!linked.length && candidates.length > 1) throw new Error('Hay más de una carpeta de la PA y ningún enlace existente acredita una única candidata.');
+  if (!candidates.length && groups.length > 1) throw new Error('Hay más de una carpeta PARADAS sin una PA acreditada; no se elige dónde crearla.');
+  const chosen = linked[0] || candidates[0] || null;
+  const stops = chosen ? chosen.parent : groups[0] || null;
+  const folder = chosen ? chosen.folder : null;
+  return { dfm, stop, vehicleId: vehicle.getId(), stopsId: stops ? stops.getId() : '', folderId: folder ? folder.getId() : '',
+    url: folder ? folder.getUrl() : '', carpetasParadas: groups.map(group => group.getId()).sort(),
+    candidatas: candidates.map(candidate => [candidate.parent.getId(), candidate.folder.getId()]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))) };
+}
+
+function metrogestionPlanificarEnlacesArchivo_(sheet, numeroParada, dfm, sheetState) {
+  const stop = metrogestionNormalizar_(numeroParada), expectedDfm = metrogestionNormalizar_(dfm), rows = [];
+  sheetState.values.forEach((row, index) => {
+    if (!index || metrogestionNormalizar_(row[4]) !== stop) return;
+    if (metrogestionNormalizar_(row[0]) !== expectedDfm) throw new Error('La PA contiene una fila de otro DFM. No se planifica ningún enlace Drive.');
+    rows.push(index + 1);
+  });
+  if (!rows.length) return 0;
+  const preferredUrls = rows.map(row => sheet.rows[row - 1][4].rich?.getLinkUrl()).filter(Boolean);
+  const plan = metrogestionPlanArchivoParada_(String(dfm).trim(), stop, preferredUrls);
+  plan.rows = rows;
+  plan.preferredUrls = preferredUrls;
+  plan.placeholder = `https://metrogestion.invalid/archivo-pendiente/${sheet.drivePlans.length}`;
+  const url = plan.url || plan.placeholder;
+  rows.forEach(row => {
+    const cell = sheet.rows[row - 1][4];
+    const builder = cell.rich ? cell.rich.copy() : SpreadsheetApp.newRichTextValue().setText(String(cell.value));
+    cell.rich = builder.setLinkUrl(url).build();
+  });
+  sheet.drivePlans.push(plan);
+  sheet.operations.push({ method: 'enlazarArchivo', driveIndex: sheet.drivePlans.length - 1 });
+  return rows.length;
+}
+
+function metrogestionFirmaArchivoPlan_(plan) {
+  return JSON.stringify({ dfm: plan.dfm, stop: plan.stop, vehicleId: plan.vehicleId, stopsId: plan.stopsId, folderId: plan.folderId, url: plan.url,
+    carpetasParadas: plan.carpetasParadas, candidatas: plan.candidatas });
+}
+
+function metrogestionFirmaPlanOrden_(plan) {
+  return metrogestionSha256_(JSON.stringify({ referencia: plan.referencia, payload: plan.command.payload,
+    fotografia_inicial_sha256: plan.fotografia_inicial_sha256, operaciones: plan.memory.operations,
+    archivos: plan.memory.drivePlans, esperado: metrogestionCanonicaFotoOrden_(plan.memory),
+    alturas: plan.memory.originalHeights, confirmacion: plan.confirmacion }));
+}
+
+function metrogestionPlanificarOrdenCompleta_(sheet, command) {
+  const photo = metrogestionLeerFotografiaOrden_(sheet);
+  const exactCommand = JSON.parse(JSON.stringify(command));
+  const planningCommand = metrogestionComandoParaPlan_(exactCommand);
+  const reference = metrogestionValidarOrdenCompleta_(planningCommand, photo);
+  const memory = metrogestionHojaEnMemoria_(sheet, photo);
+  const state = { values: photo.rows.map(row => row.map(cell => cell.display)),
+    notesA: photo.rows.map(row => row[0].note), notesE: photo.rows.map(row => row[4].note), cierresAdministrativos: [] };
+  const confirmation = metrogestionAplicarComandos_(memory, [planningCommand], state, [])[0];
+  confirmation.payload_sha256 = reference.payload_sha256;
+  const inserts = memory.operations.filter(op => op.method === 'insertRowAfter').length;
+  metrogestionExigirFormulasPlanificables_(photo, inserts > 0);
+  if (memory.filter) {
+    memory.filter = { ...memory.filter, filas: Math.min(memory.maxRows - memory.filter.fila + 1,
+      Math.max(memory.filter.filas, memory.rows.length - memory.filter.fila + 1)) };
+  }
+  const plan = { referencia: reference, command: exactCommand, memory, confirmacion: confirmation,
+    fotografia_inicial_sha256: metrogestionHuellaFotoOrden_(photo, true) };
+  plan.plan_sha256 = metrogestionFirmaPlanOrden_(plan);
+  const record = metrogestionIntentoOrden_(plan);
+  const expectedReceipt = { ...record, estado: 'aplicado', fotografia_final_sha256: 'f'.repeat(64),
+    verificado_en: new Date().toISOString(), confirmacion: confirmation,
+    archivos: memory.drivePlans.map(drive => ({ ...JSON.parse(metrogestionFirmaArchivoPlan_(drive)), folderId: 'x'.repeat(200), stopsId: 'x'.repeat(200), url: 'x'.repeat(500) })) };
+  if (Utilities.newBlob(JSON.stringify(expectedReceipt)).getBytes().length > 8000) {
+    throw new Error('El recibo completo previsto supera 8 KB. La orden requiere dividirse o revisarse antes de cualquier efecto.');
+  }
+  return plan;
+}
+
+function metrogestionIntentoOrden_(plan) {
+  return { version_ejecucion: METROGESTION.executorVersion, spreadsheet_id: METROGESTION.spreadsheetId,
+    referencia: plan.referencia, estado: 'aplicando', plan_sha256: plan.plan_sha256,
+    fotografia_inicial_sha256: plan.fotografia_inicial_sha256, iniciado_en: new Date().toISOString(),
+    archivos: plan.memory.drivePlans.map(drive => JSON.parse(metrogestionFirmaArchivoPlan_(drive))) };
+}
+
+function metrogestionRevalidarPlanOrden_(sheet, plan) {
+  if (metrogestionFirmaPlanOrden_(plan) !== plan.plan_sha256) throw new Error('El plan local cambió después de validarlo. No se ha aplicado esta orden.');
+  if (metrogestionHuellaFotoOrden_(metrogestionLeerFotografiaOrden_(sheet), true) !== plan.fotografia_inicial_sha256) {
+    throw new Error('MANTENIMENT cambió durante la autorización. Se ha descartado el plan sin aplicarlo.');
+  }
+  Object.entries(plan.memory.originalHeights).forEach(([row, height]) => {
+    if (sheet.getRowHeight(Number(row)) !== height) throw new Error('La plantilla cambió durante la autorización. No se ha aplicado esta orden.');
+  });
+  plan.memory.drivePlans.forEach(drive => {
+    if (metrogestionFirmaArchivoPlan_(metrogestionPlanArchivoParada_(drive.dfm, drive.stop, drive.preferredUrls)) !== metrogestionFirmaArchivoPlan_(drive)) {
+      throw new Error('El archivo Drive cambió durante la autorización. No se ha aplicado esta orden.');
+    }
+  });
+}
+
+function metrogestionLeerEstadoFiltroOrden_(sheet) {
+  const filter = sheet.getFilter();
+  if (!filter) return null;
+  const range = filter.getRange(), criteria = [];
+  for (let column = range.getColumn(); column <= range.getLastColumn(); column++) {
+    const criterion = filter.getColumnFilterCriteria(column);
+    if (criterion) criteria.push({ column, criterion });
+  }
+  return { startRow: range.getRow(), startColumn: range.getColumn(), numRows: range.getNumRows(),
+    numColumns: range.getNumColumns(), maxRows: sheet.getMaxRows(), criteria };
+}
+
+function metrogestionAplicarArchivoPlan_(sheet, memory, drive) {
+  if (metrogestionFirmaArchivoPlan_(metrogestionPlanArchivoParada_(drive.dfm, drive.stop, drive.preferredUrls)) !== metrogestionFirmaArchivoPlan_(drive)) {
+    throw new Error('El archivo Drive ha cambiado después de iniciar la orden.');
+  }
+  const vehicle = DriveApp.getFolderById(drive.vehicleId);
+  const stops = drive.stopsId ? DriveApp.getFolderById(drive.stopsId) : vehicle.createFolder('PARADAS');
+  const folder = drive.folderId ? DriveApp.getFolderById(drive.folderId) : stops.createFolder(drive.stop);
+  const url = folder.getUrl();
+  drive.rows.forEach(row => {
+    const cell = sheet.getRange(row, 5), existing = cell.getRichTextValue();
+    if (existing?.getLinkUrl() !== url) {
+      const builder = existing ? existing.copy() : SpreadsheetApp.newRichTextValue().setText(String(memory.rows[row - 1][4].value));
+      cell.setRichTextValue(builder.setLinkUrl(url).build());
+    }
+    const expected = memory.rows[row - 1][4];
+    const builder = expected.rich ? expected.rich.copy() : SpreadsheetApp.newRichTextValue().setText(String(expected.value));
+    expected.rich = builder.setLinkUrl(url).build();
+  });
+  drive.stopsId = stops.getId(); drive.folderId = folder.getId(); drive.url = url;
+  if (!drive.carpetasParadas.includes(drive.stopsId)) drive.carpetasParadas.push(drive.stopsId);
+  drive.carpetasParadas.sort();
+  if (!drive.candidatas.some(pair => pair[0] === drive.stopsId && pair[1] === drive.folderId)) drive.candidatas.push([drive.stopsId, drive.folderId]);
+  drive.candidatas.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+}
+
+function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
+  if (Date.now() >= permission.expira) throw new Error('La autorización caducó durante la revalidación. No se ha iniciado esta orden.');
+  const filterState = metrogestionLeerEstadoFiltroOrden_(sheet);
+  const record = metrogestionIntentoOrden_(plan);
+  // Este setProperty y su lectura son anteriores incluso a quitar el filtro.
+  // Una excepción tras persistir deja "aplicando": no habrá autorepetición.
+  metrogestionGuardarJournalOrden_(record);
+  let failure = null;
+  try {
+    if (Date.now() >= permission.expira) throw new Error('La autorización caducó después de registrar el intento.');
+    if (filterState) metrogestionSuspenderFiltro_(sheet);
+    plan.memory.operations.forEach(op => {
+      if (op.method === 'insertRowAfter') sheet.insertRowAfter(op.row);
+      else if (op.method === 'setRowHeight') sheet.setRowHeight(op.row, op.height);
+      else if (op.method === 'enlazarArchivo') metrogestionAplicarArchivoPlan_(sheet, plan.memory, plan.memory.drivePlans[op.driveIndex]);
+      else if (op.method === 'copyTo') {
+        const source = sheet.getRange(...op.range), target = sheet.getRange(...op.target);
+        if (op.type) source.copyTo(target, op.type, op.transposed || false); else source.copyTo(target);
+      } else sheet.getRange(...op.range)[op.method](...op.args);
+    });
+    SpreadsheetApp.flush();
+  } catch (error) { failure = error; }
+  try { if (filterState) metrogestionRestaurarFiltro_(sheet, filterState); }
+  catch (error) { failure = failure || error; }
+  try {
+    if (failure) throw failure;
+    const actual = metrogestionLeerFotografiaOrden_(sheet);
+    if (metrogestionHuellaFotoOrden_(actual) !== metrogestionHuellaFotoOrden_(plan.memory)) {
+      throw new Error('La lectura posterior no coincide con todos los datos, notas, fórmulas, formatos, enlaces y filtros previstos.');
+    }
+    Object.entries(plan.memory.heights).forEach(([row, height]) => {
+      if (sheet.getRowHeight(Number(row)) !== height) throw new Error('No se ha verificado la altura de la fila creada.');
+    });
+    plan.memory.drivePlans.forEach(drive => {
+      if (metrogestionFirmaArchivoPlan_(metrogestionPlanArchivoParada_(drive.dfm, drive.stop, [drive.url])) !== metrogestionFirmaArchivoPlan_(drive)) {
+        throw new Error('No se ha verificado la carpeta Drive resultante.');
+      }
+    });
+    Object.assign(record, { estado: 'aplicado', fotografia_final_sha256: metrogestionHuellaFotoOrden_(actual),
+      verificado_en: new Date().toISOString(), confirmacion: plan.confirmacion,
+      archivos: plan.memory.drivePlans.map(drive => JSON.parse(metrogestionFirmaArchivoPlan_(drive))) });
+    metrogestionGuardarJournalOrden_(record);
+    return record;
+  } catch (_) {
+    record.estado = 'incierto';
+    try { metrogestionGuardarJournalOrden_(record); } catch (_) { /* El intento previo sigue bloqueando la repetición. */ }
+    throw new Error(`Resultado incierto de ${record.referencia.tipo}/${record.referencia.sync_id}/${record.referencia.revision}. Puede haber efectos parciales; no se reaplica ni se envía ACK. Conserva esta referencia para revisión.`);
+  }
+}
+
+function metrogestionVerificarReciboAplicado_(sheet, record) {
+  if (metrogestionHuellaFotoOrden_(metrogestionLeerFotografiaOrden_(sheet)) !== record.fotografia_final_sha256) {
+    throw new Error('La hoja cambió después del recibo aplicado. No se repetirá la orden ni se enviará un acuse sin revisión.');
+  }
+  (record.archivos || []).forEach(drive => {
+    if (metrogestionFirmaArchivoPlan_(metrogestionPlanArchivoParada_(drive.dfm, drive.stop, [drive.url])) !== metrogestionFirmaArchivoPlan_(drive)) {
+      throw new Error('Drive cambió después del recibo aplicado. Revisión manual obligatoria antes del acuse.');
+    }
+  });
+}
+
+function metrogestionAvanzarOrdenConfirmada_(state) {
+  state.comandos.shift();
+  state.confirmados++;
+  delete state.confirmacionPendiente;
+  if (!state.comandos.length) { state.fase = 'terminado'; state.trabajos = []; }
+  metrogestionGuardarCiclo_(state);
+}
+
+function metrogestionComandoParaPlan_(command) {
+  const ref = metrogestionReferenciaOrden_(command);
+  const planned = JSON.parse(JSON.stringify(command));
+  if (ref.tipo !== 'trabajos') return planned;
+  const payload = command.payload;
+  const allowed = ['sync_id', 'seguimiento_id', 'numero_parada', 'solo_trabajos', 'trabajos_asignados', 'trabajos_crear'];
+  if (!payload || payload.solo_trabajos !== true || Object.keys(payload).some(key => !allowed.includes(key))
+      || !Array.isArray(payload.trabajos_crear) || !Array.isArray(payload.trabajos_asignados)) {
+    throw new Error('El sobre de trabajos puros no corresponde al contrato del servidor. No se admite mezclar campos PARADA.');
+  }
+  const identities = [
+    ...payload.trabajos_crear.map(work => metrogestionNormalizar_(work?.dfm)),
+    ...payload.trabajos_asignados.map(work => String(work?.clave_fila || '').split('|')[0]),
+  ];
+  if (!identities.length || identities.some(dfm => !dfm) || new Set(identities).size !== 1) {
+    throw new Error('Los trabajos del sobre puro no acreditan un único DFM coherente. Revisión manual obligatoria.');
+  }
+  // El dato derivado sólo existe en la copia de planificación. Ni la huella
+  // canónica ni el payload original enviado a authorize se modifican.
+  planned.payload.dfm = identities[0];
+  return planned;
+}
+
+const METROGESTION_ENTREGA_ORDENES = 'METROGESTION_ENTREGA_V1:';
+const METROGESTION_SOLICITUD_ENTREGA = 'METROGESTION_SOLICITUD_ENTREGA_V1';
+
+function metrogestionLeerEntregaCompleta_(key, props) {
+  const values = props || PropertiesService.getScriptProperties().getProperties();
+  let manifest, result;
+  try {
+    manifest = JSON.parse(values[key] || 'null');
+    if (!manifest || manifest.version_ejecucion !== METROGESTION.executorVersion || manifest.spreadsheet_id !== METROGESTION.spreadsheetId
+        || !Number.isInteger(manifest.partes) || manifest.partes < 1 || manifest.partes > 48) throw new Error();
+    let packed = '';
+    for (let i = 0; i < manifest.partes; i++) {
+      const part = values[`${key}:${i}`];
+      if (typeof part !== 'string') throw new Error();
+      packed += part;
+    }
+    if (metrogestionSha256_(packed) !== manifest.sha256) throw new Error();
+    // Base64 conserva los bytes, pero no los metadatos del Blob. Declarar el
+    // formato comprimido igual que en el lector del ciclo antes de descomprimir.
+    const compressed = Utilities.newBlob(Utilities.base64Decode(packed), 'application/gzip', 'metrogestion-entrega.json.gz');
+    result = JSON.parse(Utilities.ungzip(compressed).getDataAsString('UTF-8'));
+  } catch (_) { throw new Error('Una entrega conservada está incompleta o no es verificable. No se solicita redelivery ni se descarta su referencia.'); }
+  return result;
+}
+
+function metrogestionResolverSolicitudEntregaPendiente_() {
+  const props = PropertiesService.getScriptProperties();
+  const pending = props.getProperty(METROGESTION_SOLICITUD_ENTREGA);
+  if (pending) {
+    let previous;
+    try { previous = JSON.parse(pending); } catch (_) { throw new Error('Existe una solicitud de entrega incierta sin referencia legible. Revisión manual obligatoria.'); }
+    const key = METROGESTION_ENTREGA_ORDENES + previous.request_id;
+    if (!props.getProperty(key)) throw new Error(`La solicitud de entrega ${previous.request_id} tiene resultado incierto. No se repite automáticamente ni se fuerza otra entrega.`);
+    metrogestionLeerEntregaCompleta_(key);
+    // La respuesta íntegra publicada demuestra que sólo faltó cerrar el
+    // registro local. Su contenido ya está disponible en la bandeja durable.
+    props.deleteProperty(METROGESTION_SOLICITUD_ENTREGA);
+  }
+}
+
+function metrogestionIniciarSolicitudEntrega_() {
+  metrogestionResolverSolicitudEntregaPendiente_();
+  const props = PropertiesService.getScriptProperties();
+  const requestId = Utilities.getUuid().toLowerCase();
+  const value = JSON.stringify({ request_id: requestId, version_ejecucion: METROGESTION.executorVersion,
+    spreadsheet_id: METROGESTION.spreadsheetId, iniciado_en: new Date().toISOString() });
+  props.setProperty(METROGESTION_SOLICITUD_ENTREGA, value);
+  if (props.getProperty(METROGESTION_SOLICITUD_ENTREGA) !== value) throw new Error('No se pudo guardar el inicio de la solicitud de entrega.');
+  return requestId;
+}
+
+function metrogestionConservarEntregaCompleta_(requestId, response) {
+  const props = PropertiesService.getScriptProperties(), key = METROGESTION_ENTREGA_ORDENES + requestId;
+  const packed = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(response))).getBytes());
+  const pieces = Math.ceil(packed.length / 7500);
+  if (pieces > 48) throw new Error(`La entrega ${requestId} excede el almacenamiento durable local. Conserva esta referencia; no se reintenta automáticamente.`);
+  for (let i = 0; i < pieces; i++) props.setProperty(`${key}:${i}`, packed.slice(i * 7500, (i + 1) * 7500));
+  props.setProperty(key, JSON.stringify({ version_ejecucion: METROGESTION.executorVersion,
+    spreadsheet_id: METROGESTION.spreadsheetId, recibido_en: new Date().toISOString(), partes: pieces, sha256: metrogestionSha256_(packed) }));
+  metrogestionLeerEntregaCompleta_(key);
+  props.deleteProperty(METROGESTION_SOLICITUD_ENTREGA);
+}
+
+function metrogestionLeerEntregasConservadas_() {
+  const props = PropertiesService.getScriptProperties().getProperties();
+  const byReference = new Map();
+  Object.keys(props).filter(key => key.startsWith(METROGESTION_ENTREGA_ORDENES)
+    && METROGESTION_UUID_ORDEN.test(key.slice(METROGESTION_ENTREGA_ORDENES.length))).sort().forEach(key => {
+    const response = metrogestionLeerEntregaCompleta_(key, props);
+    const commands = response?.resultado?.comandos_manteniment;
+    if (!Array.isArray(commands)) throw new Error('Una respuesta conservada no acredita una lista completa de entregas. Su evidencia se conserva para revisión.');
+    commands.forEach(command => {
+      const ref = metrogestionReferenciaOrden_(command), refKey = JSON.stringify(ref);
+      const prior = byReference.get(refKey);
+      if (prior && JSON.stringify(metrogestionValorFoto_(prior)) !== JSON.stringify(metrogestionValorFoto_(command))) {
+        throw new Error('Dos entregas conservadas difieren para la misma referencia exacta. No se elige una de ellas automáticamente.');
+      }
+      byReference.set(refKey, command);
+    });
+  });
+  return [...byReference.values()];
+}

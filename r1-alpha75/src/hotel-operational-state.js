@@ -270,7 +270,6 @@ function deriveNewFlowOperationalState(ficha = {}, stages = []) {
     .filter(stage => !stage?.cancelado && normalized(stage.estado) !== 'anulada')
     .slice().sort((a, b) => Number(a?.posicion || 0) - Number(b?.posicion || 0));
   const decision = recoveryPreview(ficha, Array.isArray(stages) ? stages : []);
-  if (decision.conflict) return normalized(ficha.estado) || 'pendiente_taller';
   if (!active.length) return normalized(ficha.estado) || 'pendiente_taller';
   const tasks = active.filter(stage => !isRecovery(stage));
   const recovery = decision.required ? active.find(isRecovery) : null;
@@ -288,10 +287,22 @@ function deriveNewFlowOperationalState(ficha = {}, stages = []) {
     if (!situation) continue;
     if (isNewFlowEntry(stage) && !hasFacts) {
       const current = normalized(ficha.estado);
+      if (current === 'realizada' && tasks.some(item => typeKey(item.tipo_etapa) === '24h'
+        && normalized(item.estado) === 'realizada')) return situation;
       return PRE_ENTRY_STATES.has(current) ? current : situation;
     }
     if (['tramite', 'gestion'].includes(situation) && normalized(ficha.estado) === 't_pendientes') return 't_pendientes';
     return situation;
+  }
+  // Un conflicto de modalidad impide inferir la recuperación o el cierre,
+  // pero no oculta actuaciones pendientes ni hitos físicos de taller.
+  if (decision.conflict) return normalized(ficha.estado) || 'pendiente_taller';
+  // La PA propia de una asistencia conserva su finalización confirmada por el
+  // servidor. No acredita recuperar el vehículo ni terminar una sustitución.
+  // Cualquier otra T (incluida una recuperación) mantiene su flujo ordinario.
+  if (normalized(ficha.estado) === 'realizada'
+    && active.every(stage => typeKey(stage.tipo_etapa) === '24h' && normalized(stage.estado) === 'realizada')) {
+    return 'realizada';
   }
   if (decision.required) {
     if (recovery && (normalized(recovery.estado) === 'realizada' || recovery.fecha_real)) return 'recuperado';
@@ -314,12 +325,23 @@ export function hasStageDrivenSituation(ficha = {}, stages = []) {
 
 export function deriveHotelOperationalState(ficha = {}, stages = []) {
   if (ficha.cancelado) return 'anulado';
+  // Una entrada de taller posterior y físicamente abierta prevalece sobre
+  // un estado de recogida/recuperación heredado de una 24H terminada.
+  // Solo afecta a la presentación: no cambia los hechos ni los datos manuales.
+  const activeWorkshop = (Array.isArray(stages) ? stages : [])
+    .filter(stage => !stage?.cancelado && normalized(stage.estado) !== 'anulada')
+    .filter(stage => normalized(stage.tipo_etapa) === 'entrada_taller'
+      && Boolean(stage.fecha_inicio_real) && !stage.fecha_real)
+    .sort((a, b) => stagePosition(a) - stagePosition(b)).at(-1);
+  if (activeWorkshop) {
+    return activeWorkshop.fecha_fin_real ? 'terminado_pendiente_recogida' : 'en_taller';
+  }
   if (['recuperado', 'reserva_liberada'].includes(normalized(ficha.estado))) {
     return normalized(ficha.estado);
   }
-  // Las fichas legacy conservan selección manual de Situación operativa.
-  // Sus T son histórico/guía y no deben sobreescribir automáticamente la
-  // situación elegida por el usuario. Solo entrada_hitos_v1 se deriva por T.
+  // Las fichas legacy conservan selección manual salvo contradicción
+  // demostrada por una entrada de taller físicamente abierta y posterior.
+  // Nunca se altera aquí el registro persistido: solo se deriva la vista.
   return ficha.modelo_flujo_taller === 'entrada_hitos_v1'
     ? deriveNewFlowOperationalState(ficha, stages)
     : (normalized(ficha.estado) || 'pendiente_taller');

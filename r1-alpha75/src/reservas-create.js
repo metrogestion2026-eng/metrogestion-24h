@@ -372,17 +372,11 @@ async function ensureCreateButton() {
     if (!canCreateReserve(profile) || !heading.isConnected) return;
     headingTitle.textContent = 'Reservas';
     const subtitle = heading.querySelector('.muted');
-    if (subtitle) subtitle.textContent = 'Catálogo operativo de reservas del Hotel. Puedes crear nuevas reservas y gestionar sus altas y bajas.';
+    if (subtitle) subtitle.textContent = 'Las reservas nacen desde Registro. Aquí se gestiona su ficha operativa, estado, ubicación y pendientes.';
     const badge = heading.querySelector('.badge');
     const actions = document.createElement('div');
     actions.className = 'a70-reserve-heading-actions';
     if (badge) actions.append(badge);
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'button primary compact';
-    button.textContent = '+ Crear nueva reserva';
-    button.addEventListener('click', () => openCreateModal(profile));
-    actions.append(button);
     heading.append(actions);
     heading.dataset.a70ReserveCreate = '1';
   } catch (error) {

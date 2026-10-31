@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { createBillingReader } from '../r1-alpha75/src/billing-data-hf2.js';
+import { substitutionImputationBounds } from '../r1-alpha75/src/substitution-imputation.js';
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -175,7 +176,7 @@ function between(source, start, end) { return source.slice(source.indexOf(start)
 });
 
 function billingContext(source) {
-  const context = vm.createContext({ console, Date, Intl, Math, Number, String });
+  const context = vm.createContext({ console, Date, Intl, Math, Number, String, substitutionImputationBounds });
   const helpers = between(source, 'function el(', source === baseline ? 'function stageTimestamp(' : 'async function isPrimaryAdmin');
   const math = between(source, 'function findPeriod(', 'function metric(');
   vm.runInContext(`const DAY_MS = 86400000;\n${helpers}\n${math}\nthis.snapshot = billingSnapshot;`, context);
@@ -214,7 +215,7 @@ for (const [label, start, end, reference, km] of scenarios) {
 
  test('la línea 75 carga el lector corregido en Hotel e Histórico, sin alterar el módulo compartido', () => {
   const load = path => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-  assert.match(load('r1-alpha75/src/card-operational.js'), /from '\.\/substitution-billing-hf2\.js\?v=75\.23-hf28'/);
+  assert.match(load('r1-alpha75/src/card-operational.js'), /from '\.\/substitution-billing-hf2\.js\?v=75\.25-continuidad-001'/);
   for (const name of ['hotel-native', 'history-native']) assert.match(load(`r1-alpha75/src/${name}.js`), /invalidateSubstitutionBilling\(\);/);
   const boot = load('r1-alpha75/src/boot75.js');
   assert.match(boot, /hotel-native\.js\?v=75\.25/);

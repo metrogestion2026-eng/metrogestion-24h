@@ -1,9 +1,10 @@
 import { detail, element } from '../../r1-alpha17/src/dom.js';
 import { createStagesToggle } from './stages-collapse.js?v=75.18';
-import { openHotelEditor } from './hotel-editor.js?v=75.23-hf25';
+import { openHotelEditor } from './hotel-editor.js?v=75.25-editor-fechas-001';
 import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
-import { createOperationalDates, createSubstitutionBilling } from './card-operational.js?v=75.23-hf28';
+import { createOperationalDates, createSubstitutionBilling } from './card-operational.js?v=75.25-continuidad-001';
+import { substitutionOwnershipText } from './substitution-imputation.js?v=75.25-continuidad-001';
 import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
 import { createStageReopenControl } from './stage-reopen.js';
 import { renderAnnotationsChronology } from './annotations.js';
@@ -140,6 +141,7 @@ export function renderHistoricalCard(
       detail('Estado', STATE_LABELS[row.estado] || row.estado),
       detail('Modalidad operativa', row.modalidad_operativa_nombre || row.modalidad_operativa || 'Flujo normal'),
       detail('Reserva', row.reserva),
+      substitutionOwnershipText(row) ? detail('Asignación del sustituto ahora', substitutionOwnershipText(row)) : null,
       detail('Prioridad', row.prioridad),
       detail('Lugar', row.lugar),
       detail('Causa', row.causa),
