@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createHash } from 'node:crypto';
+import { createExecutorHarness, HEADERS, IDS, scopeOf } from './helpers/alpha75-sync-executor-harness.mjs';
 
 const blank = () => Array(19).fill('');
 const row = (dfm, estado, stop = '') => {
@@ -122,7 +124,9 @@ function fixture(version, rows, location = 'fleet') {
   return { context, sheet, state, command, archive };
 }
 
-for (const version of ['alpha75', 'alpha76']) {
+// Alpha76 conserva íntegros su ejecutor y sus once recorridos anteriores.
+// Alpha75 se prueba debajo por planificación + autorización + journal reales.
+for (const version of ['alpha76']) {
   test(`${version}: intercambio sin ALTA completa la orden y enlaza su carpeta, incluso al reintentar`, () => {
     const { context, sheet, state, command, archive } = fixture(version, [row('FLEET-TEST', 'ALTA')], 'exchange');
     const apply = () => context.metrogestionAplicarComandos_(sheet, [command], state, [])[0];
@@ -278,3 +282,176 @@ for (const version of ['alpha75', 'alpha76']) {
     assert.equal(empty.sheet.inserted, 0);
   });
 }
+
+function executorFixture(rows, location = 'fleet') {
+  const h = createExecutorHarness({ rows: [HEADERS, ...rows], dfmFolders: [] });
+  const root = h.world.folders.get('synthetic-root'), exchange = root.add('7A INTERCAMBIO');
+  const vehicle = location === 'missing' ? null : (location === 'exchange' ? exchange : root).add('EXT-TEST');
+  const command = { tipo: 'parada', sync_id: IDS.stop, revision: 2,
+    payload: { sync_id: IDS.stop, dfm: 'EXT-TEST', matricula: 'TEST-EXTERNAL', tipo: 'TR', upc: 'TEST',
+      numero_parada: 'PA-9999999', sustituto: 'RES-TEST', estado: 'PARADA', fecha_parada: '2026-09-20',
+      fecha_k: null, dias_parada: 2, marca: 'TEST', tancament: 'TANCAMENT 9', trabajos_crear: [], trabajos_asignados: [] } };
+  let cycle;
+  const apply = () => {
+    if (!cycle) {
+      command.payload_sha256 = createHash('sha256').update(JSON.stringify(command.payload)).digest('hex');
+      h.call('metrogestionGuardarAlcanceOrdenes_', [scopeOf(command)]);
+      cycle = h.newState([command]); h.save(cycle); h.clearEvents();
+    } else if (cycle.fase === 'terminado') {
+      // Reintroducir exactamente la misma referencia verifica el tombstone
+      // confirmado: no debe reaplicar ni mandar otro ACK.
+      cycle = h.newState([command]); h.save(cycle);
+    }
+    h.process(cycle);
+    return Object.entries(h.properties).filter(([key]) => key.startsWith('METROGESTION_ORDEN_V1:'))
+      .map(([, value]) => JSON.parse(value))[0].confirmacion;
+  };
+  const data = () => h.sheet.getRange(1, 1, h.sheet.getLastRow(), 19).getValues();
+  const created = () => h.effects.filter(event => event.kind === 'drive' && event.method === 'createFolder');
+  const inserted = () => h.effects.filter(event => event.method === 'insertRowAfter');
+  const copies = () => h.effects.filter(event => event.method === 'copyTo').map(event => ({
+    source: Number(event.args[0].match(/^R(\d+)/)[1]), target: event.range[0], columns: event.range[3] }));
+  return { h, root, exchange, vehicle, command, apply, data, created, inserted, copies };
+}
+
+test('alpha75: intercambio sin ALTA completa la orden y enlaza su carpeta, incluso al reintentar', () => {
+  const f = executorFixture([row('FLEET-TEST', 'ALTA')], 'exchange');
+  const result = f.apply();
+  assert.equal(result.estado, 'aplicado'); assert.equal(result.filas_archivo_enlazadas, 1); assert.equal(result.fila, 3);
+  assert.equal(f.created().length, 2);
+  const paradas = f.vehicle.children[0], stop = paradas.children[0];
+  assert.equal(paradas.name, 'PARADAS'); assert.equal(paradas.parent, f.vehicle);
+  assert.equal(stop.name, f.command.payload.numero_parada); assert.equal(stop.parent, paradas);
+  assert.equal(f.h.sheet.at(3, 5).link, stop.getUrl());
+  assert.equal(f.root.children.some(folder => folder.name === 'EXT-TEST'), false);
+  assert.equal(f.data().some(value => value[0] === 'EXT-TEST' && value[7] === 'ALTA'), false);
+  const after = f.h.snapshot(), effects = f.h.effects.length, http = f.h.httpCalls.length;
+  assert.equal(f.apply().fila, 3);
+  assert.equal(f.inserted().length, 1); assert.equal(f.created().length, 2);
+  assert.deepEqual(f.h.snapshot(), after); assert.equal(f.h.effects.length, effects); assert.equal(f.h.httpCalls.length, http);
+});
+
+test('alpha75: trabajos de intercambio conservan el enlace existente sin resolver carpetas duplicadas', () => {
+  const firstWork = row('EXT-TEST', 'GC', 'PA-9999999'); firstWork[8] = '20/09/2026';
+  const f = executorFixture([firstWork, row('EXT-TEST', 'AV', 'PA-9999999')], 'exchange');
+  f.command.tipo = 'trabajos';
+  f.command.payload = { sync_id: IDS.stop, seguimiento_id: IDS.stop, numero_parada: 'PA-9999999', solo_trabajos: true,
+    trabajos_crear: [], trabajos_asignados: [{ trabajo_sync_id: IDS.work, fila: 2, clave_fila: 'EXT-TEST|TEST-PLATE|||GC|2026-09-20' }] };
+  const first = f.vehicle.add('PARADAS'); first.add('PA-9999999');
+  const second = f.vehicle.add('PARADAS'), preferred = second.add('PA-9999999');
+  f.h.sheet.at(2, 5).link = preferred.getUrl();
+  const result = f.apply();
+  assert.equal(result.tipo, 'trabajos'); assert.equal(result.filas_archivo_enlazadas, 0);
+  assert.equal(f.inserted().length, 0); assert.equal(f.created().length, 0);
+  assert.equal(f.h.effects.filter(event => event.method === 'setRichTextValue').length, 0);
+  assert.equal(f.h.sheet.at(2, 5).link, preferred.getUrl()); assert.equal(f.h.sheet.at(3, 5).link, '');
+  assert.equal(f.h.sheet.at(2, 5).note, `METROGESTION_T:${IDS.work}`);
+});
+
+test('alpha75: conserva el archivo directo de flota', () => {
+  const f = executorFixture([row('EXT-TEST', 'ALTA')]);
+  const alternate = f.exchange.add('EXT-TEST');
+  f.apply();
+  assert.equal(f.created()[0].parent, f.vehicle.getId());
+  assert.equal(alternate.children.length, 0);
+});
+
+test('alpha75: PARADA reutiliza la carpeta canónica acreditada por un enlace existente entre duplicadas', () => {
+  const f = executorFixture([row('EXT-TEST', 'GC', 'PA-9999999')], 'exchange');
+  const oldParent = f.vehicle.add('PARADAS'); oldParent.add('PA-9999999');
+  const chosenParent = f.vehicle.add('PARADAS'), chosen = chosenParent.add('PA-9999999');
+  f.h.sheet.at(2, 5).link = chosen.getUrl();
+  const result = f.apply();
+  assert.equal(result.filas_archivo_enlazadas, 2);
+  assert.equal(f.h.sheet.at(2, 5).link, chosen.getUrl());
+  assert.equal(f.h.sheet.at(3, 5).link, chosen.getUrl());
+  assert.equal(f.created().length, 0); assert.equal(f.inserted().length, 1);
+  const before = f.h.snapshot(); f.apply(); assert.deepEqual(f.h.snapshot(), before);
+});
+
+test('alpha75: dos enlaces canónicos contradictorios bloquean PARADA antes de insertar o autorizar', () => {
+  const f = executorFixture([row('EXT-TEST', 'GC', 'PA-9999999'), row('EXT-TEST', 'AV', 'PA-9999999')], 'exchange');
+  const first = f.vehicle.add('PARADAS').add('PA-9999999'), second = f.vehicle.add('PARADAS').add('PA-9999999');
+  f.h.sheet.at(2, 5).link = first.getUrl(); f.h.sheet.at(3, 5).link = second.getUrl();
+  const before = f.h.snapshot();
+  assert.throws(f.apply, /enlaces existentes contradictorios/);
+  assert.deepEqual(f.h.snapshot(), before); assert.deepEqual(f.h.effects, []); assert.equal(f.h.httpCalls.length, 0);
+});
+
+test('alpha75: un archivo ausente rechaza sin insertar y permite reintentar con la misma orden', () => {
+  const f = executorFixture([row('FLEET-TEST', 'ALTA')], 'missing'), before = f.h.snapshot();
+  assert.throws(f.apply, /carpeta inequívoca/);
+  assert.deepEqual(f.h.effects, []); assert.deepEqual(f.h.snapshot(), before); assert.equal(f.h.httpCalls.length, 0);
+  const vehicle = f.exchange.add('EXT-TEST');
+  assert.equal(f.apply().estado, 'aplicado');
+  assert.equal(f.inserted().length, 1); assert.equal(f.created()[0].parent, vehicle.getId());
+});
+
+test('alpha75: archivos ambiguos o sin permiso no modifican la hoja ni crean carpetas', () => {
+  for (const duplicate of ['vehicle', 'exchange', 'access']) {
+    const f = executorFixture([row('FLEET-TEST', 'ALTA')], 'exchange');
+    if (duplicate === 'vehicle') f.exchange.add('EXT-TEST');
+    if (duplicate === 'exchange') f.root.add('7A INTERCAMBIO');
+    if (duplicate === 'access') f.h.context.DriveApp.getFolderById = () => { throw new Error('Sin permiso de prueba'); };
+    const before = f.h.snapshot();
+    assert.throws(f.apply, /más de una carpeta|Sin permiso/);
+    assert.deepEqual(f.h.effects, []); assert.deepEqual(f.h.snapshot(), before); assert.equal(f.h.httpCalls.length, 0);
+  }
+});
+
+test('alpha75: externo con historia sin ALTA conserva todas las filas y no duplica al reintentar', () => {
+  const history = row('EXT-TEST', 'PARADA', 'PA-9999998');
+  history[6] = 'OLD-RESERVE'; history[10] = '2026-03-16'; history[16] = 'TANCAMENT 3';
+  history[17] = 'ARRAY-MONTH'; history[18] = 'ARRAY-YEAR';
+  const next = row('FLEET-TEST', 'ALTA'), f = executorFixture([history, row('EXT-TEST', 'GC'), next]);
+  f.h.sheet.at(2, 1).note = 'HISTORICAL-NOTE'; f.h.sheet.at(4, 5).note = 'NEXT-VEHICLE-NOTE';
+  assert.equal(f.apply().fila, 4);
+  const values = f.data();
+  assert.equal(values[3][7], 'PARADA'); assert.equal(values[3][6], 'RES-TEST'); assert.equal(values[3][10], '');
+  assert.equal(values[3][16], 'TANCAMENT 9'); assert.equal(values[3][17], ''); assert.equal(values[3][18], '');
+  assert.equal(f.h.sheet.at(4, 1).note, `METROGESTION_PARADA:${f.command.sync_id}`);
+  assert.deepEqual(values[1], history); assert.deepEqual(values[4], next);
+  assert.equal(f.h.sheet.at(5, 5).note, 'NEXT-VEHICLE-NOTE'); assert.equal(values[4][0], 'FLEET-TEST');
+  assert.equal(f.apply().fila, 4); assert.equal(f.inserted().length, 1);
+  assert.equal(f.data().filter(value => value[0] === 'EXT-TEST' && value[7] === 'ALTA').length, 0);
+  assert.deepEqual(f.copies(), [{ source: 2, target: 4, columns: 17 }]);
+});
+
+test('alpha75: externo nuevo se añade al final sin copiar datos de flota', () => {
+  const own = row('FLEET-TEST', 'ALTA'); own[16] = 'PRIVATE-VIN'; own[17] = 'ARRAY-MONTH';
+  const f = executorFixture([own]);
+  assert.equal(f.apply().fila, 3);
+  const values = f.data();
+  assert.equal(values[2][0], 'EXT-TEST'); assert.equal(values[2][1], 'TEST-EXTERNAL'); assert.equal(values[2][16], 'TANCAMENT 9');
+  assert.deepEqual(values[1], own);
+});
+
+test('alpha75: solo trabajos históricos también sirven como plantilla sin crear ALTA', () => {
+  const f = executorFixture([row('EXT-TEST', 'AV')]);
+  assert.equal(f.apply().fila, 3); assert.equal(f.data()[2][7], 'PARADA');
+});
+
+test('alpha75: vehículo propio conserva plantilla ALTA y agrupación', () => {
+  const f = executorFixture([row('EXT-TEST', 'ALTA'), row('EXT-TEST', 'AV'), row('OTHER', 'ALTA')]);
+  assert.equal(f.apply().fila, 4); assert.deepEqual(f.copies(), [{ source: 2, target: 4, columns: 17 }]);
+  assert.equal(f.data()[1][7], 'ALTA');
+});
+
+test('alpha75: AV24H destructivo queda bloqueado por el ejecutor protegido antes de cualquier efecto', () => {
+  const f = executorFixture([row('FLEET-TEST', 'ALTA')]), before = f.h.snapshot();
+  f.command.payload.ajuste_24h = { ...f.command.payload, seguimiento_id: f.command.sync_id, designacion: 'AV24H' };
+  assert.throws(f.apply, /destructiva bloqueada/);
+  assert.deepEqual(f.h.effects, []); assert.deepEqual(f.h.snapshot(), before); assert.equal(f.h.httpCalls.length, 0);
+});
+
+test('alpha75: identidad inválida o falta de plantilla no modifica filas', () => {
+  for (const change of [{ dfm: '' }, { numero_parada: '' }]) {
+    const f = executorFixture([row('FLEET-TEST', 'ALTA')]), before = f.h.snapshot();
+    Object.assign(f.command.payload, change);
+    assert.throws(f.apply, /acredita DFM y PA/);
+    assert.deepEqual(f.h.effects, []); assert.deepEqual(f.h.snapshot(), before);
+  }
+  const empty = executorFixture([]), before = empty.h.snapshot();
+  assert.throws(empty.apply, /filas de datos|plantilla/);
+  assert.deepEqual(empty.h.effects, []); assert.deepEqual(empty.h.snapshot(), before);
+});

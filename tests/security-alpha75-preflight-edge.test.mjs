@@ -324,7 +324,7 @@ test('actual and declared body limits still reject large input before RPC', asyn
 test('existing sync success preserves receiver, payload and response shape', async () => {
   const data = { ok: true, insertados: 0, comandos_manteniment: [] };
   const h = harness({ data });
-  const payload = { filas: [], trabajos: [], modo: 'prueba' };
+  const payload = { filas: [], trabajos: [], modo: 'prueba', version_ejecucion: 'MG75-EJECUCION-ORDEN-001' };
   const result = await run(h, { action: 'sync', token, payload });
   assert.equal(result.response.status, 200);
   assert.deepEqual(h.calls, [{ name: 'recibir_snapshot_manteniment', parameters: { p_token: token, p_payload: payload } }]);
@@ -334,7 +334,7 @@ test('existing sync success preserves receiver, payload and response shape', asy
 
 test('deployed v6 protection keeps structured sync failure at HTTP400', async () => {
   const data = { ok: false, error: 'Importación detenida por conflicto.' };
-  const result = await run(harness({ data }), { action: 'sync', token, payload: { filas: [] } });
+  const result = await run(harness({ data }), { action: 'sync', token, payload: { filas: [], version_ejecucion: 'MG75-EJECUCION-ORDEN-001' } });
   assert.equal(result.response.status, 400);
   assert.equal(result.body.ok, false);
   assert.equal(result.body.error, data.error);
@@ -343,7 +343,7 @@ test('deployed v6 protection keeps structured sync failure at HTTP400', async ()
 
 for (const data of [null, {}, { ok: 'true' }]) {
   test(`deployed v6 protection rejects unconfirmed sync: ${JSON.stringify(data)}`, async () => {
-    const result = await run(harness({ data }), { action: 'sync', token, payload: { filas: [] } });
+    const result = await run(harness({ data }), { action: 'sync', token, payload: { filas: [], version_ejecucion: 'MG75-EJECUCION-ORDEN-001' } });
     assert.equal(result.response.status, 502);
     assert.equal(result.body.ok, false);
   });

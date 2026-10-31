@@ -302,20 +302,40 @@ futura debe comenzar con recarga completa y comprobación de revisión.
 Comandos, procedencia y frontera:
 [`tests/integration/README-boot-cache.md`](../tests/integration/README-boot-cache.md).
 
+### Ejecutor de sincronización acotado
+
+La ampliación `MG75-EJECUCION-ORDEN-001` aborda los fallos reproducidos en el
+ejecutor de Apps Script: validación tardía tras empezar a escribir, reanudación
+de colas sin autorización actual y ausencia de una selección exacta de órdenes.
+La candidata planifica cada orden completa en memoria, solicita autorización
+de lectura al servidor y conserva un diario previo a cualquier efecto. Un
+resultado incierto bloquea nuevas mutaciones; un acuse perdido se reintenta
+sin volver a aplicar la orden.
+
+Se mantiene la separación indicada por Metro: esta sincronización corresponde
+a 75.25 y sigue referida a `metrogestion-pruebas`; el laboratorio del PC está
+reservado para 80. Las órdenes con conflicto manual siguen bloqueadas. Detalle
+del contrato, pruebas, contraste histórico y límites:
+[`alpha75-ejecucion-sincronizacion-001.md`](alpha75-ejecucion-sincronizacion-001.md).
+
 ### Comprobación continua
 
 El flujo de CI también comprueba seguridad, sintaxis JavaScript, privacidad,
 paradas externas, exclusión de archivos internos y construcción pública. Un
 segundo job ejecuta las seis carreras anteriores, cinco escenarios de
 recuperación, las suites nativas de continuidad y barrera y las dos suites
-nuevas del editor: 58 escenarios nativos en total. Ejecuta 22
+nuevas del editor: 58 escenarios nativos de la base anterior. La ampliación
+del ejecutor añade 13 escenarios SQL y dos contratos que recorren GS, el
+handler Edge y PostgreSQL local: **73 escenarios nativos en total**. Ejecuta 22
 recorridos funcionales de navegador y cinco escenarios de arranque en Ubuntu
 24.04, con paquetes oficiales PostgreSQL fijados y verificados por SHA256.
 El servidor admite únicamente su socket Unix dedicado, no escucha TCP y se
 detiene al terminar. Las pruebas SQL no se conectan a Supabase ni ejecutan
-sincronización. Los 44 escenarios nativos anteriores conservan su runtime de
-continuidad; sólo los 14 nuevos del editor cargan el core completo y la nueva
-migración de fechas. La matriz distingue ambos alcances.
+sincronización operativa. Los 44 escenarios nativos anteriores conservan su
+runtime de continuidad; los 14 del editor cargan el core completo y la migración
+de fechas. Los 15 de ejecución cargan la barrera y la nueva migración del
+ejecutor; los dos contratos incluyen el cliente íntegro y plataformas Google
+sintéticas. La matriz distingue estos alcances.
 
 No se declara aprobada toda la colección histórica del repositorio. La base de
 la candidata ya presentaba expectativas incompatibles en

@@ -32,6 +32,8 @@ jobs:
         run: node --test tests/security-*.test.mjs
       - name: Comprobar paradas de vehículos externos y reintentos
         run: node --test tests/alpha75-paradas-externas.test.mjs
+      - name: Comprobar planificación, autorización y reanudación de órdenes de sincronización
+        run: node --test tests/alpha75-sync-executor*.test.mjs
       - name: Comprobar fechas, navegación y cierre independiente de la asistencia 24H
         run: >-
           node --test
@@ -95,6 +97,8 @@ jobs:
         run: npm run test:editor --prefix tests/sql
       - name: Comprobar precisión de fechas, cambio de horario y compatibilidad del editor
         run: npm run test:editor-timestamps --prefix tests/sql
+      - name: Comprobar autorización exacta de órdenes y acuses de sincronización
+        run: npm run test:sync-execution --prefix tests/sql
       - name: Preparar navegador de prueba
         run: node tests/integration/node_modules/playwright/cli.js install --with-deps chromium
       - name: Comprobar formularios, editor completo, Histórico y caché con navegador real

@@ -15,6 +15,14 @@ function reply(status: number, body: Record<string, unknown>) {
 
 const preflightProtocol = "manteniment-preflight-v1";
 const preflightRevision = "alpha75-preflight-2026.10.27.1";
+const executionRevision = "MG75-EJECUCION-ORDEN-001";
+const executionScript = "alpha75-2026.10.26.1";
+const executionReasons = [
+  "AUTORIZADA", "EJECUTOR_NO_COMPATIBLE", "FUERA_DE_ALCANCE", "INSTALACION_NO_COMPATIBLE",
+  "BARRERAS_CERRADAS", "ORDEN_NO_VIGENTE", "ORDEN_RETENIDA_O_CONFIRMADA", "ENTREGA_NO_ACREDITADA",
+  "ORDEN_YA_CONFIRMADA", "ORDEN_NO_COINCIDE", "CONTINUIDAD_RETENIDA", "OPERACION_NO_PERMITIDA",
+  "BAJA_MANUAL_PROTEGIDA",
+];
 const preflightReasons = [
   "VERSION_SCRIPT_DISTINTA", "VERSION_PREFLIGHT_DISTINTA", "CLIENTE_SIN_ESCRITURA_SEGURA",
   "ARCHIVO_DISTINTO", "RECEPTOR_NO_VERIFICADO", "BARRERAS_NO_CERRADAS",
@@ -32,6 +40,94 @@ function exactKeys(value: Record<string, unknown>, keys: string[]) {
 function preflightVersionValid(value: unknown) {
   return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$/.test(value)
     && !/mg_[0-9a-f]{64}/i.test(value);
+}
+
+function executionUuidValid(value: unknown) {
+  return typeof value === "string"
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value);
+}
+
+function executionReferenceValid(value: unknown): value is Record<string, unknown> {
+  return objectRecord(value) && exactKeys(value, ["tipo", "sync_id", "revision", "payload_sha256"])
+    && ["parada", "trabajos"].includes(String(value.tipo))
+    && typeof value.tipo === "string" && executionUuidValid(value.sync_id)
+    && Number.isInteger(value.revision) && Number(value.revision) > 0 && Number(value.revision) <= 2147483647
+    && typeof value.payload_sha256 === "string" && /^[0-9a-f]{64}$/.test(value.payload_sha256);
+}
+
+function sameExecutionReference(left: unknown, right: unknown) {
+  return executionReferenceValid(left) && executionReferenceValid(right)
+    && ["tipo", "sync_id", "revision", "payload_sha256"].every(key => left[key] === right[key]);
+}
+
+function executionReference(order: Record<string, unknown>) {
+  return { tipo: order.tipo, sync_id: order.sync_id, revision: order.revision, payload_sha256: order.payload_sha256 };
+}
+
+function executionRequestValid(body: Record<string, unknown>, input: unknown) {
+  if (!exactKeys(body, ["action", "token", "payload"]) || body.action !== "authorize"
+    || typeof body.token !== "string" || !objectRecord(input)
+    || !exactKeys(input, ["version_script", "version_ejecucion", "escritura_segura_manual", "spreadsheet_id", "request_id", "alcance", "orden"])
+    || !preflightVersionValid(input.version_script) || !preflightVersionValid(input.version_ejecucion)
+    || typeof input.escritura_segura_manual !== "boolean"
+    || typeof input.spreadsheet_id !== "string" || !/^[A-Za-z0-9_-]{20,150}$/.test(input.spreadsheet_id)
+    || !executionUuidValid(input.request_id) || !Array.isArray(input.alcance)
+    || input.alcance.length < 1 || input.alcance.length > 200
+    || input.alcance.some(ref => !executionReferenceValid(ref))
+    || !objectRecord(input.orden) || !exactKeys(input.orden, ["tipo", "sync_id", "revision", "payload_sha256", "payload"])
+    || !executionReferenceValid(executionReference(input.orden)) || !objectRecord(input.orden.payload)) return false;
+  return new Set(input.alcance.map(ref => JSON.stringify(executionReference(ref)))).size === input.alcance.length;
+}
+
+function exactUtcMilliseconds(value: unknown) {
+  if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)) return NaN;
+  const time = Date.parse(value);
+  return Number.isFinite(time) && new Date(time).toISOString() === value ? time : NaN;
+}
+
+function executionResultValid(value: unknown, input: Record<string, unknown>, started: number, secrets: string[]) {
+  if (!objectRecord(value) || !exactKeys(value, [
+    "protocolo", "version_ejecucion", "version_script", "solo_lectura", "request_id", "spreadsheet_id",
+    "alcance", "orden", "autorizada", "motivo", "autorizado_en", "expira_en",
+  ]) || value.protocolo !== "manteniment-ejecucion-v1" || value.solo_lectura !== true
+    || value.version_ejecucion !== input.version_ejecucion || value.version_script !== input.version_script
+    || value.request_id !== input.request_id || value.spreadsheet_id !== input.spreadsheet_id
+    || !sameExecutionReference(value.orden, executionReference(input.orden as Record<string, unknown>))
+    || !Array.isArray(value.alcance) || !Array.isArray(input.alcance) || value.alcance.length !== input.alcance.length
+    || value.alcance.some((ref, index) => !sameExecutionReference(ref, (input.alcance as unknown[])[index]))
+    || typeof value.autorizada !== "boolean" || typeof value.motivo !== "string"
+    || !executionReasons.includes(value.motivo) || value.autorizada !== (value.motivo === "AUTORIZADA")) return false;
+  const issued = exactUtcMilliseconds(value.autorizado_en), expires = exactUtcMilliseconds(value.expira_en);
+  const now = Date.now();
+  if (!Number.isFinite(issued) || !Number.isFinite(expires) || issued < started - 5000 || issued > now + 5000
+    || expires - issued !== (value.autorizada ? 30000 : 0)) return false;
+  if (value.autorizada && (expires <= now || input.version_ejecucion !== executionRevision
+    || input.version_script !== executionScript || input.escritura_segura_manual !== true
+    || !input.alcance.some(ref => sameExecutionReference(ref, value.orden)))) return false;
+  const serialized = JSON.stringify(value);
+  return !/mg_[0-9a-f]{64}/i.test(serialized)
+    && !secrets.some(secret => secret && serialized.includes(secret));
+}
+
+function executionAckRequestValid(body: Record<string, unknown>, input: unknown) {
+  if (!exactKeys(body, ["action", "token", "payload"]) || body.action !== "ack_execution"
+    || typeof body.token !== "string" || !objectRecord(input)
+    || !exactKeys(input, ["version_ejecucion", "spreadsheet_id", "request_id", "confirmacion"])
+    || input.version_ejecucion !== executionRevision || !executionUuidValid(input.request_id)
+    || typeof input.spreadsheet_id !== "string" || !/^[A-Za-z0-9_-]{20,150}$/.test(input.spreadsheet_id)
+    || !objectRecord(input.confirmacion) || input.confirmacion.estado !== "aplicado"
+    || !executionReferenceValid(executionReference(input.confirmacion))) return false;
+  return Object.keys(input.confirmacion).every(key => [
+    "tipo", "sync_id", "revision", "payload_sha256", "estado", "fila", "trabajos_asignados",
+    "ajustes_24h", "filas_archivo_enlazadas", "trabajos_creados",
+  ].includes(key));
+}
+
+function executionAckResultValid(value: unknown, input: Record<string, unknown>) {
+  return objectRecord(value) && exactKeys(value, ["protocolo", "version_ejecucion", "request_id", "spreadsheet_id", "confirmada", "orden"])
+    && value.protocolo === "manteniment-acuse-ejecucion-v1" && value.version_ejecucion === executionRevision
+    && value.request_id === input.request_id && value.spreadsheet_id === input.spreadsheet_id && value.confirmada === true
+    && sameExecutionReference(value.orden, executionReference(input.confirmacion as Record<string, unknown>));
 }
 
 function preflightRequestValid(body: Record<string, unknown>, client: unknown) {
@@ -121,17 +217,26 @@ Deno.serve(async (request: Request) => {
   if (!/^mg_[0-9a-f]{64}$/i.test(token)) {
     return reply(401, { ok: false, error: "Clave de conexión no válida." });
   }
-  if (!["sync", "ack", "preflight"].includes(action)) {
+  if (!["sync", "ack", "preflight", "authorize", "ack_execution"].includes(action)) {
     return reply(400, { ok: false, error: "Acción de sincronización no válida." });
   }
   if (action === "preflight" && !preflightRequestValid(body, payload)) {
     return reply(400, { ok: false, error: "Solicitud de comprobación previa no válida." });
+  }
+  if (action === "authorize" && !executionRequestValid(body, payload)) {
+    return reply(400, { ok: false, error: "Solicitud de autorización de ejecución no válida." });
+  }
+  if (action === "ack_execution" && !executionAckRequestValid(body, payload)) {
+    return reply(400, { ok: false, error: "Acuse de ejecución no válido." });
   }
   if (action === "sync" && (!payload || !rows)) {
     return reply(400, { ok: false, error: "No se ha recibido una fotografía válida de MANTENIMENT." });
   }
   if (action === "sync" && rows && rows.length > 2500) {
     return reply(400, { ok: false, error: "La fotografía contiene demasiadas filas." });
+  }
+  if (action === "sync" && payload?.version_ejecucion !== executionRevision) {
+    return reply(400, { ok: false, error: "El ejecutor de MANTENIMENT debe actualizarse antes de sincronizar." });
   }
   if (works.length > 10000) return reply(400, { ok: false, error: "Demasiadas necesidades de mantenimiento." });
   const confirmations = Array.isArray(body.confirmaciones) ? body.confirmaciones : null;
@@ -169,6 +274,36 @@ Deno.serve(async (request: Request) => {
       return reply(200, { ok: true, preflight: data, recibido_en: new Date().toISOString() });
     } catch {
       return reply(502, { ok: false, error: "No se pudo completar la comprobación previa de solo lectura." });
+    }
+  }
+
+  // Each new route has a distinct RPC and an exact, bounded receipt. authorize
+  // performs only reads. ack_execution confirms an already applied receipt;
+  // neither route can fall through to the snapshot receiver or legacy ACK.
+  if (action === "authorize" || action === "ack_execution") {
+    const started = Date.now();
+    try {
+      const execution = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data, error } = await execution.rpc(action === "authorize"
+        ? "autorizar_ejecucion_manteniment" : "confirmar_ejecucion_manteniment", {
+        p_token: token, p_solicitud: payload,
+      });
+      if (error) {
+        return reply(error.code === "28000" ? 401 : 400, {
+          ok: false, error: error.code === "28000" ? "Clave de conexión no válida."
+            : action === "authorize" ? "No se pudo autorizar la ejecución de la orden."
+            : "No se pudo acreditar la confirmación exacta de la orden.",
+        });
+      }
+      const valid = action === "authorize"
+        ? executionResultValid(data, payload!, started, [token, serviceRoleKey])
+        : executionAckResultValid(data, payload!);
+      if (!valid) return reply(502, { ok: false, error: "El servidor no devolvió un recibo de ejecución válido." });
+      return reply(200, action === "authorize" ? { ok: true, autorizacion: data } : { ok: true, confirmacion: data });
+    } catch {
+      return reply(502, { ok: false, error: "No se pudo completar la comprobación de ejecución." });
     }
   }
 
