@@ -73,6 +73,60 @@ test('complete sync photos retain both vehicles, stops, works and pending lines 
   noEffects(h);
 });
 
+test('durable inbox satisfies the GZIP MIME precondition on receipt and later selection after restart', () => {
+  const first = command({ payload: { fecha_k: '2026-10-29' } });
+  const second = command({ sync_id: IDS.otherStop, revision: 9, payload: { sync_id: IDS.otherStop,
+    dfm: 'TEST-DFM-02', numero_parada: 'PA-910002', fecha_k: '2026-10-29' } });
+  let deliveries = 0;
+  const h = createExecutorHarness({ rows: [HEADERS, paradaRow(), paradaRow({ 1: 'TEST-DFM-02', 5: 'PA-910002' })],
+    cells: { '2,1': { note: `METROGESTION_PARADA:${IDS.stop}` },
+      '3,1': { note: `METROGESTION_PARADA:${IDS.otherStop}` } },
+    http: (body, world) => {
+      if (body.action) return defaultResponse(body, world);
+      deliveries++;
+      assert.equal(deliveries, 1, 'The once-only response must not be requested again');
+      return { ok: true, resultado: { comandos_manteniment: [first, second] } };
+    } });
+  // Verify that this platform double really distinguishes untyped stored bytes
+  // from a declared gzip Blob before exercising the unmodified distributed GS.
+  const utilities = h.context.Utilities;
+  const bytes = utilities.gzip(utilities.newBlob('GZIP: áéíóú')).getBytes();
+  assert.throws(() => utilities.ungzip(utilities.newBlob(bytes)), /requires application\/gzip/);
+
+  h.call('metrogestionGuardarAlcanceOrdenes_', [scopeOf(first)]); h.clearEvents();
+  const before = h.snapshot();
+  const initial = h.call('metrogestionContinuarSincronizacion');
+  assert.deepEqual(h.snapshot(), before); noEffects(h);
+  assert.deepEqual(h.httpCalls.map(item => item.method), ['sync']);
+  assert.equal(h.properties.METROGESTION_SOLICITUD_ENTREGA_V1, undefined);
+  assert.deepEqual(copy(h.call('metrogestionLeerEntregasConservadas_')), [first, second]);
+  assert.deepEqual(copy(h.load().comandos), [first]);
+
+  h.restart(); h.clearEvents();
+  h.call('metrogestionContinuarSincronizacion', initial.ciclo);
+  assert.deepEqual(h.httpCalls.map(item => item.method), ['authorize', 'ack_execution']);
+  assert.equal(h.load().fase, 'terminado');
+  assert.equal(h.sheet.getRange(2, 11).getDisplayValue(), '29/10/2026');
+  assert.equal(h.sheet.getRange(3, 11).getDisplayValue(), '');
+  const firstRow = copy(h.snapshot().sheet.rows[1]);
+  const firstJournal = copy(journal(h).find(item => item.referencia.sync_id === first.sync_id));
+
+  h.call('metrogestionGuardarAlcanceOrdenes_', [scopeOf(second)]);
+  h.restart(); h.clearEvents();
+  const later = h.call('metrogestionContinuarSincronizacion');
+  assert.deepEqual(h.httpCalls, []); noEffects(h);
+  assert.deepEqual(copy(h.load().comandos), [second]);
+  h.restart(); h.clearEvents();
+  h.call('metrogestionContinuarSincronizacion', later.ciclo);
+  assert.deepEqual(h.httpCalls.map(item => item.method), ['authorize', 'ack_execution']);
+  assert.equal(deliveries, 1);
+  assert.equal(h.load().fase, 'terminado');
+  assert.equal(h.sheet.getRange(3, 11).getDisplayValue(), '29/10/2026');
+  assert.deepEqual(copy(h.snapshot().sheet.rows[1]), firstRow);
+  assert.deepEqual(copy(journal(h).find(item => item.referencia.sync_id === first.sync_id)), firstJournal);
+  assert.equal(journal(h).filter(item => item.estado === 'confirmado').length, 2);
+});
+
 test('new work with ISO dates but a departure before arrival is rejected before authorization or effects', () => {
   const h = createExecutorHarness(), order = command({ payload: { trabajos_crear: [workPayload({
     fecha_entrada: '2026-10-20', fecha_salida: '2026-10-19' })] } });

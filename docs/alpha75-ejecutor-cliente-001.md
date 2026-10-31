@@ -34,6 +34,22 @@ Cuando la bandeja ya contiene todas las referencias seleccionadas, un nuevo cicl
 
 Si se pierde una respuesta o falla su persistencia antes de publicar una cabecera verificable, la solicitud queda incierta. El cliente no fuerza otra entrega ni vuelve a llamar a `sync` automáticamente. Si la cabecera íntegra ya estaba publicada y sólo faltaba cerrar la marca de solicitud, la respuesta se recupera de la bandeja.
 
+### Compatibilidad de la reconstrucción GZIP · 31/10/2026
+
+La preparación de la aceptación detectó que el lector de la bandeja reconstruía
+los bytes comprimidos sin declarar su tipo de contenido, a diferencia del lector
+del ciclo. Ahora crea el Blob con `application/gzip` antes de `Utilities.ungzip`
+y lee el JSON como UTF-8. La corrección no cambia el protocolo, las referencias
+de entrega, los hashes ni la selección.
+
+El harness conserva MIME y nombre del Blob e impone explícitamente la
+precondición `application/gzip` al descomprimir. Con esa precondición, la fuente
+anterior `f02f71a` falla al releer la primera entrega; la candidata corregida
+conserva las dos órdenes recibidas, ejecuta sólo la seleccionada y recupera la
+segunda después de reiniciar sin solicitar otra entrega ni reaplicar la primera.
+Esta regresión verifica compatibilidad bajo una condición controlada; no es
+evidencia de una ejecución ni de un rechazo observado en Google Apps Script real.
+
 ## Una orden completa antes del primer efecto
 
 La entrada de aplicación es `metrogestionProcesarOrdenesLote_`. Su secuencia es:
@@ -133,7 +149,7 @@ Referencias oficiales consultadas:
 | Suite | Evidencia principal |
 | --- | --- |
 | `tests/alpha75-sync-executor-adversarial.test.mjs` | 58 casos: identidad completa, conflictos tardíos, positivos de PARADA/T/rollover, autorización por orden, alcance exacto, fallos de red, incertidumbre durable, bandeja y rutas públicas |
-| `tests/alpha75-sync-executor-client.test.mjs` | 16 casos: 200 referencias, publicación de selección interrumpida, fotos completas, fechas de trabajo nuevo, claves JSONB, color nativo de filtro, persistencia, Drive parcial, lectura posterior y ACK estricto |
+| `tests/alpha75-sync-executor-client.test.mjs` | 17 casos: 200 referencias, publicación de selección interrumpida, fotos completas, fechas de trabajo nuevo, claves JSONB, color nativo de filtro, persistencia, compatibilidad MIME de la bandeja, Drive parcial, lectura posterior y ACK estricto |
 | `tests/alpha75-paradas-externas.test.mjs` | 24 casos: once históricos Alpha76 intactos, once Alpha75 por el ejecutor nuevo y dos sobre archivo canónico acreditado o contradictorio |
 | `tests/security-alpha75-preflight-client.test.mjs` | Once casos del diagnóstico independiente de solo lectura, conservado sin iniciar sincronización |
 

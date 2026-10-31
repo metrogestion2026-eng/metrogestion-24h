@@ -264,9 +264,14 @@ class Folder {
 }
 
 class Blob {
-  constructor(data) { this.data = Buffer.isBuffer(data) ? data : Array.isArray(data) ? Buffer.from(data.map(n => n & 255)) : Buffer.from(String(data)); }
+  constructor(data, contentType = null, name = null) {
+    this.data = Buffer.isBuffer(data) ? data : Array.isArray(data) ? Buffer.from(data.map(n => n & 255)) : Buffer.from(String(data));
+    this.contentType = contentType; this.name = name;
+  }
   getBytes() { return [...this.data].map(n => n > 127 ? n - 256 : n); }
   getDataAsString() { return this.data.toString('utf8'); }
+  getContentType() { return this.contentType; }
+  getName() { return this.name; }
 }
 
 export class SimulatedCrash extends Error {
@@ -327,7 +332,14 @@ export function createExecutorHarness(options = {}) {
       PropertiesService: { getScriptProperties: () => properties },
       Utilities: {
         DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' }, getUuid: randomUUID,
-        newBlob: data => new Blob(data), gzip: blob => new Blob(gzipSync(blob.data)), ungzip: blob => new Blob(gunzipSync(blob.data)),
+        newBlob: (data, contentType, name) => new Blob(data, contentType, name),
+        gzip: (blob, name) => new Blob(gzipSync(blob.data), 'application/gzip', name),
+        ungzip: blob => {
+          // Explicit compatibility precondition: preserve the Blob MIME across
+          // byte storage. This controlled double does not certify Google itself.
+          if (blob.getContentType() !== 'application/gzip') throw new Error('Synthetic GZIP decoding requires application/gzip');
+          return new Blob(gunzipSync(blob.data));
+        },
         base64Encode: data => Buffer.from(data.map(n => n & 255)).toString('base64'), base64Decode: text => [...Buffer.from(text, 'base64')],
         computeDigest: (_, text) => [...createHash('sha256').update(String(text)).digest()].map(n => n > 127 ? n - 256 : n),
         formatDate: date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,

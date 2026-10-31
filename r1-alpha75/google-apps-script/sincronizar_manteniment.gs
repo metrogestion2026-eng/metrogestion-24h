@@ -3635,7 +3635,10 @@ function metrogestionLeerEntregaCompleta_(key, props) {
       packed += part;
     }
     if (metrogestionSha256_(packed) !== manifest.sha256) throw new Error();
-    result = JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(packed))).getDataAsString());
+    // Base64 conserva los bytes, pero no los metadatos del Blob. Declarar el
+    // formato comprimido igual que en el lector del ciclo antes de descomprimir.
+    const compressed = Utilities.newBlob(Utilities.base64Decode(packed), 'application/gzip', 'metrogestion-entrega.json.gz');
+    result = JSON.parse(Utilities.ungzip(compressed).getDataAsString('UTF-8'));
   } catch (_) { throw new Error('Una entrega conservada está incompleta o no es verificable. No se solicita redelivery ni se descarta su referencia.'); }
   return result;
 }

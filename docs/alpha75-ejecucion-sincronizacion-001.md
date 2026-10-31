@@ -1,6 +1,7 @@
 # Alpha75.25 · ejecución acotada de órdenes de sincronización
 
-29/10/2026 · **MG75-EJECUCION-ORDEN-001** · candidata de la PR #90.
+29/10/2026 · ampliación de compatibilidad 31/10/2026 ·
+**MG75-EJECUCION-ORDEN-001** · candidata de la PR #90.
 
 ## Alcance aprobado
 
@@ -209,7 +210,7 @@ ambigüedades manuales que sigan abiertas mantienen bloqueadas sus órdenes.
 
 | Capa | Resultado y alcance |
 | --- | --- |
-| Ejecutor completo | 74 casos: 58 adversariales y 16 de cliente, persistencia, selección y compatibilidad. |
+| Ejecutor completo | 75 casos: 58 adversariales y 17 de cliente, persistencia, selección y compatibilidad; incluye reconstrucción GZIP y recuperación de dos selecciones tras reiniciar. |
 | Paradas externas | 24 casos; se conservan los 11 de Alpha76 y se verifican los de Alpha75 por el nuevo ejecutor, incluidos enlaces Drive inequívocos entre carpetas duplicadas. |
 | Edge | 51 casos nuevos; la colección de seguridad completa suma 263 casos, incluidos los 73 anteriores de preflight y compatibilidad. |
 | PostgreSQL 17 | 13 escenarios nuevos de autorización, instalación y acuse. |
@@ -228,16 +229,23 @@ escenarios nativos previos más los 15 de esta ampliación suman **73**. Los
 22 recorridos de navegador y cinco de arranque/caché conservan su alcance
 anterior; no se les atribuye validación de Apps Script ni de hojas remotas.
 
-Huellas de los archivos de producto revisados:
+El contraste privado histórico se realizó sobre la fuente de Apps Script
+`a5df66e61012142ec3fca80a7f11b49b91a270b7cc6ae87d96cd64f900c68439`.
+La ampliación del 31/10 declara el MIME GZIP al recuperar la bandeja y añade
+su regresión automatizada; no atribuye una repetición de aquel ensayo privado
+ni una ejecución real en Google a la fuente nueva.
+
+Huellas de los archivos de producto revisados en la candidata actual:
 
 ```text
-Apps Script  a5df66e61012142ec3fca80a7f11b49b91a270b7cc6ae87d96cd64f900c68439
+Apps Script  c6709796b8147ce3e00547ef0ac5347f234139413206d8d7a46ffba10f49c861
 Edge         8b0aebf6dc039e836ff44331a230a4978b703430326d059336eb2b41a4147c67
 Migración    d63ab18eccd47d8feb66db7ca243a96f00555c417f9c3c640382fda930417944
 ```
 
 ## Referencias
 
+- [Instalación coordinada y primera recepción](alpha75-instalacion-sincronizacion-001.md).
 - [Estado general de la candidata](alpha75-paradas-separadas-002.md).
 - [Editor y fechas exactas](alpha75-editor-fechas-exactas-001.md).
 - [Planificación, bandeja y journal de Apps Script](alpha75-ejecutor-cliente-001.md).
