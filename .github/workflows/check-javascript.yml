@@ -89,6 +89,8 @@ jobs:
         run: npm run test:recovery --prefix tests/sql
       - name: Comprobar continuidad, imputación y conservación de hechos reales
         run: npm run test:continuity --prefix tests/sql
+      - name: Comprobar proyección única del Panel y paridad de facturación
+        run: npm run test:panel-projection --prefix tests/sql
       - name: Comprobar concurrencia del traspaso entre PA
         run: npm run test:continuity-concurrency --prefix tests/sql
       - name: Comprobar barrera de continuidad, entregas pendientes y confirmaciones MANTENIMENT

@@ -7,12 +7,13 @@ import { loadRecoveryRuntime } from './recovery-scenarios.mjs';
 export const CONTINUITY_RULE = 'MG75-CONTINUIDAD-SUSTITUCION-ENTRE-PA-001';
 export const CONTINUITY_MIGRATION = new URL('../../supabase/migrations/20261029060636_alpha75_continuidad_sustitucion_entre_pa.sql', import.meta.url);
 export const CONTINUITY_SYNC_MIGRATION = new URL('../../supabase/migrations/20261029060925_alpha75_continuidad_barrera_manteniment.sql', import.meta.url);
+export const PANEL_PROJECTION_MIGRATION = new URL('../../supabase/migrations/20261031115637_alpha75_panel_sustituciones_proyeccion_unica.sql', import.meta.url);
 
 /** A fresh, local-only database. No users or operational rows are imported.
  * Views must be loaded BEFORE the migrations; reloading the old view fixtures
  * afterwards would erase the ownership projection under test.
  */
-export async function createContinuityFixture({ beforeMigrations, ...options } = {}) {
+export async function createContinuityFixture({ beforeMigrations, applyPanelProjectionMigration = true, ...options } = {}) {
   const fixture = await createLocalFixture(options);
   try {
     await loadRecoveryRuntime(fixture.admin);
@@ -23,7 +24,9 @@ export async function createContinuityFixture({ beforeMigrations, ...options } =
     if (beforeMigrations) await beforeMigrations(fixture.admin);
     fixture.baseProtectedBefore = fixture.protectedBefore;
     fixture.protectedBefore = await snapshotProtectedFacts(fixture.admin);
-    for (const [name, url] of [['continuity', CONTINUITY_MIGRATION], ['continuitySync', CONTINUITY_SYNC_MIGRATION]]) {
+    const migrations = [['continuity', CONTINUITY_MIGRATION], ['continuitySync', CONTINUITY_SYNC_MIGRATION]];
+    if (applyPanelProjectionMigration) migrations.push(['panelProjection', PANEL_PROJECTION_MIGRATION]);
+    for (const [name, url] of migrations) {
       const sql = await readFile(url, 'utf8');
       assert.ok(sql.trim().length > 100, `${name} migration is not ready`);
       await fixture.admin.query(sql);
