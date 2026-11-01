@@ -12,8 +12,9 @@ const run = promisify(execFile);
 export const SHARED_WIZARD = '/r1-alpha34/src/app.js';
 export const BILLING_READER = '/r1-alpha75/src/billing-data-hf2.js';
 export const HOTEL_EDITOR = '/r1-alpha75/src/hotel-editor.js';
+export const LEGACY_HOTEL_ROUTER = '/r1-alpha26/src/app.js';
 
-export async function startBootServer() {
+export async function startBootServer({ authenticated = false } = {}) {
   const published = await mkdtemp(path.join(os.tmpdir(), 'metrogestion-boot-static-'));
   try {
     await run('python3', [path.join(repo, '.github/scripts/build-pages.py'), published]);
@@ -27,6 +28,8 @@ export async function startBootServer() {
   const oldBilling = await readFile(new URL('./fixtures/alpha75-billing-before-continuidad001.js', import.meta.url), 'utf8');
   const currentEditor = await readFile(path.join(published, HOTEL_EDITOR), 'utf8');
   const oldEditor = await readFile(new URL('./fixtures/alpha75-editor-before-fechas001.js', import.meta.url), 'utf8');
+  const currentHotelRouter = await readFile(path.join(published, LEGACY_HOTEL_ROUTER), 'utf8');
+  const oldHotelRouter = await readFile(new URL('./fixtures/alpha26-before-hotel-identidad001.js', import.meta.url), 'utf8');
   if (createHash('sha256').update(oldWizard).digest('hex') !== 'd48844d48691ddfdc514aca257a98a65c343f0eb4d70b55fef20907b8c126c13') {
     await rm(published, { recursive: true, force: true });
     throw new Error('The previous wizard fixture no longer matches commit 8d0138e');
@@ -39,8 +42,13 @@ export async function startBootServer() {
     await rm(published, { recursive: true, force: true });
     throw new Error('The previous Hotel editor no longer matches commit 18ba1e8');
   }
+  if (createHash('sha256').update(oldHotelRouter).digest('hex') !== 'b7b1d90882d558d8685c0d8a1e661848682a570b3c55438bdffd7a678b9cb0b5') {
+    await rm(published, { recursive: true, force: true });
+    throw new Error('The previous Hotel router no longer matches commit 5b6a282c');
+  }
   const calls = [], failures = [], denied = [];
-  const controls = { oldWizard: false, delayWizardBody: 0, failWizardRefresh: false, oldBilling: false, oldEditor: false };
+  const controls = { oldWizard: false, delayWizardBody: 0, failWizardRefresh: false, oldBilling: false, oldEditor: false,
+    oldHotelRouter: false, delayHotelRouterBody: 0, failHotelRouterRefresh: false };
   let origin;
   const server = createServer(async (request, response) => {
     try {
@@ -74,7 +82,7 @@ export async function startBootServer() {
       let source = await readFile(path.join(published, relative));
       const extension = path.extname(relative);
       if (url.pathname === '/r1-alpha17/src/supabase.js') {
-        source = await readFile(new URL('./boot-anonymous-client.js', import.meta.url));
+        source = await readFile(new URL(authenticated ? './boot-hotel-client.js' : './boot-anonymous-client.js', import.meta.url));
       } else if (url.pathname === '/r1-alpha17/src/config.js') {
         source = Buffer.from(source.toString().replace(
           /export const SUPABASE_URL = '[^']+';/,
@@ -93,6 +101,12 @@ export async function startBootServer() {
       } else if (url.pathname === HOTEL_EDITOR) {
         source = Buffer.from(controls.oldEditor ? oldEditor + '\nglobalThis.__BOOT_STALE_EDITOR__ = true;\n' : currentEditor);
         entry.sha256 = createHash('sha256').update(source).digest('hex');
+      } else if (url.pathname === LEGACY_HOTEL_ROUTER) {
+        if (controls.failHotelRouterRefresh && request.headers['cache-control']) {
+          entry.failedRefresh = true; response.writeHead(503).end('Synthetic Hotel refresh failure'); return;
+        }
+        source = Buffer.from(controls.oldHotelRouter ? oldHotelRouter + '\nglobalThis.__BOOT_STALE_HOTEL_ROUTER__ = true;\n' : currentHotelRouter);
+        entry.sha256 = createHash('sha256').update(source).digest('hex');
       }
       const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
         '.css': 'text/css', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
@@ -102,6 +116,11 @@ export async function startBootServer() {
         response.setHeader('Content-Length', source.length);
         response.flushHeaders();
         await new Promise(resolve => setTimeout(resolve, controls.delayWizardBody));
+      }
+      if (url.pathname === LEGACY_HOTEL_ROUTER && controls.delayHotelRouterBody && !controls.oldHotelRouter) {
+        response.setHeader('Content-Length', source.length);
+        response.flushHeaders();
+        await new Promise(resolve => setTimeout(resolve, controls.delayHotelRouterBody));
       }
       entry.bodyEndedAt = performance.now();
       response.end(source);
@@ -117,6 +136,7 @@ export async function startBootServer() {
     currentWizardSha256: createHash('sha256').update(currentWizard).digest('hex'),
     currentBillingSha256: createHash('sha256').update(currentBilling).digest('hex'),
     currentEditorSha256: createHash('sha256').update(currentEditor).digest('hex'),
+    currentHotelRouterSha256: createHash('sha256').update(currentHotelRouter).digest('hex'),
     async close() {
       server.closeAllConnections();
       await new Promise(resolve => server.close(resolve));

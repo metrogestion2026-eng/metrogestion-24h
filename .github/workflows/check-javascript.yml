@@ -103,7 +103,7 @@ jobs:
         run: npm run test:sync-execution --prefix tests/sql
       - name: Preparar navegador de prueba
         run: node tests/integration/node_modules/playwright/cli.js install --with-deps chromium
-      - name: Comprobar formularios, editor completo, Histórico y caché con navegador real
+      - name: Comprobar identidad Hotel, navegación, formularios, editor, Histórico y caché con navegador real
         run: npm test --prefix tests/integration
       - name: Detener PostgreSQL de prueba
         if: always()
