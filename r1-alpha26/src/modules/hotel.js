@@ -1,5 +1,4 @@
-import { renderHotel as renderBaseHotel } from '../../../r1-alpha17/src/modules/hotel.js';
-import { supabase } from '../../../r1-alpha17/src/supabase.js';
+import { renderHotel as renderBaseHotel } from '../../../r1-alpha17/src/modules/hotel.js?v=75.25-hotel-identidad-001';
 import { openHotelCreate } from '../../../r1-alpha20/src/modules/hotel-create.js';
 import { openHotelEditor } from '../../../r1-alpha24/src/modules/hotel-editor.js';
 
@@ -46,11 +45,13 @@ function detailField(label, value) {
   box.append(labelNode, valueNode);
   return box;
 }
-function openStageDetail(stage) {
+function openStageDetail(stage, row) {
   addDetailStyle();
   document.querySelector('.stage-readonly-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.className = 'stage-readonly-overlay';
+  overlay.dataset.registroId = row.id;
+  overlay.dataset.etapaId = stage.id;
   const panel = document.createElement('section');
   panel.className = 'stage-readonly-panel';
   panel.setAttribute('role', 'dialog');
@@ -65,7 +66,7 @@ function openStageDetail(stage) {
   title.textContent = `${stage.posicion}T · ${stage.nombre || 'T'}`;
   const subtitle = document.createElement('p');
   subtitle.className = 'muted';
-  subtitle.textContent = 'Detalle completo de la T. Esta vista no modifica ningún dato.';
+  subtitle.textContent = `${row.dfm ? `DFM ${row.dfm} · ` : ''}Parada ${row.numero_parada || '—'}. Detalle completo de la T, solo lectura.`;
   titleWrap.append(badge, title, subtitle);
   const closeButton = document.createElement('button');
   closeButton.className = 'button secondary compact';
@@ -92,23 +93,17 @@ function openStageDetail(stage) {
   const close=()=>{document.removeEventListener('keydown',onKeyDown);overlay.remove();};
   closeButton.addEventListener('click',close);overlay.addEventListener('click',event=>{if(event.target===overlay)close();});document.addEventListener('keydown',onKeyDown);
 }
-function enhanceStages(container, rows) {
-  const cards=[...container.querySelectorAll('.hotel-card')];
-  cards.forEach((card,cardIndex)=>{const stages=Array.isArray(rows[cardIndex]?.etapas_resumen)?rows[cardIndex].etapas_resumen:[];const nodes=[...card.querySelectorAll('.hotel-stage-row')];nodes.forEach((node,index)=>{const stage=stages[index];if(!stage)return;const meta=node.querySelector('.hotel-stage-meta');const desiredMeta=metaText(stage);if(meta&&meta.textContent!==desiredMeta)meta.textContent=desiredMeta;node.classList.add('alpha26-clickable');node.tabIndex=0;node.setAttribute('role','button');node.title='Abrir detalle completo de la T (solo lectura)';if(node.dataset.alpha26StageId===stage.id)return;node.dataset.alpha26StageId=stage.id;node.addEventListener('click',event=>{event.stopPropagation();openStageDetail(stage);});node.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openStageDetail(stage);}});});});
-}
 export async function renderHotel(container, access = { view: false, edit: false }) {
-  await renderBaseHotel(container, access);
-  const { data: rows, error: rowsError } = await supabase.from('hotel_actual_detalle').select('id,etapas_resumen').order('orden', { ascending: true });
-  const currentRows = rowsError ? [] : (rows || []);
-  enhanceStages(container, currentRows);
-  if (!access.edit) return;
-  const ids=currentRows.map(row=>row.id);
-  const tagEditorButtons=()=>{container.querySelectorAll('.hotel-card').forEach((card,index)=>{const button=card.querySelector('.hotel-open-editor');if(button&&ids[index])button.dataset.registroId=ids[index];});};
-  if(container.__alpha26EditorHandler)container.removeEventListener('click',container.__alpha26EditorHandler,true);
-  const captureEditor=event=>{const button=event.target.closest?.('.hotel-open-editor[data-registro-id]');if(!button||!container.contains(button))return;event.preventDefault();event.stopImmediatePropagation();openHotelEditor(button.dataset.registroId,{onSaved:async()=>renderHotel(container,access)});};
-  container.__alpha26EditorHandler=captureEditor;container.addEventListener('click',captureEditor,true);
-  const actions=container.querySelector('.hotel-heading-actions');const modeButton=container.querySelector('.hotel-mode-button');if(!actions||!modeButton)return;
-  const addButton=document.createElement('button');addButton.type='button';addButton.className='button primary hidden';addButton.textContent='＋ Añadir ficha';addButton.title='Crear una nueva ficha en la pizarra actual';addButton.addEventListener('click',()=>openHotelCreate({onSaved:async()=>renderHotel(container,access)}));
-  const refreshAfterModeChange=()=>{tagEditorButtons();enhanceStages(container,currentRows);addButton.classList.toggle('hidden',!modeButton.classList.contains('primary'));};
-  modeButton.addEventListener('click',refreshAfterModeChange);actions.prepend(addButton);tagEditorButtons();refreshAfterModeChange();
+  // A container can survive a module replacement; retire the former delegated
+  // editor before the new renderer binds each button to its own record.
+  if (container.__alpha26EditorHandler) {
+    container.removeEventListener('click', container.__alpha26EditorHandler, true);
+    delete container.__alpha26EditorHandler;
+  }
+  return renderBaseHotel(container, access, {
+    formatStageMeta: metaText,
+    onOpenStage: openStageDetail,
+    openEditor: openHotelEditor,
+    openCreate: openHotelCreate,
+  });
 }

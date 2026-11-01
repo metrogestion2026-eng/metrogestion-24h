@@ -1,3 +1,5 @@
+import { hotelModuleBelongsTo, hotelHasNativeOwner } from '../../shared/hotel-module-owner.js?v=hotel-identidad-001';
+import { beginHotelRender, hasCurrentHotelRender, invalidateHotelRender } from '../../shared/hotel-render-lifecycle.js?v=hotel-identidad-001';
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { openHotelCreate } from './hotel-create.js?v=76.9';
@@ -243,7 +245,7 @@ async function annulGeneratedHotelNote(registroId, stage) {
 async function loadHotelData(access) {
   const [boardResult, hotelResult, editableResult] = await Promise.all([
     supabase.from('pizarras').select('id,fecha,estado').eq('estado', 'en_curso').maybeSingle(),
-    supabase.from('hotel_actual_detalle').select('*').order('orden', { ascending: true }),
+    supabase.from('hotel_actual_detalle').select('*').order('orden', { ascending: true }).order('id', { ascending: true }),
     access.editFicha
       ? supabase.from('hotel_edicion_piloto').select('registro_hotel_id').eq('activo', true)
       : Promise.resolve({ data: [], error: null }),
@@ -333,8 +335,8 @@ function cancelledCardTitle(row) {
   return `Reserva ${row.reserva || '—'} · ${row.matricula_reserva || '—'}`;
 }
 
-async function openCancelledCardsDialog(boardId, access, container) {
-  if (!access.editFicha || !boardId) return;
+async function openCancelledCardsDialog(boardId, access, render, reloadHotel) {
+  if (!access.editFicha || !boardId || !render.current()) return;
 
   const overlay = element('div', {
     className: 'a75-cancelled-overlay',
@@ -389,6 +391,7 @@ async function openCancelledCardsDialog(boardId, access, container) {
     .order('cancelado_en', { ascending: false, nullsFirst: false });
 
   if (closed) return;
+  if (!render.current()) { close(); return; }
   list.replaceChildren();
   if (error) {
     list.append(notice(`No se pudieron cargar las fichas canceladas: ${error.message}`, 'danger'));
@@ -407,9 +410,8 @@ async function openCancelledCardsDialog(boardId, access, container) {
     });
     editButton.addEventListener('click', () => {
       close();
-      openHotelEditor(row.id, {
-        onSaved: async () => renderHotelNative(container, access),
-      });
+      if (!render.current()) return;
+      openHotelEditor(row.id, { onSaved: reloadHotel });
     });
     list.append(element('article', { className: 'a75-cancelled-card' }, [
       element('div', { className: 'a75-cancelled-card-head' }, [
@@ -433,6 +435,11 @@ async function openCancelledCardsDialog(boardId, access, container) {
 }
 
 async function renderHotelNative(container, access) {
+  if (!hotelRouteIsCurrent()) return;
+  const render = beginHotelRender(container, hotelRouteIsCurrent);
+  const reloadHotel = async () => {
+    if (render.current()) await renderHotelNative(container, access);
+  };
   clear(container);
   container.dataset.alpha56HotelNative = 'loading';
   let editMode = access.editFicha && hotelViewState.editMode;
@@ -481,10 +488,12 @@ async function renderHotelNative(container, access) {
 
   const title = element('h2', { text: 'Hotel · Pizarra actual' });
   const subtitle = element('p', { className: 'muted', text: 'Cargando fecha de pizarra…' });
-  container.append(element('div', { className: 'module-heading' }, [
+  const heading = element('div', { className: 'module-heading' }, [
     element('div', {}, [title, subtitle]),
     headingActions,
-  ]));
+  ]);
+  container.append(heading);
+  render.attach(heading);
 
   if (!access.view) {
     container.append(notice('No tienes permiso para consultar el Hotel.', 'danger'));
@@ -497,6 +506,7 @@ async function renderHotelNative(container, access) {
 
   try {
     const data = await loadHotelData(access);
+    if (!render.current()) return;
     loading.remove();
 
     if (data.boardResult.error) {
@@ -685,6 +695,7 @@ async function renderHotelNative(container, access) {
     };
 
     const renderRows = () => {
+      if (!render.current()) return;
       list.replaceChildren();
       modeNotice.replaceChildren();
       if (access.editFicha) {
@@ -712,24 +723,28 @@ async function renderHotelNative(container, access) {
           canManageNotes: access.editFicha,
           generatedCancellations: rowGeneratedCancellations,
           onAddNote: async (id, text) => {
+            if (!render.current()) return;
             await addQuickHotelNote(id, text);
-            await renderHotelNative(container, access);
+            await reloadHotel();
           },
           onEditNote: async (id, note) => {
+            if (!render.current()) return;
             await editQuickHotelNote(id, note);
-            await renderHotelNative(container, access);
+            await reloadHotel();
           },
           onDeleteNote: async (id, note) => {
+            if (!render.current()) return;
             await deleteQuickHotelNote(id, note);
-            await renderHotelNative(container, access);
+            await reloadHotel();
           },
           onAnnulGeneratedNote: access.primary ? async (id, stage) => {
+            if (!render.current()) return;
             await annulGeneratedHotelNote(id, stage);
-            await renderHotelNative(container, access);
+            await reloadHotel();
           } : null,
-          onOpenEditor: async id => openHotelEditor(id, {
-            onSaved: async () => renderHotelNative(container, access),
-          }),
+          onOpenEditor: async id => {
+            if (render.current()) return openHotelEditor(id, { onSaved: reloadHotel });
+          },
         });
         card.dataset.searchBase = buildSearchBase(row, rowStages, rowNotes);
         list.append(card);
@@ -739,22 +754,23 @@ async function renderHotelNative(container, access) {
 
     if (createButton) {
       createButton.addEventListener('click', () => {
-        if (!editMode || createButton.disabled) return;
+        if (!render.current() || !editMode || createButton.disabled) return;
         openHotelCreate({
-          onSaved: async () => renderHotelNative(container, access),
+          onSaved: reloadHotel,
         });
       });
     }
 
     if (cancelledButton) {
       cancelledButton.addEventListener('click', () => {
-        if (!editMode || cancelledButton.disabled) return;
-        openCancelledCardsDialog(data.boardResult.data?.id, access, container);
+        if (!render.current() || !editMode || cancelledButton.disabled) return;
+        openCancelledCardsDialog(data.boardResult.data?.id, access, render, reloadHotel);
       });
     }
 
     if (modeButton) {
       modeButton.addEventListener('click', () => {
+        if (!render.current()) return;
         editMode = !editMode;
         hotelViewState.editMode = editMode;
         modeButton.textContent = editMode ? '✏️ Lectura y edición' : '🔒 Modo lectura';
@@ -776,6 +792,7 @@ async function renderHotelNative(container, access) {
     renderRows();
     container.dataset.alpha56HotelNative = '1';
   } catch (error) {
+    if (!render.current()) return;
     loading.remove();
     container.append(notice(error?.message || 'No se pudo cargar Hotel.', 'danger'));
     container.dataset.alpha56HotelNative = '1';
@@ -787,9 +804,27 @@ const content = document.querySelector('#module-content');
 const appView = document.querySelector('#app-view');
 let rendering = false;
 let scheduled = false;
+let routeRequest = 0;
+
+function hotelRouteIsCurrent() {
+  return hotelModuleBelongsTo('alpha76')
+    && (!appView || !appView.classList.contains('hidden'))
+    && Boolean(nav?.querySelector('button[data-module="hotel"].active'));
+}
+
+function leaveHotelRoute() {
+  routeRequest += 1;
+  rendering = false;
+  if (content) {
+    invalidateHotelRender(content);
+    delete content.dataset.alpha56HotelNative;
+  }
+}
 
 async function openNativeHotel(button) {
-  if (!content || rendering) return;
+  if (!content || !hotelModuleBelongsTo('alpha76')) return;
+  const request = ++routeRequest;
+  invalidateHotelRender(content);
   rendering = true;
   try {
     // Cancela de inmediato cualquier propiedad residual del Panel. Su
@@ -799,13 +834,19 @@ async function openNativeHotel(button) {
     delete content.dataset.alpha62PanelOwned;
     nav?.querySelectorAll('button').forEach(node => node.classList.toggle('active', node === button));
     const access = await getHotelAccess();
+    if (request !== routeRequest || !hotelRouteIsCurrent()) return;
     await renderHotelNative(content, access);
   } catch (error) {
+    if (request !== routeRequest || !hotelRouteIsCurrent()) return;
+    const failedRender = beginHotelRender(content, hotelRouteIsCurrent);
     clear(content);
-    content.append(notice(`No se pudo cargar Hotel: ${error?.message || 'error desconocido'}`, 'danger'));
+    const failure = notice(`No se pudo cargar Hotel: ${error?.message || 'error desconocido'}`, 'danger');
+    content.append(failure);
+    failedRender.attach(failure);
     content.dataset.alpha56HotelNative = '1';
   } finally {
-    rendering = false;
+    if (request === routeRequest) rendering = false;
+    scheduleTakeover();
   }
 }
 
@@ -814,18 +855,24 @@ function scheduleTakeover() {
   scheduled = true;
   queueMicrotask(() => {
     scheduled = false;
-    if (!nav || !content || !appView || appView.classList.contains('hidden') || rendering) return;
+    if (!nav || !content || !hotelModuleBelongsTo('alpha76')) return;
+    if (!hotelRouteIsCurrent()) {
+      leaveHotelRoute();
+      return;
+    }
+    if (rendering || hasCurrentHotelRender(content)) return;
     const button = nav.querySelector('button[data-module="hotel"].active');
-    if (!button || content.dataset.alpha56HotelNative === '1' || !content.querySelector('.summary-grid')) return;
+    // An explicitly owned Hotel never needs a legacy render to trigger it.
+    if (!hotelHasNativeOwner() && !content.querySelector('.summary-grid')) return;
     openNativeHotel(button);
   });
 }
 
 nav?.addEventListener('click', event => {
   const button = event.target.closest('button[data-module]');
-  if (!button) return;
+  if (!button || !hotelModuleBelongsTo('alpha76')) return;
   if (button.dataset.module !== 'hotel') {
-    if (content) delete content.dataset.alpha56HotelNative;
+    leaveHotelRoute();
     hotelViewState.filter = 'all';
     hotelViewState.search = '';
     hotelViewState.editMode = false;
@@ -836,6 +883,8 @@ nav?.addEventListener('click', event => {
   event.stopImmediatePropagation();
   openNativeHotel(button);
 }, true);
+
+window.addEventListener('metrogestion:open-owned-hotel', scheduleTakeover);
 
 if (appView) {
   const observer = new MutationObserver(scheduleTakeover);
