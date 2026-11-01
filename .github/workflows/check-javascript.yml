@@ -33,7 +33,7 @@ jobs:
       - name: Comprobar paradas de vehículos externos y reintentos
         run: node --test tests/alpha75-paradas-externas.test.mjs
       - name: Comprobar planificación, autorización y reanudación de órdenes de sincronización
-        run: node --test tests/alpha75-sync-executor*.test.mjs
+        run: node --test tests/alpha75-sync-executor*.test.mjs tests/alpha75-insertion-formula-diagnostic.test.mjs
       - name: Comprobar fechas, navegación y cierre independiente de la asistencia 24H
         run: >-
           node --test
@@ -53,6 +53,8 @@ jobs:
           tests/alpha75-editor-save-result.test.mjs
       - name: Instalar PostgreSQL aislado para probar la candidata
         run: npm ci --prefix tests/sql --ignore-scripts --no-fund --no-audit
+      - name: Comprobar procedencia de fechas y retención del exportador candidato
+        run: node tests/sql/alpha75-export-fechas-origen.test.mjs
       - name: Comprobar paradas 24H con funciones y triggers reales
         run: npm test --prefix tests/sql
       - name: Comprobar exclusión de archivos internos y páginas antiguas

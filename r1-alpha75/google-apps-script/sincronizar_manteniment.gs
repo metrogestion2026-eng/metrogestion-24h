@@ -4,7 +4,14 @@ const METROGESTION = Object.freeze({
   sheetName: 'MANTENIMENT',
   archivoFlotaFolderId: '1dh2MBTf3KctAh6KvaisAWa-F895ta7YO',
   syncUrl: 'https://aemoouldgguyjsxrfuwo.supabase.co/functions/v1/manteniment-sync-r1',
+  // Identidad de transporte admitida por los contratos SQL/Edge existentes.
+  // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
+  buildVersion: 'alpha75-2026.11.01.2',
+  idFilaColumn: 20,
+  registroFilasSheet: 'REGISTRO_FILAS',
+  registroFilasLastIdCell: 'H2',
+  identityTriggerHandler: 'metrogestionIdentidadFilasCambio',
   executorVersion: 'MG75-EJECUCION-ORDEN-001',
   preflightVersion: 'alpha75-preflight-2026.10.27.1',
   escrituraSeguraManual: true,
@@ -13,6 +20,184 @@ const METROGESTION = Object.freeze({
 });
 
 const METROGESTION_EXECUTION_CACHE = new Map();
+
+
+function metrogestionTieneRegistroFilasReal_(sheet) {
+  if (!sheet || typeof sheet.getParent !== 'function') return false;
+  const parent = sheet.getParent();
+  if (!parent || typeof parent.getId !== 'function' || parent.getId() !== METROGESTION.spreadsheetId) return false;
+  if (typeof parent.getSheetByName !== 'function') return false;
+  return Boolean(parent.getSheetByName(METROGESTION.registroFilasSheet));
+}
+
+function metrogestionHojaRegistroFilas_() {
+  const ss = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
+  const sheet = ss.getSheetByName(METROGESTION.registroFilasSheet);
+  if (!sheet) throw new Error('Falta la hoja técnica REGISTRO_FILAS. No se asignan identificadores.');
+  return sheet;
+}
+
+function metrogestionNumeroIdFila_(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
+function metrogestionAsignarIdFilaNueva_(sheet, row, origen) {
+  if (!sheet || sheet.getName() !== METROGESTION.sheetName || row < 2) return 0;
+  const cell = sheet.getRange(row, METROGESTION.idFilaColumn);
+  const current = metrogestionNumeroIdFila_(cell.getValue());
+  if (current) return current;
+
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const afterLock = metrogestionNumeroIdFila_(cell.getValue());
+    if (afterLock) return afterLock;
+
+    const registry = metrogestionHojaRegistroFilas_();
+    const counterCell = registry.getRange(METROGESTION.registroFilasLastIdCell);
+    const lastId = metrogestionNumeroIdFila_(counterCell.getValue());
+    if (!lastId) throw new Error('REGISTRO_FILAS no contiene un ULTIMO_ID_EMITIDO válido.');
+    const nextId = lastId + 1;
+    const target = registry.getLastRow() + 1;
+    const now = new Date();
+
+    // Primero se consume el número. Si una operación se interrumpe después,
+    // el ID queda reservado y nunca puede volver a entregarse a otra fila.
+    registry.getRange(target, 1, 1, 5).setValues([[
+      nextId, 'RESERVADA', now, '', String(origen || 'ALTA_FILA')
+    ]]);
+    counterCell.setValue(nextId);
+    SpreadsheetApp.flush();
+
+    cell.setValue(nextId);
+    registry.getRange(target, 2).setValue('ACTIVA');
+    SpreadsheetApp.flush();
+
+    if (metrogestionNumeroIdFila_(cell.getValue()) !== nextId) {
+      throw new Error(`No se ha confirmado ID_FILA ${nextId} en la fila creada.`);
+    }
+    return nextId;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function metrogestionReconciliarIdentidadFilas_(origen) {
+  const ss = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
+  const sheet = ss.getSheetByName(METROGESTION.sheetName);
+  if (!sheet) throw new Error('No existe MANTENIMENT.');
+  const registry = metrogestionHojaRegistroFilas_();
+
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const lastRow = sheet.getLastRow();
+    const ids = lastRow >= 2
+      ? sheet.getRange(2, METROGESTION.idFilaColumn, lastRow - 1, 1).getValues().map(r => r[0])
+      : [];
+    const registryLast = registry.getLastRow();
+    const records = registryLast >= 2
+      ? registry.getRange(2, 1, registryLast - 1, 5).getValues()
+      : [];
+
+    const registryById = new Map();
+    records.forEach((record, index) => {
+      const id = metrogestionNumeroIdFila_(record[0]);
+      if (!id) return;
+      if (registryById.has(id)) throw new Error(`ID_FILA ${id} está duplicado en REGISTRO_FILAS.`);
+      registryById.set(id, { row: index + 2, state: String(record[1] || '').trim().toUpperCase() });
+    });
+
+    const seen = new Map();
+    ids.forEach((value, index) => {
+      const id = metrogestionNumeroIdFila_(value);
+      if (!id) return;
+      const row = index + 2;
+      if (seen.has(id)) throw new Error(`ID_FILA ${id} aparece en las filas ${seen.get(id)} y ${row}. No se renumera automáticamente.`);
+      seen.set(id, row);
+      const record = registryById.get(id);
+      if (!record) throw new Error(`ID_FILA ${id} existe en MANTENIMENT pero no en REGISTRO_FILAS.`);
+      if (record.state === 'BORRADA') throw new Error(`ID_FILA ${id} ya estaba BORRADA y ha reaparecido. Revisión manual obligatoria.`);
+    });
+
+    const now = new Date();
+    const deletedRows = [];
+    registryById.forEach((record, id) => {
+      if (record.state === 'ACTIVA' && !seen.has(id)) deletedRows.push(record.row);
+    });
+    deletedRows.forEach(row => {
+      registry.getRange(row, 2).setValue('BORRADA');
+      registry.getRange(row, 4).setValue(now);
+      registry.getRange(row, 5).setValue(`Ausencia detectada · ${String(origen || 'RECONCILIACION')}`);
+    });
+
+    const assigned = [];
+    for (let index = 0; index < ids.length; index += 1) {
+      if (metrogestionNumeroIdFila_(ids[index])) continue;
+      const row = index + 2;
+      assigned.push({ row, id: metrogestionAsignarIdFilaNuevaSinLock_(sheet, registry, row, origen) });
+    }
+
+    SpreadsheetApp.flush();
+    return { activas: seen.size + assigned.length, borradas: deletedRows.length, asignadas: assigned };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function metrogestionAsignarIdFilaNuevaSinLock_(sheet, registry, row, origen) {
+  const cell = sheet.getRange(row, METROGESTION.idFilaColumn);
+  const current = metrogestionNumeroIdFila_(cell.getValue());
+  if (current) return current;
+  const counterCell = registry.getRange(METROGESTION.registroFilasLastIdCell);
+  const lastId = metrogestionNumeroIdFila_(counterCell.getValue());
+  if (!lastId) throw new Error('REGISTRO_FILAS no contiene un ULTIMO_ID_EMITIDO válido.');
+  const nextId = lastId + 1;
+  const target = registry.getLastRow() + 1;
+  const now = new Date();
+  registry.getRange(target, 1, 1, 5).setValues([[nextId, 'RESERVADA', now, '', String(origen || 'RECONCILIACION')]]);
+  counterCell.setValue(nextId);
+  cell.setValue(nextId);
+  registry.getRange(target, 2).setValue('ACTIVA');
+  return nextId;
+}
+
+function metrogestionIdentidadFilasCambio(e) {
+  try {
+    const ss = e?.source || SpreadsheetApp.openById(METROGESTION.spreadsheetId);
+    if (ss.getId() !== METROGESTION.spreadsheetId) return;
+    const type = String(e?.changeType || 'CHANGE').toUpperCase();
+    if (!['INSERT_ROW', 'REMOVE_ROW', 'OTHER'].includes(type)) return;
+    metrogestionReconciliarIdentidadFilas_(type);
+  } catch (error) {
+    PropertiesService.getScriptProperties().setProperty(
+      'METROGESTION_ID_FILA_ULTIMO_ERROR',
+      `${new Date().toISOString()} · ${String(error?.message || error)}`
+    );
+    throw error;
+  }
+}
+
+function metrogestionInstalarControlIdentidadFilas() {
+  ScriptApp.getProjectTriggers()
+    .filter(trigger => trigger.getHandlerFunction() === METROGESTION.identityTriggerHandler)
+    .forEach(trigger => ScriptApp.deleteTrigger(trigger));
+  ScriptApp.newTrigger(METROGESTION.identityTriggerHandler)
+    .forSpreadsheet(METROGESTION.spreadsheetId)
+    .onChange()
+    .create();
+  metrogestionReconciliarIdentidadFilas_('INSTALACION');
+  SpreadsheetApp.getUi().alert('Control ID_FILA instalado. Los números borrados no se reutilizarán.');
+}
+
+function metrogestionVerificarIdentidadFilas() {
+  const result = metrogestionReconciliarIdentidadFilas_('VERIFICACION_MANUAL');
+  SpreadsheetApp.getUi().alert(
+    `ID_FILA verificado. Activas: ${result.activas}; nuevas asignadas: ${result.asignadas.length}; bajas detectadas: ${result.borradas}.`
+  );
+}
+
 
 const METROGESTION_MAESTRO_COLUMNAS = Object.freeze({
   2: 'matricula',
@@ -52,6 +237,12 @@ function onEdit(e) {
     if (sheet.getName() !== METROGESTION.sheetName) return;
     if (range.getRow() < 2) return;
 
+    for (let editedRow = range.getRow(); editedRow <= range.getLastRow(); editedRow += 1) {
+      if (!metrogestionNumeroIdFila_(sheet.getRange(editedRow, METROGESTION.idFilaColumn).getValue())) {
+        metrogestionAsignarIdFilaNueva_(sheet, editedRow, 'EDICION_MANUAL');
+      }
+    }
+
     const row = range.getRow();
     if (metrogestionNormalizar_(sheet.getRange(row, 8).getDisplayValue()) !== 'ALTA') return;
     const dfm = metrogestionNormalizar_(sheet.getRange(row, 1).getDisplayValue());
@@ -84,6 +275,9 @@ function onOpen() {
     .addItem('Vista previa de próximas necesidades', 'metrogestionPreverNecesidades')
     .addItem('Pausar / reanudar próximas necesidades', 'metrogestionPausarNecesidades')
     .addItem('Ver estado local', 'metrogestionVerEstadoLocal')
+    .addSeparator()
+    .addItem('Verificar ID_FILA', 'metrogestionVerificarIdentidadFilas')
+    .addItem('Instalar control automático ID_FILA', 'metrogestionInstalarControlIdentidadFilas')
     .addToUi();
 }
 
@@ -120,6 +314,13 @@ function metrogestionInstalarActualizacion() {
   ScriptApp.newTrigger(METROGESTION.triggerHandler)
     .timeBased()
     .everyHours(6)
+    .create();
+  ScriptApp.getProjectTriggers()
+    .filter(trigger => trigger.getHandlerFunction() === METROGESTION.identityTriggerHandler)
+    .forEach(trigger => ScriptApp.deleteTrigger(trigger));
+  ScriptApp.newTrigger(METROGESTION.identityTriggerHandler)
+    .forSpreadsheet(METROGESTION.spreadsheetId)
+    .onChange()
     .create();
   PropertiesService.getScriptProperties().setProperty('METROGESTION_TRIGGER_INSTALADO_EN', new Date().toISOString());
   ui.alert('Actualización automática instalada. Se ejecutará cada seis horas.');
@@ -613,7 +814,8 @@ function metrogestionClaveTrabajoPayload_(work) {
     metrogestionNormalizar_(work?.taller),
     metrogestionNormalizar_(work?.tipo_trabajo),
     metrogestionNormalizar_(work?.designacion),
-    metrogestionFechaIso_(work?.fecha_necesidad, 'de necesidad del trabajo nuevo'),
+    metrogestionFechaIso_(work?.contrato_fechas_version === 2 ? work.fecha_necesidad_origen : work?.fecha_necesidad,
+      'de necesidad del trabajo nuevo'),
   ].join('|');
 }
 
@@ -957,7 +1159,9 @@ function metrogestionLeerTrabajos_(
       dfm: row[0],
       matricula: row[1],
       numero_parada: numeroParada,
-      taller: destino?.taller || row[5],
+      // La regla propone destino únicamente cuando no existe un taller manual.
+      // F y su significado se conservan incluso si la designación tiene regla.
+      taller: String(row[5] || '').trim() ? row[5] : (destino?.taller || row[5]),
       tipo_trabajo: destino?.tipo || tipoTrabajo,
       pedido,
       pedido_fondo_amarillo: pedidoEnG,
@@ -1709,6 +1913,7 @@ function metrogestionInsertarFilaAlta_(sheet, sheetState) {
   const exampleRow = exampleIndex + 2;
   sheet.insertRowAfter(lastRow);
   const targetRow = lastRow + 1;
+  if (metrogestionTieneRegistroFilasReal_(sheet)) metrogestionAsignarIdFilaNueva_(sheet, targetRow, 'ALTA_METROGESTION');
   metrogestionCopiarPlantillaOperativa_(sheet, exampleRow, targetRow);
   sheet.getRange(targetRow, 1, 1, 17).clearContent().clearNote();
   sheet.setRowHeight(targetRow, sheet.getRowHeight(exampleRow));
@@ -1952,6 +2157,7 @@ function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
   anchorRow = anchorRow || lastRow;
   sheet.insertRowAfter(anchorRow);
   const targetRow = anchorRow + 1;
+  if (metrogestionTieneRegistroFilasReal_(sheet)) metrogestionAsignarIdFilaNueva_(sheet, targetRow, 'PARADA_METROGESTION');
   metrogestionCopiarPlantillaOperativa_(sheet, templateRow, targetRow);
   sheet.getRange(targetRow, 1, 1, 17).clearContent().clearNote();
   sheet.setRowHeight(targetRow, sheet.getRowHeight(templateRow));
@@ -2488,6 +2694,7 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan, options) {
     metrogestionRegistrarPaso_(`Insertando próxima ${n.values[7]} de ${n.values[0]} · después de fila ${n.despuesDe}`);
     sheet.insertRowAfter(n.despuesDe);
     const target = n.despuesDe + 1;
+    metrogestionAsignarIdFilaNueva_(sheet, target, 'NECESIDAD_PREDICTIVA');
     // La plantilla solo afecta A:Q. R/S pertenecen a ARRAYFORMULA.
     // Solo formato: un corte aquí nunca deja una copia de la fila realizada
     // ni de su identificador técnico en la fila recién insertada.
@@ -3142,6 +3349,9 @@ function metrogestionHojaEnMemoria_(source, photo) {
     },
     setRowHeight(row, height) { this.heights[row] = height; this.operations.push({ method: 'setRowHeight', row, height }); return this; },
     insertRowAfter(row) {
+      if (!Number.isSafeInteger(row) || row < 1 || row > this.rows.length) {
+        throw new Error('La inserción no identifica una fila existente en la fotografía A:Q.');
+      }
       this.rows.splice(row, 0, Array.from({ length: 17 }, metrogestionCeldaVaciaOrden_));
       this.origins.splice(row, 0, null); this.maxRows++;
       this.heights = Object.fromEntries(Object.entries(this.heights).map(([r, h]) => [Number(r) > row ? Number(r) + 1 : r, h]));
@@ -3192,21 +3402,220 @@ function metrogestionRangoEnMemoria_(sheet, row, column, height, width) {
   return range;
 }
 
-function metrogestionExigirFormulasPlanificables_(photo, inserted) {
+// Diagnóstico estructural puro: sólo utiliza la fotografía y el orden exacto
+// de las operaciones en memoria. NO amplía la cobertura de esa fotografía ni
+// concede permiso para ejecutar una inserción que el gate anterior retenía.
+function metrogestionInsercionesOrden_(photo, operations) {
+  if (!Array.isArray(operations)) throw new Error('El diagnóstico requiere las operaciones reales del plan, no un indicador de inserción.');
+  let rows = photo.rows.length;
+  return operations.reduce((result, op, index) => {
+    if (!op || op.method !== 'insertRowAfter') return result;
+    if (!Number.isSafeInteger(op.row) || op.row < 1 || op.row > rows) {
+      throw new Error(`La operación ${index + 1} no identifica una fila de inserción acreditada.`);
+    }
+    result.push({ operacion: index + 1, despues_de: op.row });
+    rows++;
+    return result;
+  }, []);
+}
+
+function metrogestionMapearFilaInserciones_(row, inserts) {
+  return inserts.reduce((current, insert) => current > insert.despues_de ? current + 1 : current, row);
+}
+
+// Gramática deliberadamente cerrada. No es un evaluador de Google Sheets:
+// reconoce constantes, operadores, un subconjunto de funciones escalares y
+// referencias R1C1 explícitas. Nombres, matrices, referencias abiertas y
+// funciones que construyen referencias no se interpretan por aproximación.
+function metrogestionReferenciasR1C1Orden_(formula) {
+  if (typeof formula !== 'string' || !formula.startsWith('=') || formula.length > 32768) {
+    throw new Error('Expresión R1C1 ausente o fuera de la gramática cubierta.');
+  }
+  const functions = new Set(('IF IFERROR IFNA IFS AND OR NOT SUM SUMIF SUMIFS COUNT COUNTA COUNTIF COUNTIFS '
+    + 'MIN MAX AVERAGE ROUND ROUNDUP ROUNDDOWN ABS INT MOD DATE DATEDIF DAY MONTH YEAR TODAY NOW '
+    + 'TEXT VALUE LEN LEFT RIGHT MID TRIM UPPER LOWER CONCATENATE HYPERLINK ROW COLUMN '
+    + 'ISBLANK ISNUMBER ISTEXT ISERROR ISNA TRUE FALSE').split(' '));
+  const tokens = [];
+  let offset = 1;
+  const axis = value => {
+    if (!value) return { relativa: true, valor: 0 };
+    const relative = value[0] === '[';
+    const number = Number(relative ? value.slice(1, -1) : value);
+    if (!Number.isSafeInteger(number) || (!relative && number < 1)) throw new Error('Índice R1C1 inválido.');
+    return { relativa: relative, valor: number };
+  };
+  while (offset < formula.length) {
+    const rest = formula.slice(offset);
+    const whitespace = /^\s+/.exec(rest);
+    if (whitespace) { offset += whitespace[0].length; continue; }
+    const string = /^"(?:[^"]|"")*"/.exec(rest);
+    if (string) { tokens.push({ tipo: 'literal' }); offset += string[0].length; continue; }
+    // A quoted sheet name is one token, including escaped apostrophes.
+    const qualified = /^(?:'((?:[^']|'')+)'|([A-Za-z_][A-Za-z0-9_.]*))!/.exec(rest);
+    let sheet = null, referenceOffset = 0;
+    if (qualified) {
+      sheet = qualified[1] !== undefined ? qualified[1].replace(/''/g, "'") : qualified[2];
+      if (/[\[\]:]/.test(sheet)) throw new Error('Calificador de hoja no cubierto.');
+      referenceOffset = qualified[0].length;
+    }
+    const ref = /^R(\[-?(?:0|[1-9]\d*)\]|[1-9]\d*)?C(\[-?(?:0|[1-9]\d*)\]|[1-9]\d*)?(?![A-Za-z0-9_.$\[\]])/i.exec(rest.slice(referenceOffset));
+    if (ref) {
+      tokens.push({ tipo: 'referencia', hoja: sheet, fila: axis(ref[1]), columna: axis(ref[2]), rango: null });
+      offset += referenceOffset + ref[0].length; continue;
+    }
+    if (qualified) throw new Error('La referencia de otra hoja no tiene una celda R1C1 explícita.');
+    const number = /^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/.exec(rest);
+    if (number) {
+      if (!Number.isFinite(Number(number[0]))) throw new Error('Constante numérica fuera del rango cubierto.');
+      tokens.push({ tipo: 'literal' }); offset += number[0].length; continue;
+    }
+    const name = /^[A-Za-z_][A-Za-z0-9_.]*/.exec(rest);
+    if (name) { tokens.push({ tipo: 'nombre', texto: name[0].toUpperCase() }); offset += name[0].length; continue; }
+    const operator = /^(?:<>|<=|>=|[()+\-*/^&=<>%,;:])/.exec(rest);
+    if (operator) { tokens.push({ tipo: operator[0] }); offset += operator[0].length; continue; }
+    throw new Error('Sintaxis R1C1 no cubierta; no se deducen referencias mediante coincidencias parciales.');
+  }
+  let index = 0, depth = 0, nextRange = 0;
+  const refs = [];
+  const peek = () => tokens[index]?.tipo;
+  const take = type => { if (peek() !== type) throw new Error('Expresión R1C1 incompleta o ambigua.'); return tokens[index++]; };
+  const expression = () => {
+    if (++depth > 100) throw new Error('Anidación R1C1 fuera del límite cubierto.');
+    const atom = () => {
+      if (peek() === 'literal') { index++; return; }
+      if (peek() === '(') { index++; expression(); take(')'); return; }
+      if (peek() === 'referencia') {
+        const first = take('referencia'); refs.push(first);
+        if (peek() === ':') {
+          index++;
+          const last = take('referencia');
+          if (last.hoja === null) last.hoja = first.hoja;
+          if (String(first.hoja || '').toUpperCase() !== String(last.hoja || '').toUpperCase()) {
+            throw new Error('Rango entre hojas distintas no cubierto.');
+          }
+          first.rango = last.rango = nextRange++; refs.push(last);
+        }
+        return;
+      }
+      if (peek() === 'nombre') {
+        const name = take('nombre').texto;
+        if (['TRUE', 'FALSE'].includes(name) && peek() !== '(') return;
+        if (!functions.has(name) || peek() !== '(') {
+          throw new Error(`Nombre o función no cubiertos: ${name}. No se admiten referencias indirectas ni rangos con nombre.`);
+        }
+        index++;
+        if (peek() !== ')') {
+          expression();
+          while ([',', ';'].includes(peek())) { index++; expression(); }
+        }
+        take(')'); return;
+      }
+      throw new Error('Se esperaba una constante, función admitida o referencia R1C1 completa.');
+    };
+    const expressionAtom = () => {
+      // Unary operators have their own bound, so malformed input cannot recurse
+      // indefinitely without consuming the expression-depth budget.
+      let unary = 0;
+      while (peek() === '+' || peek() === '-') { index++; if (++unary > 100) throw new Error('Operadores unarios fuera del límite cubierto.'); }
+      atom();
+      while (peek() === '%') index++;
+    };
+    expressionAtom();
+    while (['+', '-', '*', '/', '^', '&', '=', '<>', '<', '>', '<=', '>='].includes(peek())) { index++; expressionAtom(); }
+    depth--;
+  };
+  expression();
+  if (index !== tokens.length) throw new Error('La expresión contiene un rango abierto o sintaxis restante no cubierta.');
+  return refs;
+}
+
+function metrogestionDiagnosticarInsercionesOrden_(photo, operations) {
+  const inserts = metrogestionInsercionesOrden_(photo, operations);
+  const sheetName = String(photo.sheetName || METROGESTION.sheetName).toUpperCase();
+  const formulas = [], validations = [];
+  photo.rows.forEach((row, r) => row.forEach((cell, c) => {
+    if (cell.validation) {
+      const criterion = metrogestionCriterioFoto_(cell.validation);
+      const type = String(criterion?.tipo || criterion?.type || 'DESCONOCIDO');
+      // The snapshot stores Range criteria as A1 text without sheet identity.
+      // It cannot prove relocation of those ranges or custom formula criteria.
+      if (/RANGE|FORMULA|DESCONOCIDO/i.test(type)) validations.push({ fila: r + 1, columna: c + 1, tipo: type });
+    }
+    if (!cell.formula) return;
+    const sourceAfter = metrogestionMapearFilaInserciones_(r + 1, inserts);
+    const item = { fila: r + 1, columna: c + 1, fila_despues: sourceAfter, invariante: true, referencias: [] };
+    try {
+      if (!cell.r1c1 || /\b(ARRAYFORMULA|IMPORTRANGE|FILTER|QUERY|SEQUENCE|TRANSPOSE|FLATTEN|SPLIT)\s*\(/i.test(cell.formula)) {
+        throw new Error('Fórmula matricial, importación o expresión R1C1 no acreditada en A:Q.');
+      }
+      const refs = metrogestionReferenciasR1C1Orden_(cell.r1c1);
+      refs.forEach(ref => {
+        const ownSheet = ref.hoja === null || ref.hoja.toUpperCase() === sheetName;
+        const targetRow = ref.fila.relativa ? r + 1 + ref.fila.valor : ref.fila.valor;
+        const targetColumn = ref.columna.relativa ? c + 1 + ref.columna.valor : ref.columna.valor;
+        if (!Number.isSafeInteger(targetRow) || targetRow < 1 || !Number.isSafeInteger(targetColumn) || targetColumn < 1) {
+          throw new Error('La referencia resuelve fuera de una celda válida.');
+        }
+        if ((ownSheet && (targetRow > photo.rows.length || targetColumn > 17)) || (!ownSheet && ref.rango !== null)) {
+          throw new Error('Celda o rango fuera de la fotografía A:Q; su cobertura no está acreditada.');
+        }
+        const targetAfter = ownSheet ? metrogestionMapearFilaInserciones_(targetRow, inserts) : targetRow;
+        const same = ref.fila.relativa ? targetAfter - sourceAfter === ref.fila.valor : targetAfter === targetRow;
+        item.referencias.push({ hoja: ownSheet ? METROGESTION.sheetName : ref.hoja, hoja_propia: ownSheet,
+          fila: targetRow, columna: targetColumn, fila_despues: targetAfter, relativa: ref.fila.relativa, rango: ref.rango,
+          desplazamiento_antes: ref.fila.relativa ? ref.fila.valor : null,
+          desplazamiento_despues: ref.fila.relativa ? targetAfter - sourceAfter : null, invariante: same });
+        if (!same) item.invariante = false;
+      });
+      if (!item.invariante) item.motivo = 'La expresión R1C1 cambiaría; esa reescritura no está modelada en la hoja en memoria.';
+    } catch (error) { item.invariante = false; item.motivo = String(error.message || error); }
+    formulas.push(item);
+  }));
+  let filter = null;
+  if (photo.filter) {
+    const original = photo.filter;
+    const first = metrogestionMapearFilaInserciones_(original.fila, inserts);
+    const last = metrogestionMapearFilaInserciones_(original.fila + original.filas - 1, inserts);
+    const restoredRows = Math.min(photo.maxRows + inserts.length - original.fila + 1,
+      Math.max(original.filas, photo.rows.length + inserts.length - original.fila + 1));
+    filter = { anclas_desplazadas: { fila: first, filas: last - first + 1 },
+      restauracion_actual: { fila: original.fila, filas: restoredRows },
+      restauracion_conserva_anclas: first === original.fila && last - first + 1 === restoredRows,
+      criterios_con_referencias_no_modelados: original.criterios.some(([, criterion]) => /FORMULA|RANGE/i.test(String(criterion?.tipo || criterion?.type || ''))) };
+  }
+  return { alcance: 'Sólo fórmulas originales de A:Q y metadatos incluidos en la fotografía; no es una simulación completa del libro.',
+    inserciones: inserts, formulas, formulas_originales_invariantes: formulas.every(item => item.invariante),
+    validaciones_con_referencias_no_modeladas: validations, filtro: filter,
+    cobertura_estructural_completa: false, habilita_ejecucion: false,
+    limites: ['No se han inventariado R:Z ni las demás hojas.',
+      'No se han inventariado protecciones, formatos condicionales, rangos con nombre ni validaciones fuera de la fotografía.',
+      'No se modelan las referencias de fórmulas copiadas o creadas durante el plan.',
+      'La invariancia R1C1 no acredita el significado de las fechas, la identidad ni los datos de la orden.'] };
+}
+
+function metrogestionExigirFormulasPlanificables_(photo, operations) {
+  const inserts = metrogestionInsercionesOrden_(photo, operations);
+  const diagnostic = inserts.length ? metrogestionDiagnosticarInsercionesOrden_(photo, operations) : null;
+  const checkedCells = new Map((diagnostic?.formulas || []).map(item => [`${item.fila}:${item.columna}`, item]));
+  // The previous execution gate is intentionally retained. Invariant original
+  // A:Q references alone cannot authorize a previously rejected insertion.
   photo.rows.forEach((row, r) => row.forEach((cell, c) => {
     if (!cell.formula) return;
     if (!cell.r1c1 || /\b(ARRAYFORMULA|IMPORTRANGE|FILTER|QUERY|SEQUENCE|TRANSPOSE|FLATTEN|SPLIT)\s*\(/i.test(cell.formula)) {
       throw new Error(`La fórmula de la fila ${r + 1}, columna ${c + 1} requiere revisión antes de aplicar órdenes; no se materializa ni se recorta la fotografía.`);
     }
-    if (!inserted) return;
-    // Sólo referencias de la misma fila o de la cabecera son demostrables sin
-    // simular el motor de fórmulas Google al insertar. El resto falla cerrado.
+    if (!inserts.length) return;
+    const checked = checkedCells.get(`${r + 1}:${c + 1}`);
+    if (!checked.invariante) {
+      throw new Error(`La inserción no está acreditada en ${r + 1}:${c + 1}: ${checked.motivo} No se ha escrito nada.`);
+    }
     const formula = cell.r1c1.replace(/"(?:[^"]|"")*"/g, '');
     const refs = [...formula.matchAll(/(?:^|[^A-Z0-9_])R(\[-?\d+\]|\d+)?C(?:\[-?\d+\]|\d+)?/gi)];
     if (refs.some(match => match[1] && !['[0]', '1'].includes(match[1]))) {
-      throw new Error(`La inserción afectaría a referencias entre filas en ${r + 1}:${c + 1}. Revisión manual obligatoria antes de escribir.`);
+      throw new Error(`La referencia de ${r + 1}:${c + 1} conserva su expresión R1C1 en las posiciones previstas, pero sigue retenida por el gate anterior: falta cobertura estructural fuera de A:Q. El diagnóstico no habilita la ejecución.`);
     }
   }));
+  return diagnostic;
 }
 
 function metrogestionNotaIdentidadOrden_(note, prefix) {
@@ -3221,6 +3630,76 @@ function metrogestionFechaOrden_(value) {
   if (value === undefined || value === null || value === '') return '';
   if (typeof value !== 'string') throw new Error('Una fecha de la orden no tiene formato ISO de día.');
   metrogestionDate_(value);
+  return value;
+}
+
+// El contrato antiguo puede llamar fecha_necesidad a una fecha contextual
+// obtenida de la agenda, de un hecho real o de la creación del trabajo.
+// No es una fuente válida para I ni para identificar una necesidad manual.
+// Esta comprobación es pura: no cambia el payload original, no autoriza una
+// ejecución y no convierte una propuesta retenida en aplicada u obsoleta.
+function metrogestionFechaNecesidadOrigenTrabajo_(work) {
+  if (!work || work.contrato_fechas_version !== 2) {
+    throw new Error('La propuesta de trabajo conserva un contrato de fechas antiguo o no acreditado. Se retiene para revalidar su origen; no se crea una fila ni se confirma la orden.');
+  }
+  if (work.contexto_operativo_vigente !== true) {
+    throw new Error('La propuesta de trabajo no acredita un contexto operativo vigente. Se conserva para revisión sin recrear filas históricas.');
+  }
+  if (work.retener_propuesta !== false || !Array.isArray(work.motivos_retencion) || work.motivos_retencion.length) {
+    throw new Error('La propuesta de trabajo no acredita estar libre de retenciones. Sus fechas y su origen deben revalidarse antes de crear o vincular una fila.');
+  }
+  if (!['manteniment', 'necesidad_declarada'].includes(work.procedencia_fecha_necesidad)
+      || typeof work.fecha_necesidad_origen !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(work.fecha_necesidad_origen)) {
+    throw new Error('La fecha de necesidad de origen no está acreditada. La visita prevista, los hechos reales y la fecha contextual antigua no la sustituyen.');
+  }
+  const origin = metrogestionFechaOrden_(work.fecha_necesidad_origen);
+  ['fecha_programada_visita', 'fecha_inicio_real', 'fecha_fin_real', 'fecha_real'].forEach(field => {
+    if (!Object.prototype.hasOwnProperty.call(work, field)) {
+      throw new Error('El contrato de fechas no distingue todos los hitos del trabajo. Se retiene la propuesta completa.');
+    }
+    if (work[field] !== null) metrogestionValidarInstanteTrabajo_(work[field]);
+  });
+  [['fecha_entrada', 'origen_fecha_entrada', ['entrada_taller', 'realizacion_administrativa']],
+    ['fecha_salida', 'origen_fecha_salida', ['recogida_taller', 'realizacion_administrativa']]]
+    .forEach(([field, proofField, allowedFacts]) => {
+      const value = work[field];
+      if (value === undefined || value === null || value === '') return;
+      const proof = work[proofField];
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)
+          || !metrogestionClavesPreflightExactas_(proof, ['hecho', 'fecha_hora'])
+          || !allowedFacts.includes(proof.hecho)) {
+        throw new Error('La entrada o recogida propuesta no acredita el hecho real al que corresponde. Los campos de fechas heredados no habilitan completar J/K.');
+      }
+      metrogestionFechaOrden_(value);
+      const instant = metrogestionValidarInstanteTrabajo_(proof.fecha_hora);
+      const localDay = Utilities.formatDate(new Date(instant), 'Europe/Madrid', 'yyyy-MM-dd');
+      if (localDay !== value) {
+        throw new Error('La fecha propuesta para J/K no coincide con el día de Madrid del hecho real acreditado. Se conserva la fila manual.');
+      }
+      // Inicio de trabajo y fin de trabajo no se convierten automáticamente
+      // en entrada física ni recogida: la procedencia debe nombrar el hecho.
+      if (proof.hecho === 'realizacion_administrativa'
+          && (!metrogestionEsTipoAdministrativo_(work.tipo_trabajo) || !work.fecha_real
+            || Date.parse(work.fecha_real) !== Date.parse(instant))) {
+        throw new Error('La realización administrativa no acredita el cierre propuesto de este trabajo.');
+      }
+    });
+  if (work.fecha_entrada && work.fecha_salida
+      && work.origen_fecha_entrada.hecho === 'entrada_taller'
+      && work.origen_fecha_salida.hecho === 'recogida_taller'
+      && Date.parse(work.origen_fecha_salida.fecha_hora) < Date.parse(work.origen_fecha_entrada.fecha_hora)) {
+    throw new Error('La recogida física es anterior a la entrada acreditada, aunque ambas caigan en el mismo día. Se retiene la propuesta.');
+  }
+  return origin;
+}
+
+function metrogestionValidarInstanteTrabajo_(value) {
+  const match = typeof value === 'string' && value.match(
+    /^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.\d{1,6})?(Z|[+-](?:0\d|1[0-4]):[0-5]\d)$/);
+  if (!match || !Number.isFinite(Date.parse(value)) || /[+-]14:(?!00)/.test(value)) {
+    throw new Error('Un hito del contrato de fechas no conserva una fecha y hora explícitas con zona horaria. Se retiene la propuesta.');
+  }
+  metrogestionFechaOrden_(match[1]);
   return value;
 }
 
@@ -3286,11 +3765,11 @@ function metrogestionValidarOrdenCompleta_(command, photo) {
         || ['ALTA', 'BAJA', 'PARADA', 'ANULADA'].includes(metrogestionNormalizar_(work.designacion))) {
       throw new Error('Un trabajo nuevo no pertenece a la identidad completa de la orden.');
     }
-    if (!work.fecha_necesidad) throw new Error('Un trabajo nuevo no acredita su fecha de necesidad.');
-    ['fecha_necesidad', 'fecha_entrada', 'fecha_salida'].forEach(name => metrogestionFechaOrden_(work[name]));
+    ['fecha_entrada', 'fecha_salida'].forEach(name => metrogestionFechaOrden_(work[name]));
     if (work.fecha_salida && work.fecha_entrada && work.fecha_salida < work.fecha_entrada) {
       throw new Error('La salida del trabajo nuevo es anterior a su entrada. No se ha aplicado esta orden.');
     }
+    metrogestionFechaNecesidadOrigenTrabajo_(work);
     metrogestionValidarNotaTrabajoEnFoto_(work.trabajo_sync_id, metrogestionClaveTrabajoPayload_(work), stop, photo);
   });
   (payload.trabajos_asignados || []).forEach(work => {
@@ -3327,6 +3806,7 @@ function metrogestionValidarNotaTrabajoEnFoto_(id, key, stop, photo) {
 function metrogestionCrearTrabajosSeguros_(sheet, works, sheetState) {
   const used = new Set();
   return (works || []).map(work => {
+    const fechaNecesidadOrigen = metrogestionFechaNecesidadOrigenTrabajo_(work);
     const id = work.trabajo_sync_id;
     if (used.has(id)) throw new Error('La orden contiene un UUID de trabajo repetido.');
     used.add(id);
@@ -3353,7 +3833,7 @@ function metrogestionCrearTrabajosSeguros_(sheet, works, sheetState) {
     const newRow = !rowNumber;
     if (newRow) rowNumber = metrogestionInsertarFilaParada_(sheet, work, sheetState);
     const fields = [[1, work.dfm], [2, work.matricula], [3, work.tipo], [4, work.upc], [5, work.numero_parada],
-      [6, work.taller], [7, work.tipo_trabajo], [8, work.designacion], [9, work.fecha_necesidad, 'fecha'],
+      [6, work.taller], [7, work.tipo_trabajo], [8, work.designacion], [9, fechaNecesidadOrigen, 'fecha'],
       [10, work.fecha_entrada, 'fecha'], [11, work.fecha_salida, 'fecha'], [15, work.marca], [16, work.km_averia, 'numero'], [17, work.expediente]];
     fields.forEach(([column, expected, type]) => metrogestionPlanRellenoSeguro_(sheetState.values[rowNumber - 1][column - 1], expected, `trabajo, columna ${column}`, type));
     fields.forEach(([column, expected, type]) => metrogestionCompletarCeldaSegura_(sheet, rowNumber, column, expected,
@@ -3435,7 +3915,7 @@ function metrogestionFirmaPlanOrden_(plan) {
   return metrogestionSha256_(JSON.stringify({ referencia: plan.referencia, payload: plan.command.payload,
     fotografia_inicial_sha256: plan.fotografia_inicial_sha256, operaciones: plan.memory.operations,
     archivos: plan.memory.drivePlans, esperado: metrogestionCanonicaFotoOrden_(plan.memory),
-    alturas: plan.memory.originalHeights, confirmacion: plan.confirmacion }));
+    alturas: plan.memory.originalHeights, confirmacion: plan.confirmacion, diagnostico_inserciones: plan.diagnostico_inserciones }));
 }
 
 function metrogestionPlanificarOrdenCompleta_(sheet, command) {
@@ -3448,13 +3928,13 @@ function metrogestionPlanificarOrdenCompleta_(sheet, command) {
     notesA: photo.rows.map(row => row[0].note), notesE: photo.rows.map(row => row[4].note), cierresAdministrativos: [] };
   const confirmation = metrogestionAplicarComandos_(memory, [planningCommand], state, [])[0];
   confirmation.payload_sha256 = reference.payload_sha256;
-  const inserts = memory.operations.filter(op => op.method === 'insertRowAfter').length;
-  metrogestionExigirFormulasPlanificables_(photo, inserts > 0);
+  const formulaDiagnostic = metrogestionExigirFormulasPlanificables_(photo, memory.operations);
   if (memory.filter) {
     memory.filter = { ...memory.filter, filas: Math.min(memory.maxRows - memory.filter.fila + 1,
       Math.max(memory.filter.filas, memory.rows.length - memory.filter.fila + 1)) };
   }
   const plan = { referencia: reference, command: exactCommand, memory, confirmacion: confirmation,
+    diagnostico_inserciones: formulaDiagnostic,
     fotografia_inicial_sha256: metrogestionHuellaFotoOrden_(photo, true) };
   plan.plan_sha256 = metrogestionFirmaPlanOrden_(plan);
   const record = metrogestionIntentoOrden_(plan);
@@ -3534,11 +4014,16 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
   // Una excepción tras persistir deja "aplicando": no habrá autorepetición.
   metrogestionGuardarJournalOrden_(record);
   let failure = null;
+  const insertedRows = [];
   try {
     if (Date.now() >= permission.expira) throw new Error('La autorización caducó después de registrar el intento.');
     if (filterState) metrogestionSuspenderFiltro_(sheet);
     plan.memory.operations.forEach(op => {
-      if (op.method === 'insertRowAfter') sheet.insertRowAfter(op.row);
+      if (op.method === 'insertRowAfter') {
+        insertedRows.forEach((row, index) => { if (row > op.row) insertedRows[index] = row + 1; });
+        sheet.insertRowAfter(op.row);
+        insertedRows.push(op.row + 1);
+      }
       else if (op.method === 'setRowHeight') sheet.setRowHeight(op.row, op.height);
       else if (op.method === 'enlazarArchivo') metrogestionAplicarArchivoPlan_(sheet, plan.memory, plan.memory.drivePlans[op.driveIndex]);
       else if (op.method === 'copyTo') {
@@ -3564,7 +4049,12 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
         throw new Error('No se ha verificado la carpeta Drive resultante.');
       }
     });
-    Object.assign(record, { estado: 'aplicado', fotografia_final_sha256: metrogestionHuellaFotoOrden_(actual),
+    if (metrogestionTieneRegistroFilasReal_(sheet)) {
+      insertedRows.forEach(row => metrogestionAsignarIdFilaNueva_(sheet, row, 'ORDEN_AUTORIZADA'));
+      SpreadsheetApp.flush();
+    }
+    const actualFinal = metrogestionLeerFotografiaOrden_(sheet);
+    Object.assign(record, { estado: 'aplicado', fotografia_final_sha256: metrogestionHuellaFotoOrden_(actualFinal),
       verificado_en: new Date().toISOString(), confirmacion: plan.confirmacion,
       archivos: plan.memory.drivePlans.map(drive => JSON.parse(metrogestionFirmaArchivoPlan_(drive))) });
     metrogestionGuardarJournalOrden_(record);

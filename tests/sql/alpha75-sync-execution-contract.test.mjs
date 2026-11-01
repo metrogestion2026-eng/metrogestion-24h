@@ -11,6 +11,9 @@ import { createExecutorHarness, HEADERS, PROTOCOL, paradaRow, workRow, scopeOf }
 
 const migration = await readFile(new URL('../../supabase/migrations/20261029184748_alpha75_autorizar_ejecucion_manteniment.sql', import.meta.url), 'utf8');
 const bridgePath = fileURLToPath(new URL('./execution-edge-bridge.mjs', import.meta.url));
+// This is the exact wire identity accepted by the captured receiver and Edge.
+// A distinct local build identifier does not negotiate a new server capability.
+const SCRIPT_TRANSPORT_VERSION = 'alpha75-2026.10.26.1';
 const plain = value => JSON.parse(JSON.stringify(value));
 const journal = h => Object.entries(h.properties).filter(([key]) => key.startsWith('METROGESTION_ORDEN_V1:'))
   .map(([, value]) => JSON.parse(value));
@@ -29,10 +32,23 @@ async function setup(t, rows) {
       assert.ifError(child.error);
       assert.equal(child.status, 0, child.stderr);
       const result = JSON.parse(child.stdout);
-      requests.push({ action: body.action || 'sync', request: plain(body), response: JSON.parse(result.body), rpc_calls: result.rpc_calls });
+      const response = JSON.parse(result.body);
+      requests.push({ action: body.action || 'sync', request: plain(body), response, rpc_calls: result.rpc_calls });
       assert.equal(result.status, 200, `${body.action || 'sync'}: ${result.body}`);
+      if (!body.action || body.action === 'sync') {
+        assert.equal(body.payload.version_script, SCRIPT_TRANSPORT_VERSION);
+        assert.equal(response.resultado.version_script_recibida, SCRIPT_TRANSPORT_VERSION);
+        assert.equal(response.resultado.version_script_validada, true,
+          'The real receiver must accept the transport identity before a selected delivery can exist');
+        assert.equal(Object.hasOwn(body.payload, 'buildVersion'), false);
+        assert.equal(Object.hasOwn(body.payload, 'build_version'), false);
+      }
       return result;
     } });
+  assert.equal(h.config.scriptVersion, SCRIPT_TRANSPORT_VERSION,
+    'A candidate build must not silently change the wire identity required by the current server');
+  assert.match(h.config.buildVersion, /^alpha75-\d{4}\.\d{2}\.\d{2}\.\d+$/);
+  assert.notEqual(h.config.buildVersion, h.config.scriptVersion);
   // Local-only synthetic configuration. The value is the public client binding;
   // all fetches above are intercepted and can reach only the dedicated socket.
   await fixture.admin.query(`UPDATE app_private.manteniment_sync_config SET spreadsheet_id=$1,
@@ -97,6 +113,8 @@ function assertRealReceipts(requests, orders) {
     const auth = authorizations.find(item => item.request.payload.orden.sync_id === order.sync_id);
     const ack = acknowledgements.find(item => item.request.payload.confirmacion.sync_id === order.sync_id);
     assert.ok(auth); assert.ok(ack);
+    assert.equal(auth.request.payload.version_script, SCRIPT_TRANSPORT_VERSION);
+    assert.equal(auth.response.autorizacion.version_script, SCRIPT_TRANSPORT_VERSION);
     assert.deepEqual(auth.request.payload.orden.payload, order.payload, 'Local planning must send the original payload without a derived DFM');
     assert.deepEqual(scopeOf(auth.request.payload.orden), scopeOf(order));
     assert.equal(auth.response.autorizacion.autorizada, true);
@@ -116,15 +134,20 @@ test('CT01: real SQL delivery → Edge → distributed GS accepts pure create/as
   const { fixture, h, requests, finish } = await setup(t, [HEADERS, paradaRow({ 17: '' }),
     workRow({ 1: 'TEST-DFM-02', 2: 'TEST2345', 5: 'PA-910002' })]);
   try {
-    // Shape-only catalog evidence: manteniment_trabajos_por_crear md5
-    // 87cbb18160b9c88696ae38a98ce7d577; manteniment_trabajos_asignados md5
-    // fd8ff7e95ec9d1554967011810370192. Work ingestion/builders remain fixture
-    // doubles; delivery, authorization, strict ACK and the entire GS are real.
+    // An explicitly declared v2 origin is synthetic future-producer input.
+    // It does not claim that the current source-less SQL exporter can establish
+    // an origin. Legacy delivery is retained in CT03 below. Work ingestion and
+    // builders remain fixture doubles; delivery, authorization, strict ACK and
+    // the entire GS are real.
     const workId = randomUUID();
     const created = { trabajo_sync_id: workId, trabajo_hotel_id: randomUUID(), dfm: 'TEST-DFM-01',
       matricula: 'TEST1234', tipo: 'FURGON', upc: 'UPC-TEST', numero_parada: 'PA-910001',
       taller: 'TEST-TALLER', tipo_trabajo: 'MECANICA', designacion: 'TEST REVISION',
       fecha_necesidad: '2026-10-01', fecha_entrada: null, fecha_salida: null,
+      contrato_fechas_version: 2, fecha_necesidad_origen: '2026-10-01',
+      procedencia_fecha_necesidad: 'necesidad_declarada', contexto_operativo_vigente: true,
+      retener_propuesta: false, motivos_retencion: [],
+      fecha_programada_visita: null, fecha_inicio_real: null, fecha_fin_real: null, fecha_real: null,
       marca: 'TEST', km_averia: null, expediente: '', motivo_entrada: '', diagnostico_real: '', detalle: '' };
     const assigned = { trabajo_sync_id: randomUUID(), fila: 3,
       clave_fila: 'TEST-DFM-02|TEST2345|TEST-TALLER|MECANICA|TEST REVISION|2026-10-01',
@@ -215,5 +238,39 @@ test('CT02: two real once-only PARADA deliveries survive selection of one; later
     assert.equal(journal(h).filter(item => item.estado === 'confirmado').length, 2);
     assert.equal(h.sheet.getRange(2, 1).getNote().includes(first.sync_id), true);
     assert.equal(h.sheet.getRange(3, 1).getNote().includes(second.sync_id), true);
+  } finally { await finish(); }
+});
+
+test('CT03: a real SQL delivery with a legacy creation date is retained before authorization and remains unconfirmed', async t => {
+  const { fixture, h, requests, finish } = await setup(t, [HEADERS, paradaRow({ 17: '' })]);
+  try {
+    const legacy = { trabajo_sync_id: randomUUID(), trabajo_hotel_id: randomUUID(),
+      dfm: 'TEST-DFM-01', matricula: 'TEST1234', tipo: 'FURGON', upc: 'UPC-TEST',
+      numero_parada: 'PA-910001', taller: 'TEST-TALLER', tipo_trabajo: 'MECANICA',
+      designacion: 'TEST REVISION', fecha_necesidad: '2026-10-19',
+      fecha_entrada: '2026-10-19', fecha_salida: '2026-10-19' };
+    const { stored } = await seedOrder(fixture.admin, 'LEGACY-DATE', {
+      dfm: 'TEST-DFM-01', plate: 'TEST1234', pa: '910001', pure: true, create: [legacy],
+    });
+    const beforeSheet = h.snapshot();
+    const cycle = start(h, [scopeOf(stored)]);
+    // Delivery preserves the wrapper's complete envelope, including fields
+    // such as vehiculo_id:null that the seed SELECT does not project.
+    const received = requests[0].response.resultado.comandos_manteniment.find(item => item.sync_id === stored.sync_id);
+    assert.deepEqual(scopeOf(received), scopeOf(stored));
+    assert.deepEqual(received.payload, stored.payload);
+    const deliveredBefore = await delivery(fixture.admin, stored);
+    const outboxBefore = await one(fixture.admin,
+      'SELECT to_jsonb(o) AS value FROM app_private.manteniment_parada_outbox o WHERE sync_id=$1', [stored.sync_id]);
+    assert.throws(() => h.call('metrogestionEjecutarSincronizacion_', 'manual', cycle.ciclo), /contrato de fechas antiguo/i);
+    assert.deepEqual(h.snapshot(), beforeSheet);
+    assert.deepEqual(h.effects, []);
+    assert.deepEqual(requests.map(item => item.action), ['sync']);
+    assert.equal(h.load().confirmados, 0);
+    assert.deepEqual(plain(h.load().comandos), [received]);
+    assert.deepEqual(await delivery(fixture.admin, stored), deliveredBefore);
+    assert.deepEqual(await one(fixture.admin,
+      'SELECT to_jsonb(o) AS value FROM app_private.manteniment_parada_outbox o WHERE sync_id=$1', [stored.sync_id]), outboxBefore);
+    assert.equal(journal(h).length, 0);
   } finally { await finish(); }
 });

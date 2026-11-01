@@ -2,6 +2,11 @@
 
 Fecha: 29 de octubre de 2026. Documento técnico complementario de [la guía del hito](alpha75-ejecucion-sincronizacion-001.md).
 
+Actualización candidata del 1 de noviembre: [procedencia de fechas, retención
+de propuestas y diagnóstico de inserciones](alpha75-sincro6-fechas-origen.md).
+La identidad de transporte de esta nota se conserva; la revisión del código
+se identifica por separado como `buildVersion`.
+
 Esta candidata modifica el ejecutor de Alpha75 y sus pruebas aisladas. La implementación y las verificaciones descritas aquí no despliegan Apps Script, no abren barreras de sincronización y no aplican órdenes a Google Sheets o Drive operativos. Alpha76 conserva su producto y sus once recorridos anteriores del gate de vehículos externos.
 
 ## Contrato y selección
