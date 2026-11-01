@@ -62,3 +62,9 @@
   .a53-uploader,.a53-doc-actions,.a53-modal{display:none!important}
   .a53-stage-documents{break-inside:avoid}
 }
+
+.a53-card-doc-summary-action{cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease}
+.a53-card-doc-summary-action:hover{border-color:#38bdf8;background:#e6f7ff;box-shadow:0 0 0 2px rgba(14,165,233,.10)}
+.a53-card-doc-summary-action:focus-visible{outline:3px solid rgba(14,165,233,.28);outline-offset:2px}
+.a53-actuation-doc-stage{display:grid;gap:10px;padding:12px;border:1px solid #dbe5ec;border-radius:12px;background:#f8fafc}
+.a53-actuation-doc-stage-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}

@@ -13,7 +13,7 @@ import {
   metric,
   formatBoardDate,
 } from '../../r1-alpha53/src/hotel-utils.js?v=75.2';
-import { renderHotelCard } from './hotel-card.js?v=76.5';
+import { renderHotelCard } from './hotel-card.js?v=76.10-doc-resumen-001';
 
 ensureNativeHotelStyle();
 
