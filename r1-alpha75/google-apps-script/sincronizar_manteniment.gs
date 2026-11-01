@@ -1155,6 +1155,18 @@ function metrogestionContenidoTrabajo_(row, workNote, detailNote, pedidoEnG) {
   };
 }
 
+function metrogestionPedidoExplicito_(value) {
+  const raw = String(value || '').trim();
+  const normalized = metrogestionNormalizar_(raw);
+  if (!raw) return '';
+  // El color amarillo no acredita un pedido. Sólo contenido explícito en G.
+  // Se admiten la marca literal PEDIDO y referencias/códigos de pedido
+  // escritos como dato, nunca inferidos por taller, marca o designación.
+  if (normalized === 'PEDIDO') return raw;
+  if (/^(?:PEDIDO|PED)[-\s:#/]*[A-Z0-9][A-Z0-9._/-]*$/i.test(raw)) return raw;
+  return '';
+}
+
 function metrogestionLeerTrabajos_(
   values,
   workNotes,
@@ -1191,9 +1203,10 @@ function metrogestionLeerTrabajos_(
     // actuación nueva, aunque A conserve el antiguo fondo amarillo.
     if (numeroParadaHoja && !numeroParadaValido && !trabajoSyncId) continue;
     const numeroParada = numeroParadaValido ? numeroParadaHoja : '';
-    const pedidoEnG = metrogestionEsFondoAmarillo_(orderBackgrounds?.[index]?.[0]);
-    const pedido = pedidoEnG ? String(row[6] || '').trim() : '';
-    let tipoTrabajo = pedidoEnG ? '' : row[6];
+    const pedidoFondoAmarillo = metrogestionEsFondoAmarillo_(orderBackgrounds?.[index]?.[0]);
+    const pedido = metrogestionPedidoExplicito_(row[6]);
+    const pedidoReal = Boolean(pedido);
+    let tipoTrabajo = pedidoReal ? '' : row[6];
     if (designacion === 'LKT') {
       const frio = metrogestionMarcaFrio_(row[14]);
       if (frio) tipoTrabajo = frio === 'CARRIER' ? 'TRÁMITE' : 'GESTIÓN';
@@ -1221,18 +1234,18 @@ function metrogestionLeerTrabajos_(
     if (!vinculada && !prioridadFondoAmarillo && fechaCorteIso && fechaNecesidad > fechaCorteIso) continue;
     const filaParaRegla = row.slice();
     filaParaRegla[6] = tipoTrabajo;
-    const destino = pendienteFondoBlanco && !pedidoEnG && !fechaRealizada && !fechaRecogida
+    const destino = pendienteFondoBlanco && !pedidoReal && !fechaRealizada && !fechaRecogida
       ? metrogestionReglaTallerPendiente_(filaParaRegla, referenciasKm) : null;
     const contenido = metrogestionContenidoTrabajo_(
       row,
       workNotes?.[index]?.[0],
       detailNotes?.[index]?.[0],
-      pedidoEnG
+      pedidoReal
     );
     result.push({
       fila: index + 1,
       trabajo_sync_id: trabajoSyncId,
-      clave_fila: metrogestionClaveFilaTrabajo_(row, pedidoEnG),
+      clave_fila: metrogestionClaveFilaTrabajo_(row, pedidoReal),
       dfm: row[0],
       matricula: row[1],
       numero_parada: numeroParada,
@@ -1241,7 +1254,7 @@ function metrogestionLeerTrabajos_(
       taller: String(row[5] || '').trim() ? row[5] : (destino?.taller || row[5]),
       tipo_trabajo: destino?.tipo || tipoTrabajo,
       pedido,
-      pedido_fondo_amarillo: pedidoEnG,
+      pedido_fondo_amarillo: pedidoFondoAmarillo,
       nota_g: contenido.nota_g,
       contenido_trabajo: contenido.contenido_trabajo,
       designacion: row[7],
