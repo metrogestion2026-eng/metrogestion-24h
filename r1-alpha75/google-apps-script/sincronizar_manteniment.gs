@@ -1163,7 +1163,7 @@ function metrogestionPedidoExplicito_(value, designacion, fondoAmarillo) {
   // El amarillo es condición de presentación, no prueba suficiente.
   // El pedido sólo existe cuando G lo acredita expresamente o cuando la
   // designación GC identifica uno de los casos operativos que generan pedido.
-  if (tipo === 'GC') return raw;
+  if (['GOLPE', 'GC', 'GP', 'GM'].includes(tipo)) return raw;
   if (normalized === 'PEDIDO') return raw;
   if (/^(?:PEDIDO|PED)[-\s:#/]*[A-Z0-9][A-Z0-9._/-]*$/i.test(raw)) return raw;
   return '';
