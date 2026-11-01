@@ -4012,10 +4012,12 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
   try {
     if (Date.now() >= permission.expira) throw new Error('La autorización caducó después de registrar el intento.');
     if (filterState) metrogestionSuspenderFiltro_(sheet);
+    const insertedRows = [];
     plan.memory.operations.forEach(op => {
       if (op.method === 'insertRowAfter') {
+        insertedRows.forEach((row, index) => { if (row > op.row) insertedRows[index] = row + 1; });
         sheet.insertRowAfter(op.row);
-        metrogestionAsignarIdFilaNueva_(sheet, op.row + 1, 'ORDEN_AUTORIZADA');
+        insertedRows.push(op.row + 1);
       }
       else if (op.method === 'setRowHeight') sheet.setRowHeight(op.row, op.height);
       else if (op.method === 'enlazarArchivo') metrogestionAplicarArchivoPlan_(sheet, plan.memory, plan.memory.drivePlans[op.driveIndex]);
@@ -4042,7 +4044,12 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
         throw new Error('No se ha verificado la carpeta Drive resultante.');
       }
     });
-    Object.assign(record, { estado: 'aplicado', fotografia_final_sha256: metrogestionHuellaFotoOrden_(actual),
+    if (typeof sheet.getParent === 'function' && sheet.getParent().getId() === METROGESTION.spreadsheetId) {
+      insertedRows.forEach(row => metrogestionAsignarIdFilaNueva_(sheet, row, 'ORDEN_AUTORIZADA'));
+      SpreadsheetApp.flush();
+    }
+    const actualFinal = metrogestionLeerFotografiaOrden_(sheet);
+    Object.assign(record, { estado: 'aplicado', fotografia_final_sha256: metrogestionHuellaFotoOrden_(actualFinal),
       verificado_en: new Date().toISOString(), confirmacion: plan.confirmacion,
       archivos: plan.memory.drivePlans.map(drive => JSON.parse(metrogestionFirmaArchivoPlan_(drive))) });
     metrogestionGuardarJournalOrden_(record);
