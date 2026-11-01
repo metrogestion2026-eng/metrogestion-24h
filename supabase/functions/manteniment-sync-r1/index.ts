@@ -130,6 +130,35 @@ function executionAckResultValid(value: unknown, input: Record<string, unknown>)
     && sameExecutionReference(value.orden, executionReference(input.confirmacion as Record<string, unknown>));
 }
 
+function scopeStatusRequestValid(body: Record<string, unknown>, input: unknown) {
+  if (!exactKeys(body, ["action", "token", "payload"]) || body.action !== "scope_status"
+    || typeof body.token !== "string" || !objectRecord(input)
+    || !exactKeys(input, ["version_ejecucion", "spreadsheet_id", "alcance"])
+    || input.version_ejecucion !== executionRevision
+    || typeof input.spreadsheet_id !== "string" || !/^[A-Za-z0-9_-]{20,150}$/.test(input.spreadsheet_id)
+    || !Array.isArray(input.alcance) || input.alcance.length < 1 || input.alcance.length > 200
+    || input.alcance.some(ref => !executionReferenceValid(ref))) return false;
+  return new Set(input.alcance.map(ref => JSON.stringify(executionReference(ref)))).size === input.alcance.length;
+}
+
+function scopeStatusResultValid(value: unknown, input: Record<string, unknown>, secrets: string[]) {
+  if (!objectRecord(value) || !exactKeys(value, ["protocolo","version_ejecucion","spreadsheet_id","solo_lectura","referencias"])
+    || value.protocolo !== "manteniment-conciliar-alcance-v1"
+    || value.version_ejecucion !== input.version_ejecucion
+    || value.spreadsheet_id !== input.spreadsheet_id || value.solo_lectura !== true
+    || !Array.isArray(value.referencias) || !Array.isArray(input.alcance)
+    || value.referencias.length !== input.alcance.length) return false;
+  for (let i=0;i<value.referencias.length;i++) {
+    const item=value.referencias[i];
+    if (!objectRecord(item) || !exactKeys(item,["tipo","sync_id","revision","payload_sha256","estado"])
+      || !executionReferenceValid(executionReference(item))
+      || !sameExecutionReference(item,(input.alcance as unknown[])[i])
+      || !["VIGENTE","NO_VIGENTE","DUDOSA"].includes(String(item.estado))) return false;
+  }
+  const serialized=JSON.stringify(value);
+  return !/mg_[0-9a-f]{64}/i.test(serialized) && !secrets.some(secret=>secret && serialized.includes(secret));
+}
+
 function preflightRequestValid(body: Record<string, unknown>, client: unknown) {
   if (!exactKeys(body, ["action", "token", "payload"])
     || body.action !== "preflight" || typeof body.token !== "string"
@@ -217,8 +246,11 @@ Deno.serve(async (request: Request) => {
   if (!/^mg_[0-9a-f]{64}$/i.test(token)) {
     return reply(401, { ok: false, error: "Clave de conexión no válida." });
   }
-  if (!["sync", "ack", "preflight", "authorize", "ack_execution"].includes(action)) {
+  if (!["sync", "ack", "preflight", "authorize", "ack_execution", "scope_status"].includes(action)) {
     return reply(400, { ok: false, error: "Acción de sincronización no válida." });
+  }
+  if (action === "scope_status" && !scopeStatusRequestValid(body, payload)) {
+    return reply(400, { ok: false, error: "Solicitud de conciliación de alcance no válida." });
   }
   if (action === "preflight" && !preflightRequestValid(body, payload)) {
     return reply(400, { ok: false, error: "Solicitud de comprobación previa no válida." });
@@ -248,6 +280,27 @@ Deno.serve(async (request: Request) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceRoleKey) {
     return reply(500, { ok: false, error: "Configuración segura incompleta." });
+  }
+
+  if (action === "scope_status") {
+    try {
+      const diagnostic = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data, error } = await diagnostic.rpc("conciliar_alcance_manteniment", {
+        p_token: token, p_solicitud: payload,
+      });
+      if (error) return reply(error.code === "28000" ? 401 : 400, {
+        ok: false, error: error.code === "28000" ? "Clave de conexión no válida."
+          : "No se pudo conciliar el alcance seleccionado.",
+      });
+      if (!scopeStatusResultValid(data,payload!,[token,serviceRoleKey])) {
+        return reply(502,{ok:false,error:"El servidor no devolvió una conciliación de alcance válida."});
+      }
+      return reply(200,{ok:true,conciliacion:data});
+    } catch {
+      return reply(502,{ok:false,error:"No se pudo completar la conciliación de alcance."});
+    }
   }
 
   // Return before the sync/ack branch. This route calls only a read-only RPC.
