@@ -1,6 +1,6 @@
 import { detail, element } from '../../r1-alpha17/src/dom.js';
 import { createStagesToggle } from '../../r1-alpha75/src/stages-collapse.js?v=75.18';
-import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/hotel-documents.js';
+import { createStageDocuments, openActuationDocuments, summarizeDocuments } from '../../r1-alpha67/src/hotel-documents.js?v=actuation-documents-001';
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
 import { createOperationalDates, createSubstitutionBilling } from './card-operational.js';
 import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
@@ -264,7 +264,13 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
 
   card.append(createSubstitutionBilling(row, { allowManual: true }));
 
-  const documentSummary = element('div', { className: 'a53-card-doc-summary' });
+  const documentSummary = element('div', {
+    className: 'a53-card-doc-summary a53-card-doc-summary-action',
+    role: 'button',
+    tabIndex: 0,
+    title: 'Ver todos los archivos de la actuación sin desplegar las T',
+    'aria-label': 'Ver todos los archivos de la actuación',
+  });
   const updateDocumentSummary = () => {
     const summary = summarizeDocuments(documentsForStages(stages, documentsByGroup));
     documentSummary.replaceChildren(
@@ -275,6 +281,18 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
       })
     );
   };
+
+  const openDocuments = event => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    openActuationDocuments(stages, documentsByGroup);
+  };
+  documentSummary.addEventListener('click', openDocuments);
+  documentSummary.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    openDocuments(event);
+  });
 
   updateDocumentSummary();
   card.append(

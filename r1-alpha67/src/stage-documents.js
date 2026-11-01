@@ -9,6 +9,7 @@ import {
   normaliseMime,
   safeFilename,
   randomId,
+  modal,
 } from '../../r1-alpha53/src/document-core.js';
 import { documentCard } from './document-card.js';
 
@@ -284,6 +285,67 @@ export function createStageDocuments(stage, {
 
   draw();
   return root;
+}
+
+export function openActuationDocuments(stages, documentsByGroup) {
+  const ordered = (stages || []).slice().sort((a, b) =>
+    Number(Boolean(a.cancelado)) - Number(Boolean(b.cancelado))
+    || Number(a.posicion || 0) - Number(b.posicion || 0)
+  );
+  const groups = ordered.map(stage => ({
+    stage,
+    documents: documentsByGroup?.get?.(stage.grupo_documental_id) || [],
+  })).filter(group => group.documents.length);
+  const allDocuments = groups.flatMap(group => group.documents);
+  const summary = summarizeDocuments(allDocuments);
+  const totalIncludingCancelled = summary.total + summary.cancelled;
+  const dialog = modal(`Documentos de la actuación · ${totalIncludingCancelled}`);
+
+  dialog.card.append(el(
+    'div',
+    'Todos los archivos de la actuación se muestran aquí sin necesidad de desplegar las T.',
+    'a53-doc-context'
+  ));
+
+  if (!groups.length) {
+    dialog.card.append(el('div', 'Esta actuación todavía no tiene PDF ni fotografías.', 'a53-empty'));
+    return dialog;
+  }
+
+  groups.forEach(({ stage, documents }) => {
+    const active = documents.filter(doc => !doc.cancelado);
+    const cancelled = documents.filter(doc => doc.cancelado);
+    const section = el('section', null, 'a53-actuation-doc-stage');
+    const head = el('div', null, 'a53-actuation-doc-stage-head');
+    head.append(
+      el('strong', `${stage.posicion ?? '—'}T · ${stage.nombre || 'T sin nombre'}`),
+      el(
+        'span',
+        `${active.length} activo${active.length === 1 ? '' : 's'}${cancelled.length ? ` · ${cancelled.length} anulado${cancelled.length === 1 ? '' : 's'}` : ''}`,
+        'a53-doc-count'
+      )
+    );
+    section.append(head);
+
+    if (active.length) {
+      const list = el('div', null, 'a53-doc-list');
+      active.forEach(doc => list.append(documentCard(doc, false, async () => {})));
+      section.append(list);
+    }
+
+    if (cancelled.length) {
+      const old = el('details', null, 'a53-cancelled-documents');
+      old.append(el('summary', `Archivos anulados · ${cancelled.length}`));
+      const oldList = el('div', null, 'a53-doc-list');
+      cancelled.forEach(doc => oldList.append(documentCard(doc, false, async () => {})));
+      old.append(oldList);
+      section.append(old);
+    }
+
+    dialog.card.append(section);
+  });
+
+  return dialog;
 }
 
 export function summarizeDocuments(documents) {
