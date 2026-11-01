@@ -7,7 +7,7 @@ const METROGESTION = Object.freeze({
   // Identidad de transporte admitida por los contratos SQL/Edge existentes.
   // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
-  buildVersion: 'alpha75-2026.11.01.3',
+  buildVersion: 'alpha75-2026.11.01.4',
   idFilaColumn: 20,
   registroFilasSheet: 'REGISTRO_FILAS',
   registroFilasLastIdCell: 'H2',
@@ -587,9 +587,16 @@ try {
   throw new Error(`Supabase devolvió una respuesta no válida (${code}).`);
 }
 if (code < 200 || code >= 300) {
+  // Una respuesta HTTP recibida es un rechazo definitivo, no un resultado
+  // de transporte incierto. El servidor ha contestado y la entrega no existe.
+  metrogestionCerrarSolicitudEntregaRechazada_(solicitudEntrega);
   throw new Error(result.message || result.error || `Error HTTP ${code}.`);
 }
-if (result?.ok !== true) throw new Error(result?.error || 'La base de datos rechazó la sincronización.');
+if (result?.ok === false) {
+  metrogestionCerrarSolicitudEntregaRechazada_(solicitudEntrega);
+  throw new Error(result?.error || 'La base de datos rechazó la sincronización.');
+}
+if (result?.ok !== true) throw new Error('La base de datos no confirmó un resultado válido de sincronización.');
 // Conservar TODA la entrega antes de validar o seleccionar una orden. Algunas
 // revisiones PARADA sólo se entregan una vez: no se descartan las no elegidas.
 metrogestionConservarEntregaCompleta_(solicitudEntrega, result);
@@ -4163,6 +4170,20 @@ function metrogestionIniciarSolicitudEntrega_() {
   props.setProperty(METROGESTION_SOLICITUD_ENTREGA, value);
   if (props.getProperty(METROGESTION_SOLICITUD_ENTREGA) !== value) throw new Error('No se pudo guardar el inicio de la solicitud de entrega.');
   return requestId;
+}
+
+function metrogestionCerrarSolicitudEntregaRechazada_(requestId) {
+  const props = PropertiesService.getScriptProperties();
+  const pending = props.getProperty(METROGESTION_SOLICITUD_ENTREGA);
+  if (!pending) return;
+  let previous;
+  try { previous = JSON.parse(pending); } catch (_) { return; }
+  if (previous?.request_id !== requestId) return;
+  const key = METROGESTION_ENTREGA_ORDENES + requestId;
+  // Si existe una entrega durable, nunca se borra el marcador por esta vía:
+  // debe resolverse mediante el lector/verificador normal.
+  if (props.getProperty(key)) return;
+  props.deleteProperty(METROGESTION_SOLICITUD_ENTREGA);
 }
 
 function metrogestionConservarEntregaCompleta_(requestId, response) {
