@@ -253,9 +253,36 @@ estilos auxiliares anteriores. Las capturas no certifican la presentación
 completa de la app ni un dispositivo físico. Las carreras y
 el protocolo de entrega/ACK de MANTENIMENT tienen pruebas nativas separadas.
 
-`npm test --prefix tests/integration` ejecuta los 22 recorridos de las cuatro
-suites y, después, los cinco
+## Identidad de fichas y T, propietario y navegación
+
+`alpha75-hotel-identity.test.mjs` carga los módulos reales de Hotel Alpha17/26
+en Chromium, con un transporte local controlado y filas sintéticas. Comprueba
+que los metadatos, el detalle y el editor pertenecen al mismo registro aunque
+las fichas empaten en orden, se reordenen los nodos o existan T anuladas. Exige
+una sola lectura de Hotel por carga, comprueba los cambios de modo, altas y
+recargas, y rechaza destinos sin identidad, duplicados o de otra ficha. Las
+respuestas y errores antiguos, así como los callbacks de guardado de una vista
+abandonada, no pueden sustituir la pantalla actual.
+
+`hotel-owner-navigation.test.mjs` abre los índices publicados de Alpha75 y
+Alpha76 y su grafo real de módulos, con sesión y API sintéticas. Prepara una
+caché HTTP real con el router anterior y demora el cuerpo de su actualización.
+Tanto la sesión restaurada como el acceso desde el formulario realizan una
+única lectura del Hotel nativo. Se comprueban la salida a Talleres, la vuelta
+a Hotel con respuestas en orden inverso, los errores tardíos y la carga de un
+controlador de otra versión. Si no llega el router actualizado, no se ejecuta
+la aplicación antigua. Ninguna de estas dos suites envía escrituras ni usa
+cuentas o servicios operativos.
+
+Estas pruebas no necesitan PostgreSQL y se ejecutan juntas con:
+
+```bash
+npm run test:hotel-identity --prefix tests/integration
+```
+
+`npm test --prefix tests/integration` ejecuta primero estas dos suites,
+después los recorridos de las cuatro suites con PostgreSQL y finalmente los
 escenarios de arranque descritos en [README-boot-cache.md](README-boot-cache.md).
-Los scripts `test:assistance`, `test:recovery-history`, `test:continuity`, `test:editor` y `test:boot` permiten
-ejecutarlos por separado. La prueba de caché mantiene habilitada la caché HTTP
-y conserva sus propios límites de sesión nula e index candidato recién servido.
+Los scripts `test:assistance`, `test:recovery-history`, `test:continuity`,
+`test:editor`, `test:boot` y `test:hotel-identity` permiten ejecutarlos por
+separado. Las pruebas de caché mantienen habilitada la caché HTTP.
