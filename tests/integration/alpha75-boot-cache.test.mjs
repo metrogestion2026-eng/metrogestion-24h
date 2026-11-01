@@ -39,7 +39,7 @@ test('Alpha75 published index and warm HTTP cache', { timeout: 60000 }, async t 
     await t.test('cold boot loads the published graph and retains the login boundary', async () => {
       await page.goto(server.origin + ENTRY);
       await awaitBoot(page);
-      assert.equal(await page.locator('#app-version').textContent(), 'r1.0.0-alpha.75.25-hf1');
+      assert.equal(await page.locator('#app-version').textContent(), 'r1.0.0-alpha.75.25-hf2');
       assert.equal(await page.locator('#login-view').isVisible(), true);
       assert.equal(await page.locator('#app-view').isVisible(), false);
       assert.equal(await page.locator('[data-alpha34-24h]').count(), 1);
@@ -48,7 +48,7 @@ test('Alpha75 published index and warm HTTP cache', { timeout: 60000 }, async t 
         assert.ok(server.calls.some(call => call.path === `/r1-alpha75/src/${file}` && call.query === '?v=75.25-paradas-002'), file);
       }
       assert.ok(server.calls.some(call => call.path === '/r1-alpha75/src/hotel-native.js'
-        && call.query === '?v=75.25-hotel-identidad-001'), 'Hotel loads the corrected owner and lifecycle');
+        && call.query === '?v=75.25-doc-resumen-001'), 'Hotel loads the corrected owner and lifecycle');
       for (const file of ['history-native.js', 'panel-native-hf23.js']) {
         assert.ok(server.calls.some(call => call.path === `/r1-alpha75/src/${file}` && call.query === '?v=75.25-editor-fechas-001'), file);
       }
