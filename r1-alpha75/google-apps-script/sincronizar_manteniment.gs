@@ -7,7 +7,7 @@ const METROGESTION = Object.freeze({
   // Identidad de transporte admitida por los contratos SQL/Edge existentes.
   // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
-  buildVersion: 'alpha75-2026.11.01.4',
+  buildVersion: 'alpha75-2026.11.01.5',
   idFilaColumn: 20,
   registroFilasSheet: 'REGISTRO_FILAS',
   registroFilasLastIdCell: 'H2',
@@ -512,6 +512,7 @@ const workBackgrounds = sheet.getRange(1, 8, lastRow, 1).getBackgrounds();
 // G solo representa el tipo de trabajo cuando no está amarilla. Una G
 // amarilla contiene un pedido (actual 2600…, heredado P-… o PEDIDO).
 const orderBackgrounds = sheet.getRange(1, 7, lastRow, 1).getBackgrounds();
+const detailNotes = sheet.getRange(1, 7, lastRow, 1).getNotes();
 metrogestionValidarCabeceras_(values[0]);
 const rows = [];
 const maestroProps = PropertiesService.getScriptProperties().getProperties();
@@ -543,7 +544,8 @@ const trabajos = metrogestionLeerTrabajos_(
   workBackgrounds,
   priorityBackgrounds,
   metrogestionFechaCorteTrabajos_(),
-  orderBackgrounds
+  orderBackgrounds,
+  detailNotes
 );
 const pendientes = metrogestionLeerPendientesListado_(values, workNotes, workBackgrounds, orderBackgrounds);
 const modifiedAt = DriveApp.getFileById(METROGESTION.spreadsheetId).getLastUpdated();
@@ -896,6 +898,12 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
     }
     const fechaK = metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 1}`);
     const periodoAbierto = !fechaK;
+    const contenido = metrogestionContenidoTrabajo_(
+      row,
+      workNotes?.[index]?.[0],
+      detailNotes?.[index]?.[0],
+      pedidoEnG
+    );
     result.push({
       fila: index + 1,
       sync_id: match[1],
@@ -1098,13 +1106,69 @@ function metrogestionReglaTallerPendiente_(row, referenciasKm = new Map()) {
   return null;
 }
 
+function metrogestionContenidoTrabajo_(row, workNote, detailNote, pedidoEnG) {
+  const fuentesAmbito = [];
+  let ambito = 'SIN_DETERMINAR';
+
+  const valorG = String(row?.[6] || '').trim();
+  if (!pedidoEnG && metrogestionNormalizar_(valorG) === 'AVERIA H') {
+    fuentesAmbito.push({
+      celda: 'G.valor',
+      regla: 'AVERIA_H_HWASUNG',
+      valor: valorG,
+    });
+    ambito = 'FRIO';
+  }
+
+  const lines = String(workNote || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const confirmation = lines.find(line =>
+    /^EQUIPO CONFIRMADO POR METRO \(\d{2}\/\d{2}\/\d{4}\): (?:CAMI[ÓO]N|FR[IÍ]O HWASUNG \(AVER[IÍ]A H\))\.$/i.test(line)
+  );
+  if (confirmation) {
+    const normalized = metrogestionNormalizar_(confirmation);
+    const confirmedScope = normalized.includes('FRIO HWASUNG (AVERIA H)') ? 'FRIO' : 'CAMION';
+    if (ambito !== 'SIN_DETERMINAR' && ambito !== confirmedScope) {
+      // Conservar ambas evidencias para que el servidor rechace una contradicción
+      // real; nunca elegir silenciosamente una de ellas.
+      fuentesAmbito.push({
+        celda: 'E.nota',
+        regla: 'EQUIPO_CONFIRMADO_POR_METRO',
+        valor: confirmation,
+      });
+    } else {
+      fuentesAmbito.push({
+        celda: 'E.nota',
+        regla: 'EQUIPO_CONFIRMADO_POR_METRO',
+        valor: confirmation,
+      });
+      ambito = confirmedScope;
+    }
+  }
+
+  const notaG = String(detailNote || '');
+  return {
+    nota_g: notaG,
+    contenido_trabajo: {
+      version: 1,
+      ambito,
+      marca_equipo: ambito === 'FRIO' ? 'HWASUNG' : '',
+      descripcion: notaG,
+      fuentes: {
+        ambito: fuentesAmbito,
+        descripcion: notaG ? 'G.nota' : '',
+      },
+    },
+  };
+}
+
 function metrogestionLeerTrabajos_(
   values,
   workNotes,
   workBackgrounds,
   priorityBackgrounds,
   fechaCorteIso,
-  orderBackgrounds
+  orderBackgrounds,
+  detailNotes
 ) {
   // TANCAMENT, MITJANA y CANVI son líneas auxiliares de cálculo de MANTENIMENT.
   // Aunque contienen una fecha en I, sus columnas J/K/L son métricas y no
@@ -1178,6 +1242,8 @@ function metrogestionLeerTrabajos_(
       tipo_trabajo: destino?.tipo || tipoTrabajo,
       pedido,
       pedido_fondo_amarillo: pedidoEnG,
+      nota_g: contenido.nota_g,
+      contenido_trabajo: contenido.contenido_trabajo,
       designacion: row[7],
       marca_vehiculo: row[14],
       marca_equipo: metrogestionMarcaFrio_(row[14]),
