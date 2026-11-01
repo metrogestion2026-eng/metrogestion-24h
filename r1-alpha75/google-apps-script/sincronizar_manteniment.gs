@@ -7,7 +7,7 @@ const METROGESTION = Object.freeze({
   // Identidad de transporte admitida por los contratos SQL/Edge existentes.
   // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
-  buildVersion: 'alpha75-2026.11.01.5',
+  buildVersion: 'alpha75-2026.11.01.6',
   idFilaColumn: 20,
   registroFilasSheet: 'REGISTRO_FILAS',
   registroFilasLastIdCell: 'H2',
@@ -2963,7 +2963,7 @@ function metrogestionActualizarCiclo_(sheet, state, modo, token) {
       || !Array.isArray(state.comandos) || !['comandos', 'terminado'].includes(state.fase)) {
     throw new Error('El ciclo guardado pertenece al ejecutor anterior o a necesidades no incluidas en este alcance. Revisión manual obligatoria; se conserva su referencia.');
   }
-  const selected = metrogestionLeerAlcanceOrdenes_();
+  let selected = metrogestionLeerAlcanceOrdenes_();
   metrogestionExigirAlcance_(selected);
   if (JSON.stringify(state.alcance) !== JSON.stringify(selected)) throw new Error('El alcance del ciclo no coincide con la selección manual guardada.');
   state.comandos.forEach(command => metrogestionExigirOrdenSeleccionada_(command, selected));
@@ -3021,6 +3021,26 @@ function metrogestionEjecutarSincronizacion_(modo, expectedCycle) {
     metrogestionExigirJournalResuelto_(firstReference);
     const token = metrogestionLeerToken_();
     if (!token) throw new Error('No existe una clave de conexión en las Propiedades del script.');
+
+    if (!state || state.fase === 'terminado') {
+      const conciliacion = metrogestionConciliarAlcanceServidor_(selected, token);
+      if (conciliacion.obsoletas.length) {
+        selected = conciliacion.vigentes;
+        metrogestionGuardarAlcanceConciliado_(selected);
+      }
+      if (!selected.length) {
+        state = {
+          id: Utilities.getUuid(), hoja: METROGESTION.spreadsheetId, fase: 'terminado',
+          comandos: [], trabajos: [], version: METROGESTION.scriptVersion,
+          version_ejecucion: METROGESTION.executorVersion, alcance: [],
+          totalComandos: 0, confirmados: 0, creadas: 0, cierres: 0,
+          mensajeBase: 'El alcance guardado sólo contenía referencias ya no vigentes; se retiraron sin ejecutar ninguna orden.'
+        };
+        metrogestionGuardarCiclo_(state);
+        return metrogestionRespuestaCiclo_(state);
+      }
+    }
+
     const book = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
     if (book.getName() !== METROGESTION.spreadsheetName) throw new Error('No es el archivo MANTENIMIENTOS esperado.');
     const sheet = book.getSheetByName(METROGESTION.sheetName);
@@ -3218,6 +3238,78 @@ function metrogestionLeerAlcanceOrdenes_() {
     if (selected.version_ejecucion !== METROGESTION.executorVersion || selected.spreadsheet_id !== METROGESTION.spreadsheetId) throw new Error();
   } catch (_) { throw new Error('La selección guardada está incompleta o pertenece a otra revisión. No se ha iniciado ninguna orden.'); }
   return metrogestionExigirAlcance_(selected.alcance);
+}
+
+function metrogestionGuardarAlcanceConciliado_(refs) {
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty(METROGESTION_ALCANCE_ORDENES);
+  if (!raw) return;
+  let old;
+  try { old = JSON.parse(raw); } catch (_) { old = null; }
+
+  if (!refs.length) {
+    props.deleteProperty(METROGESTION_ALCANCE_ORDENES);
+    if (/^[0-9a-f]{32}$/.test(old?.generacion || '') && Number.isInteger(old?.partes)) {
+      for (let i=0;i<Math.min(old.partes,16);i++) {
+        props.deleteProperty(`${METROGESTION_ALCANCE_ORDENES}_${old.generacion}_${i}`);
+      }
+    }
+    return;
+  }
+
+  const alcance = metrogestionExigirAlcance_(refs);
+  const value = JSON.stringify({
+    version_ejecucion: METROGESTION.executorVersion,
+    spreadsheet_id: METROGESTION.spreadsheetId,
+    seleccionado_en: new Date().toISOString(),
+    alcance,
+  });
+  const generation = Utilities.getUuid().replace(/-/g,'');
+  const pieces = Math.ceil(value.length / 7500);
+  for (let i=0;i<pieces;i++) {
+    props.setProperty(`${METROGESTION_ALCANCE_ORDENES}_${generation}_${i}`,
+      value.slice(i*7500,(i+1)*7500));
+  }
+  props.setProperty(METROGESTION_ALCANCE_ORDENES, JSON.stringify({
+    generacion:generation, partes:pieces, sha:metrogestionSha256_(value),
+  }));
+  if (/^[0-9a-f]{32}$/.test(old?.generacion || '') && Number.isInteger(old?.partes)) {
+    for (let i=0;i<Math.min(old.partes,16);i++) {
+      props.deleteProperty(`${METROGESTION_ALCANCE_ORDENES}_${old.generacion}_${i}`);
+    }
+  }
+}
+
+function metrogestionConciliarAlcanceServidor_(scope, token) {
+  const alcance = metrogestionExigirAlcance_(scope);
+  const result = metrogestionSolicitudEjecucion_('scope_status', token, {
+    version_ejecucion: METROGESTION.executorVersion,
+    spreadsheet_id: METROGESTION.spreadsheetId,
+    alcance,
+  });
+  const c = result.conciliacion;
+  if (!metrogestionClavesPreflightExactas_(result,['ok','conciliacion'])
+      || !metrogestionClavesPreflightExactas_(c,['protocolo','version_ejecucion','spreadsheet_id','solo_lectura','referencias'])
+      || c.protocolo !== 'manteniment-conciliar-alcance-v1'
+      || c.version_ejecucion !== METROGESTION.executorVersion
+      || c.spreadsheet_id !== METROGESTION.spreadsheetId
+      || c.solo_lectura !== true || !Array.isArray(c.referencias)
+      || c.referencias.length !== alcance.length) {
+    throw new Error('El servidor no acreditó una conciliación de alcance exacta.');
+  }
+  const vigentes = [], obsoletas = [];
+  c.referencias.forEach((item,index) => {
+    if (!metrogestionClavesPreflightExactas_(item,['tipo','sync_id','revision','payload_sha256','estado'])
+        || !metrogestionMismaReferencia_(item,alcance[index])
+        || !['VIGENTE','NO_VIGENTE','DUDOSA'].includes(item.estado)) {
+      throw new Error('La conciliación de alcance contiene una referencia no acreditada.');
+    }
+    if (item.estado === 'DUDOSA') {
+      throw new Error(`La referencia ${item.tipo}/${item.sync_id}/${item.revision} sigue existiendo pero no coincide de forma segura. Revisión obligatoria.`);
+    }
+    (item.estado === 'VIGENTE' ? vigentes : obsoletas).push(alcance[index]);
+  });
+  return { vigentes, obsoletas };
 }
 
 function metrogestionExigirOrdenSeleccionada_(command, scope) {
