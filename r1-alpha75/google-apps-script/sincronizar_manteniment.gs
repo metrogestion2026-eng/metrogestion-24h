@@ -1155,13 +1155,15 @@ function metrogestionContenidoTrabajo_(row, workNote, detailNote, pedidoEnG) {
   };
 }
 
-function metrogestionPedidoExplicito_(value) {
+function metrogestionPedidoExplicito_(value, designacion, fondoAmarillo) {
   const raw = String(value || '').trim();
   const normalized = metrogestionNormalizar_(raw);
-  if (!raw) return '';
-  // El color amarillo no acredita un pedido. Sólo contenido explícito en G.
-  // Se admiten la marca literal PEDIDO y referencias/códigos de pedido
-  // escritos como dato, nunca inferidos por taller, marca o designación.
+  const tipo = metrogestionNormalizar_(designacion);
+  if (!raw || !fondoAmarillo) return '';
+  // El amarillo es condición de presentación, no prueba suficiente.
+  // El pedido sólo existe cuando G lo acredita expresamente o cuando la
+  // designación GC identifica uno de los casos operativos que generan pedido.
+  if (tipo === 'GC') return raw;
   if (normalized === 'PEDIDO') return raw;
   if (/^(?:PEDIDO|PED)[-\s:#/]*[A-Z0-9][A-Z0-9._/-]*$/i.test(raw)) return raw;
   return '';
@@ -1204,7 +1206,7 @@ function metrogestionLeerTrabajos_(
     if (numeroParadaHoja && !numeroParadaValido && !trabajoSyncId) continue;
     const numeroParada = numeroParadaValido ? numeroParadaHoja : '';
     const pedidoFondoAmarillo = metrogestionEsFondoAmarillo_(orderBackgrounds?.[index]?.[0]);
-    const pedido = metrogestionPedidoExplicito_(row[6]);
+    const pedido = metrogestionPedidoExplicito_(row[6], designacion, pedidoFondoAmarillo);
     const pedidoReal = Boolean(pedido);
     let tipoTrabajo = pedidoReal ? '' : row[6];
     if (designacion === 'LKT') {
