@@ -7,7 +7,7 @@ const METROGESTION = Object.freeze({
   // Identidad de transporte admitida por los contratos SQL/Edge existentes.
   // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
-  buildVersion: 'alpha75-2026.11.01.2',
+  buildVersion: 'alpha75-2026.11.01.3',
   idFilaColumn: 20,
   registroFilasSheet: 'REGISTRO_FILAS',
   registroFilasLastIdCell: 'H2',
@@ -563,7 +563,13 @@ const payload = {
   trabajos,
   pendientes,
 };
-payload.checksum = metrogestionSha256_(JSON.stringify({ filas: rows, paradas, cierres_facturacion: cierresFacturacion, trabajos, pendientes }));
+payload.checksum = metrogestionSha256_(JSON.stringify({
+  filas: rows,
+  paradas,
+  cierres_facturacion: cierresFacturacion,
+  trabajos,
+  pendientes,
+}));
 const solicitudEntrega = metrogestionIniciarSolicitudEntrega_();
 const response = UrlFetchApp.fetch(METROGESTION.syncUrl, {
   method: 'post',
