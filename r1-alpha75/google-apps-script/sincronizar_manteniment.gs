@@ -1229,6 +1229,12 @@ function metrogestionLeerTrabajos_(
     filaParaRegla[6] = tipoTrabajo;
     const destino = pendienteFondoBlanco && !pedidoEnG && !fechaRealizada && !fechaRecogida
       ? metrogestionReglaTallerPendiente_(filaParaRegla, referenciasKm) : null;
+    const contenido = metrogestionContenidoTrabajo_(
+      row,
+      workNotes?.[index]?.[0],
+      detailNotes?.[index]?.[0],
+      pedidoEnG
+    );
     result.push({
       fila: index + 1,
       trabajo_sync_id: trabajoSyncId,
