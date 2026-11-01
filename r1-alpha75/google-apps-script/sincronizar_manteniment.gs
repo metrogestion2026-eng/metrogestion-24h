@@ -4009,10 +4009,10 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
   // Una excepción tras persistir deja "aplicando": no habrá autorepetición.
   metrogestionGuardarJournalOrden_(record);
   let failure = null;
+  const insertedRows = [];
   try {
     if (Date.now() >= permission.expira) throw new Error('La autorización caducó después de registrar el intento.');
     if (filterState) metrogestionSuspenderFiltro_(sheet);
-    const insertedRows = [];
     plan.memory.operations.forEach(op => {
       if (op.method === 'insertRowAfter') {
         insertedRows.forEach((row, index) => { if (row > op.row) insertedRows[index] = row + 1; });
