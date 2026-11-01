@@ -3022,25 +3022,6 @@ function metrogestionEjecutarSincronizacion_(modo, expectedCycle) {
     const token = metrogestionLeerToken_();
     if (!token) throw new Error('No existe una clave de conexión en las Propiedades del script.');
 
-    if (!state || state.fase === 'terminado') {
-      const conciliacion = metrogestionConciliarAlcanceServidor_(selected, token);
-      if (conciliacion.obsoletas.length) {
-        selected = conciliacion.vigentes;
-        metrogestionGuardarAlcanceConciliado_(selected);
-      }
-      if (!selected.length) {
-        state = {
-          id: Utilities.getUuid(), hoja: METROGESTION.spreadsheetId, fase: 'terminado',
-          comandos: [], trabajos: [], version: METROGESTION.scriptVersion,
-          version_ejecucion: METROGESTION.executorVersion, alcance: [],
-          totalComandos: 0, confirmados: 0, creadas: 0, cierres: 0,
-          mensajeBase: 'El alcance guardado sólo contenía referencias ya no vigentes; se retiraron sin ejecutar ninguna orden.'
-        };
-        metrogestionGuardarCiclo_(state);
-        return metrogestionRespuestaCiclo_(state);
-      }
-    }
-
     const book = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
     if (book.getName() !== METROGESTION.spreadsheetName) throw new Error('No es el archivo MANTENIMIENTOS esperado.');
     const sheet = book.getSheetByName(METROGESTION.sheetName);
@@ -3056,6 +3037,34 @@ function metrogestionEjecutarSincronizacion_(modo, expectedCycle) {
         if (!Array.isArray(syncResult.comandos_manteniment)) throw new Error('El servidor no devolvió una entrega de órdenes válida.');
         delivered = metrogestionLeerEntregasConservadas_();
       }
+
+      const stillMissing = selected.filter(reference =>
+        metrogestionLeerJournalOrden_(reference)?.estado !== 'confirmado'
+        && !delivered.some(command => metrogestionMismaReferencia_(command, reference)));
+      if (stillMissing.length) {
+        const conciliacion = metrogestionConciliarAlcanceServidor_(stillMissing, token);
+        if (conciliacion.obsoletas.length) {
+          const stale = new Set(conciliacion.obsoletas.map(ref => JSON.stringify(metrogestionReferenciaOrden_(ref))));
+          selected = selected.filter(ref => !stale.has(JSON.stringify(metrogestionReferenciaOrden_(ref))));
+          metrogestionGuardarAlcanceConciliado_(selected);
+        }
+        if (conciliacion.vigentes.length) {
+          const ref = conciliacion.vigentes[0];
+          throw new Error(`La referencia ${ref.tipo}/${ref.sync_id}/${ref.revision} sigue vigente pero no fue entregada de forma única. No se amplía el alcance.`);
+        }
+        if (!selected.length) {
+          state = {
+            id: Utilities.getUuid(), hoja: METROGESTION.spreadsheetId, fase: 'terminado',
+            comandos: [], trabajos: [], version: METROGESTION.scriptVersion,
+            version_ejecucion: METROGESTION.executorVersion, alcance: [],
+            totalComandos: 0, confirmados: 0, creadas: 0, cierres: 0,
+            mensajeBase: 'El alcance guardado sólo contenía referencias ya no vigentes; se retiraron sin ejecutar ninguna orden.'
+          };
+          metrogestionGuardarCiclo_(state);
+          return metrogestionRespuestaCiclo_(state);
+        }
+      }
+
       delivered.forEach(metrogestionReferenciaOrden_);
       const commands = [];
       selected.forEach(reference => {
