@@ -545,16 +545,6 @@ const trabajos = metrogestionLeerTrabajos_(
   metrogestionFechaCorteTrabajos_(),
   orderBackgrounds
 );
-// El feed completo se conserva para resolver asignaciones sobre filas manuales.
-// El importador de identidad v2 sólo puede recibir trabajos ya acreditados por
-// una nota METROGESTION_T (UUID) y una PA válida. Las necesidades todavía sin
-// vínculo siguen viajando en "pendientes", pero nunca se presentan como si ya
-// fueran una T identificada.
-const trabajosEnvio = trabajos.filter(work =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    .test(String(work?.trabajo_sync_id || '').trim())
-  && metrogestionEsNumeroParada_(work?.numero_parada)
-);
 const pendientes = metrogestionLeerPendientesListado_(values, workNotes, workBackgrounds, orderBackgrounds);
 const modifiedAt = DriveApp.getFileById(METROGESTION.spreadsheetId).getLastUpdated();
 const generatedAt = new Date();
@@ -570,14 +560,14 @@ const payload = {
   filas: rows,
   paradas,
   cierres_facturacion: cierresFacturacion,
-  trabajos: trabajosEnvio,
+  trabajos,
   pendientes,
 };
 payload.checksum = metrogestionSha256_(JSON.stringify({
   filas: rows,
   paradas,
   cierres_facturacion: cierresFacturacion,
-  trabajos: trabajosEnvio,
+  trabajos,
   pendientes,
 }));
 const solicitudEntrega = metrogestionIniciarSolicitudEntrega_();
