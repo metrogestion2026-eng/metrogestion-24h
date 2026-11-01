@@ -7,7 +7,7 @@ const METROGESTION = Object.freeze({
   // Identidad de transporte admitida por los contratos SQL/Edge existentes.
   // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
-  buildVersion: 'alpha75-2026.11.01.4',
+  buildVersion: 'alpha75-2026.11.01.5',
   idFilaColumn: 20,
   registroFilasSheet: 'REGISTRO_FILAS',
   registroFilasLastIdCell: 'H2',
@@ -512,6 +512,7 @@ const workBackgrounds = sheet.getRange(1, 8, lastRow, 1).getBackgrounds();
 // G solo representa el tipo de trabajo cuando no está amarilla. Una G
 // amarilla contiene un pedido (actual 2600…, heredado P-… o PEDIDO).
 const orderBackgrounds = sheet.getRange(1, 7, lastRow, 1).getBackgrounds();
+const detailNotes = sheet.getRange(1, 7, lastRow, 1).getNotes();
 metrogestionValidarCabeceras_(values[0]);
 const rows = [];
 const maestroProps = PropertiesService.getScriptProperties().getProperties();
@@ -543,7 +544,8 @@ const trabajos = metrogestionLeerTrabajos_(
   workBackgrounds,
   priorityBackgrounds,
   metrogestionFechaCorteTrabajos_(),
-  orderBackgrounds
+  orderBackgrounds,
+  detailNotes
 );
 const pendientes = metrogestionLeerPendientesListado_(values, workNotes, workBackgrounds, orderBackgrounds);
 const modifiedAt = DriveApp.getFileById(METROGESTION.spreadsheetId).getLastUpdated();
@@ -1098,13 +1100,83 @@ function metrogestionReglaTallerPendiente_(row, referenciasKm = new Map()) {
   return null;
 }
 
+function metrogestionContenidoTrabajo_(row, workNote, detailNote, pedidoEnG) {
+  const fuentesAmbito = [];
+  let ambito = 'SIN_DETERMINAR';
+
+  const valorG = String(row?.[6] || '').trim();
+  if (!pedidoEnG && metrogestionNormalizar_(valorG) === 'AVERIA H') {
+    fuentesAmbito.push({
+      celda: 'G.valor',
+      regla: 'AVERIA_H_HWASUNG',
+      valor: valorG,
+    });
+    ambito = 'FRIO';
+  }
+
+  const lines = String(workNote || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const confirmation = lines.find(line =>
+    /^EQUIPO CONFIRMADO POR METRO \(\d{2}\/\d{2}\/\d{4}\): (?:CAMI[ÓO]N|FR[IÍ]O HWASUNG \(AVER[IÍ]A H\))\.$/i.test(line)
+  );
+  if (confirmation) {
+    const normalized = metrogestionNormalizar_(confirmation);
+    const confirmedScope = normalized.includes('FRIO HWASUNG (AVERIA H)') ? 'FRIO' : 'CAMION';
+    if (ambito !== 'SIN_DETERMINAR' && ambito !== confirmedScope) {
+      // Conservar ambas evidencias para que el servidor rechace una contradicción
+      // real; nunca elegir silenciosamente una de ellas.
+      fuentesAmbito.push({
+        celda: 'E.nota',
+        regla: 'EQUIPO_CONFIRMADO_POR_METRO',
+        valor: confirmation,
+      });
+    } else {
+      fuentesAmbito.push({
+        celda: 'E.nota',
+        regla: 'EQUIPO_CONFIRMADO_POR_METRO',
+        valor: confirmation,
+      });
+      ambito = confirmedScope;
+    }
+  }
+
+  const notaG = String(detailNote || '');
+  return {
+    nota_g: notaG,
+    contenido_trabajo: {
+      version: 1,
+      ambito,
+      marca_equipo: ambito === 'FRIO' ? 'HWASUNG' : '',
+      descripcion: notaG,
+      fuentes: {
+        ambito: fuentesAmbito,
+        descripcion: notaG ? 'G.nota' : '',
+      },
+    },
+  };
+}
+
+function metrogestionPedidoExplicito_(value, designacion, fondoAmarillo) {
+  const raw = String(value || '').trim();
+  const normalized = metrogestionNormalizar_(raw);
+  const tipo = metrogestionNormalizar_(designacion);
+  if (!raw || !fondoAmarillo) return '';
+  // El amarillo es condición de presentación, no prueba suficiente.
+  // El pedido sólo existe cuando G lo acredita expresamente o cuando la
+  // designación GC identifica uno de los casos operativos que generan pedido.
+  if (['GOLPE', 'GC', 'GP', 'GM'].includes(tipo)) return raw;
+  if (normalized === 'PEDIDO') return raw;
+  if (/^(?:PEDIDO|PED)[-\s:#/]*[A-Z0-9][A-Z0-9._/-]*$/i.test(raw)) return raw;
+  return '';
+}
+
 function metrogestionLeerTrabajos_(
   values,
   workNotes,
   workBackgrounds,
   priorityBackgrounds,
   fechaCorteIso,
-  orderBackgrounds
+  orderBackgrounds,
+  detailNotes
 ) {
   // TANCAMENT, MITJANA y CANVI son líneas auxiliares de cálculo de MANTENIMENT.
   // Aunque contienen una fecha en I, sus columnas J/K/L son métricas y no
@@ -1133,9 +1205,10 @@ function metrogestionLeerTrabajos_(
     // actuación nueva, aunque A conserve el antiguo fondo amarillo.
     if (numeroParadaHoja && !numeroParadaValido && !trabajoSyncId) continue;
     const numeroParada = numeroParadaValido ? numeroParadaHoja : '';
-    const pedidoEnG = metrogestionEsFondoAmarillo_(orderBackgrounds?.[index]?.[0]);
-    const pedido = pedidoEnG ? String(row[6] || '').trim() : '';
-    let tipoTrabajo = pedidoEnG ? '' : row[6];
+    const pedidoFondoAmarillo = metrogestionEsFondoAmarillo_(orderBackgrounds?.[index]?.[0]);
+    const pedido = metrogestionPedidoExplicito_(row[6], designacion, pedidoFondoAmarillo);
+    const pedidoReal = Boolean(pedido);
+    let tipoTrabajo = pedidoReal ? '' : row[6];
     if (designacion === 'LKT') {
       const frio = metrogestionMarcaFrio_(row[14]);
       if (frio) tipoTrabajo = frio === 'CARRIER' ? 'TRÁMITE' : 'GESTIÓN';
@@ -1163,12 +1236,18 @@ function metrogestionLeerTrabajos_(
     if (!vinculada && !prioridadFondoAmarillo && fechaCorteIso && fechaNecesidad > fechaCorteIso) continue;
     const filaParaRegla = row.slice();
     filaParaRegla[6] = tipoTrabajo;
-    const destino = pendienteFondoBlanco && !pedidoEnG && !fechaRealizada && !fechaRecogida
+    const destino = pendienteFondoBlanco && !pedidoReal && !fechaRealizada && !fechaRecogida
       ? metrogestionReglaTallerPendiente_(filaParaRegla, referenciasKm) : null;
+    const contenido = metrogestionContenidoTrabajo_(
+      row,
+      workNotes?.[index]?.[0],
+      detailNotes?.[index]?.[0],
+      pedidoReal
+    );
     result.push({
       fila: index + 1,
       trabajo_sync_id: trabajoSyncId,
-      clave_fila: metrogestionClaveFilaTrabajo_(row, pedidoEnG),
+      clave_fila: metrogestionClaveFilaTrabajo_(row, pedidoReal),
       dfm: row[0],
       matricula: row[1],
       numero_parada: numeroParada,
@@ -1177,7 +1256,9 @@ function metrogestionLeerTrabajos_(
       taller: String(row[5] || '').trim() ? row[5] : (destino?.taller || row[5]),
       tipo_trabajo: destino?.tipo || tipoTrabajo,
       pedido,
-      pedido_fondo_amarillo: pedidoEnG,
+      pedido_fondo_amarillo: pedidoFondoAmarillo,
+      nota_g: contenido.nota_g,
+      contenido_trabajo: contenido.contenido_trabajo,
       designacion: row[7],
       marca_vehiculo: row[14],
       marca_equipo: metrogestionMarcaFrio_(row[14]),
