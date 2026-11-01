@@ -7,7 +7,11 @@ const METROGESTION = Object.freeze({
   // Identidad de transporte admitida por los contratos SQL/Edge existentes.
   // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
-  buildVersion: 'alpha75-2026.11.01.1',
+  buildVersion: 'alpha75-2026.11.01.2',
+  idFilaColumn: 20,
+  registroFilasSheet: 'REGISTRO_FILAS',
+  registroFilasLastIdCell: 'H2',
+  identityTriggerHandler: 'metrogestionIdentidadFilasCambio',
   executorVersion: 'MG75-EJECUCION-ORDEN-001',
   preflightVersion: 'alpha75-preflight-2026.10.27.1',
   escrituraSeguraManual: true,
@@ -16,6 +20,175 @@ const METROGESTION = Object.freeze({
 });
 
 const METROGESTION_EXECUTION_CACHE = new Map();
+
+function metrogestionHojaRegistroFilas_() {
+  const ss = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
+  const sheet = ss.getSheetByName(METROGESTION.registroFilasSheet);
+  if (!sheet) throw new Error('Falta la hoja técnica REGISTRO_FILAS. No se asignan identificadores.');
+  return sheet;
+}
+
+function metrogestionNumeroIdFila_(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
+function metrogestionAsignarIdFilaNueva_(sheet, row, origen) {
+  if (!sheet || sheet.getName() !== METROGESTION.sheetName || row < 2) return 0;
+  const cell = sheet.getRange(row, METROGESTION.idFilaColumn);
+  const current = metrogestionNumeroIdFila_(cell.getValue());
+  if (current) return current;
+
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const afterLock = metrogestionNumeroIdFila_(cell.getValue());
+    if (afterLock) return afterLock;
+
+    const registry = metrogestionHojaRegistroFilas_();
+    const counterCell = registry.getRange(METROGESTION.registroFilasLastIdCell);
+    const lastId = metrogestionNumeroIdFila_(counterCell.getValue());
+    if (!lastId) throw new Error('REGISTRO_FILAS no contiene un ULTIMO_ID_EMITIDO válido.');
+    const nextId = lastId + 1;
+    const target = registry.getLastRow() + 1;
+    const now = new Date();
+
+    // Primero se consume el número. Si una operación se interrumpe después,
+    // el ID queda reservado y nunca puede volver a entregarse a otra fila.
+    registry.getRange(target, 1, 1, 5).setValues([[
+      nextId, 'RESERVADA', now, '', String(origen || 'ALTA_FILA')
+    ]]);
+    counterCell.setValue(nextId);
+    SpreadsheetApp.flush();
+
+    cell.setValue(nextId);
+    registry.getRange(target, 2).setValue('ACTIVA');
+    SpreadsheetApp.flush();
+
+    if (metrogestionNumeroIdFila_(cell.getValue()) !== nextId) {
+      throw new Error(`No se ha confirmado ID_FILA ${nextId} en la fila creada.`);
+    }
+    return nextId;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function metrogestionReconciliarIdentidadFilas_(origen) {
+  const ss = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
+  const sheet = ss.getSheetByName(METROGESTION.sheetName);
+  if (!sheet) throw new Error('No existe MANTENIMENT.');
+  const registry = metrogestionHojaRegistroFilas_();
+
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const lastRow = sheet.getLastRow();
+    const ids = lastRow >= 2
+      ? sheet.getRange(2, METROGESTION.idFilaColumn, lastRow - 1, 1).getValues().map(r => r[0])
+      : [];
+    const registryLast = registry.getLastRow();
+    const records = registryLast >= 2
+      ? registry.getRange(2, 1, registryLast - 1, 5).getValues()
+      : [];
+
+    const registryById = new Map();
+    records.forEach((record, index) => {
+      const id = metrogestionNumeroIdFila_(record[0]);
+      if (!id) return;
+      if (registryById.has(id)) throw new Error(`ID_FILA ${id} está duplicado en REGISTRO_FILAS.`);
+      registryById.set(id, { row: index + 2, state: String(record[1] || '').trim().toUpperCase() });
+    });
+
+    const seen = new Map();
+    ids.forEach((value, index) => {
+      const id = metrogestionNumeroIdFila_(value);
+      if (!id) return;
+      const row = index + 2;
+      if (seen.has(id)) throw new Error(`ID_FILA ${id} aparece en las filas ${seen.get(id)} y ${row}. No se renumera automáticamente.`);
+      seen.set(id, row);
+      const record = registryById.get(id);
+      if (!record) throw new Error(`ID_FILA ${id} existe en MANTENIMENT pero no en REGISTRO_FILAS.`);
+      if (record.state === 'BORRADA') throw new Error(`ID_FILA ${id} ya estaba BORRADA y ha reaparecido. Revisión manual obligatoria.`);
+    });
+
+    const now = new Date();
+    const deletedRows = [];
+    registryById.forEach((record, id) => {
+      if (record.state === 'ACTIVA' && !seen.has(id)) deletedRows.push(record.row);
+    });
+    deletedRows.forEach(row => {
+      registry.getRange(row, 2, 1, 4).setValues([[
+        'BORRADA', now, now, `Ausencia detectada · ${String(origen || 'RECONCILIACION')}`
+      ]]);
+    });
+
+    const assigned = [];
+    for (let index = 0; index < ids.length; index += 1) {
+      if (metrogestionNumeroIdFila_(ids[index])) continue;
+      const row = index + 2;
+      assigned.push({ row, id: metrogestionAsignarIdFilaNuevaSinLock_(sheet, registry, row, origen) });
+    }
+
+    SpreadsheetApp.flush();
+    return { activas: seen.size + assigned.length, borradas: deletedRows.length, asignadas: assigned };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function metrogestionAsignarIdFilaNuevaSinLock_(sheet, registry, row, origen) {
+  const cell = sheet.getRange(row, METROGESTION.idFilaColumn);
+  const current = metrogestionNumeroIdFila_(cell.getValue());
+  if (current) return current;
+  const counterCell = registry.getRange(METROGESTION.registroFilasLastIdCell);
+  const lastId = metrogestionNumeroIdFila_(counterCell.getValue());
+  if (!lastId) throw new Error('REGISTRO_FILAS no contiene un ULTIMO_ID_EMITIDO válido.');
+  const nextId = lastId + 1;
+  const target = registry.getLastRow() + 1;
+  const now = new Date();
+  registry.getRange(target, 1, 1, 5).setValues([[nextId, 'RESERVADA', now, '', String(origen || 'RECONCILIACION')]]);
+  counterCell.setValue(nextId);
+  cell.setValue(nextId);
+  registry.getRange(target, 2).setValue('ACTIVA');
+  return nextId;
+}
+
+function metrogestionIdentidadFilasCambio(e) {
+  try {
+    const ss = e?.source || SpreadsheetApp.openById(METROGESTION.spreadsheetId);
+    if (ss.getId() !== METROGESTION.spreadsheetId) return;
+    const type = String(e?.changeType || 'CHANGE').toUpperCase();
+    if (!['INSERT_ROW', 'REMOVE_ROW', 'OTHER'].includes(type)) return;
+    metrogestionReconciliarIdentidadFilas_(type);
+  } catch (error) {
+    PropertiesService.getScriptProperties().setProperty(
+      'METROGESTION_ID_FILA_ULTIMO_ERROR',
+      `${new Date().toISOString()} · ${String(error?.message || error)}`
+    );
+    throw error;
+  }
+}
+
+function metrogestionInstalarControlIdentidadFilas() {
+  ScriptApp.getProjectTriggers()
+    .filter(trigger => trigger.getHandlerFunction() === METROGESTION.identityTriggerHandler)
+    .forEach(trigger => ScriptApp.deleteTrigger(trigger));
+  ScriptApp.newTrigger(METROGESTION.identityTriggerHandler)
+    .forSpreadsheet(METROGESTION.spreadsheetId)
+    .onChange()
+    .create();
+  metrogestionReconciliarIdentidadFilas_('INSTALACION');
+  SpreadsheetApp.getUi().alert('Control ID_FILA instalado. Los números borrados no se reutilizarán.');
+}
+
+function metrogestionVerificarIdentidadFilas() {
+  const result = metrogestionReconciliarIdentidadFilas_('VERIFICACION_MANUAL');
+  SpreadsheetApp.getUi().alert(
+    `ID_FILA verificado. Activas: ${result.activas}; nuevas asignadas: ${result.asignadas.length}; bajas detectadas: ${result.borradas}.`
+  );
+}
+
 
 const METROGESTION_MAESTRO_COLUMNAS = Object.freeze({
   2: 'matricula',
@@ -55,6 +228,12 @@ function onEdit(e) {
     if (sheet.getName() !== METROGESTION.sheetName) return;
     if (range.getRow() < 2) return;
 
+    for (let editedRow = range.getRow(); editedRow <= range.getLastRow(); editedRow += 1) {
+      if (!metrogestionNumeroIdFila_(sheet.getRange(editedRow, METROGESTION.idFilaColumn).getValue())) {
+        metrogestionAsignarIdFilaNueva_(sheet, editedRow, 'EDICION_MANUAL');
+      }
+    }
+
     const row = range.getRow();
     if (metrogestionNormalizar_(sheet.getRange(row, 8).getDisplayValue()) !== 'ALTA') return;
     const dfm = metrogestionNormalizar_(sheet.getRange(row, 1).getDisplayValue());
@@ -87,6 +266,9 @@ function onOpen() {
     .addItem('Vista previa de próximas necesidades', 'metrogestionPreverNecesidades')
     .addItem('Pausar / reanudar próximas necesidades', 'metrogestionPausarNecesidades')
     .addItem('Ver estado local', 'metrogestionVerEstadoLocal')
+    .addSeparator()
+    .addItem('Verificar ID_FILA', 'metrogestionVerificarIdentidadFilas')
+    .addItem('Instalar control automático ID_FILA', 'metrogestionInstalarControlIdentidadFilas')
     .addToUi();
 }
 
@@ -123,6 +305,13 @@ function metrogestionInstalarActualizacion() {
   ScriptApp.newTrigger(METROGESTION.triggerHandler)
     .timeBased()
     .everyHours(6)
+    .create();
+  ScriptApp.getProjectTriggers()
+    .filter(trigger => trigger.getHandlerFunction() === METROGESTION.identityTriggerHandler)
+    .forEach(trigger => ScriptApp.deleteTrigger(trigger));
+  ScriptApp.newTrigger(METROGESTION.identityTriggerHandler)
+    .forSpreadsheet(METROGESTION.spreadsheetId)
+    .onChange()
     .create();
   PropertiesService.getScriptProperties().setProperty('METROGESTION_TRIGGER_INSTALADO_EN', new Date().toISOString());
   ui.alert('Actualización automática instalada. Se ejecutará cada seis horas.');
@@ -1715,6 +1904,9 @@ function metrogestionInsertarFilaAlta_(sheet, sheetState) {
   const exampleRow = exampleIndex + 2;
   sheet.insertRowAfter(lastRow);
   const targetRow = lastRow + 1;
+  if (typeof sheet.getParent === 'function' && sheet.getParent().getId() === METROGESTION.spreadsheetId) {
+    metrogestionAsignarIdFilaNueva_(sheet, targetRow, 'ALTA_METROGESTION');
+  }
   metrogestionCopiarPlantillaOperativa_(sheet, exampleRow, targetRow);
   sheet.getRange(targetRow, 1, 1, 17).clearContent().clearNote();
   sheet.setRowHeight(targetRow, sheet.getRowHeight(exampleRow));
@@ -1958,6 +2150,9 @@ function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
   anchorRow = anchorRow || lastRow;
   sheet.insertRowAfter(anchorRow);
   const targetRow = anchorRow + 1;
+  if (typeof sheet.getParent === 'function' && sheet.getParent().getId() === METROGESTION.spreadsheetId) {
+    metrogestionAsignarIdFilaNueva_(sheet, targetRow, 'PARADA_METROGESTION');
+  }
   metrogestionCopiarPlantillaOperativa_(sheet, templateRow, targetRow);
   sheet.getRange(targetRow, 1, 1, 17).clearContent().clearNote();
   sheet.setRowHeight(targetRow, sheet.getRowHeight(templateRow));
@@ -2494,6 +2689,7 @@ function metrogestionEjecutarPlanNecesidades_(sheet, plan, options) {
     metrogestionRegistrarPaso_(`Insertando próxima ${n.values[7]} de ${n.values[0]} · después de fila ${n.despuesDe}`);
     sheet.insertRowAfter(n.despuesDe);
     const target = n.despuesDe + 1;
+    metrogestionAsignarIdFilaNueva_(sheet, target, 'NECESIDAD_PREDICTIVA');
     // La plantilla solo afecta A:Q. R/S pertenecen a ARRAYFORMULA.
     // Solo formato: un corte aquí nunca deja una copia de la fila realizada
     // ni de su identificador técnico en la fila recién insertada.
@@ -3817,7 +4013,10 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
     if (Date.now() >= permission.expira) throw new Error('La autorización caducó después de registrar el intento.');
     if (filterState) metrogestionSuspenderFiltro_(sheet);
     plan.memory.operations.forEach(op => {
-      if (op.method === 'insertRowAfter') sheet.insertRowAfter(op.row);
+      if (op.method === 'insertRowAfter') {
+        sheet.insertRowAfter(op.row);
+        metrogestionAsignarIdFilaNueva_(sheet, op.row + 1, 'ORDEN_AUTORIZADA');
+      }
       else if (op.method === 'setRowHeight') sheet.setRowHeight(op.row, op.height);
       else if (op.method === 'enlazarArchivo') metrogestionAplicarArchivoPlan_(sheet, plan.memory, plan.memory.drivePlans[op.driveIndex]);
       else if (op.method === 'copyTo') {
