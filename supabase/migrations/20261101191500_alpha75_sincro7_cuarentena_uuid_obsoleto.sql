@@ -102,58 +102,60 @@ begin
              r.actualizado_en desc nulls last, r.id desc
     limit 1;
 
+    -- La identidad primaria de una fila importada es su clave_fila exacta
+    -- acreditada previamente en fuentes. Así no se confunden fecha de golpe,
+    -- fecha prevista de app y entrada real a taller.
     select count(*)::integer into v_match_count
     from jsonb_array_elements(v_identificados) with ordinality e(value, ordinality)
     where lower(e.value->>'trabajo_sync_id') = v_uuid
-      and e.value->>'fecha_necesidad' = to_char(v_work.fecha_necesidad, 'YYYY-MM-DD')
+      and exists (
+        select 1
+        from jsonb_array_elements(coalesce(v_work.fuentes, '[]'::jsonb)) f(value)
+        where f.value->>'clave_fila' = e.value->>'clave_fila'
+      )
       and regexp_replace(upper(btrim(coalesce(e.value->>'dfm',''))),'[[:space:]]+','','g')
           = regexp_replace(upper(btrim(coalesce(v_record.vehiculo_sustituido,''))),'[[:space:]]+','','g')
       and regexp_replace(upper(btrim(coalesce(e.value->>'matricula',''))),'[[:space:]]+','','g')
           = regexp_replace(upper(btrim(coalesce(v_record.matricula_sustituido,''))),'[[:space:]]+','','g')
       and regexp_replace(upper(btrim(coalesce(e.value->>'numero_parada',''))),'^PA[- ]*','','g')
-          = regexp_replace(upper(btrim(coalesce(v_record.numero_parada,''))),'^PA[- ]*','','g')
-      and translate(upper(btrim(coalesce(e.value->>'designacion',''))),'ÁÉÍÓÚÜ','AEIOUU')
-          in (
-            translate(upper(btrim(coalesce(v_work.designacion,''))),'ÁÉÍÓÚÜ','AEIOUU'),
-            translate(upper(btrim(coalesce(v_catalog.codigo,''))),'ÁÉÍÓÚÜ','AEIOUU'),
-            translate(upper(btrim(coalesce(v_catalog.nombre,''))),'ÁÉÍÓÚÜ','AEIOUU'),
-            translate(upper(btrim(coalesce(v_job.categoria_tecnica,''))),'ÁÉÍÓÚÜ','AEIOUU')
-          );
+          = regexp_replace(upper(btrim(coalesce(v_record.numero_parada,''))),'^PA[- ]*','','g');
 
     if v_match_count = 0 then
       v_cuarentena := v_cuarentena || jsonb_build_array(jsonb_build_object(
         'trabajo_sync_id', v_uuid,
         'filas', v_total,
-        'motivo', 'UUID_REPETIDO_SIN_COINCIDENCIA_IDENTIDAD_COMPLETA',
+        'motivo', 'UUID_REPETIDO_SIN_COINCIDENCIA_DE_PROCEDENCIA',
         'dfm', v_record.vehiculo_sustituido,
         'numero_parada', v_record.numero_parada,
-        'designacion', v_work.designacion,
-        'fecha_necesidad_canonica', to_char(v_work.fecha_necesidad, 'YYYY-MM-DD')
+        'designacion', v_work.designacion
       ));
       continue;
     elsif v_match_count > 1 then
-      raise exception
-        'MG_UUID_REPETIDO_AMBIGUO: UUID % tiene % filas y % coincidencias de identidad completa; revisión obligatoria',
-        v_uuid, v_total, v_match_count;
+      -- Un mismo UUID acredita varias filas actuales: el vínculo técnico está
+      -- contaminado. No se decide entre episodios reales distintos.
+      v_cuarentena := v_cuarentena || jsonb_build_array(jsonb_build_object(
+        'trabajo_sync_id', v_uuid,
+        'filas', v_total,
+        'coincidencias_fuente', v_match_count,
+        'motivo', 'UUID_REPETIDO_MULTIPLES_FILAS_ACREDITADAS'
+      ));
+      continue;
     end if;
 
     select e.value into v_item
     from jsonb_array_elements(v_identificados) with ordinality e(value, ordinality)
     where lower(e.value->>'trabajo_sync_id') = v_uuid
-      and e.value->>'fecha_necesidad' = to_char(v_work.fecha_necesidad, 'YYYY-MM-DD')
+      and exists (
+        select 1
+        from jsonb_array_elements(coalesce(v_work.fuentes, '[]'::jsonb)) f(value)
+        where f.value->>'clave_fila' = e.value->>'clave_fila'
+      )
       and regexp_replace(upper(btrim(coalesce(e.value->>'dfm',''))),'[[:space:]]+','','g')
           = regexp_replace(upper(btrim(coalesce(v_record.vehiculo_sustituido,''))),'[[:space:]]+','','g')
       and regexp_replace(upper(btrim(coalesce(e.value->>'matricula',''))),'[[:space:]]+','','g')
           = regexp_replace(upper(btrim(coalesce(v_record.matricula_sustituido,''))),'[[:space:]]+','','g')
       and regexp_replace(upper(btrim(coalesce(e.value->>'numero_parada',''))),'^PA[- ]*','','g')
           = regexp_replace(upper(btrim(coalesce(v_record.numero_parada,''))),'^PA[- ]*','','g')
-      and translate(upper(btrim(coalesce(e.value->>'designacion',''))),'ÁÉÍÓÚÜ','AEIOUU')
-          in (
-            translate(upper(btrim(coalesce(v_work.designacion,''))),'ÁÉÍÓÚÜ','AEIOUU'),
-            translate(upper(btrim(coalesce(v_catalog.codigo,''))),'ÁÉÍÓÚÜ','AEIOUU'),
-            translate(upper(btrim(coalesce(v_catalog.nombre,''))),'ÁÉÍÓÚÜ','AEIOUU'),
-            translate(upper(btrim(coalesce(v_job.categoria_tecnica,''))),'ÁÉÍÓÚÜ','AEIOUU')
-          )
     order by e.ordinality
     limit 1;
 
@@ -167,6 +169,6 @@ end;
 $function$;
 
 comment on function app_private.manteniment_importar_trabajos(jsonb) is
-  'SINCRO7: resuelve UUID repetidos por identidad completa; los repetidos sin coincidencia se ponen en cuarentena y no bloquean el lote, los ambiguos reales (>1 coincidencias) siguen bloqueando.';
+  'SINCRO7: resuelve UUID repetidos por clave_fila acreditada en fuentes; 0 o múltiples filas acreditadas se ponen en cuarentena para no confundir episodios ni significados de fecha.';
 
 commit;
