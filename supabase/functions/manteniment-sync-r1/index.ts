@@ -152,7 +152,7 @@ function scopeStatusResultValid(value: unknown, input: Record<string, unknown>, 
     const item=value.referencias[i];
     if (!objectRecord(item) || !exactKeys(item,["tipo","sync_id","revision","payload_sha256","estado"])
       || !executionReferenceValid(executionReference(item))
-      || !sameExecutionReference(item,(input.alcance as unknown[])[i])
+      || !sameExecutionReference(executionReference(item),(input.alcance as unknown[])[i])
       || !["VIGENTE","NO_VIGENTE","DUDOSA"].includes(String(item.estado))) return false;
   }
   const serialized=JSON.stringify(value);
