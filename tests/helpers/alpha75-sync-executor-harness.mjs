@@ -18,6 +18,9 @@ export const HEADERS = ['DFM', 'MATRI', 'TIPO', 'UPC/INC', 'PA', 'LUGAR/TALLER/T
   'PEDIDO/NOTA/FIN CONTRA', 'MANTENIMENT', 'PROGRAMAT', 'ENTRADA', 'SALIDA', 'DIES',
   'OBS', 'ASSIGNAT', 'MARCA', 'KM', 'ALBARA / ENTRADA'];
 const clone = value => structuredClone(value);
+function assertDatePattern(pattern) {
+  if (pattern !== 'yyyy-MM-dd') throw new Error('The fixture does not model this Utilities.formatDate pattern');
+}
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 const display = value => value instanceof Date
   ? `${String(value.getDate()).padStart(2, '0')}/${String(value.getMonth() + 1).padStart(2, '0')}/${value.getFullYear()}`
@@ -45,7 +48,14 @@ export function workPayload(overrides = {}) {
   return { trabajo_sync_id: IDS.work, dfm: 'TEST-DFM-01', matricula: 'TEST1234',
     numero_parada: 'PA-910001', tipo: 'FURGON', upc: 'UPC-TEST', taller: 'TEST-TALLER',
     tipo_trabajo: 'MECANICA', designacion: 'TEST REVISION', fecha_necesidad: '2026-10-01',
-    fecha_entrada: '', fecha_salida: '', ...overrides };
+    fecha_entrada: '', fecha_salida: '',
+    // Explicit synthetic origin, not evidence that the deployed producer can
+    // already establish it. Legacy/no-source proposals have separate tests.
+    contrato_fechas_version: 2, fecha_necesidad_origen: '2026-10-01',
+    procedencia_fecha_necesidad: 'necesidad_declarada', contexto_operativo_vigente: true,
+    retener_propuesta: false, motivos_retencion: [],
+    fecha_programada_visita: null, fecha_inicio_real: null, fecha_fin_real: null, fecha_real: null,
+    ...overrides };
 }
 
 export function workRow(overrides = {}) {
@@ -342,7 +352,13 @@ export function createExecutorHarness(options = {}) {
         },
         base64Encode: data => Buffer.from(data.map(n => n & 255)).toString('base64'), base64Decode: text => [...Buffer.from(text, 'base64')],
         computeDigest: (_, text) => [...createHash('sha256').update(String(text)).digest()].map(n => n > 127 ? n - 256 : n),
-        formatDate: date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+        formatDate: (date, timeZone, pattern) => {
+          assertDatePattern(pattern);
+          const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+            timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+          }).formatToParts(date).map(part => [part.type, part.value]));
+          return `${parts.year}-${parts.month}-${parts.day}`;
+        },
       },
       SpreadsheetApp: {
         openById: () => world.book, getActiveSpreadsheet: () => world.book, getActive: () => world.book,
