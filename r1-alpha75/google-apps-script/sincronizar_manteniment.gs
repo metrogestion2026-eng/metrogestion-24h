@@ -118,9 +118,9 @@ function metrogestionReconciliarIdentidadFilas_(origen) {
       if (record.state === 'ACTIVA' && !seen.has(id)) deletedRows.push(record.row);
     });
     deletedRows.forEach(row => {
-      registry.getRange(row, 2, 1, 4).setValues([[
-        'BORRADA', now, now, `Ausencia detectada · ${String(origen || 'RECONCILIACION')}`
-      ]]);
+      registry.getRange(row, 2).setValue('BORRADA');
+      registry.getRange(row, 4).setValue(now);
+      registry.getRange(row, 5).setValue(`Ausencia detectada · ${String(origen || 'RECONCILIACION')}`);
     });
 
     const assigned = [];
