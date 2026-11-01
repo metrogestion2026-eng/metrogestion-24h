@@ -21,6 +21,15 @@ const METROGESTION = Object.freeze({
 
 const METROGESTION_EXECUTION_CACHE = new Map();
 
+
+function metrogestionTieneRegistroFilasReal_(sheet) {
+  if (!sheet || typeof sheet.getParent !== 'function') return false;
+  const parent = sheet.getParent();
+  if (!parent || typeof parent.getId !== 'function' || parent.getId() !== METROGESTION.spreadsheetId) return false;
+  if (typeof parent.getSheetByName !== 'function') return false;
+  return Boolean(parent.getSheetByName(METROGESTION.registroFilasSheet));
+}
+
 function metrogestionHojaRegistroFilas_() {
   const ss = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
   const sheet = ss.getSheetByName(METROGESTION.registroFilasSheet);
@@ -1904,9 +1913,7 @@ function metrogestionInsertarFilaAlta_(sheet, sheetState) {
   const exampleRow = exampleIndex + 2;
   sheet.insertRowAfter(lastRow);
   const targetRow = lastRow + 1;
-  if (typeof sheet.getParent === 'function' && sheet.getParent().getId() === METROGESTION.spreadsheetId) {
-    metrogestionAsignarIdFilaNueva_(sheet, targetRow, 'ALTA_METROGESTION');
-  }
+  if (metrogestionTieneRegistroFilasReal_(sheet)) metrogestionAsignarIdFilaNueva_(sheet, targetRow, 'ALTA_METROGESTION');
   metrogestionCopiarPlantillaOperativa_(sheet, exampleRow, targetRow);
   sheet.getRange(targetRow, 1, 1, 17).clearContent().clearNote();
   sheet.setRowHeight(targetRow, sheet.getRowHeight(exampleRow));
@@ -2150,9 +2157,7 @@ function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
   anchorRow = anchorRow || lastRow;
   sheet.insertRowAfter(anchorRow);
   const targetRow = anchorRow + 1;
-  if (typeof sheet.getParent === 'function' && sheet.getParent().getId() === METROGESTION.spreadsheetId) {
-    metrogestionAsignarIdFilaNueva_(sheet, targetRow, 'PARADA_METROGESTION');
-  }
+  if (metrogestionTieneRegistroFilasReal_(sheet)) metrogestionAsignarIdFilaNueva_(sheet, targetRow, 'PARADA_METROGESTION');
   metrogestionCopiarPlantillaOperativa_(sheet, templateRow, targetRow);
   sheet.getRange(targetRow, 1, 1, 17).clearContent().clearNote();
   sheet.setRowHeight(targetRow, sheet.getRowHeight(templateRow));
@@ -4044,7 +4049,7 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
         throw new Error('No se ha verificado la carpeta Drive resultante.');
       }
     });
-    if (typeof sheet.getParent === 'function' && sheet.getParent().getId() === METROGESTION.spreadsheetId) {
+    if (metrogestionTieneRegistroFilasReal_(sheet)) {
       insertedRows.forEach(row => metrogestionAsignarIdFilaNueva_(sheet, row, 'ORDEN_AUTORIZADA'));
       SpreadsheetApp.flush();
     }
