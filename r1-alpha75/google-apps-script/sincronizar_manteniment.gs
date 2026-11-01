@@ -898,12 +898,6 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
     }
     const fechaK = metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 1}`);
     const periodoAbierto = !fechaK;
-    const contenido = metrogestionContenidoTrabajo_(
-      row,
-      workNotes?.[index]?.[0],
-      detailNotes?.[index]?.[0],
-      pedidoEnG
-    );
     result.push({
       fila: index + 1,
       sync_id: match[1],
