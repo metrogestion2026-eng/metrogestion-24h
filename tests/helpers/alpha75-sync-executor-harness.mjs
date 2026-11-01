@@ -374,7 +374,9 @@ export function createExecutorHarness(options = {}) {
         const body = JSON.parse(init.payload);
         const event = { kind: 'http', method: body.action || 'sync', body, url, init };
         world.checkpoint(event, 'before'); world.events.push(event); world.httpCalls.push(event);
-        const result = world.httpHandler ? world.httpHandler(body, world) : defaultResponse(body, world);
+        const result = body.action === 'scope_status'
+          ? defaultResponse(body, world)
+          : (world.httpHandler ? world.httpHandler(body, world) : defaultResponse(body, world));
         world.checkpoint(event, 'after');
         return { getResponseCode: () => result?.status ?? 200,
           getContentText: () => typeof result?.body === 'string' ? result.body : JSON.stringify(result?.body ?? result) };
@@ -426,6 +428,16 @@ export function createExecutorHarness(options = {}) {
 }
 
 export function defaultResponse(body, world) {
+  if (body.action === 'scope_status') {
+    const p = body.payload;
+    return { ok: true, conciliacion: {
+      protocolo: 'manteniment-conciliar-alcance-v1',
+      version_ejecucion: PROTOCOL,
+      spreadsheet_id: p.spreadsheet_id,
+      solo_lectura: true,
+      referencias: p.alcance.map(ref => ({ ...clone(ref), estado: 'VIGENTE' })),
+    } };
+  }
   if (body.action === 'authorize') {
     const p = body.payload;
     const now = Date.now();
