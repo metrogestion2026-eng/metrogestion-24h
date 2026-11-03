@@ -155,7 +155,7 @@ test('la 75.25 comprueba versión publicada sin caché y usa un solo arranque', 
   assert.match(refresh, /new URL\('\.\/app\.js', import\.meta\.url\)/);
   assert.match(refresh, /const VERSION =/);
   assert.match(refresh, /window\.location\.replace/);
-  assert.equal(manifest.start_url, './?v=75.25-hf2');
+  assert.equal(manifest.start_url, './?v=75.25-hf3');
 });
 
 test('solo app.js puede escribir la versión visible de Metrogestión 75.25', () => {
@@ -170,7 +170,7 @@ test('solo app.js puede escribir la versión visible de Metrogestión 75.25', ()
 test('75.25 declara propiedad de Listados antes de cargar la herencia', () => {
   const boot = source('r1-alpha75/src/boot75.js');
   const ownerAt = boot.indexOf("listados: 'alpha75'");
-  const appAt = boot.indexOf("import('./app.js?v=75.25-hf2')");
+  const appAt = boot.indexOf("import('./app.js?v=75.25-hf3')");
   assert.ok(ownerAt >= 0);
   assert.ok(appAt > ownerAt);
   for (const legacy of ['r1-alpha29','r1-alpha30','r1-alpha31','r1-alpha34','r1-alpha50']) {
