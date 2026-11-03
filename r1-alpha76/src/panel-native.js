@@ -157,15 +157,45 @@ function latestCompletedStages(stages) {
   return latestByHotel;
 }
 
-function hotelItem(row, latestByHotel) {
+function currentOperationalStages(stages) {
+  const currentByHotel = new Map();
+  const priority = state => state === 'en_curso' ? 0 : state === 'programada' ? 1 : state === 'pendiente' ? 2 : 3;
+  stages.forEach(stage => {
+    if (stage.cancelado === true || stage.estado === 'realizada' || stage.estado === 'anulada') return;
+    const previous = currentByHotel.get(stage.registro_hotel_id);
+    if (!previous) {
+      currentByHotel.set(stage.registro_hotel_id, stage);
+      return;
+    }
+    const currentPriority = priority(stage.estado);
+    const previousPriority = priority(previous.estado);
+    if (currentPriority < previousPriority
+      || (currentPriority === previousPriority && Number(stage.posicion || 9999) < Number(previous.posicion || 9999))) {
+      currentByHotel.set(stage.registro_hotel_id, stage);
+    }
+  });
+  return currentByHotel;
+}
+
+function stageSituation(stage) {
+  if (!stage) return '';
+  const when = stage.fecha_inicio_real || stage.fecha_prevista || '';
+  const date = when ? formatDateTime(when) + ' · ' : '';
+  return 'T actual: ' + date + (stage.posicion || '—') + 'T ' + (stage.nombre || 'T sin nombre') + ' · ' + stateLabel(stage.estado);
+}
+
+function hotelItem(row, latestByHotel, currentByHotel) {
   const substitute = row.sustituto ? `${row.tipo_sustituto || 'SUSTITUTO'} ${row.sustituto}${row.matricula_sustituto ? ` · ${row.matricula_sustituto}` : ''}` : 'Sin sustituto';
   const latestStage = latestByHotel.get(row.id);
+  const currentStage = currentByHotel.get(row.id);
   return {
     title: vehicleTitle(row),
     meta: `${row.numero_parada || 'Sin n.º de actuación'} · ${stateLabel(row.estado)} · Prioridad ${row.prioridad ?? '—'}`,
-    lastStage: latestStage
-      ? `Última T realizada: ${formatDateTime(latestStage.completedAt)} · ${latestStage.posicion || '—'}T ${latestStage.nombre || 'T sin nombre'}`
-      : 'Última T realizada: ninguna registrada',
+    lastStage: currentStage
+      ? stageSituation(currentStage)
+      : latestStage
+        ? `Última T realizada: ${formatDateTime(latestStage.completedAt)} · ${latestStage.posicion || '—'}T ${latestStage.nombre || 'T sin nombre'}`
+        : 'Última T realizada: ninguna registrada',
     note: [substitute, row.lugar, row.causa, row.incidencia ? `INC ${row.incidencia}` : ''].filter(Boolean).join(' · '),
     module: 'hotel',
     recordId: row.id,
@@ -547,7 +577,8 @@ async function renderPanel({ automatic = false } = {}) {
 
     const hotelById = new Map(hotelRows.map(row => [row.id, row]));
     const latestCompletedByHotel = latestCompletedStages(stages);
-    const toHotelItem = row => hotelItem(row, latestCompletedByHotel);
+    const currentOperationalByHotel = currentOperationalStages(stages);
+    const toHotelItem = row => hotelItem(row, latestCompletedByHotel, currentOperationalByHotel);
     const pendingStageStates = new Set(['pendiente', 'programada']);
     const overdueStages = stages.filter(row => row.fecha_prevista && pendingStageStates.has(row.estado) && new Date(row.fecha_prevista) < now && localDateKey(row.fecha_prevista) < today);
     const stagesToday = stages.filter(row => row.fecha_prevista && pendingStageStates.has(row.estado) && localDateKey(row.fecha_prevista) === today);

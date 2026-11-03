@@ -32,8 +32,8 @@ await Promise.all(legacyFiles.map(async path => {
   }
 }));
 
-await import('./app.js?v=75.25-hf2');
+await import('./app.js?v=75.25-hf3');
 await import('./h73-register-device.js?v=73.3');
 await import('./hotel-native.js?v=75.25-doc-resumen-001');
 await import('./history-native.js?v=75.25-editor-fechas-001');
-await import('./panel-native-hf23.js?v=75.25-editor-fechas-001');
+await import('./panel-native-hf23.js?v=75.25-panel-t-actual-001');

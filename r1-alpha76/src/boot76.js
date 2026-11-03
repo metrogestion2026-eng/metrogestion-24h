@@ -9,8 +9,8 @@ try {
   throw error;
 }
 
-await import('./app.js?v=76.10-hf2');
+await import('./app.js?v=76.10-hf3');
 await import('./hotel-native.js?v=76.10-doc-resumen-001');
 await import('./history-native.js?v=76.10');
-await import('./panel-native.js?v=76.5');
+await import('./panel-native.js?v=76.10-panel-t-actual-001');
 await import('./read-only-mode.js?v=76.2');
