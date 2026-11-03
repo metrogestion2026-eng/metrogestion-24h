@@ -8,6 +8,6 @@ import './activos.js?v=75.23-hf10';
 import './pending-stages.js?v=75.23-hf16';
 import './assistance-followup.js?v=75.25-continuidad-001';
 
-const VERSION = 'r1.0.0-alpha.75.25-hf2';
+const VERSION = 'r1.0.0-alpha.75.25-hf3';
 const versionNode = document.querySelector('#app-version');
 if (versionNode) versionNode.textContent = VERSION;

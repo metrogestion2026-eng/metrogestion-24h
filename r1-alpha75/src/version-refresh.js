@@ -1,4 +1,4 @@
-const CURRENT_VERSION = 'r1.0.0-alpha.75.25-hf2';
+const CURRENT_VERSION = 'r1.0.0-alpha.75.25-hf3';
 
 async function refreshIfOutdated() {
   try {
