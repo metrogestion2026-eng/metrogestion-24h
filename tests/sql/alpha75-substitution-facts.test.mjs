@@ -17,7 +17,7 @@ test(
   'PostgreSQL distingue una sustitución abierta de una cabecera histórica',
   { timeout: 120000 },
   async () => {
-    const fixture = await createContinuityFixture({ prefix: 'substitution_facts' });
+    const fixture = await createContinuityFixture({ prefix: 'sub_facts' });
     try {
       const db = fixture.admin;
       const migration = await readFile(MIGRATION, 'utf8');
