@@ -95,6 +95,8 @@ jobs:
         run: npm run test:recovery --prefix tests/sql
       - name: Comprobar continuidad, imputación y conservación de hechos reales
         run: npm run test:continuity --prefix tests/sql
+      - name: Comprobar sustitución vigente por hechos operativos
+        run: node --test tests/sql/alpha75-substitution-facts.test.mjs
       - name: Comprobar proyección única del Panel y paridad de facturación
         run: npm run test:panel-projection --prefix tests/sql
       - name: Comprobar concurrencia del traspaso entre PA
