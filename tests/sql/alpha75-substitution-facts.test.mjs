@@ -9,7 +9,7 @@ import {
 import { FIXTURE_ACTOR, one } from './local-postgres-harness.mjs';
 
 const MIGRATION = new URL(
-  '../../supabase/migrations/20261104170000_alpha75_sustitucion_vigente_por_hechos.sql',
+  '../../supabase/migrations/20261104091228_alpha75_sustitucion_vigente_por_hechos.sql',
   import.meta.url,
 );
 
