@@ -165,6 +165,8 @@ test(
       assert.equal(metadata.operativa, 'true');
 
       // Una recuperación física real termina también una continuidad explícita.
+      // El cierre de la ficha se guarda en la misma transacción para respetar
+      // el invariante que impide una recuperación realizada en una ficha activa.
       await db.query('BEGIN');
       try {
         await db.query("SELECT set_config('app.clonando_pizarra','1',true)");
@@ -182,6 +184,15 @@ test(
              clock_timestamp()-interval '1 minute',
              'Hecho físico sintético que finaliza la continuidad',$2,$2
            )`,
+          [pair.destination.id, FIXTURE_ACTOR],
+        );
+        await db.query(
+          `UPDATE public.registros_hotel
+           SET estado='recuperado',
+               retirado_hotel_activo=true,
+               fecha_retirado_hotel=clock_timestamp(),
+               modificado_por=$2
+           WHERE id=$1`,
           [pair.destination.id, FIXTURE_ACTOR],
         );
         await db.query('COMMIT');
