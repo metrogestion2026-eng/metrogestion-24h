@@ -117,6 +117,7 @@ export async function openHotelCreate({ onSaved } = {}) {
       if (!window.confirm(
         `La ficha ya está creada, pero quedan ${remaining} archivo${remaining === 1 ? '' : 's'} sin subir. ¿Cerrar y descartarlos?`
       )) return;
+      void onSaved?.();
     } else if (!force && dirty && !window.confirm('Hay datos sin guardar. ¿Cerrar igualmente?')) {
       return;
     }
@@ -270,7 +271,6 @@ export async function openHotelCreate({ onSaved } = {}) {
     }
 
     lockCreatedForm();
-    await onSaved?.();
 
     const stageCount = Number(data.etapas_guardadas || 0);
     const workCount = Number(data.trabajos_guardados || 0);
@@ -315,6 +315,7 @@ export async function openHotelCreate({ onSaved } = {}) {
     status.className = 'hotel-editor-status success';
     status.textContent = baseMessage;
     createButton.textContent = 'Creada correctamente';
+    await onSaved?.();
     setTimeout(() => close(true), 1200);
   });
 
