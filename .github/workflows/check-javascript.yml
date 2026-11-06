@@ -30,6 +30,8 @@ jobs:
           find r1-alpha* shared -type f -name '*.js' -print0 | xargs -0 -n1 node --check
       - name: Comprobar acceso directo a todos los documentos de la actuación
         run: node --test tests/alpha75-actuation-documents.test.mjs
+      - name: Comprobar documentos durante la creación de fichas
+        run: node --test tests/alpha75-create-documents.test.mjs
       - name: Comprobar que el Panel prioriza la T actual
         run: node --test tests/alpha75-panel-current-stage.test.mjs
       - name: Comprobar sesiones, entradas y segundo factor

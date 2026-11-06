@@ -123,10 +123,10 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
   assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.25-editor-fechas-001/);
   const html = source('r1-alpha75/index.html');
   const boot = source('r1-alpha75/src/boot75.js');
-  assert.ok(html.includes('boot75.js?v=75.25'));
-  for (const name of ['app', 'hotel-native', 'history-native']) {
-    assert.ok(boot.includes(`${name}.js?v=75.25`));
-  }
+  assert.ok(html.includes('boot75.js?v=75.26'));
+  assert.ok(boot.includes('app.js?v=75.26'));
+  assert.ok(boot.includes('hotel-native.js?v=75.26-create-documents-001'));
+  assert.ok(boot.includes('history-native.js?v=75.25-editor-fechas-001'));
 });
 
  test('el guardado mantiene RPC, identidad, versión y protección contra doble clic', () => {
@@ -143,34 +143,34 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 });
 
 
-test('la 75.25 comprueba versión publicada sin caché y usa un solo arranque', () => {
+test('la 75.26 comprueba versión publicada sin caché y usa un solo arranque', () => {
   const html = source('r1-alpha75/index.html');
   const refresh = source('r1-alpha75/src/version-refresh.js');
   const manifest = JSON.parse(source('r1-alpha75/manifest.webmanifest'));
-  assert.ok(html.includes('version-refresh.js?v=75.25'));
-  assert.ok(html.includes('boot75.js?v=75.25'));
+  assert.ok(html.includes('version-refresh.js?v=75.26'));
+  assert.ok(html.includes('boot75.js?v=75.26'));
   assert.doesNotMatch(html, /src\/app\.js\?v=|hotel-native\.js\?v=|history-native\.js\?v=|panel-native-hf23\.js\?v=/);
   assert.match(html, /Cache-Control/);
   assert.match(refresh, /cache:\s*'no-store'/);
   assert.match(refresh, /new URL\('\.\/app\.js', import\.meta\.url\)/);
   assert.match(refresh, /const VERSION =/);
   assert.match(refresh, /window\.location\.replace/);
-  assert.equal(manifest.start_url, './?v=75.25-hf3');
+  assert.equal(manifest.start_url, './?v=75.26');
 });
 
-test('solo app.js puede escribir la versión visible de Metrogestión 75.25', () => {
+test('solo app.js puede escribir la versión visible de Metrogestión 75.26', () => {
   const srcUrl = new URL('../r1-alpha75/src/', import.meta.url);
   const jsFiles = readdirSync(srcUrl).filter(name => name.endsWith('.js'));
   const writers = jsFiles.filter(name => /querySelector\(['"]#app-version['"]\)/.test(source(`r1-alpha75/src/${name}`)));
   assert.deepEqual(writers, ['app.js']);
-  assert.match(source('r1-alpha75/src/app.js'), /r1\.0\.0-alpha\.75\.25/);
+  assert.match(source('r1-alpha75/src/app.js'), /r1\.0\.0-alpha\.75\.26/);
   assert.doesNotMatch(source('r1-alpha75/src/hotel-native.js'), /#app-version|alpha75VersionNode/);
 });
 
-test('75.25 declara propiedad de Listados antes de cargar la herencia', () => {
+test('75.26 declara propiedad de Listados antes de cargar la herencia', () => {
   const boot = source('r1-alpha75/src/boot75.js');
   const ownerAt = boot.indexOf("listados: 'alpha75'");
-  const appAt = boot.indexOf("import('./app.js?v=75.25-hf3')");
+  const appAt = boot.indexOf("import('./app.js?v=75.26')");
   assert.ok(ownerAt >= 0);
   assert.ok(appAt > ownerAt);
   for (const legacy of ['r1-alpha29','r1-alpha30','r1-alpha31','r1-alpha34','r1-alpha50']) {
