@@ -3,6 +3,10 @@ import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js?v=75.25-paradas-002';
 import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf25';
+import {
+  collectPendingStageDocuments,
+  uploadPendingStageDocuments,
+} from './editor-pending-documents.js?v=75.25-create-documents-001';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import { fichaPayload, requestId, validate } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 
@@ -69,10 +73,18 @@ function mergeWorkshopCentres(workshops, centres) {
   }));
 }
 
+function pendingDocumentCount(pending) {
+  return (pending?.entries || []).reduce(
+    (total, entry) => total + Number(entry?.documents?.length || 0),
+    0
+  );
+}
+
 export async function openHotelCreate({ onSaved } = {}) {
   let detail = blankDetail();
   let dirty = false;
   let saving = false;
+  let pendingDocumentRetry = null;
 
   const overlay = element('div', { className: 'hotel-editor-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Añadir ficha al Hotel' });
   const panel = element('section', { className: 'hotel-editor-panel' });
@@ -100,7 +112,14 @@ export async function openHotelCreate({ onSaved } = {}) {
   };
   const close = (force = false) => {
     if (saving && !force) return;
-    if (!force && dirty && !window.confirm('Hay datos sin guardar. ¿Cerrar igualmente?')) return;
+    if (!force && pendingDocumentRetry) {
+      const remaining = pendingDocumentCount(pendingDocumentRetry.pending);
+      if (!window.confirm(
+        `La ficha ya está creada, pero quedan ${remaining} archivo${remaining === 1 ? '' : 's'} sin subir. ¿Cerrar y descartarlos?`
+      )) return;
+    } else if (!force && dirty && !window.confirm('Hay datos sin guardar. ¿Cerrar igualmente?')) {
+      return;
+    }
     document.removeEventListener('keydown', handleKeydown);
     overlay.remove();
     document.body.classList.remove('editor-open');
@@ -147,20 +166,71 @@ export async function openHotelCreate({ onSaved } = {}) {
   form.addEventListener('submit', event => event.preventDefault());
   const sections = renderMainSections(detail, markDirty);
   const annotationsSection = renderManualAnnotationsEditor(detail, markDirty);
-  const stagesSection = renderStagesSection(detail, markDirty);
+  const stagesSection = renderStagesSection(detail, markDirty, undefined, {
+    documentsByGroup: new Map(),
+    canEditDocuments: true,
+  });
   const errorsHost = element('div', { className: 'editor-errors hidden' });
   const createButton = element('button', { className: 'button primary', type: 'button', text: 'Crear ficha' });
   const cancelButton = element('button', { className: 'button secondary', type: 'button', text: 'Cancelar' });
   cancelButton.addEventListener('click', () => close(false));
 
+  const lockCreatedForm = () => {
+    form.querySelectorAll('input, textarea, select, button').forEach(control => {
+      if (control === createButton || control === cancelButton) return;
+      control.disabled = true;
+    });
+    cancelButton.textContent = 'Cerrar';
+  };
+
   createButton.addEventListener('click', async () => {
     if (saving) return;
+
+    if (pendingDocumentRetry) {
+      saving = true;
+      createButton.disabled = true;
+      cancelButton.disabled = true;
+      closeButton.disabled = true;
+      status.className = 'hotel-editor-status';
+      status.textContent = 'Reintentando únicamente los documentos pendientes; la ficha y las T no se vuelven a crear…';
+
+      try {
+        const documentResult = await uploadPendingStageDocuments(
+          pendingDocumentRetry.pending,
+          pendingDocumentRetry.savedDetail,
+          {
+            originalStages: detail.etapas,
+            onProgress: message => { status.textContent = message; },
+          }
+        );
+        pendingDocumentRetry = null;
+        dirty = false;
+        status.className = 'hotel-editor-status success';
+        status.textContent = `✓ Documentos guardados correctamente (${documentResult.uploaded}). La ficha y las T conservan su identidad.`;
+        createButton.textContent = 'Documentos guardados';
+        await onSaved?.();
+        setTimeout(() => close(true), 1400);
+      } catch (error) {
+        const remaining = pendingDocumentCount(pendingDocumentRetry.pending);
+        status.className = 'hotel-editor-status error';
+        status.textContent = `La ficha y las T ya están creadas, pero quedan ${remaining} archivo${remaining === 1 ? '' : 's'} pendiente${remaining === 1 ? '' : 's'}: ${error?.message || 'error desconocido'}. Pulsa “Reintentar documentos”; no se duplicará la ficha.`;
+        createButton.textContent = 'Reintentar documentos';
+        createButton.disabled = false;
+        cancelButton.disabled = false;
+        closeButton.disabled = false;
+        saving = false;
+      }
+      return;
+    }
+
     const errors = validate(detail);
     renderErrors(errorsHost, errors);
     if (errors.length) {
       revealStagesFor(form.querySelector('.editor-stages'));
       return;
     }
+
+    const pendingDocuments = collectPendingStageDocuments(detail.etapas);
 
     saving = true;
     createButton.disabled = true;
@@ -170,11 +240,24 @@ export async function openHotelCreate({ onSaved } = {}) {
     status.textContent = 'Creando ficha y T, asignando número de actuación y registrando auditoría…';
 
     const saveRequestId = requestId();
-    const { data, error } = await supabase.rpc('crear_ficha_hotel_con_etapas_alpha72', {
-      p_ficha: alpha72FichaPayload(detail.ficha, detail),
-      p_etapas: stagesPayloadWithCatalogues(detail.etapas),
-      p_request_id: saveRequestId
-    });
+    let data;
+    let error;
+    try {
+      ({ data, error } = await supabase.rpc('crear_ficha_hotel_con_etapas_alpha72', {
+        p_ficha: alpha72FichaPayload(detail.ficha, detail),
+        p_etapas: stagesPayloadWithCatalogues(detail.etapas),
+        p_request_id: saveRequestId
+      }));
+    } catch (transportError) {
+      status.className = 'hotel-editor-status error';
+      status.textContent = `No se ha podido confirmar si la ficha llegó a crearse. No pulses “Crear ficha” otra vez. Cierra, actualiza Hotel y comprueba la actuación. Referencia ${saveRequestId}.`;
+      createButton.textContent = 'Resultado sin confirmar';
+      createButton.disabled = true;
+      cancelButton.disabled = false;
+      closeButton.disabled = false;
+      saving = false;
+      return;
+    }
 
     if (error || !data?.ok) {
       status.className = 'hotel-editor-status error';
@@ -186,12 +269,52 @@ export async function openHotelCreate({ onSaved } = {}) {
       return;
     }
 
-    dirty = false;
-    status.className = 'hotel-editor-status success';
+    lockCreatedForm();
+    await onSaved?.();
+
     const stageCount = Number(data.etapas_guardadas || 0);
     const workCount = Number(data.trabajos_guardados || 0);
-    status.textContent = `✓ Ficha creada con ${stageCount} T y ${workCount} trabajo${workCount === 1 ? '' : 's'}. Actuación ${data.numero_parada || 'asignada'} · referencia ${data.request_id}.`;
-    await onSaved?.();
+    const baseMessage = `✓ Ficha creada con ${stageCount} T y ${workCount} trabajo${workCount === 1 ? '' : 's'}. Actuación ${data.numero_parada || 'asignada'} · referencia ${data.request_id}.`;
+
+    if (pendingDocuments.entries.length) {
+      status.className = 'hotel-editor-status';
+      status.textContent = 'Ficha y T creadas. Vinculando ahora los documentos preparados a la T correcta…';
+      try {
+        const documentResult = await uploadPendingStageDocuments(
+          pendingDocuments,
+          data.detalle,
+          {
+            originalStages: detail.etapas,
+            onProgress: message => { status.textContent = message; },
+          }
+        );
+        dirty = false;
+        status.className = 'hotel-editor-status success';
+        status.textContent = `${baseMessage} ${documentResult.uploaded} documento${documentResult.uploaded === 1 ? '' : 's'} adjunto${documentResult.uploaded === 1 ? '' : 's'}.`;
+        createButton.textContent = 'Creada correctamente';
+        await onSaved?.();
+        setTimeout(() => close(true), 1400);
+      } catch (documentError) {
+        pendingDocumentRetry = {
+          pending: pendingDocuments,
+          savedDetail: data.detalle,
+        };
+        const remaining = pendingDocumentCount(pendingDocuments);
+        status.className = 'hotel-editor-status error';
+        status.textContent = `${baseMessage} La ficha ya existe, pero quedan ${remaining} archivo${remaining === 1 ? '' : 's'} pendiente${remaining === 1 ? '' : 's'}: ${documentError?.message || 'error desconocido'}. Pulsa “Reintentar documentos”; no se volverá a crear la ficha.`;
+        createButton.textContent = 'Reintentar documentos';
+        createButton.disabled = false;
+        cancelButton.disabled = false;
+        closeButton.disabled = false;
+        saving = false;
+      }
+      return;
+    }
+
+    dirty = false;
+    status.className = 'hotel-editor-status success';
+    status.textContent = baseMessage;
+    createButton.textContent = 'Creada correctamente';
     setTimeout(() => close(true), 1200);
   });
 
@@ -200,7 +323,10 @@ export async function openHotelCreate({ onSaved } = {}) {
     sections[1],
     annotationsSection,
     stagesSection,
-    element('p', { className: 'muted', text: 'La ficha y todas sus T se crearán juntas en la pizarra actual. El número de actuación se asigna siempre automáticamente, aunque la fecha real de parada sea anterior. Al finalizar, la ficha se conserva en Histórico.' }),
+    element('p', {
+      className: 'muted',
+      text: 'La ficha y todas sus T se crearán juntas en la pizarra actual. Puedes preparar PDF o fotografías dentro de cada T: se subirán y vincularán automáticamente después de crear la ficha. El número de actuación se asigna siempre automáticamente, aunque la fecha real de parada sea anterior. Al finalizar, la ficha se conserva en Histórico.'
+    }),
     errorsHost,
     element('div', { className: 'editor-footer-actions' }, [createButton, cancelButton])
   );
@@ -209,5 +335,5 @@ export async function openHotelCreate({ onSaved } = {}) {
   status.className = vehiclesResult.error ? 'hotel-editor-status' : 'hotel-editor-status success';
   status.textContent = vehiclesResult.error
     ? 'Formulario listo. El Registro maestro no está disponible; revisa la conexión antes de crear una ficha.'
-    : `Formulario listo. Registro maestro disponible (${detail.catalogos.vehiculos.length} vehículos).`;
+    : `Formulario listo. Registro maestro disponible (${detail.catalogos.vehiculos.length} vehículos). Puedes adjuntar documentos dentro de cada T antes de crear la ficha.`;
 }
