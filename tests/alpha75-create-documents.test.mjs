@@ -28,6 +28,13 @@ test('los archivos se vinculan después de crear la identidad real de la T', asy
   assert.match(create, /data\.detalle/);
   assert.match(pending, /registrar_documento_t/);
   assert.match(pending, /p_etapa_id:\s*stage\.id/);
+
+  const beforeDocuments = create.slice(
+    create.indexOf('lockCreatedForm();'),
+    create.indexOf('if (pendingDocuments.entries.length)')
+  );
+  assert.doesNotMatch(beforeDocuments, /onSaved/,
+    'la Pizarra no debe refrescarse antes de terminar la vinculación documental');
 });
 
 test('un fallo documental no vuelve a crear la ficha', async () => {
