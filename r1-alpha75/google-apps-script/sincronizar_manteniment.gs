@@ -7,7 +7,7 @@ const METROGESTION = Object.freeze({
   // Identidad de transporte admitida por los contratos SQL/Edge existentes.
   // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
-  buildVersion: 'alpha75-2026.11.01.6',
+  buildVersion: 'alpha75-2026.11.04.7',
   idFilaColumn: 20,
   registroFilasSheet: 'REGISTRO_FILAS',
   registroFilasLastIdCell: 'H2',
@@ -847,8 +847,18 @@ function metrogestionFechaIso_(value, label) {
 function metrogestionNumero_(value, label, ignorarNegativoDePeriodoAbierto) {
   let text = String(value || '').replace(/\s/g, '');
   if (!text) return '';
-  if (text.includes(',') && text.includes('.')) text = text.replaceAll('.', '').replace(',', '.');
-  else text = text.replace(',', '.');
+
+  // MANTENIMENT usa locale ca_ES: la coma es decimal y el punto es miles.
+  // Ej.: 3.228 = 3228; 3.228,5 = 3228.5. Un punto que no cumple el patrón
+  // de miles se conserva para compatibilidad con valores técnicos en crudo.
+  if (text.includes(',') && text.includes('.')) {
+    text = text.replaceAll('.', '').replace(',', '.');
+  } else if (/^-?\d{1,3}(?:\.\d{3})+$/.test(text)) {
+    text = text.replaceAll('.', '');
+  } else {
+    text = text.replace(',', '.');
+  }
+
   const number = Number(text);
   if (!Number.isFinite(number)) throw new Error(`${label} no contiene un número válido: ${value}`);
   if (number < 0 && ignorarNegativoDePeriodoAbierto) return '';
