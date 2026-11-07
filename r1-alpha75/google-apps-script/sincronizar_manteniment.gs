@@ -7,12 +7,13 @@ const METROGESTION = Object.freeze({
   // Identidad de transporte admitida por los contratos SQL/Edge existentes.
   // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
-  buildVersion: 'alpha75-2026.11.07.9',
+  buildVersion: 'alpha75-2026.11.07.10',
   idFilaColumn: 20,
   registroFilasSheet: 'REGISTRO_FILAS',
   registroFilasLastIdCell: 'H2',
   identityTriggerHandler: 'metrogestionIdentidadFilasCambio',
   executorVersion: 'MG75-EJECUCION-ORDEN-001',
+  fotografiaVersion: 'MG75-FOTO-ID-FILA-001',
   preflightVersion: 'alpha75-preflight-2026.10.27.1',
   escrituraSeguraManual: true,
   tokenProperty: 'METROGESTION_SYNC_TOKEN',
@@ -40,6 +41,107 @@ function metrogestionHojaRegistroFilas_() {
 function metrogestionNumeroIdFila_(value) {
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
+// Lectura estricta: T es un identificador literal, nunca el número de posición
+// ni un resultado calculado. Esta ruta no asigna, repara ni renumera IDs.
+function metrogestionIdFilaLiteral_(value) {
+  if (typeof value !== 'number' && !(typeof value === 'string' && /^[1-9]\d*$/.test(value.trim()))) return 0;
+  const id = Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : 0;
+}
+
+function metrogestionLeerVectorIdFilas_(sheet, count, nuevas) {
+  const last = sheet.getLastRow(), permitted = new Set(nuevas || []);
+  // Una inserción al final aún está totalmente vacía hasta la siguiente
+  // operación del plan; Sheets no la incluye en getLastRow durante ese tramo.
+  if (!Number.isSafeInteger(count) || count < 2 || count > sheet.getMaxRows()
+    || last > count || (last < count && Array.from({ length: count - last }, (_, i) => last + i + 1)
+    .some(row => !permitted.has(row)))) throw new Error('Las filas cambiaron durante la lectura de ID_FILA. Repite la lectura completa.');
+  const range = sheet.getRange(1, METROGESTION.idFilaColumn, count, 1);
+  const raw = range.getValues(), formulas = range.getFormulas();
+  if (metrogestionNormalizar_(raw[0]?.[0]) !== 'ID_FILA' || formulas[0]?.[0]) {
+    throw new Error('La columna T debe conservar la cabecera literal ID_FILA. No se usa la posición como identidad.');
+  }
+  const seen = new Map();
+  return raw.map((entry, index) => {
+    if (!index) return null;
+    const position = index + 1, value = entry[0];
+    if (formulas[index]?.[0]) throw new Error(`ID_FILA calculado en T (posición ${position}). Debe ser un identificador literal.`);
+    if (metrogestionVacio_(value) && permitted.has(position)) return null;
+    const id = metrogestionIdFilaLiteral_(value);
+    if (!id) throw new Error(`ID_FILA ausente o inválido en T (posición ${position}). No se sustituye por el número de fila.`);
+    if (seen.has(id)) throw new Error(`ID_FILA ${id} duplicado (posiciones ${seen.get(id)} y ${position}). No se renumera.`);
+    seen.set(id, position);
+    return id;
+  });
+}
+
+function metrogestionValidarRegistroIdFilas_(sheet, ids) {
+  const registry = sheet.getParent()?.getSheetByName(METROGESTION.registroFilasSheet);
+  if (!registry) throw new Error('Falta REGISTRO_FILAS para acreditar los ID_FILA. No se ha modificado ninguna identidad.');
+  const count = registry.getLastRow();
+  const records = count > 1 ? registry.getRange(2, 1, count - 1, 2).getValues() : [];
+  const byId = new Map();
+  records.forEach(record => {
+    const id = metrogestionIdFilaLiteral_(record[0]);
+    if (!id) throw new Error('REGISTRO_FILAS contiene un identificador inválido. Revisión manual obligatoria.');
+    if (byId.has(id)) throw new Error(`ID_FILA ${id} duplicado en REGISTRO_FILAS.`);
+    byId.set(id, metrogestionNormalizar_(record[1]));
+  });
+  ids.forEach(id => {
+    if (id !== null && byId.get(id) !== 'ACTIVA') {
+      throw new Error(`ID_FILA ${id} no consta ACTIVA de forma única en REGISTRO_FILAS. No se reutiliza ni se asigna otra identidad.`);
+    }
+  });
+}
+
+function metrogestionVerificarLecturaIdFilas_(sheet, ids, nuevas) {
+  const current = metrogestionLeerVectorIdFilas_(sheet, ids.length, nuevas);
+  if (JSON.stringify(current) !== JSON.stringify(ids)) throw new Error('ID_FILA cambió durante la lectura. Se descarta la fotografía completa.');
+  metrogestionValidarRegistroIdFilas_(sheet, ids);
+}
+
+function metrogestionVerificarIdFilasVisibles_(display, ids) {
+  if (display.length !== ids.length || metrogestionNormalizar_(display[0]?.[19]) !== 'ID_FILA') {
+    throw new Error('La lectura A:T no conserva la cabecera ID_FILA.');
+  }
+  display.forEach((row, index) => {
+    if (!index) return;
+    const text = String(row[19] ?? '').trim();
+    const visible = /^(?:[1-9]\d*|[1-9]\d{0,2}(?:\.\d{3})+)$/.test(text) ? Number(text.replace(/\./g, '')) : 0;
+    if (ids[index] === null ? text !== '' : visible !== ids[index]) {
+      throw new Error(`ID_FILA no coincide entre datos y lectura visible (posición ${index + 1}). Se descarta la fotografía.`);
+    }
+  });
+}
+
+function metrogestionEtiquetaFilaSnapshot_(values, index, ids, contexto) {
+  // Los lectores puros antiguos siguen siendo utilizables en pruebas aisladas;
+  // toda lectura real exige y pasa el vector T verificado antes de llamarlos.
+  if (!ids) return `la fila ${index + 1}`;
+  const id = ids[index];
+  if (!metrogestionIdFilaLiteral_(id)) throw new Error('La fotografía no acredita ID_FILA para este dato.');
+  return `ID_FILA ${id} · DFM ${String(values[index]?.[0] || '').trim()} (posición ${index + 1} en ${contexto || 'la lectura enviada'})`;
+}
+
+function metrogestionErrorSnapshot_(message, values, ids, contexto) {
+  const text = String(message);
+  // Solo referencias explícitas «fila N»; no interpretar fechas, PA o códigos
+  // como posiciones, ni consultar la hoja otra vez después de recibir HTTP.
+  return text.replace(/\bfila\s+(\d+)\b/gi, (match, number) => {
+    const index = Number(number) - 1;
+    return index > 0 && index < ids.length && ids[index] !== null
+      ? metrogestionEtiquetaFilaSnapshot_(values, index, ids, contexto) : match;
+  });
+}
+
+function metrogestionDiagnosticoIdFilas_(photo, action) {
+  try { return action(); }
+  catch (error) {
+    throw new Error(metrogestionErrorSnapshot_(String(error?.message || error),
+      photo.rows.map(row => row.map(cell => cell.display)), photo.idFilas, 'la fotografía del plan'));
+  }
 }
 
 function metrogestionAsignarIdFilaNueva_(sheet, row, origen) {
@@ -500,7 +602,10 @@ const alcance = metrogestionLeerAlcanceOrdenes_();
 metrogestionExigirAlcance_(alcance);
 const lastRow = sheet.getLastRow();
 if (lastRow < 2) throw new Error('MANTENIMENT no contiene filas de datos.');
-const values = sheet.getRange(1, 1, lastRow, 17).getDisplayValues();
+const idFilas = metrogestionLeerVectorIdFilas_(sheet, lastRow);
+const display = sheet.getRange(1, 1, lastRow, 20).getDisplayValues();
+metrogestionVerificarIdFilasVisibles_(display, idFilas);
+const values = display.map(row => row.slice(0, 17));
 const notes = sheet.getRange(1, 1, lastRow, 1).getNotes();
 const workNotes = sheet.getRange(1, 5, lastRow, 1).getNotes();
 // A (DFM/R) amarillo fuerza la inclusión de la necesidad aunque su fecha
@@ -513,14 +618,17 @@ const workBackgrounds = sheet.getRange(1, 8, lastRow, 1).getBackgrounds();
 // amarilla contiene un pedido (actual 2600…, heredado P-… o PEDIDO).
 const orderBackgrounds = sheet.getRange(1, 7, lastRow, 1).getBackgrounds();
 const detailNotes = sheet.getRange(1, 7, lastRow, 1).getNotes();
+metrogestionVerificarLecturaIdFilas_(sheet, idFilas);
 metrogestionValidarCabeceras_(values[0]);
 const rows = [];
 const maestroProps = PropertiesService.getScriptProperties().getProperties();
 for (let index = 1; index < values.length; index += 1) {
   const row = values[index];
   if (metrogestionNormalizar_(row[7]) !== 'ALTA') continue;
+  const identidad = metrogestionEtiquetaFilaSnapshot_(values, index, idFilas);
   rows.push({
     fila: index + 1,
+    id_fila: idFilas[index],
     dfm: row[0],
     matricula: row[1],
     tipo: row[2],
@@ -528,16 +636,16 @@ for (let index = 1; index < values.length; index += 1) {
     telefono: row[5],
     contrato: row[6],
     estado: row[7],
-    fecha_matriculacion: metrogestionFechaIso_(row[8], 'matriculación'),
-    fecha_alta: metrogestionFechaIso_(row[9], 'alta en delegación'),
+    fecha_matriculacion: metrogestionFechaIso_(row[8], `de matriculación de ${identidad}`),
+    fecha_alta: metrogestionFechaIso_(row[9], `de alta en delegación de ${identidad}`),
     asignacion: row[13],
     marca: row[14],
     bastidor: row[16],
     cambios_maestro: metrogestionCambiosMaestro_(row[0], maestroProps),
   });
 }
-const paradas = metrogestionLeerParadasVinculadas_(values, notes);
-const cierresFacturacion = metrogestionLeerCierresFacturacion_(values, notes);
+const paradas = metrogestionLeerParadasVinculadas_(values, notes, idFilas);
+const cierresFacturacion = metrogestionLeerCierresFacturacion_(values, notes, idFilas);
 const trabajos = metrogestionLeerTrabajos_(
   values,
   workNotes,
@@ -545,9 +653,10 @@ const trabajos = metrogestionLeerTrabajos_(
   priorityBackgrounds,
   metrogestionFechaCorteTrabajos_(),
   orderBackgrounds,
-  detailNotes
+  detailNotes,
+  idFilas
 );
-const pendientes = metrogestionLeerPendientesListado_(values, workNotes, workBackgrounds, orderBackgrounds);
+const pendientes = metrogestionLeerPendientesListado_(values, workNotes, workBackgrounds, orderBackgrounds, idFilas);
 const modifiedAt = DriveApp.getFileById(METROGESTION.spreadsheetId).getLastUpdated();
 const generatedAt = new Date();
 const payload = {
@@ -592,11 +701,11 @@ if (code < 200 || code >= 300) {
   // Una respuesta HTTP recibida es un rechazo definitivo, no un resultado
   // de transporte incierto. El servidor ha contestado y la entrega no existe.
   metrogestionCerrarSolicitudEntregaRechazada_(solicitudEntrega);
-  throw new Error(result.message || result.error || `Error HTTP ${code}.`);
+  throw new Error(metrogestionErrorSnapshot_(result.message || result.error || `Error HTTP ${code}.`, values, idFilas));
 }
 if (result?.ok === false) {
   metrogestionCerrarSolicitudEntregaRechazada_(solicitudEntrega);
-  throw new Error(result?.error || 'La base de datos rechazó la sincronización.');
+  throw new Error(metrogestionErrorSnapshot_(result?.error || 'La base de datos rechazó la sincronización.', values, idFilas));
 }
 if (result?.ok !== true) throw new Error('La base de datos no confirmó un resultado válido de sincronización.');
 // Conservar TODA la entrega antes de validar o seleccionar una orden. Algunas
@@ -862,50 +971,51 @@ function metrogestionNumero_(value, label, ignorarNegativoDePeriodoAbierto) {
   return number;
 }
 
-function metrogestionKilometrosFacturables_(value, rowNumber, periodoAbierto) {
+function metrogestionKilometrosFacturables_(value, rowNumber, periodoAbierto, identidad) {
   const status = metrogestionNormalizar_(value);
   // Algunas plantillas históricas reservan P para el control validado OK/KO.
   // Ese estado pertenece a MANTENIMENT: se conserva en la hoja y no se envía
   // como kilometraje a Metrogestión.
   if (status === 'OK' || status === 'KO') return '';
-  return metrogestionNumero_(value, `Los kilómetros de la fila ${rowNumber}`, periodoAbierto);
+  return metrogestionNumero_(value, `Los kilómetros de ${identidad || `la fila ${rowNumber}`}`, periodoAbierto);
 }
 
-function metrogestionPeriodoTancament_(value, rowNumber) {
+function metrogestionPeriodoTancament_(value, rowNumber, identidad) {
   const text = metrogestionNormalizar_(value);
   if (!text) return '';
   // Q también contiene enlaces y referencias documentales como FOTO u OR-….
   // Solo un valor que empiece por TANCAMENT pertenece al cierre facturable.
   if (!text.startsWith('TANCAMENT')) return '';
   if (!/^TANCAMENT \d+$/.test(text)) {
-    throw new Error(`TANCAMENT de la fila ${rowNumber} debe ir seguido del número de periodo.`);
+    throw new Error(`TANCAMENT de ${identidad || `la fila ${rowNumber}`} debe ir seguido del número de periodo.`);
   }
   return text;
 }
 
-function metrogestionLeerParadasVinculadas_(values, notes) {
+function metrogestionLeerParadasVinculadas_(values, notes, idFilas) {
   const result = [];
   for (let index = 1; index < values.length; index += 1) {
     const note = String(notes[index]?.[0] || '').trim();
     const match = note.match(/^METROGESTION_PARADA:([0-9a-f-]{36})$/i);
     if (!match) continue;
     const row = values[index];
+    const identidad = metrogestionEtiquetaFilaSnapshot_(values, index, idFilas);
     const estado = metrogestionNormalizar_(row[7]);
     if (!['PARADA', 'ANULADA'].includes(estado)) {
-      throw new Error(`La fila vinculada ${index + 1} debe conservar MANTENIMENT = PARADA o ANULADA.`);
+      throw new Error(`El registro ${identidad} debe conservar MANTENIMENT = PARADA o ANULADA.`);
     }
     if (estado === 'ANULADA') {
       result.push({
-        fila: index + 1,
+        fila: index + 1, id_fila: idFilas?.[index],
         sync_id: match[1],
         estado,
       });
       continue;
     }
-    const fechaK = metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 1}`);
+    const fechaK = metrogestionFechaIso_(row[10], `de recuperación o corte de ${identidad}`);
     const periodoAbierto = !fechaK;
     result.push({
-      fila: index + 1,
+      fila: index + 1, id_fila: idFilas?.[index],
       sync_id: match[1],
       dfm: row[0],
       matricula: row[1],
@@ -914,13 +1024,13 @@ function metrogestionLeerParadasVinculadas_(values, notes) {
       numero_parada: row[4],
       sustituto: row[6],
       estado,
-      fecha_programada: metrogestionFechaIso_(row[8], `programada de la fila ${index + 1}`),
-      fecha_parada: metrogestionFechaIso_(row[9], `de parada de la fila ${index + 1}`),
+      fecha_programada: metrogestionFechaIso_(row[8], `programada de ${identidad}`),
+      fecha_parada: metrogestionFechaIso_(row[9], `de parada de ${identidad}`),
       fecha_k: fechaK,
-      dias_parada: metrogestionNumero_(row[11], `Los días de la fila ${index + 1}`, periodoAbierto),
+      dias_parada: metrogestionNumero_(row[11], `Los días de ${identidad}`, periodoAbierto),
       marca: row[14],
-      km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, periodoAbierto),
-      tancament: metrogestionPeriodoTancament_(row[16], index + 1),
+      km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, periodoAbierto, identidad),
+      tancament: metrogestionPeriodoTancament_(row[16], index + 1, identidad),
     });
   }
   return result;
@@ -934,22 +1044,23 @@ function metrogestionNotaParadaId_(note) {
 
 // Feed contable de solo lectura. Incluye también PARADA históricas/manuales sin
 // UUID: la ausencia de identidad operativa no puede sacar una fila de factura.
-function metrogestionLeerCierresFacturacion_(values, notes) {
+function metrogestionLeerCierresFacturacion_(values, notes, idFilas) {
   const result = [];
 
   for (let index = 1; index < values.length; index += 1) {
     const row = values[index];
+    const identidad = metrogestionEtiquetaFilaSnapshot_(values, index, idFilas);
     if (metrogestionNormalizar_(row[7]) !== 'PARADA') continue;
-    const tancament = metrogestionPeriodoTancament_(row[16], index + 1);
+    const tancament = metrogestionPeriodoTancament_(row[16], index + 1, identidad);
     if (!tancament) continue;
 
-    const fechaJ = metrogestionFechaIso_(row[9], `de inicio de tramo de la fila ${index + 1}`);
-    if (!fechaJ) throw new Error(`La fila TANCAMENT ${index + 1} no tiene fecha J.`);
-    const fechaK = metrogestionFechaIso_(row[10], `de recuperación o corte de la fila ${index + 1}`);
+    const fechaJ = metrogestionFechaIso_(row[9], `de inicio de tramo de ${identidad}`);
+    if (!fechaJ) throw new Error(`El cierre ${identidad} no tiene fecha J.`);
+    const fechaK = metrogestionFechaIso_(row[10], `de recuperación o corte de ${identidad}`);
     const periodoAbierto = !fechaK;
 
     result.push({
-      fila: index + 1,
+      fila: index + 1, id_fila: idFilas?.[index],
       sync_id: metrogestionNotaParadaId_(notes[index]?.[0]),
       dfm: row[0],
       matricula: row[1],
@@ -958,12 +1069,12 @@ function metrogestionLeerCierresFacturacion_(values, notes) {
       numero_parada: row[4],
       sustituto: row[6],
       estado: 'PARADA',
-      fecha_programada: metrogestionFechaIso_(row[8], `programada de la fila ${index + 1}`),
+      fecha_programada: metrogestionFechaIso_(row[8], `programada de ${identidad}`),
       fecha_parada: fechaJ,
       fecha_k: fechaK,
-      dias_parada: metrogestionNumero_(row[11], `Los días del cierre de la fila ${index + 1}`, periodoAbierto),
+      dias_parada: metrogestionNumero_(row[11], `Los días del cierre de ${identidad}`, periodoAbierto),
       marca: row[14],
-      km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, periodoAbierto),
+      km_facturables: metrogestionKilometrosFacturables_(row[15], index + 1, periodoAbierto, identidad),
       tancament,
     });
   }
@@ -1182,7 +1293,8 @@ function metrogestionLeerTrabajos_(
   priorityBackgrounds,
   fechaCorteIso,
   orderBackgrounds,
-  detailNotes
+  detailNotes,
+  idFilas
 ) {
   // TANCAMENT, MITJANA y CANVI son líneas auxiliares de cálculo de MANTENIMENT.
   // Aunque contienen una fecha en I, sus columnas J/K/L son métricas y no
@@ -1195,6 +1307,7 @@ function metrogestionLeerTrabajos_(
   const referenciasKm = metrogestionReferenciasKilometros_(values);
   for (let index = 1; index < values.length; index += 1) {
     const row = values[index];
+    const identidad = metrogestionEtiquetaFilaSnapshot_(values, index, idFilas);
     const dfm = metrogestionNormalizar_(row[0]);
     const designacion = metrogestionNormalizar_(row[7]);
     // Alpha75 admite tanto semirremolques R como tractoras y rígidos DFM.
@@ -1219,12 +1332,12 @@ function metrogestionLeerTrabajos_(
       const frio = metrogestionMarcaFrio_(row[14]);
       if (frio) tipoTrabajo = frio === 'CARRIER' ? 'TRÁMITE' : 'GESTIÓN';
     }
-    const fechaNecesidad = metrogestionFechaIso_(row[8], `de necesidad de la fila ${index + 1}`);
-    const fechaRealizada = metrogestionFechaIso_(row[9], `de realización de la fila ${index + 1}`);
+    const fechaNecesidad = metrogestionFechaIso_(row[8], `de necesidad de ${identidad}`);
+    const fechaRealizada = metrogestionFechaIso_(row[9], `de realización de ${identidad}`);
     // Solo la nota técnica confirma que la necesidad ya está vinculada. Tener
     // un número en E no convierte una línea histórica realizada en pendiente.
     const vinculada = Boolean(trabajoSyncId);
-    const fechaRecogida = metrogestionFechaIso_(row[10], `de recogida de la fila ${index + 1}`);
+    const fechaRecogida = metrogestionFechaIso_(row[10], `de recogida de ${identidad}`);
     const cierreFisicoPendiente = !fechaRecogida && (
       metrogestionCierreFisico_(designacion)
       || ((vinculada || numeroParada) && metrogestionRequiereRecogida_(designacion, tipoTrabajo, row[5]))
@@ -1251,7 +1364,7 @@ function metrogestionLeerTrabajos_(
       pedidoReal
     );
     result.push({
-      fila: index + 1,
+      fila: index + 1, id_fila: idFilas?.[index],
       trabajo_sync_id: trabajoSyncId,
       clave_fila: metrogestionClaveFilaTrabajo_(row, pedidoReal),
       dfm: row[0],
@@ -1280,12 +1393,13 @@ function metrogestionLeerTrabajos_(
 
 // Read-only feed: all pending needs, even without a Hotel visit, date or priority.
 // It must never be passed to the stage/order importer.
-function metrogestionLeerPendientesListado_(values, workNotes, workBackgrounds, orderBackgrounds) {
+function metrogestionLeerPendientesListado_(values, workNotes, workBackgrounds, orderBackgrounds, idFilas) {
   const ignored = new Set(['ALTA', 'BAJA', 'PARADA', 'ANULADA', 'FIN', 'ARCHIVO',
     'CARPETA', 'PRIMITIVA', 'TANCAMENT', 'MITJANA', 'CANVI']);
   const result = [];
   for (let index = 1; index < values.length; index += 1) {
     const row = values[index];
+    const identidad = metrogestionEtiquetaFilaSnapshot_(values, index, idFilas);
     const dfm = metrogestionNormalizar_(row[0]);
     const designacion = metrogestionNormalizar_(row[7]);
     if (!dfm || !designacion || ignored.has(designacion)) continue;
@@ -1298,13 +1412,14 @@ function metrogestionLeerPendientesListado_(values, workNotes, workBackgrounds, 
     if (!white && !((stop || linked) && (!String(row[9] || '').trim() || waitingPickup))) continue;
     if (String(row[10] || '').trim()) continue;
     if (String(row[9] || '').trim() && !waitingPickup) continue;
+    const fechaNecesidad = metrogestionFechaIso_(row[8], `de necesidad de ${identidad}`);
     result.push({
-      fila: index + 1, dfm: row[0], matricula: row[1],
+      fila: index + 1, id_fila: idFilas?.[index], dfm: row[0], matricula: row[1],
       trabajo_sync_id: metrogestionNotaTrabajoId_(workNotes?.[index]?.[0]),
       clave_fila: metrogestionClaveFilaTrabajo_(row, order), numero_parada: stop,
       taller: row[5], tipo_trabajo: order ? '' : row[6], designacion: row[7],
-      detalle: row[16], fecha_necesidad: metrogestionFechaIso_(row[8], 'de necesidad'),
-      fecha_realizada: metrogestionFechaIso_(row[9], 'de realización'),
+      detalle: row[16], fecha_necesidad: fechaNecesidad,
+      fecha_realizada: metrogestionFechaIso_(row[9], `de realización de ${identidad}`),
       fecha_recogida: '', pendiente_fondo_blanco: white,
     });
   }
@@ -1830,7 +1945,7 @@ function metrogestionResolverAsignacion_(assignment, rows, expectedStop, usedRow
   const exact = candidates.filter(r => r.key === expectedKey);
   if (exact.length) candidates = exact;
   if (candidates.length > 1) {
-    throw new Error(`Hay varias filas con la identidad de la necesidad procedente de la fila ${assignment.fila || 'desconocida'}. Revisa sus vínculos antes de continuar.`);
+    throw new Error(`Hay varias filas con la identidad de la necesidad procedente de la posición histórica ${assignment.fila || 'desconocida'}. Revisa sus vínculos antes de continuar.`);
   }
   const found = candidates[0];
   // Una referencia retirada o sustituida por otro UUID no autoriza a escribir
@@ -3484,11 +3599,19 @@ function metrogestionFiltroFoto_(sheet) {
   return { fila: range.getRow(), columna: range.getColumn(), filas: range.getNumRows(), columnas: range.getNumColumns(), criterios: criteria };
 }
 
-function metrogestionLeerFotografiaOrden_(sheet) {
+function metrogestionLeerFotografiaOrden_(sheet, nuevas) {
   const count = sheet.getLastRow();
   if (count < 2) throw new Error('MANTENIMENT no contiene filas de datos.');
+  const idFilas = metrogestionLeerVectorIdFilas_(sheet, count, nuevas);
+  const fullRange = sheet.getRange(1, 1, count, 20);
+  const raw = fullRange.getValues(), visible = fullRange.getDisplayValues();
+  metrogestionVerificarIdFilasVisibles_(visible, idFilas);
+  if (raw.some((row, index) => index && (idFilas[index] === null
+    ? !metrogestionVacio_(row[19]) : metrogestionIdFilaLiteral_(row[19]) !== idFilas[index]))) {
+    throw new Error('ID_FILA cambió entre las lecturas de la fotografía. No se planifica ninguna escritura.');
+  }
   const range = sheet.getRange(1, 1, count, 17);
-  const values = range.getValues(), display = range.getDisplayValues(), notes = range.getNotes();
+  const values = raw.map(row => row.slice(0, 17)), display = visible.map(row => row.slice(0, 17)), notes = range.getNotes();
   const formulas = range.getFormulas(), r1c1 = range.getFormulasR1C1();
   const backgrounds = range.getBackgrounds(), formats = range.getNumberFormats();
   const rich = range.getRichTextValues(), validations = range.getDataValidations();
@@ -3496,7 +3619,8 @@ function metrogestionLeerFotografiaOrden_(sheet) {
     formula: formulas[r][c] || '', r1c1: r1c1[r][c] || '', note: notes[r][c] || '',
     background: backgrounds[r][c], format: formats[r][c], rich: rich[r][c], validation: validations[r][c] })));
   metrogestionValidarCabeceras_(display[0]);
-  return { rows, maxRows: sheet.getMaxRows(), filter: metrogestionFiltroFoto_(sheet) };
+  metrogestionVerificarLecturaIdFilas_(sheet, idFilas, nuevas);
+  return { rows, idFilas, maxRows: sheet.getMaxRows(), filter: metrogestionFiltroFoto_(sheet) };
 }
 
 function metrogestionRicosFoto_(cell) {
@@ -3508,7 +3632,8 @@ function metrogestionRicosFoto_(cell) {
 }
 
 function metrogestionCanonicaFotoOrden_(photo) {
-  return { maxRows: photo.maxRows, filtro: photo.filter, filas: photo.rows.map(row => row.map(cell => ({
+  return { version_fotografia: METROGESTION.fotografiaVersion, id_filas: photo.idFilas,
+    maxRows: photo.maxRows, filtro: photo.filter, filas: photo.rows.map(row => row.map(cell => ({
     dato: cell.formula ? { formula: cell.r1c1 } : metrogestionValorFoto_(cell.value),
     nota: cell.note, fondo: cell.background, formato: cell.format, enlaces: metrogestionRicosFoto_(cell),
     validacion: metrogestionCriterioFoto_(cell.validation),
@@ -3538,6 +3663,7 @@ function metrogestionCeldaVaciaOrden_() {
 // de planificar, autorizar y guardar el intento durable.
 function metrogestionHojaEnMemoria_(source, photo) {
   const memory = { metrogestionSoloMemoria: true, rows: photo.rows.map(row => row.map(metrogestionClonarCeldaOrden_)),
+    idFilas: photo.idFilas.slice(),
     maxRows: photo.maxRows, filter: photo.filter, operations: [], drivePlans: [], heights: {}, originalHeights: {},
     origins: photo.rows.map((_, i) => i + 1), getLastRow() { return this.rows.length; },
     getMaxRows() { return this.maxRows; }, getName() { return METROGESTION.sheetName; },
@@ -3554,6 +3680,7 @@ function metrogestionHojaEnMemoria_(source, photo) {
         throw new Error('La inserción no identifica una fila existente en la fotografía A:Q.');
       }
       this.rows.splice(row, 0, Array.from({ length: 17 }, metrogestionCeldaVaciaOrden_));
+      this.idFilas.splice(row, 0, null);
       this.origins.splice(row, 0, null); this.maxRows++;
       this.heights = Object.fromEntries(Object.entries(this.heights).map(([r, h]) => [Number(r) > row ? Number(r) + 1 : r, h]));
       this.operations.push({ method: 'insertRowAfter', row }); return this;
@@ -4112,8 +4239,57 @@ function metrogestionFirmaArchivoPlan_(plan) {
     carpetasParadas: plan.carpetasParadas, candidatas: plan.candidatas });
 }
 
+// Las coordenadas siguen siendo físicas. Cada operación conserva aparte la
+// identidad T de origen/destino; una fila nueva usa un token local hasta que el
+// asignador existente emite su ID. Nunca se añade esto al sobre firmado/ACK.
+function metrogestionVincularOperacionesIdFilas_(photo, memory) {
+  const keys = photo.idFilas.slice(); keys[0] = 'CABECERA';
+  const bind = (row, count) => {
+    const result = keys.slice(row - 1, row - 1 + count);
+    if (result.length !== count || result.some(key => !key)) throw new Error('Una operación no acredita todas sus identidades ID_FILA.');
+    return result;
+  };
+  memory.operations.forEach((op, index) => {
+    if (op.range) op.ids_rango = bind(op.range[0], op.range[2]);
+    if (op.target) op.ids_destino = bind(op.target[0], op.target[2]);
+    if (op.row) op.id_fila_local = bind(op.row, 1)[0];
+    if (op.method === 'enlazarArchivo') op.ids_archivo = memory.drivePlans[op.driveIndex].rows.map(row => bind(row, 1)[0]);
+    if (op.method === 'insertRowAfter') {
+      op.id_nueva_local = `NUEVA:${index + 1}`;
+      keys.splice(op.row, 0, op.id_nueva_local);
+    }
+  });
+  memory.clavesFilas = keys;
+}
+
+function metrogestionResolverOperacionIdFilas_(sheet, op, identity) {
+  const nuevas = identity.keys.flatMap((key, index) => typeof key === 'string' && key.startsWith('NUEVA:')
+    && identity.ids[index] === null ? [index + 1] : []);
+  const current = metrogestionLeerVectorIdFilas_(sheet, identity.ids.length, nuevas);
+  if (JSON.stringify(current) !== JSON.stringify(identity.ids)) {
+    throw new Error('Cambió ID_FILA o su orden antes de escribir. No se recoloca una orden ya autorizada.');
+  }
+  const byId = new Map(current.flatMap((id, index) => id === null ? [] : [[id, index + 1]]));
+  const position = key => {
+    const row = typeof key === 'number' ? byId.get(key) : identity.keys.indexOf(key) + 1;
+    if (!row) throw new Error('No se localiza de forma única el ID_FILA de la operación.');
+    return row;
+  };
+  const range = (coordinates, keys) => {
+    const rows = keys.map(position), first = rows[0];
+    if (rows.some((row, index) => row !== first + index)) throw new Error('Los ID_FILA de un rango ya no son contiguos.');
+    return [first, ...coordinates.slice(1)];
+  };
+  return { ...op,
+    ...(op.range ? { range: range(op.range, op.ids_rango) } : {}),
+    ...(op.target ? { target: range(op.target, op.ids_destino) } : {}),
+    ...(op.row ? { row: position(op.id_fila_local) } : {}),
+    ...(op.ids_archivo ? { filasArchivo: op.ids_archivo.map(position) } : {}) };
+}
+
 function metrogestionFirmaPlanOrden_(plan) {
   return metrogestionSha256_(JSON.stringify({ referencia: plan.referencia, payload: plan.command.payload,
+    id_filas_iniciales: plan.idFilasIniciales,
     fotografia_inicial_sha256: plan.fotografia_inicial_sha256, operaciones: plan.memory.operations,
     archivos: plan.memory.drivePlans, esperado: metrogestionCanonicaFotoOrden_(plan.memory),
     alturas: plan.memory.originalHeights, confirmacion: plan.confirmacion, diagnostico_inserciones: plan.diagnostico_inserciones }));
@@ -4123,18 +4299,20 @@ function metrogestionPlanificarOrdenCompleta_(sheet, command) {
   const photo = metrogestionLeerFotografiaOrden_(sheet);
   const exactCommand = JSON.parse(JSON.stringify(command));
   const planningCommand = metrogestionComandoParaPlan_(exactCommand);
-  const reference = metrogestionValidarOrdenCompleta_(planningCommand, photo);
+  const reference = metrogestionDiagnosticoIdFilas_(photo, () => metrogestionValidarOrdenCompleta_(planningCommand, photo));
   const memory = metrogestionHojaEnMemoria_(sheet, photo);
   const state = { values: photo.rows.map(row => row.map(cell => cell.display)),
     notesA: photo.rows.map(row => row[0].note), notesE: photo.rows.map(row => row[4].note), cierresAdministrativos: [] };
-  const confirmation = metrogestionAplicarComandos_(memory, [planningCommand], state, [])[0];
+  const confirmation = metrogestionDiagnosticoIdFilas_(memory, () => metrogestionAplicarComandos_(memory, [planningCommand], state, [])[0]);
   confirmation.payload_sha256 = reference.payload_sha256;
-  const formulaDiagnostic = metrogestionExigirFormulasPlanificables_(photo, memory.operations);
+  metrogestionVincularOperacionesIdFilas_(photo, memory);
+  const formulaDiagnostic = metrogestionDiagnosticoIdFilas_(photo, () => metrogestionExigirFormulasPlanificables_(photo, memory.operations));
   if (memory.filter) {
     memory.filter = { ...memory.filter, filas: Math.min(memory.maxRows - memory.filter.fila + 1,
       Math.max(memory.filter.filas, memory.rows.length - memory.filter.fila + 1)) };
   }
   const plan = { referencia: reference, command: exactCommand, memory, confirmacion: confirmation,
+    idFilasIniciales: photo.idFilas.slice(),
     diagnostico_inserciones: formulaDiagnostic,
     fotografia_inicial_sha256: metrogestionHuellaFotoOrden_(photo, true) };
   plan.plan_sha256 = metrogestionFirmaPlanOrden_(plan);
@@ -4150,6 +4328,7 @@ function metrogestionPlanificarOrdenCompleta_(sheet, command) {
 
 function metrogestionIntentoOrden_(plan) {
   return { version_ejecucion: METROGESTION.executorVersion, spreadsheet_id: METROGESTION.spreadsheetId,
+    version_fotografia: METROGESTION.fotografiaVersion,
     referencia: plan.referencia, estado: 'aplicando', plan_sha256: plan.plan_sha256,
     fotografia_inicial_sha256: plan.fotografia_inicial_sha256, iniciado_en: new Date().toISOString(),
     archivos: plan.memory.drivePlans.map(drive => JSON.parse(metrogestionFirmaArchivoPlan_(drive))) };
@@ -4182,7 +4361,7 @@ function metrogestionLeerEstadoFiltroOrden_(sheet) {
     numColumns: range.getNumColumns(), maxRows: sheet.getMaxRows(), criteria };
 }
 
-function metrogestionAplicarArchivoPlan_(sheet, memory, drive) {
+function metrogestionAplicarArchivoPlan_(sheet, memory, drive, op, identity) {
   if (metrogestionFirmaArchivoPlan_(metrogestionPlanArchivoParada_(drive.dfm, drive.stop, drive.preferredUrls)) !== metrogestionFirmaArchivoPlan_(drive)) {
     throw new Error('El archivo Drive ha cambiado después de iniciar la orden.');
   }
@@ -4190,7 +4369,8 @@ function metrogestionAplicarArchivoPlan_(sheet, memory, drive) {
   const stops = drive.stopsId ? DriveApp.getFolderById(drive.stopsId) : vehicle.createFolder('PARADAS');
   const folder = drive.folderId ? DriveApp.getFolderById(drive.folderId) : stops.createFolder(drive.stop);
   const url = folder.getUrl();
-  drive.rows.forEach(row => {
+  drive.rows.forEach((_, index) => {
+    const row = metrogestionResolverOperacionIdFilas_(sheet, op, identity).filasArchivo[index];
     const cell = sheet.getRange(row, 5), existing = cell.getRichTextValue();
     if (existing?.getLinkUrl() !== url) {
       const builder = existing ? existing.copy() : SpreadsheetApp.newRichTextValue().setText(String(memory.rows[row - 1][4].value));
@@ -4215,18 +4395,20 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
   // Una excepción tras persistir deja "aplicando": no habrá autorepetición.
   metrogestionGuardarJournalOrden_(record);
   let failure = null;
-  const insertedRows = [];
+  const identity = { ids: plan.idFilasIniciales.slice(), keys: plan.idFilasIniciales.slice() };
+  identity.keys[0] = 'CABECERA';
   try {
     if (Date.now() >= permission.expira) throw new Error('La autorización caducó después de registrar el intento.');
     if (filterState) metrogestionSuspenderFiltro_(sheet);
-    plan.memory.operations.forEach(op => {
+    plan.memory.operations.forEach(planned => {
+      const op = metrogestionResolverOperacionIdFilas_(sheet, planned, identity);
       if (op.method === 'insertRowAfter') {
-        insertedRows.forEach((row, index) => { if (row > op.row) insertedRows[index] = row + 1; });
         sheet.insertRowAfter(op.row);
-        insertedRows.push(op.row + 1);
+        identity.ids.splice(op.row, 0, null);
+        identity.keys.splice(op.row, 0, op.id_nueva_local);
       }
       else if (op.method === 'setRowHeight') sheet.setRowHeight(op.row, op.height);
-      else if (op.method === 'enlazarArchivo') metrogestionAplicarArchivoPlan_(sheet, plan.memory, plan.memory.drivePlans[op.driveIndex]);
+      else if (op.method === 'enlazarArchivo') metrogestionAplicarArchivoPlan_(sheet, plan.memory, plan.memory.drivePlans[op.driveIndex], planned, identity);
       else if (op.method === 'copyTo') {
         const source = sheet.getRange(...op.range), target = sheet.getRange(...op.target);
         if (op.type) source.copyTo(target, op.type, op.transposed || false); else source.copyTo(target);
@@ -4238,7 +4420,8 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
   catch (error) { failure = failure || error; }
   try {
     if (failure) throw failure;
-    const actual = metrogestionLeerFotografiaOrden_(sheet);
+    const insertedRows = identity.keys.flatMap((key, index) => typeof key === 'string' && key.startsWith('NUEVA:') ? [index + 1] : []);
+    const actual = metrogestionLeerFotografiaOrden_(sheet, insertedRows);
     if (metrogestionHuellaFotoOrden_(actual) !== metrogestionHuellaFotoOrden_(plan.memory)) {
       throw new Error('La lectura posterior no coincide con todos los datos, notas, fórmulas, formatos, enlaces y filtros previstos.');
     }
@@ -4250,11 +4433,17 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
         throw new Error('No se ha verificado la carpeta Drive resultante.');
       }
     });
-    if (metrogestionTieneRegistroFilasReal_(sheet)) {
-      insertedRows.forEach(row => metrogestionAsignarIdFilaNueva_(sheet, row, 'ORDEN_AUTORIZADA'));
-      SpreadsheetApp.flush();
-    }
+    insertedRows.forEach(plannedRow => {
+      const row = metrogestionResolverOperacionIdFilas_(sheet,
+        { row: plannedRow, id_fila_local: identity.keys[plannedRow - 1] }, identity).row;
+      const id = metrogestionAsignarIdFilaNueva_(sheet, row, 'ORDEN_AUTORIZADA');
+      identity.ids[row - 1] = id; plan.memory.idFilas[row - 1] = id;
+    });
+    if (insertedRows.length) SpreadsheetApp.flush();
     const actualFinal = metrogestionLeerFotografiaOrden_(sheet);
+    if (metrogestionHuellaFotoOrden_(actualFinal) !== metrogestionHuellaFotoOrden_(plan.memory)) {
+      throw new Error('La fotografía final con ID_FILA no coincide con el plan. No se confirma la orden.');
+    }
     Object.assign(record, { estado: 'aplicado', fotografia_final_sha256: metrogestionHuellaFotoOrden_(actualFinal),
       verificado_en: new Date().toISOString(), confirmacion: plan.confirmacion,
       archivos: plan.memory.drivePlans.map(drive => JSON.parse(metrogestionFirmaArchivoPlan_(drive))) });
@@ -4268,6 +4457,9 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
 }
 
 function metrogestionVerificarReciboAplicado_(sheet, record) {
+  if (record.version_fotografia !== METROGESTION.fotografiaVersion) {
+    throw new Error('El recibo aplicado anterior no acredita ID_FILA. Se conserva para revisión, sin repetir escrituras ni enviar ACK.');
+  }
   if (metrogestionHuellaFotoOrden_(metrogestionLeerFotografiaOrden_(sheet)) !== record.fotografia_final_sha256) {
     throw new Error('La hoja cambió después del recibo aplicado. No se repetirá la orden ni se enviará un acuse sin revisión.');
   }
