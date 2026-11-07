@@ -7,7 +7,7 @@ const METROGESTION = Object.freeze({
   // Identidad de transporte admitida por los contratos SQL/Edge existentes.
   // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
-  buildVersion: 'alpha75-2026.11.01.6',
+  buildVersion: 'alpha75-2026.11.07.8',
   idFilaColumn: 20,
   registroFilasSheet: 'REGISTRO_FILAS',
   registroFilasLastIdCell: 'H2',
@@ -845,10 +845,16 @@ function metrogestionFechaIso_(value, label) {
 }
 
 function metrogestionNumero_(value, label, ignorarNegativoDePeriodoAbierto) {
-  let text = String(value || '').replace(/\s/g, '');
+  let text = String(value ?? '').replace(/\s/g, '');
   if (!text) return '';
-  if (text.includes(',') && text.includes('.')) text = text.replaceAll('.', '').replace(',', '.');
-  else text = text.replace(',', '.');
+  // getDisplayValues() devuelve cantidades con el formato ca_ES de la hoja:
+  // 3.228 son 3228 y 3.228,5 son 3228.5. Los números nativos del payload
+  // ya tienen valor y nunca deben reinterpretarse como texto de miles.
+  if (typeof value !== 'number') {
+    if (text.includes(',') && text.includes('.')) text = text.replaceAll('.', '').replace(',', '.');
+    else if (/^-?\d{1,3}(?:\.\d{3})+$/.test(text)) text = text.replaceAll('.', '');
+    else text = text.replace(',', '.');
+  }
   const number = Number(text);
   if (!Number.isFinite(number)) throw new Error(`${label} no contiene un número válido: ${value}`);
   if (number < 0 && ignorarNegativoDePeriodoAbierto) return '';
