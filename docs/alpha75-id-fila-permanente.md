@@ -105,3 +105,21 @@ La instalación de `.10` se realiza por separado. El auxiliar
 `metrogestionComprobarReintentoSoloLectura` puede acreditar después el build y
 el estado local sin iniciar una nueva sincronización. Una importación que ya
 consta correcta no debe repetirse para instalar esta revisión de código.
+
+## Distribución completa · build .11
+
+`alpha75-2026.11.07.11` incluye también
+`metrogestionComprobarReintentoSoloLectura` en el archivo principal
+`sincronizar_manteniment.gs`. Así, pegar y guardar ese único archivo incorpora
+tanto el sincronizador como su diagnóstico de estado.
+
+La función de diagnóstico mantiene exactamente el cuerpo del auxiliar anterior.
+El archivo auxiliar sigue disponible para instalaciones previas; si ya existe
+en un proyecto, ambas declaraciones son idénticas. La instalación de `.11`
+solo requiere sustituir el contenido del principal y guardar.
+
+Esta revisión cambia la presentación del código para instalarlo. Mantiene el
+comportamiento de sincronización y los controles por T validados en `.10`, el
+transporte existente y los estados guardados. Para comprobar la instalación,
+se ejecuta la función de diagnóstico y se verifica el campo
+`versiones.build = alpha75-2026.11.07.11`.
