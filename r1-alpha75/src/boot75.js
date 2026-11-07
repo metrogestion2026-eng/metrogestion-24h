@@ -14,7 +14,8 @@ try {
   throw error;
 }
 
-const legacyFiles = [
+const preloadFiles = [
+  './hotel-editor-stages.js?v=75.23-hf25',
   '../../r1-alpha29/src/app.js',
   '../../r1-alpha30/src/app.js',
   '../../r1-alpha31/src/app.js',
@@ -22,7 +23,7 @@ const legacyFiles = [
   '../../r1-alpha50/src/app.js',
 ];
 
-await Promise.all(legacyFiles.map(async path => {
+await Promise.all(preloadFiles.map(async path => {
   try {
     const url = new URL(path, import.meta.url);
     const response = await fetch(url, { cache: 'reload', credentials: 'same-origin' });
