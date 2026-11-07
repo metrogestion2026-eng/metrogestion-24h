@@ -75,7 +75,7 @@ function harness(kind) {
   assert.equal(JSON.stringify(values), before);
   assert.ok(!reads.includes('METROGESTION_SYNC_TOKEN'));
   assert.doesNotMatch(JSON.stringify(result) + logs.join('\n'), /NEVER_READ_SECRET|PRIVATE_|OTHER_PRIVATE_TRIGGER/);
-  assert.equal(result.versiones.build, 'alpha75-2026.11.07.8');
+  assert.equal(result.versiones.build, vm.runInContext('METROGESTION.buildVersion', ctx));
   assert.equal(result.activadores.cantidades.metrogestionReanudarProgramada, 1);
   return result;
 }

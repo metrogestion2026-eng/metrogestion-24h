@@ -7,7 +7,7 @@ const METROGESTION = Object.freeze({
   // Identidad de transporte admitida por los contratos SQL/Edge existentes.
   // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
-  buildVersion: 'alpha75-2026.11.07.8',
+  buildVersion: 'alpha75-2026.11.07.9',
   idFilaColumn: 20,
   registroFilasSheet: 'REGISTRO_FILAS',
   registroFilasLastIdCell: 'H2',
@@ -3012,7 +3012,7 @@ function metrogestionProcesarOrdenesLote_(sheet, state, token, deadline) {
 function metrogestionEjecutarSincronizacion_(modo, expectedCycle) {
   // La ausencia de selección falla antes de abrir hoja, preparar filtros,
   // registrar un ciclo o solicitar una sincronización al servidor.
-  const selected = metrogestionLeerAlcanceOrdenes_();
+  let selected = metrogestionLeerAlcanceOrdenes_();
   metrogestionExigirAlcance_(selected);
   const deadline = Date.now() + METROGESTION_LOTES.margenMs;
   const lock = LockService.getScriptLock();
