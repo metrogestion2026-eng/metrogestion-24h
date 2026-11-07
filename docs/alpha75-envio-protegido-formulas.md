@@ -78,7 +78,8 @@ cliente, preflight y fechas también forman parte de la comprobación:
 ```bash
 node --test tests/alpha75-sync-executor-*.test.mjs \
   tests/alpha75-insertion-formula-diagnostic.test.mjs \
-  tests/security-alpha75-preflight-client.test.mjs \
-  tests/alpha75-sync-formula-preservation.test.mjs \
-  tests/alpha75-sync-import-only.test.mjs
+  tests/security-alpha75-preflight-client.test.mjs
 ```
+
+Las dos suites nuevas usan el prefijo `alpha75-sync-executor-` para formar
+parte del paso de sincronización del CI existente.
