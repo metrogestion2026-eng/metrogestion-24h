@@ -8,6 +8,11 @@ import { createEditableCatalogueField, findCatalogueItem } from './editable-cata
 import { catalogueCodeForOperationalState, deriveStageOperationalState } from './stage-operational-state.js?v=75.23-hf9';
 import { createStageDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { createPendingStageDocuments } from './editor-pending-documents.js?v=75.23-hf15';
+import {
+  activeStageCount,
+  moveActiveStageToPosition,
+  renumberActiveStages,
+} from './stage-order.js?v=75.26-stage-order-001';
 
 export function stagesPayloadWithCatalogues(stages) {
   return stagesPayload(stages).map((payload, index) => ({
@@ -16,15 +21,6 @@ export function stagesPayloadWithCatalogues(stages) {
     taller_nombre: stages[index]?.taller_nombre || '',
     centro_nombre: stages[index]?.centro_nombre || ''
   }));
-}
-
-function renumberStages(stages) {
-  let position = 0;
-  stages.forEach(stage => {
-    if (stage.cancelado) return;
-    position += 1;
-    stage.posicion = position;
-  });
 }
 
 function findType(catalogue, value) {
@@ -183,7 +179,7 @@ export function renderStagesSection(detail, markDirty, onOperationalChange, {
         element('h3', { text: '4. T y trabajos asociados' }),
         element('p', {
           className: 'muted',
-          text: 'Las flechas cambian el orden. Todos los catálogos permiten elegir o escribir; las T y trabajos no se borran.'
+          text: 'Escribe una posición para insertar la T en ese lugar: las siguientes se desplazan automáticamente. Las flechas hacen el mismo movimiento; las T y trabajos no se borran.'
         })
       ])
     ])
@@ -237,16 +233,12 @@ export function renderStagesSection(detail, markDirty, onOperationalChange, {
       up.disabled = showingCancelled || visibleIndex === 0;
       down.disabled = showingCancelled || visibleIndex === visibleStages.length - 1;
       up.addEventListener('click', () => {
-        const previousIndex = visibleStages[visibleIndex - 1].stageIndex;
-        [detail.etapas[previousIndex], detail.etapas[stageIndex]] = [detail.etapas[stageIndex], detail.etapas[previousIndex]];
-        renumberStages(detail.etapas);
+        moveActiveStageToPosition(detail.etapas, stage, visibleIndex);
         markDirty();
         renderStages();
       });
       down.addEventListener('click', () => {
-        const nextIndex = visibleStages[visibleIndex + 1].stageIndex;
-        [detail.etapas[nextIndex], detail.etapas[stageIndex]] = [detail.etapas[stageIndex], detail.etapas[nextIndex]];
-        renumberStages(detail.etapas);
+        moveActiveStageToPosition(detail.etapas, stage, visibleIndex + 2);
         markDirty();
         renderStages();
       });
@@ -261,8 +253,29 @@ export function renderStagesSection(detail, markDirty, onOperationalChange, {
 
       const name = createInput({ value: stage.nombre || '' });
       bindText(name, stage, 'nombre', markDirty);
-      const position = createInput({ type: 'number', min: 1, max: 99, step: 1, value: stage.posicion });
-      bindText(position, stage, 'posicion', markDirty, Number);
+      const position = createInput({
+        type: 'number',
+        min: 1,
+        max: Math.max(1, activeStageCount(detail.etapas)),
+        step: 1,
+        value: stage.posicion,
+      });
+      position.addEventListener('input', () => {
+        const requested = Number(position.value);
+        if (Number.isInteger(requested)) stage.posicion = requested;
+        markDirty();
+      });
+      position.addEventListener('change', () => {
+        if (stage.cancelado) return;
+        moveActiveStageToPosition(detail.etapas, stage, position.value);
+        markDirty();
+        renderStages();
+      });
+      position.addEventListener('keydown', event => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        position.blur();
+      });
       const stageStateEditor = createEditableCatalogueField('Estado', detail.catalogos.estados_etapa || [], stage.estado_catalogo_codigo || (stage.estado === 'anulada' ? 'pendiente' : stage.estado), {
         placeholder: 'Elige un estado o escribe uno nuevo',
         hint: 'La etiqueta nueva se añadirá al listado sin alterar el estado operativo interno.',
@@ -363,7 +376,7 @@ export function renderStagesSection(detail, markDirty, onOperationalChange, {
       bindCheckbox(stageCancelled.input, stage, 'cancelado', markDirty, checked => {
         if (!stage.id && checked) {
           detail.etapas.splice(stageIndex, 1);
-          renumberStages(detail.etapas);
+          renumberActiveStages(detail.etapas);
           renderStages();
           return;
         }
@@ -377,7 +390,7 @@ export function renderStagesSection(detail, markDirty, onOperationalChange, {
         if (!checked && showingCancelled) {
           const [restoredStage] = detail.etapas.splice(stageIndex, 1);
           detail.etapas.push(restoredStage);
-          renumberStages(detail.etapas);
+          renumberActiveStages(detail.etapas);
           showingCancelled = false;
           renderStages();
         }
