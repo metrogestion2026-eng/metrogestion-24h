@@ -7,7 +7,7 @@ const METROGESTION = Object.freeze({
   // Identidad de transporte admitida por los contratos SQL/Edge existentes.
   // La revisión del código se identifica por separado; no negocia otro protocolo.
   scriptVersion: 'alpha75-2026.10.26.1',
-  buildVersion: 'alpha75-2026.11.07.11',
+  buildVersion: 'alpha75-2026.11.07.12',
   idFilaColumn: 20,
   registroFilasSheet: 'REGISTRO_FILAS',
   registroFilasLastIdCell: 'H2',
@@ -462,6 +462,12 @@ function metrogestionClavesPreflightExactas_(value, keys) {
 // clave de las propiedades y envía identidad declarada; no abre la hoja, no
 // registra progreso, no toca activadores y no solicita ni confirma órdenes.
 function metrogestionComprobarInstalacionSoloLectura() {
+  const report = metrogestionConsultarInstalacion_();
+  Logger.log(JSON.stringify(report));
+  return report;
+}
+
+function metrogestionConsultarInstalacion_() {
   const token = metrogestionLeerToken_();
   if (!/^mg_[0-9a-f]{64}$/i.test(token)) {
     throw new Error('No hay una clave de conexión válida guardada. No se ha iniciado ninguna sincronización.');
@@ -593,13 +599,69 @@ function metrogestionComprobarInstalacionSoloLectura() {
     preflight: server,
     recibido_en: metrogestionTextoPreflightSeguro_(result.recibido_en),
   };
-  Logger.log(JSON.stringify(report));
   return report;
 }
 
+function metrogestionExigirRecepcionProtegida_(report) {
+  const p = report?.preflight, b = p?.barreras;
+  if (p?.compatible !== true || p.archivo_coincide !== true || p.receptor_coincide !== true
+      || p.version_script_recibida !== METROGESTION.scriptVersion
+      || p.version_script_esperada !== METROGESTION.scriptVersion
+      || p.version_preflight !== METROGESTION.preflightVersion
+      || b?.solo_lectura_manual_protegida !== true || b.escritura_segura_manual !== false
+      || b.pausa_importacion_identidad !== false) {
+    throw new Error('El envío requiere instalación compatible, salida protegida y recepción de identidad habilitada. No se cambian las barreras.');
+  }
+}
+
+// Envía la fotografía completa al servidor; allí se importan datos. Esta ruta
+// no ejecuta órdenes ni modifica la hoja, el alcance, el ciclo o sus recibos.
+function metrogestionEnviarHojaAMetrogestion() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) throw new Error('Ya hay una operación de sincronización en curso.');
+  try {
+    const state = metrogestionLeerCiclo_();
+    if (state && (state.fase !== 'terminado' || state.confirmacionPendiente
+        || !Array.isArray(state.comandos) || state.comandos.length)) {
+      throw new Error('Hay un ciclo o un acuse pendiente. Se conserva antes de solicitar otra recepción.');
+    }
+    if (PropertiesService.getScriptProperties().getProperty(METROGESTION_SOLICITUD_ENTREGA)) {
+      throw new Error('Hay una solicitud de entrega pendiente o incierta. No se repite ni se descarta.');
+    }
+    metrogestionExigirJournalResuelto_();
+    metrogestionExigirRecepcionProtegida_(metrogestionConsultarInstalacion_());
+    const book = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
+    if (book.getName() !== METROGESTION.spreadsheetName) throw new Error('No es el archivo MANTENIMIENTOS esperado.');
+    const sheet = book.getSheetByName(METROGESTION.sheetName);
+    if (!sheet) throw new Error('No existe la hoja MANTENIMENT.');
+    const { syncResult } = metrogestionEnviarFotografia_(sheet, 'manual', metrogestionLeerToken_());
+    // The shared transport has already preserved the COMPLETE response. A
+    // changed server protection never turns this entry point into execution.
+    if (syncResult.solo_lectura_manual_protegida !== true || syncResult.escritura_segura_manual !== false
+        || !Array.isArray(syncResult.comandos_manteniment) || syncResult.comandos_manteniment.length) {
+      throw new Error('La respuesta no acredita una recepción con salida protegida. Se conserva completa; no se ha aplicado ninguna orden ni se debe repetir automáticamente.');
+    }
+    try { metrogestionExigirRecepcionProtegida_(metrogestionConsultarInstalacion_()); }
+    catch (_) {
+      throw new Error('La fotografía fue recibida, pero no se ha podido confirmar que las barreras sigan protegidas. No se ha escrito en la hoja; revisa el resultado antes de repetir.');
+    }
+    const report = { accion: 'enviar_hoja_sin_ejecutar_salidas', build: METROGESTION.buildVersion,
+      fotografia_recibida_por_servidor: true, escrituras_en_hoja: 0, ordenes_aplicadas: 0,
+      sincronizacion_total: 'pendiente',
+      mensaje: 'Fotografía recibida por el servidor. Cero escrituras en la hoja. La sincronización total sigue pendiente.' };
+    if (/^[0-9a-f-]{36}$/i.test(syncResult.ejecucion_id || '')) report.ejecucion_id = syncResult.ejecucion_id;
+    Logger.log(JSON.stringify(report));
+    return report;
+  } finally { lock.releaseLock(); }
+}
+
 function metrogestionSolicitarCiclo_(sheet, modo, token) {
-const alcance = metrogestionLeerAlcanceOrdenes_();
-metrogestionExigirAlcance_(alcance);
+  const alcance = metrogestionLeerAlcanceOrdenes_();
+  metrogestionExigirAlcance_(alcance);
+  return metrogestionEnviarFotografia_(sheet, modo, token);
+}
+
+function metrogestionEnviarFotografia_(sheet, modo, token) {
 const lastRow = sheet.getLastRow();
 if (lastRow < 2) throw new Error('MANTENIMENT no contiene filas de datos.');
 const idFilas = metrogestionLeerVectorIdFilas_(sheet, lastRow);
@@ -897,9 +959,10 @@ function metrogestionDatoComparable_(value, tipo, label) {
   return metrogestionNormalizar_(value);
 }
 
-function metrogestionPlanRellenoSeguro_(actual, esperado, label, tipo) {
+function metrogestionPlanRellenoSeguro_(actual, esperado, label, tipo, formula) {
   if (metrogestionVacio_(esperado)) return { escribir: false };
-  if (metrogestionVacio_(actual)) return { escribir: true };
+  // Una fórmula es contenido manual aunque su resultado visible sea vacío.
+  if (metrogestionVacio_(actual)) return { escribir: !formula };
   const a = metrogestionDatoComparable_(actual, tipo || 'texto', label);
   const e = metrogestionDatoComparable_(esperado, tipo || 'texto', label);
   if (a === e) return { escribir: false };
@@ -916,7 +979,7 @@ function metrogestionCompletarCeldaSegura_(sheet, rowNumber, column, esperado, l
       ?? cell.getDisplayValue()
       ?? ''
   ).trim();
-  const plan = metrogestionPlanRellenoSeguro_(actual, esperado, label, tipo);
+  const plan = metrogestionPlanRellenoSeguro_(actual, esperado, label, tipo, cell.getFormula());
   if (!plan.escribir) return false;
   cell.setValue(tipo === 'fecha' ? metrogestionDate_(esperado) : esperado);
   if (tipo === 'fecha') cell.setNumberFormat('dd/MM/yyyy');
@@ -1822,6 +1885,7 @@ function metrogestionEnlazarArchivoParada_(sheet, numeroParada, dfm, sheetState)
 
   matchingRows.forEach(rowNumber => {
     const cell = sheet.getRange(rowNumber, 5);
+    if (cell.getFormula()) return; // Un enlace de texto no puede materializar una fórmula manual.
     const current = currentRichTexts.get(rowNumber) || null;
     const currentFolderId = metrogestionIdCarpetaDesdeUrl_(current ? current.getLinkUrl() : '');
     const expectedFolderId = metrogestionIdCarpetaDesdeUrl_(folderUrl);
@@ -1999,6 +2063,9 @@ function metrogestionAplicarAsignacionesTrabajos_(
     const actual = values[item.rowNumber - 1], assignment = assignments[index];
     metrogestionPlanRellenoSeguro_(actual[9], assignment.fecha_entrada, 'J del trabajo', 'fecha');
     metrogestionPlanRellenoSeguro_(actual[10], assignment.fecha_salida, 'K del trabajo', 'fecha');
+    if (metrogestionVacio_(actual[4]) && sheet.getRange(item.rowNumber, 5).getFormula()) {
+      throw new Error('La actuación del trabajo depende de una fórmula que muestra vacío. No se sustituye ni se vincula como si fuera un hueco.');
+    }
   });
 
   planned.filter(item => !item.alreadyLinked && item.rowNumber).forEach(({ rowNumber, syncId }) => {
@@ -2056,25 +2123,20 @@ function metrogestionAplicarAsignacionesTrabajos_(
     }
 
     if (fechaEntradaIso && !(revertThisWork && reversion?.limpiar_fecha_entrada === true)) {
-      const currentEntry = String(cached?.[9] ?? sheet.getRange(item.rowNumber, 10).getDisplayValue()).trim();
-      if (!currentEntry) sheet.getRange(item.rowNumber, 10).setValue(metrogestionDate_(fechaEntradaIso));
-      sheet.getRange(item.rowNumber, 10).setNumberFormat('dd/MM/yyyy');
-      if (cached && !currentEntry) cached[9] = fechaEntradaIso;
+      metrogestionCompletarCeldaSegura_(sheet, item.rowNumber, 10, fechaEntradaIso,
+        'J del trabajo', sheetState, 9, 'fecha');
     }
 
     if (fechaSalidaIso && !(revertThisWork && reversion?.limpiar_fecha_salida === true)) {
+      const completed = metrogestionCompletarCeldaSegura_(sheet, item.rowNumber, 11, fechaSalidaIso,
+        'K del trabajo', sheetState, 10, 'fecha');
       const currentExit = String(cached?.[10] ?? sheet.getRange(item.rowNumber, 11).getDisplayValue()).trim();
-      if (!currentExit) sheet.getRange(item.rowNumber, 11).setValue(metrogestionDate_(fechaSalidaIso));
-      sheet.getRange(item.rowNumber, 11).setNumberFormat('dd/MM/yyyy');
-      metrogestionPintarCierre_(sheet, item.rowNumber);
-      if (
-        !currentExit
-        && metrogestionEsTipoAdministrativo_(cached?.[6])
-        && Array.isArray(sheetState?.cierresAdministrativos)
-      ) {
+      // Una fórmula que sigue mostrando vacío no acredita un cierre en la hoja.
+      if (currentExit) metrogestionPintarCierre_(sheet, item.rowNumber);
+      if (completed && metrogestionEsTipoAdministrativo_(cached?.[6])
+          && Array.isArray(sheetState?.cierresAdministrativos)) {
         sheetState.cierresAdministrativos.push(item.rowNumber);
       }
-      if (cached && !currentExit) cached[10] = fechaSalidaIso;
     }
   });
 
@@ -2326,6 +2388,9 @@ function metrogestionCerrarPeriodoAnterior_(sheet, payload, syncId, sheetState) 
   }
 
   const rowNumber = open[0].rowNumber;
+  if (sheet.getRange(rowNumber, 11).getFormula()) {
+    throw new Error('El cierre del periodo anterior necesita completar K, pero contiene una fórmula. Se conserva el tramo sin abrir otro ni modificar la fórmula.');
+  }
   sheet.getRange(rowNumber, 11).setValue(metrogestionDate_(fechaK)).setNumberFormat('dd/MM/yyyy');
   if (sheetState?.values?.[rowNumber - 1]) sheetState.values[rowNumber - 1][10] = fechaK;
   return rowNumber;
@@ -4159,6 +4224,9 @@ function metrogestionCrearTrabajosSeguros_(sheet, works, sheetState) {
       }
     } else if (sameStop.length) throw new Error('La PA ya contiene una necesidad de la misma clase con datos distintos. Revisión manual obligatoria.');
     const newRow = !rowNumber;
+    if (!newRow && metrogestionVacio_(sheetState.values[rowNumber - 1][4]) && sheet.getRange(rowNumber, 5).getFormula()) {
+      throw new Error('La actuación del trabajo depende de una fórmula que muestra vacío. No se sustituye ni se vincula como si fuera un hueco.');
+    }
     if (newRow) rowNumber = metrogestionInsertarFilaParada_(sheet, work, sheetState);
     const fields = [[1, work.dfm], [2, work.matricula], [3, work.tipo], [4, work.upc], [5, work.numero_parada],
       [6, work.taller], [7, work.tipo_trabajo], [8, work.designacion], [9, fechaNecesidadOrigen, 'fecha'],
@@ -4171,7 +4239,7 @@ function metrogestionCrearTrabajosSeguros_(sheet, works, sheetState) {
       sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
       sheet.getRange(rowNumber, 16).setNumberFormat('#,##0');
     }
-    if (work.fecha_salida) metrogestionPintarCierre_(sheet, rowNumber);
+    if (work.fecha_salida && !metrogestionVacio_(sheetState.values[rowNumber - 1][10])) metrogestionPintarCierre_(sheet, rowNumber);
     sheet.getRange(rowNumber, 5).setBackground('#cfe2f3');
     const note = metrogestionNotaConTrabajo_(sheetState.notesE[rowNumber - 1], id);
     sheet.getRange(rowNumber, 5).setNote(note);
@@ -4215,6 +4283,7 @@ function metrogestionPlanificarEnlacesArchivo_(sheet, numeroParada, dfm, sheetSt
   sheetState.values.forEach((row, index) => {
     if (!index || metrogestionNormalizar_(row[4]) !== stop) return;
     if (metrogestionNormalizar_(row[0]) !== expectedDfm) throw new Error('La PA contiene una fila de otro DFM. No se planifica ningún enlace Drive.');
+    if (sheet.rows[index][4].formula) return; // RichText sustituiría la fórmula por su resultado.
     rows.push(index + 1);
   });
   if (!rows.length) return 0;
