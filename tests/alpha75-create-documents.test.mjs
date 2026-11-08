@@ -21,9 +21,9 @@ test('los archivos se vinculan después de crear la identidad real de la T', asy
   const create = await read('r1-alpha75/src/hotel-create.js');
   const pending = await read('r1-alpha75/src/editor-pending-documents.js');
 
-  const createRpc = create.indexOf("supabase.rpc('crear_ficha_hotel_con_etapas_alpha72'");
+  const createRpc = create.indexOf("supabase.rpc('crear_ficha_hotel_con_etapas_alpha75'");
   const uploadCall = create.indexOf('uploadPendingStageDocuments(', createRpc);
-  assert.ok(createRpc >= 0, 'falta la creación atómica de ficha y T');
+  assert.ok(createRpc >= 0, 'falta la creación atómica de ficha y T con número reservado');
   assert.ok(uploadCall > createRpc, 'los documentos no pueden subirse antes de existir la T');
   assert.match(create, /data\.detalle/);
   assert.match(pending, /registrar_documento_t/);
@@ -49,6 +49,6 @@ test('un fallo documental no vuelve a crear la ficha', async () => {
     create.indexOf('if (pendingDocumentRetry)'),
     create.indexOf('const errors = validate(detail)')
   );
-  assert.doesNotMatch(retryBlock, /crear_ficha_hotel_con_etapas_alpha72/);
+  assert.doesNotMatch(retryBlock, /crear_ficha_hotel_con_etapas_alpha75/);
   assert.match(retryBlock, /uploadPendingStageDocuments/);
 });
