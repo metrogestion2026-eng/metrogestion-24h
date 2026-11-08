@@ -138,7 +138,9 @@ test(
 
       await fixture.admin.query(
         `update app_private.numeros_parada_temporales_alpha75
-         set expira_en=clock_timestamp()-interval '1 minute'
+         set creado_en=clock_timestamp()-interval '2 minutes',
+             renovado_en=clock_timestamp()-interval '2 minutes',
+             expira_en=clock_timestamp()-interval '1 minute'
          where token=$1::uuid`,
         [second.token],
       );
