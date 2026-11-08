@@ -7,6 +7,12 @@ import {
   collectPendingStageDocuments,
   uploadPendingStageDocuments,
 } from './editor-pending-documents.js?v=75.25-create-documents-001';
+import {
+  keepTemporaryStopNumberAlive,
+  releaseTemporaryStopNumber,
+  renewTemporaryStopNumber,
+  reserveTemporaryStopNumber,
+} from './hotel-stop-number.js?v=75.27-stop-number-001';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
 import { fichaPayload, requestId, validate } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 
@@ -81,10 +87,17 @@ function pendingDocumentCount(pending) {
 }
 
 export async function openHotelCreate({ onSaved } = {}) {
+  const creationRequestId = requestId();
   let detail = blankDetail();
   let dirty = false;
   let saving = false;
+  let closed = false;
+  let created = false;
+  let resultUnknown = false;
   let pendingDocumentRetry = null;
+  let stopNumberLease = null;
+  let stopNumberKeeper = null;
+  let stopNumberInput = null;
 
   const overlay = element('div', { className: 'hotel-editor-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Añadir ficha al Hotel' });
   const panel = element('section', { className: 'hotel-editor-panel' });
@@ -108,48 +121,129 @@ export async function openHotelCreate({ onSaved } = {}) {
   const markDirty = () => {
     dirty = true;
     status.className = 'hotel-editor-status';
-    status.textContent = 'Datos preparados. Nada se crea hasta pulsar “Crear ficha”.';
+    status.textContent = `Datos preparados para la actuación ${detail.ficha.numero_parada || 'reservada'}. Nada se crea hasta pulsar “Crear ficha”.`;
   };
-  const close = (force = false) => {
-    if (saving && !force) return;
+
+  const stopHeartbeat = () => {
+    stopNumberKeeper?.stop();
+    stopNumberKeeper = null;
+  };
+
+  const startHeartbeat = () => {
+    stopHeartbeat();
+    if (!stopNumberLease || created || resultUnknown || closed) return;
+    stopNumberKeeper = keepTemporaryStopNumberAlive(stopNumberLease, {
+      onWarning: error => {
+        if (closed || created || resultUnknown) return;
+        status.className = 'hotel-editor-status error';
+        status.textContent = `No se ha podido renovar todavía la reserva de la actuación ${detail.ficha.numero_parada}: ${error.message}. No cierres la ficha; se volverá a intentar.`;
+      },
+    });
+  };
+
+  const applyLease = lease => {
+    stopNumberLease = lease;
+    detail.ficha.numero_parada = lease.number;
+    if (stopNumberInput) stopNumberInput.value = lease.number;
+    title.textContent = `Añadir ficha · actuación ${lease.number}`;
+    startHeartbeat();
+  };
+
+  const releaseLeaseBeforeClose = async () => {
+    if (!stopNumberLease || created || resultUnknown) return true;
+    closeButton.disabled = true;
+    status.className = 'hotel-editor-status';
+    status.textContent = `Liberando la actuación ${stopNumberLease.number} para que pueda reutilizarse…`;
+    stopHeartbeat();
+    try {
+      await releaseTemporaryStopNumber(stopNumberLease.token);
+      stopNumberLease = null;
+      return true;
+    } catch (error) {
+      startHeartbeat();
+      closeButton.disabled = false;
+      status.className = 'hotel-editor-status error';
+      status.textContent = `No se pudo liberar la actuación provisional: ${error.message}. Reintenta cerrar cuando vuelva la conexión.`;
+      return false;
+    }
+  };
+
+  const close = async (force = false) => {
+    if (closed || (saving && !force)) return;
     if (!force && pendingDocumentRetry) {
       const remaining = pendingDocumentCount(pendingDocumentRetry.pending);
       if (!window.confirm(
         `La ficha ya está creada, pero quedan ${remaining} archivo${remaining === 1 ? '' : 's'} sin subir. ¿Cerrar y descartarlos?`
       )) return;
       void onSaved?.();
-    } else if (!force && dirty && !window.confirm('Hay datos sin guardar. ¿Cerrar igualmente?')) {
+    } else if (!force && dirty && !window.confirm('Hay datos sin guardar. ¿Cerrar igualmente y reutilizar este número de parada?')) {
       return;
     }
+
+    if (!force && !(await releaseLeaseBeforeClose())) return;
+
+    closed = true;
+    stopHeartbeat();
     document.removeEventListener('keydown', handleKeydown);
     overlay.remove();
     document.body.classList.remove('editor-open');
   };
-  const handleKeydown = event => { if (event.key === 'Escape') close(false); };
-  document.addEventListener('keydown', handleKeydown);
-  closeButton.addEventListener('click', () => close(false));
-  overlay.addEventListener('click', event => { if (event.target === overlay) close(false); });
 
-  status.textContent = 'Cargando estados, T, talleres y Registro maestro de vehículos…';
+  const handleKeydown = event => {
+    if (event.key === 'Escape') void close(false);
+  };
+  document.addEventListener('keydown', handleKeydown);
+  closeButton.addEventListener('click', () => { void close(false); });
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) void close(false);
+  });
+
+  status.textContent = 'Reservando número de parada y cargando los datos necesarios…';
+
+  let reservation;
+  let catalogueResults;
+  try {
+    [reservation, catalogueResults] = await Promise.all([
+      reserveTemporaryStopNumber(creationRequestId),
+      Promise.all([
+        supabase.from('catalogo_estados_hotel').select('codigo,nombre,orden,color_semantico').eq('activo', true).order('orden', { ascending: true }),
+        supabase.from('catalogo_estados_etapa_hotel').select('codigo,nombre,estado_operativo,orden').eq('activo', true).order('orden', { ascending: true }),
+        supabase.from('catalogo_tipos_etapa_hotel').select('codigo,nombre,orden').eq('activo', true).order('orden', { ascending: true }),
+        supabase.from('catalogo_tipos_trabajo').select('codigo,nombre,requiere_expediente,requiere_diagnostico').eq('activo', true).order('codigo', { ascending: true }),
+        supabase.from('talleres').select('id,nombre,observaciones').eq('activo', true).order('nombre', { ascending: true }),
+        supabase.from('centros_taller').select('id,taller_id,nombre,direccion,poblacion').eq('activo', true).order('nombre', { ascending: true }),
+        supabase.from('vehiculos_hotel_autocompletar').select('*').order('dfm', { ascending: true }),
+        supabase.from('catalogo_modalidades_operativas_hotel').select('codigo,nombre,comportamiento,orden').eq('activo', true).order('orden', { ascending: true })
+      ]),
+    ]);
+  } catch (error) {
+    if (!closed) {
+      status.className = 'hotel-editor-status error';
+      status.textContent = `No se pudo abrir una nueva ficha con número reservado: ${error.message}`;
+    }
+    return;
+  }
+
+  if (closed) {
+    await releaseTemporaryStopNumber(reservation.token).catch(() => {});
+    return;
+  }
+
+  applyLease(reservation);
+
   const [
     statesResult, stageStatesResult, stageTypesResult, workTypesResult,
     workshopsResult, centresResult, vehiclesResult, modalitiesResult
-  ] = await Promise.all([
-    supabase.from('catalogo_estados_hotel').select('codigo,nombre,orden,color_semantico').eq('activo', true).order('orden', { ascending: true }),
-    supabase.from('catalogo_estados_etapa_hotel').select('codigo,nombre,estado_operativo,orden').eq('activo', true).order('orden', { ascending: true }),
-    supabase.from('catalogo_tipos_etapa_hotel').select('codigo,nombre,orden').eq('activo', true).order('orden', { ascending: true }),
-    supabase.from('catalogo_tipos_trabajo').select('codigo,nombre,requiere_expediente,requiere_diagnostico').eq('activo', true).order('codigo', { ascending: true }),
-    supabase.from('talleres').select('id,nombre,observaciones').eq('activo', true).order('nombre', { ascending: true }),
-    supabase.from('centros_taller').select('id,taller_id,nombre,direccion,poblacion').eq('activo', true).order('nombre', { ascending: true }),
-    supabase.from('vehiculos_hotel_autocompletar').select('*').order('dfm', { ascending: true }),
-    supabase.from('catalogo_modalidades_operativas_hotel').select('codigo,nombre,comportamiento,orden').eq('activo', true).order('orden', { ascending: true })
-  ]);
+  ] = catalogueResults;
 
   const catalogueError = [
     statesResult, stageStatesResult, stageTypesResult, workTypesResult,
     workshopsResult, centresResult, modalitiesResult
   ].find(result => result.error)?.error;
   if (catalogueError) {
+    await releaseTemporaryStopNumber(stopNumberLease.token).catch(() => {});
+    stopNumberLease = null;
+    stopHeartbeat();
     status.className = 'hotel-editor-status error';
     status.textContent = `No se pudieron cargar los catálogos necesarios: ${catalogueError.message}`;
     return;
@@ -166,6 +260,12 @@ export async function openHotelCreate({ onSaved } = {}) {
   const form = element('form', { className: 'hotel-editor-form' });
   form.addEventListener('submit', event => event.preventDefault());
   const sections = renderMainSections(detail, markDirty);
+  stopNumberInput = sections[0].querySelector('.editor-grid input');
+  if (stopNumberInput) {
+    stopNumberInput.readOnly = true;
+    stopNumberInput.value = detail.ficha.numero_parada;
+    stopNumberInput.title = 'Número reservado para esta nueva ficha. Se confirma al crearla y se libera al cancelar.';
+  }
   const annotationsSection = renderManualAnnotationsEditor(detail, markDirty);
   const stagesSection = renderStagesSection(detail, markDirty, undefined, {
     documentsByGroup: new Map(),
@@ -174,7 +274,7 @@ export async function openHotelCreate({ onSaved } = {}) {
   const errorsHost = element('div', { className: 'editor-errors hidden' });
   const createButton = element('button', { className: 'button primary', type: 'button', text: 'Crear ficha' });
   const cancelButton = element('button', { className: 'button secondary', type: 'button', text: 'Cancelar' });
-  cancelButton.addEventListener('click', () => close(false));
+  cancelButton.addEventListener('click', () => { void close(false); });
 
   const lockCreatedForm = () => {
     form.querySelectorAll('input, textarea, select, button').forEach(control => {
@@ -182,6 +282,35 @@ export async function openHotelCreate({ onSaved } = {}) {
       control.disabled = true;
     });
     cancelButton.textContent = 'Cerrar';
+  };
+
+  const ensureCurrentLease = async () => {
+    if (!stopNumberLease?.token) {
+      const replacement = await reserveTemporaryStopNumber(creationRequestId);
+      applyLease(replacement);
+      return replacement;
+    }
+
+    try {
+      const renewed = await renewTemporaryStopNumber(stopNumberLease.token);
+      if (renewed.number && renewed.number !== stopNumberLease.number) {
+        stopNumberLease.number = renewed.number;
+        detail.ficha.numero_parada = renewed.number;
+        if (stopNumberInput) stopNumberInput.value = renewed.number;
+      }
+      stopNumberLease.expiresAt = renewed.expiresAt;
+      return stopNumberLease;
+    } catch {
+      const previousNumber = stopNumberLease.number;
+      stopHeartbeat();
+      const replacement = await reserveTemporaryStopNumber(creationRequestId);
+      applyLease(replacement);
+      if (replacement.number !== previousNumber) {
+        status.className = 'hotel-editor-status';
+        status.textContent = `La reserva anterior había caducado. La ficha continúa con la actuación ${replacement.number}, visible en el formulario.`;
+      }
+      return replacement;
+    }
   };
 
   createButton.addEventListener('click', async () => {
@@ -210,7 +339,7 @@ export async function openHotelCreate({ onSaved } = {}) {
         status.textContent = `✓ Documentos guardados correctamente (${documentResult.uploaded}). La ficha y las T conservan su identidad.`;
         createButton.textContent = 'Documentos guardados';
         await onSaved?.();
-        setTimeout(() => close(true), 1400);
+        setTimeout(() => { void close(true); }, 1400);
       } catch (error) {
         const remaining = pendingDocumentCount(pendingDocumentRetry.pending);
         status.className = 'hotel-editor-status error';
@@ -238,20 +367,36 @@ export async function openHotelCreate({ onSaved } = {}) {
     cancelButton.disabled = true;
     closeButton.disabled = true;
     status.className = 'hotel-editor-status';
-    status.textContent = 'Creando ficha y T, asignando número de actuación y registrando auditoría…';
 
-    const saveRequestId = requestId();
+    let currentLease;
+    try {
+      currentLease = await ensureCurrentLease();
+    } catch (error) {
+      status.className = 'hotel-editor-status error';
+      status.textContent = `No se puede confirmar el número de parada: ${error.message}`;
+      createButton.disabled = false;
+      cancelButton.disabled = false;
+      closeButton.disabled = false;
+      saving = false;
+      return;
+    }
+
+    status.textContent = `Creando la actuación ${currentLease.number}, su ficha y todas sus T…`;
+
     let data;
     let error;
     try {
-      ({ data, error } = await supabase.rpc('crear_ficha_hotel_con_etapas_alpha72', {
+      ({ data, error } = await supabase.rpc('crear_ficha_hotel_con_etapas_alpha75', {
         p_ficha: alpha72FichaPayload(detail.ficha, detail),
         p_etapas: stagesPayloadWithCatalogues(detail.etapas),
-        p_request_id: saveRequestId
+        p_request_id: creationRequestId,
+        p_numero_token: currentLease.token,
       }));
     } catch (transportError) {
+      resultUnknown = true;
+      stopHeartbeat();
       status.className = 'hotel-editor-status error';
-      status.textContent = `No se ha podido confirmar si la ficha llegó a crearse. No pulses “Crear ficha” otra vez. Cierra, actualiza Hotel y comprueba la actuación. Referencia ${saveRequestId}.`;
+      status.textContent = `No se ha podido confirmar si la actuación ${currentLease.number} llegó a crearse. No pulses “Crear ficha” otra vez. Cierra, actualiza Hotel y comprueba la actuación. Referencia ${creationRequestId}.`;
       createButton.textContent = 'Resultado sin confirmar';
       createButton.disabled = true;
       cancelButton.disabled = false;
@@ -270,11 +415,14 @@ export async function openHotelCreate({ onSaved } = {}) {
       return;
     }
 
+    created = true;
+    stopHeartbeat();
+    stopNumberLease = null;
     lockCreatedForm();
 
     const stageCount = Number(data.etapas_guardadas || 0);
     const workCount = Number(data.trabajos_guardados || 0);
-    const baseMessage = `✓ Ficha creada con ${stageCount} T y ${workCount} trabajo${workCount === 1 ? '' : 's'}. Actuación ${data.numero_parada || 'asignada'} · referencia ${data.request_id}.`;
+    const baseMessage = `✓ Ficha creada con ${stageCount} T y ${workCount} trabajo${workCount === 1 ? '' : 's'}. Actuación ${data.numero_parada || detail.ficha.numero_parada} confirmada · referencia ${data.request_id}.`;
 
     if (pendingDocuments.entries.length) {
       status.className = 'hotel-editor-status';
@@ -293,7 +441,7 @@ export async function openHotelCreate({ onSaved } = {}) {
         status.textContent = `${baseMessage} ${documentResult.uploaded} documento${documentResult.uploaded === 1 ? '' : 's'} adjunto${documentResult.uploaded === 1 ? '' : 's'}.`;
         createButton.textContent = 'Creada correctamente';
         await onSaved?.();
-        setTimeout(() => close(true), 1400);
+        setTimeout(() => { void close(true); }, 1400);
       } catch (documentError) {
         pendingDocumentRetry = {
           pending: pendingDocuments,
@@ -316,7 +464,7 @@ export async function openHotelCreate({ onSaved } = {}) {
     status.textContent = baseMessage;
     createButton.textContent = 'Creada correctamente';
     await onSaved?.();
-    setTimeout(() => close(true), 1200);
+    setTimeout(() => { void close(true); }, 1200);
   });
 
   form.append(
@@ -326,7 +474,7 @@ export async function openHotelCreate({ onSaved } = {}) {
     stagesSection,
     element('p', {
       className: 'muted',
-      text: 'La ficha y todas sus T se crearán juntas en la pizarra actual. Puedes preparar PDF o fotografías dentro de cada T: se subirán y vincularán automáticamente después de crear la ficha. El número de actuación se asigna siempre automáticamente, aunque la fecha real de parada sea anterior. Al finalizar, la ficha se conserva en Histórico.'
+      text: `La actuación ${detail.ficha.numero_parada} queda reservada mientras editas. Si creas la ficha conservará ese número; si cancelas, se libera para otra ficha. Puedes preparar PDF o fotografías dentro de cada T antes de crearla.`
     }),
     errorsHost,
     element('div', { className: 'editor-footer-actions' }, [createButton, cancelButton])
@@ -335,6 +483,6 @@ export async function openHotelCreate({ onSaved } = {}) {
 
   status.className = vehiclesResult.error ? 'hotel-editor-status' : 'hotel-editor-status success';
   status.textContent = vehiclesResult.error
-    ? 'Formulario listo. El Registro maestro no está disponible; revisa la conexión antes de crear una ficha.'
-    : `Formulario listo. Registro maestro disponible (${detail.catalogos.vehiculos.length} vehículos). Puedes adjuntar documentos dentro de cada T antes de crear la ficha.`;
+    ? `Actuación ${detail.ficha.numero_parada} reservada. El Registro maestro no está disponible; revisa la conexión antes de crear la ficha.`
+    : `Actuación ${detail.ficha.numero_parada} reservada. Formulario listo con ${detail.catalogos.vehiculos.length} vehículos del Registro maestro.`;
 }
