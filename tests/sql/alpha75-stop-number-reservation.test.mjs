@@ -67,16 +67,17 @@ test(
 
       await assert.rejects(
         otherActor.query(
-          'select public.crear_ficha_hotel($1::jsonb,$2) as value',
-          [JSON.stringify({
-            numero_parada: second.numero_parada,
-            vehiculo_sustituido: 'TEST-ROBO-NUMERO',
-            prioridad: 5,
-            estado: 'pendiente_taller',
-          }), 'r1_stop_number_foreign_steal'],
+          `insert into public.registros_hotel(
+             pizarra_id,numero_parada,vehiculo_sustituido,prioridad,estado,
+             creado_por,modificado_por
+           ) values(
+             '00000000-0000-4000-8000-000000000010',$1,
+             'TEST-ROBO-NUMERO',5,'pendiente_taller',auth.uid(),auth.uid()
+           )`,
+          [second.numero_parada],
         ),
         /reservado por otra ficha en edición/,
-        'un alta antigua tampoco puede apropiarse de un número reservado',
+        'ni una inserción directa puede apropiarse de un número reservado',
       );
 
       const released = (await one(
