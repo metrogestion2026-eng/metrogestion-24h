@@ -16,6 +16,7 @@ try {
 
 const preloadFiles = [
   './hotel-editor-stages.js?v=75.23-hf25',
+  './hotel-create.js?v=75.26-create-documents-001',
   '../../r1-alpha29/src/app.js',
   '../../r1-alpha30/src/app.js',
   '../../r1-alpha31/src/app.js',
