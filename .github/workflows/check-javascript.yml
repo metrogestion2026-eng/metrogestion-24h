@@ -32,6 +32,8 @@ jobs:
         run: node --test tests/alpha75-actuation-documents.test.mjs
       - name: Comprobar documentos durante la creación de fichas
         run: node --test tests/alpha75-create-documents.test.mjs
+      - name: Comprobar número provisional al abrir una ficha
+        run: node --test tests/alpha75-stop-number-reservation.test.mjs
       - name: Comprobar inserción automática de T por posición
         run: node --test tests/alpha75-stage-order.test.mjs
       - name: Comprobar que el Panel prioriza la T actual
@@ -101,6 +103,8 @@ jobs:
         run: npm run test:continuity --prefix tests/sql
       - name: Comprobar sustitución vigente por hechos operativos
         run: node --test tests/sql/alpha75-substitution-facts.test.mjs
+      - name: Comprobar reserva, confirmación y reciclaje del número de parada
+        run: node --test tests/sql/alpha75-stop-number-reservation.test.mjs
       - name: Comprobar proyección única del Panel y paridad de facturación
         run: npm run test:panel-projection --prefix tests/sql
       - name: Comprobar concurrencia del traspaso entre PA
