@@ -183,8 +183,10 @@ declare
   v_reserva app_private.numeros_parada_temporales_alpha75%rowtype;
   v_expira timestamptz;
 begin
-  if v_usuario is null then
-    raise exception 'Debes identificarte para renovar el número de parada';
+  if v_usuario is null
+     or not public.dispositivo_autorizado()
+     or not public.puede_editar_modulo('hotel') then
+    raise exception 'No tienes permiso para renovar el número de parada';
   end if;
   if p_token is null then
     raise exception 'La reserva temporal no está identificada';
@@ -276,17 +278,15 @@ $function$;
 create or replace function app_private.asignar_numero_parada_nuevo()
 returns trigger
 language plpgsql
+security definer
 set search_path = pg_catalog, public, app_private
 as $function$
 declare
   v_num bigint;
+  v_explicito text;
   v_reservado text;
 begin
   if current_setting('app.clonando_pizarra', true) = '1' then
-    return new;
-  end if;
-
-  if nullif(btrim(coalesce(new.numero_parada, '')), '') is not null then
     return new;
   end if;
 
@@ -294,6 +294,21 @@ begin
     current_setting('app.numero_parada_reservada_alpha75', true),
     ''
   );
+  v_explicito := nullif(btrim(coalesce(new.numero_parada, '')), '');
+
+  if v_explicito is not null then
+    if v_explicito ~ '^[0-9]+$'
+       and exists (
+         select 1
+         from app_private.numeros_parada_temporales_alpha75 t
+         where t.numero_parada = v_explicito::bigint
+           and t.expira_en > clock_timestamp()
+           and v_explicito is distinct from v_reservado
+       ) then
+      raise exception 'El número de parada está reservado por otra ficha en edición';
+    end if;
+    return new;
+  end if;
 
   if v_reservado is not null then
     if v_reservado !~ '^[0-9]+$' then
@@ -413,6 +428,7 @@ create or replace function public.reservar_numero_parada_nueva_ficha_alpha75(
 )
 returns jsonb
 language sql
+security definer
 set search_path = pg_catalog, app_private
 as $function$
   select app_private.reservar_numero_parada_nueva_ficha_alpha75($1);
@@ -423,6 +439,7 @@ create or replace function public.renovar_numero_parada_nueva_ficha_alpha75(
 )
 returns jsonb
 language sql
+security definer
 set search_path = pg_catalog, app_private
 as $function$
   select app_private.renovar_numero_parada_nueva_ficha_alpha75($1);
@@ -433,6 +450,7 @@ create or replace function public.liberar_numero_parada_nueva_ficha_alpha75(
 )
 returns jsonb
 language sql
+security definer
 set search_path = pg_catalog, app_private
 as $function$
   select app_private.liberar_numero_parada_nueva_ficha_alpha75($1);
@@ -446,6 +464,7 @@ create or replace function public.crear_ficha_hotel_con_etapas_alpha75(
 )
 returns jsonb
 language sql
+security definer
 set search_path = pg_catalog, app_private
 as $function$
   select app_private.crear_ficha_hotel_con_etapas_alpha75($1, $2, $3, $4);
