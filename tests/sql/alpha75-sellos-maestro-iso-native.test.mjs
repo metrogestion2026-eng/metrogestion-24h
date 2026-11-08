@@ -13,7 +13,7 @@ const signature = 'app_private.aplicar_snapshot_manteniment(jsonb,text,uuid,text
 const baselineMd5 = 'cf7c2a01aaf8db1c2a68c8ba42bd8249';
 const candidateMd5 = '4a3fcfe1e98eb6315aef5e5d219c71c0';
 const migration = await readFile(new URL(
-  '../../supabase/migrations/20261107180725_alpha75_sellos_maestro_iso.sql',
+  '../../supabase/migrations/20261107183233_alpha75_sellos_maestro_iso.sql',
   import.meta.url), 'utf8');
 const OLD = '2000-01-01T09:00:00.000Z';
 const NEW = '2000-01-02T09:30:00.000Z';

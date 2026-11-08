@@ -31,7 +31,7 @@ autoridad de una edición humana. La corrección conserva ese contrato.
 ## Cambio acotado
 
 La migración
-`supabase/migrations/20261107180725_alpha75_sellos_maestro_iso.sql`, creada con
+`supabase/migrations/20261107183233_alpha75_sellos_maestro_iso.sql`, creada con
 Supabase CLI, sustituye exactamente una aparición del filtro por:
 
 ~~~sql
@@ -157,6 +157,24 @@ que ya están correctos.
 La migración SQL no contiene el diagnóstico de Apps Script ni modifica sus
 propiedades. Tampoco resuelve por sí misma las retenciones de identidad de las
 PARADAS o de los cierres.
+
+## Instalación verificada
+
+La corrección se instaló el 07/11/2026 con la versión de historial
+`20261107183233`. Tras la interrupción de la siguiente operación, una lectura
+del 08/11/2026 confirmó la definición esperada
+`4a3fcfe1e98eb6315aef5e5d219c71c0` y la protección de salida activa.
+
+El archivo inicialmente creado por CLI con el prefijo `20261107180725` se
+renombró para coincidir con esa versión real del historial. El SQL se conserva
+byte por byte: SHA256
+`f508c4fd6da312be0276f179f194e51dff76d9a96b52857c5bff3a135f1be29f`.
+
+La migración de tramos cerrados sigue pendiente de instalación y no se ha
+conciliado ningún caso. No usar esta comprobación como prueba de que la
+sincronización total esté terminada. La divergencia previa de versiones de la
+dependencia de identidad se revisa por separado; este cambio no autoriza un
+envío general de todas las migraciones pendientes.
 
 ## Referencias técnicas
 
