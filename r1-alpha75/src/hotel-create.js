@@ -91,6 +91,7 @@ export async function openHotelCreate({ onSaved } = {}) {
   let detail = blankDetail();
   let dirty = false;
   let saving = false;
+  let closing = false;
   let closed = false;
   let created = false;
   let resultUnknown = false;
@@ -169,8 +170,12 @@ export async function openHotelCreate({ onSaved } = {}) {
   };
 
   const close = async (force = false) => {
-    if (closed || (saving && !force)) return;
-    if (!force && pendingDocumentRetry) {
+    if (closed || closing || (saving && !force)) return;
+    if (!force && resultUnknown) {
+      if (!window.confirm(
+        `No se ha podido confirmar si la actuación ${detail.ficha.numero_parada || ''} se creó. Al cerrar no se liberará el número de forma insegura; si no existe ninguna ficha, volverá a estar disponible al caducar la reserva. ¿Cerrar igualmente?`
+      )) return;
+    } else if (!force && pendingDocumentRetry) {
       const remaining = pendingDocumentCount(pendingDocumentRetry.pending);
       if (!window.confirm(
         `La ficha ya está creada, pero quedan ${remaining} archivo${remaining === 1 ? '' : 's'} sin subir. ¿Cerrar y descartarlos?`
@@ -180,7 +185,11 @@ export async function openHotelCreate({ onSaved } = {}) {
       return;
     }
 
-    if (!force && !(await releaseLeaseBeforeClose())) return;
+    closing = true;
+    if (!force && !(await releaseLeaseBeforeClose())) {
+      closing = false;
+      return;
+    }
 
     closed = true;
     stopHeartbeat();
@@ -200,23 +209,22 @@ export async function openHotelCreate({ onSaved } = {}) {
 
   status.textContent = 'Reservando número de parada y cargando los datos necesarios…';
 
+  const cataloguePromise = Promise.all([
+    supabase.from('catalogo_estados_hotel').select('codigo,nombre,orden,color_semantico').eq('activo', true).order('orden', { ascending: true }),
+    supabase.from('catalogo_estados_etapa_hotel').select('codigo,nombre,estado_operativo,orden').eq('activo', true).order('orden', { ascending: true }),
+    supabase.from('catalogo_tipos_etapa_hotel').select('codigo,nombre,orden').eq('activo', true).order('orden', { ascending: true }),
+    supabase.from('catalogo_tipos_trabajo').select('codigo,nombre,requiere_expediente,requiere_diagnostico').eq('activo', true).order('codigo', { ascending: true }),
+    supabase.from('talleres').select('id,nombre,observaciones').eq('activo', true).order('nombre', { ascending: true }),
+    supabase.from('centros_taller').select('id,taller_id,nombre,direccion,poblacion').eq('activo', true).order('nombre', { ascending: true }),
+    supabase.from('vehiculos_hotel_autocompletar').select('*').order('dfm', { ascending: true }),
+    supabase.from('catalogo_modalidades_operativas_hotel').select('codigo,nombre,comportamiento,orden').eq('activo', true).order('orden', { ascending: true })
+  ]);
+
   let reservation;
-  let catalogueResults;
   try {
-    [reservation, catalogueResults] = await Promise.all([
-      reserveTemporaryStopNumber(creationRequestId),
-      Promise.all([
-        supabase.from('catalogo_estados_hotel').select('codigo,nombre,orden,color_semantico').eq('activo', true).order('orden', { ascending: true }),
-        supabase.from('catalogo_estados_etapa_hotel').select('codigo,nombre,estado_operativo,orden').eq('activo', true).order('orden', { ascending: true }),
-        supabase.from('catalogo_tipos_etapa_hotel').select('codigo,nombre,orden').eq('activo', true).order('orden', { ascending: true }),
-        supabase.from('catalogo_tipos_trabajo').select('codigo,nombre,requiere_expediente,requiere_diagnostico').eq('activo', true).order('codigo', { ascending: true }),
-        supabase.from('talleres').select('id,nombre,observaciones').eq('activo', true).order('nombre', { ascending: true }),
-        supabase.from('centros_taller').select('id,taller_id,nombre,direccion,poblacion').eq('activo', true).order('nombre', { ascending: true }),
-        supabase.from('vehiculos_hotel_autocompletar').select('*').order('dfm', { ascending: true }),
-        supabase.from('catalogo_modalidades_operativas_hotel').select('codigo,nombre,comportamiento,orden').eq('activo', true).order('orden', { ascending: true })
-      ]),
-    ]);
+    reservation = await reserveTemporaryStopNumber(creationRequestId);
   } catch (error) {
+    await cataloguePromise.catch(() => {});
     if (!closed) {
       status.className = 'hotel-editor-status error';
       status.textContent = `No se pudo abrir una nueva ficha con número reservado: ${error.message}`;
@@ -230,6 +238,24 @@ export async function openHotelCreate({ onSaved } = {}) {
   }
 
   applyLease(reservation);
+  status.className = 'hotel-editor-status success';
+  status.textContent = `Actuación ${reservation.number} reservada. Cargando el resto del formulario…`;
+
+  let catalogueResults;
+  try {
+    catalogueResults = await cataloguePromise;
+  } catch (error) {
+    await releaseTemporaryStopNumber(reservation.token).catch(() => {});
+    stopNumberLease = null;
+    stopHeartbeat();
+    if (!closed) {
+      status.className = 'hotel-editor-status error';
+      status.textContent = `No se pudieron cargar los datos necesarios: ${error.message}`;
+    }
+    return;
+  }
+
+  if (closed) return;
 
   const [
     statesResult, stageStatesResult, stageTypesResult, workTypesResult,
@@ -261,6 +287,7 @@ export async function openHotelCreate({ onSaved } = {}) {
   form.addEventListener('submit', event => event.preventDefault());
   const sections = renderMainSections(detail, markDirty);
   stopNumberInput = sections[0].querySelector('.editor-grid input');
+  stopNumberInput?.setAttribute('data-hotel-stop-number', '1');
   if (stopNumberInput) {
     stopNumberInput.readOnly = true;
     stopNumberInput.value = detail.ficha.numero_parada;
