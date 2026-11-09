@@ -162,7 +162,7 @@ test('Alpha75 published index and warm HTTP cache', { timeout: 60000 }, async t 
           && call.sha256 === server.currentEditorSha256 && call.bodyEndedAt),
         'The candidate must retrieve the exact corrected editor through its new graph');
         assert.ok(server.calls.some(call => call.path === '/r1-alpha75/src/hotel-editor-timestamps.js'
-          && call.query === '?v=75.26-autocomplete-001'));
+          && call.query === '?v=75.25-editor-fechas-001'));
         assert.deepEqual(errors, []);
       } finally {
         server.controls.oldEditor = false;
