@@ -3801,9 +3801,23 @@ function metrogestionExigirFormulasPlanificables_(photo, operations) {
     }
     if (!inserts.length) return;
     const checked = checkedCells.get(`${r + 1}:${c + 1}`);
-    if (!checked.invariante) {
+    const referencias = Array.isArray(checked?.referencias) ? checked.referencias : [];
+    // Una inserción nativa puede desplazar la propia celda de fórmula sin
+    // desplazar su destino. En ese caso cambia el offset R1C1 aunque la fórmula
+    // siga apuntando exactamente a la misma celda lógica. Sólo se modela esta
+    // relocalización cuando TODAS las referencias son celdas simples de esta
+    // misma hoja, dentro de A:Q, y el diagnóstico ya resolvió su fila antes y
+    // después. Rangos, otras hojas y sintaxis no cubierta siguen bloqueando.
+    const relocalizacionAcreditada = checked?.invariante === false
+      && referencias.length > 0
+      && referencias.every(ref => ref.hoja_propia === true && ref.rango === null
+        && Number.isSafeInteger(ref.fila) && ref.fila >= 1
+        && Number.isSafeInteger(ref.fila_despues) && ref.fila_despues >= 1
+        && Number.isSafeInteger(ref.columna) && ref.columna >= 1 && ref.columna <= 17);
+    if (!checked.invariante && !relocalizacionAcreditada) {
       throw new Error(`La inserción no está acreditada en ${r + 1}:${c + 1}: ${checked.motivo} No se ha escrito nada.`);
     }
+    if (relocalizacionAcreditada) return;
     const formula = cell.r1c1.replace(/"(?:[^"]|"")*"/g, '');
     const refs = [...formula.matchAll(/(?:^|[^A-Z0-9_])R(\[-?\d+\]|\d+)?C(?:\[-?\d+\]|\d+)?/gi)];
     if (refs.some(match => match[1] && !['[0]', '1'].includes(match[1]))) {
