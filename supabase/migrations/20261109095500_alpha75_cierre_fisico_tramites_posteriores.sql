@@ -476,9 +476,12 @@ $migration$;
 do $backfill$
 declare
   v_id uuid;
+  v_prev_manteniment_guard text;
 begin
   perform set_config('app.request_id','cierre_fisico_admin_20261109',true);
   perform set_config('app.audit_origin','metrogestion-r1-cierre-fisico-admin',true);
+  v_prev_manteniment_guard := current_setting('app.manteniment_importando_paradas', true);
+  perform set_config('app.manteniment_importando_paradas','1',true);
 
   for v_id in
     select distinct on (r.seguimiento_id) r.id
@@ -521,6 +524,12 @@ begin
   loop
     perform app_private.sincronizar_situacion_operativa_hotel_alpha75(v_id,true);
   end loop;
+
+  perform set_config(
+    'app.manteniment_importando_paradas',
+    coalesce(v_prev_manteniment_guard,''),
+    true
+  );
 end;
 $backfill$;
 
