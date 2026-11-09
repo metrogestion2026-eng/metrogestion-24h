@@ -48,7 +48,7 @@ test('Alpha75 published index and warm HTTP cache', { timeout: 60000 }, async t 
         assert.ok(server.calls.some(call => call.path === `/r1-alpha75/src/${file}` && call.query === '?v=75.25-paradas-002'), file);
       }
       assert.ok(server.calls.some(call => call.path === '/r1-alpha75/src/hotel-native.js'
-        && call.query === '?v=75.26-create-documents-001'), 'Hotel loads the corrected owner and lifecycle');
+        && call.query === '?v=75.26-autocomplete-001'), 'Hotel loads the corrected owner and lifecycle');
       assert.ok(server.calls.some(call => call.path === '/r1-alpha75/src/history-native.js'
         && call.query === '?v=75.25-editor-fechas-001'), 'history-native.js');
       assert.ok(server.calls.some(call => call.path === '/r1-alpha75/src/panel-native-hf23.js'
