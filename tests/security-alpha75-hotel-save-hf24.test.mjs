@@ -118,7 +118,7 @@ const row = registro_hotel_id => ({ registro_hotel_id });
 const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
  test('Pizarra e Histórico cargan exactamente el mismo editor corregido', () => {
   for (const path of ['hotel-native.js', 'history-card.js']) {
-    assert.match(source(`r1-alpha75/src/${path}`), /hotel-editor\.js\?v=75\.25-editor-fechas-001/);
+    assert.match(source(`r1-alpha75/src/${path}`), /hotel-editor\.js\?v=75\.26-autocomplete-001/);
   }
   assert.match(source('r1-alpha75/src/history-native.js'), /history-card\.js\?v=75\.25-editor-fechas-001/);
   const html = source('r1-alpha75/index.html');
@@ -126,7 +126,7 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
   assert.ok(html.includes('boot75.js?v=75.26'));
   assert.ok(boot.includes('app.js?v=75.26'));
   assert.ok(boot.includes('hotel-native.js?v=75.26-autocomplete-001'));
-  assert.ok(boot.includes('history-native.js?v=75.25-editor-fechas-001'));
+  assert.ok(boot.includes('history-native.js?v=75.26-autocomplete-001'));
 });
 
  test('el guardado mantiene RPC, identidad, versión y protección contra doble clic', () => {
