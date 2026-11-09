@@ -13,6 +13,7 @@ test('el catálogo real de Alpha75 autocompleta mientras se escribe y no usa fle
   assert.match(src, /es un valor nuevo\. Se incorporará al listado cuando guardes la ficha/);
   assert.doesNotMatch(src, /a71-catalogue-trigger/);
   assert.doesNotMatch(src, /text: '▾'/);
+  assert.match(src, /input\.addEventListener\('focus'/);
 });
 
 test('Tipo Taller y Centro usan el componente común activo', async () => {
