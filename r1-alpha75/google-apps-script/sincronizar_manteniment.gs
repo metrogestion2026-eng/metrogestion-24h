@@ -3810,10 +3810,18 @@ function metrogestionExigirFormulasPlanificables_(photo, operations) {
     // después. Rangos, otras hojas y sintaxis no cubierta siguen bloqueando.
     const relocalizacionAcreditada = checked?.invariante === false
       && referencias.length > 0
-      && referencias.every(ref => ref.hoja_propia === true && ref.rango === null
-        && Number.isSafeInteger(ref.fila) && ref.fila >= 1
-        && Number.isSafeInteger(ref.fila_despues) && ref.fila_despues >= 1
-        && Number.isSafeInteger(ref.columna) && ref.columna >= 1 && ref.columna <= 17);
+      && referencias.every(ref => {
+        const celdaSimple = ref.rango === null
+          && Number.isSafeInteger(ref.fila) && ref.fila >= 1
+          && Number.isSafeInteger(ref.fila_despues) && ref.fila_despues >= 1
+          && Number.isSafeInteger(ref.columna) && ref.columna >= 1;
+        if (!celdaSimple) return false;
+        if (ref.hoja_propia === true) return ref.columna <= 17;
+        // Referencia explícita a otra hoja: la inserción sólo ocurre en
+        // MANTENIMENT, por lo que el destino externo debe permanecer idéntico.
+        return typeof ref.hoja === 'string' && ref.hoja.trim() !== ''
+          && ref.fila_despues === ref.fila;
+      });
     if (!checked.invariante && !relocalizacionAcreditada) {
       throw new Error(`La inserción no está acreditada en ${r + 1}:${c + 1}: ${checked.motivo} No se ha escrito nada.`);
     }
