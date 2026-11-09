@@ -2,7 +2,11 @@ import { element } from '../../r1-alpha17/src/dom.js';
 import { createInput } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 
 function normaliseCatalogueValue(value) {
-  return String(value ?? '').trim().toLocaleLowerCase('es-ES');
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLocaleLowerCase('es-ES');
 }
 
 export function findCatalogueItem(catalogue, value) {
@@ -22,37 +26,36 @@ function catalogueCode(item) {
   return String(item?.codigo ?? item?.id ?? '').trim();
 }
 
-/**
- * Campo de catálogo que conserva entrada libre y ofrece un listado explícito.
- * El botón propio evita depender de la presentación variable de <datalist>.
- */
+function catalogueSearchText(item) {
+  return normaliseCatalogueValue([
+    catalogueName(item),
+    catalogueCode(item),
+    item?.poblacion,
+    item?.direccion,
+    item?.observaciones,
+  ].filter(Boolean).join(' '));
+}
+
 export function createEditableCatalogueField(labelText, catalogue, value, {
-  placeholder = 'Elige una opción o escribe una nueva',
-  hint = 'Puedes elegir un valor existente o escribir uno nuevo. Se añadirá al listado al guardar.',
+  placeholder = 'Escribe para buscar o crear una opción',
+  hint = 'Empieza a escribir para ver coincidencias. Si escribes un valor nuevo, quedará guardado en el listado al guardar la ficha.',
   onChange,
 } = {}) {
   let items = Array.isArray(catalogue) ? catalogue : [];
+  let activeIndex = -1;
+  let visibleItems = [];
   const selected = findCatalogueItem(items, value);
   const inputId = `a71-catalogue-input-${crypto.randomUUID()}`;
   const listId = `a71-catalogue-list-${crypto.randomUUID()}`;
   const input = createInput({ value: selected?.nombre || value || '', placeholder });
-  const trigger = element('button', {
-    className: 'a71-catalogue-trigger',
-    type: 'button',
-    title: `Mostrar listado de ${labelText}`,
-    'aria-label': `Mostrar listado de ${labelText}`,
-    'aria-controls': listId,
-    'aria-expanded': 'false',
-    text: '▾'
-  });
   const listbox = element('div', {
     className: 'a71-catalogue-listbox',
     id: listId,
     role: 'listbox',
-    'aria-label': `Listado de ${labelText}`,
+    'aria-label': `Sugerencias de ${labelText}`,
     hidden: ''
   });
-  const combo = element('div', { className: 'a71-editable-catalogue' }, [input, trigger, listbox]);
+  const combo = element('div', { className: 'a71-editable-catalogue' }, [input, listbox]);
   const label = element('label', { className: 'a71-catalogue-label', for: inputId, text: labelText });
   const field = element('div', { className: 'editor-field' }, [label, combo]);
 
@@ -75,8 +78,8 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
   const setOpen = open => {
     const nextOpen = Boolean(open) && !input.disabled;
     listbox.hidden = !nextOpen;
-    trigger.setAttribute('aria-expanded', String(nextOpen));
     input.setAttribute('aria-expanded', String(nextOpen));
+    if (!nextOpen) activeIndex = -1;
   };
 
   const choose = item => {
@@ -84,34 +87,66 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     input.value = name;
     onChange?.(item, name);
     setOpen(false);
-    // En móvil mantenemos el teclado cerrado después de elegir una opción.
-    trigger.focus({ preventScroll: true });
+    input.focus({ preventScroll: true });
   };
 
-  const renderOptions = () => {
+  const setActive = index => {
+    activeIndex = index;
+    [...listbox.querySelectorAll('.a71-catalogue-option')].forEach((node, optionIndex) => {
+      const active = optionIndex === index;
+      node.classList.toggle('is-active', active);
+      node.setAttribute('aria-selected', String(active));
+      if (active) node.scrollIntoView({ block: 'nearest' });
+    });
+  };
+
+  const filteredItems = () => {
+    const query = normaliseCatalogueValue(input.value);
+    if (!query) return [];
+    return sortedItems()
+      .filter(item => catalogueSearchText(item).includes(query))
+      .slice(0, 15);
+  };
+
+  const renderOptions = ({ open = true } = {}) => {
     listbox.replaceChildren();
-    const ordered = sortedItems();
-    if (!ordered.length) {
-      listbox.append(element('div', { className: 'a71-catalogue-empty', text: 'No hay valores guardados todavía.' }));
+    visibleItems = filteredItems();
+    activeIndex = -1;
+    const typed = input.value.trim();
+
+    if (!typed) {
+      setOpen(false);
       return;
     }
-    ordered.forEach(item => {
+
+    if (!visibleItems.length) {
+      listbox.append(element('div', {
+        className: 'a71-catalogue-empty',
+        text: `“${typed}” es un valor nuevo. Se incorporará al listado cuando guardes la ficha.`
+      }));
+      setOpen(open);
+      return;
+    }
+
+    visibleItems.forEach(item => {
       const name = catalogueName(item);
       const code = catalogueCode(item);
       const option = element('button', {
         className: 'a71-catalogue-option',
         type: 'button',
         role: 'option',
-        'aria-selected': String(findCatalogueItem([item], input.value) !== null)
+        'aria-selected': 'false'
       }, [
         element('span', { text: name }),
         code && normaliseCatalogueValue(code) !== normaliseCatalogueValue(name)
           ? element('small', { text: code })
           : null
       ]);
+      option.addEventListener('mousedown', event => event.preventDefault());
       option.addEventListener('click', () => choose(item));
       listbox.append(option);
     });
+    setOpen(open);
   };
 
   const rebuild = (nextItems = items, nextValue, replaceValue = false) => {
@@ -120,40 +155,49 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
       const next = findCatalogueItem(items, nextValue);
       input.value = next?.nombre || nextValue || '';
     }
-    renderOptions();
+    if (!listbox.hidden) renderOptions();
   };
 
   const update = () => {
     const typed = input.value.trim();
     onChange?.(findCatalogueItem(items, typed), typed);
-    if (!listbox.hidden) renderOptions();
+    renderOptions({ open: Boolean(typed) });
   };
+
   input.addEventListener('input', update);
-  input.addEventListener('change', update);
+  input.addEventListener('change', () => {
+    const typed = input.value.trim();
+    onChange?.(findCatalogueItem(items, typed), typed);
+  });
+  input.addEventListener('focus', () => {
+    if (input.value.trim()) renderOptions({ open: true });
+  });
   input.addEventListener('keydown', event => {
-    if (event.key === 'ArrowDown' && listbox.hidden) {
+    if (event.key === 'ArrowDown') {
+      if (listbox.hidden) renderOptions({ open: true });
+      if (!visibleItems.length) return;
       event.preventDefault();
-      renderOptions();
-      setOpen(true);
+      setActive(Math.min(activeIndex + 1, visibleItems.length - 1));
+    } else if (event.key === 'ArrowUp') {
+      if (!visibleItems.length || listbox.hidden) return;
+      event.preventDefault();
+      setActive(Math.max(activeIndex - 1, 0));
+    } else if (event.key === 'Enter' && activeIndex >= 0 && visibleItems[activeIndex]) {
+      event.preventDefault();
+      choose(visibleItems[activeIndex]);
     } else if (event.key === 'Escape' && !listbox.hidden) {
       event.stopPropagation();
       setOpen(false);
     }
   });
-  input.addEventListener('focus', () => setOpen(false));
-  trigger.addEventListener('click', () => {
-    renderOptions();
-    setOpen(listbox.hidden);
-  });
+
   combo.addEventListener('focusout', () => {
     window.setTimeout(() => {
       if (!combo.contains(document.activeElement)) setOpen(false);
     }, 0);
   });
 
-  const help = element('small', { className: 'muted', text: hint });
-  field.append(help);
-  rebuild(items, value, false);
+  field.append(element('small', { className: 'muted', text: hint }));
 
   return {
     input,
@@ -161,7 +205,6 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     rebuild,
     setDisabled(disabled) {
       input.disabled = Boolean(disabled);
-      trigger.disabled = Boolean(disabled);
       if (disabled) setOpen(false);
     }
   };

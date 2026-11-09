@@ -4,7 +4,7 @@ import {
   bindCheckbox, bindText, createCheckbox, createInput, createTextarea,
   fieldLabel, makeNewStage, makeNewWork, stagesPayload
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js?v=76.9';
-import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js';
+import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js?v=76.10-autocomplete-001';
 
 export function stagesPayloadWithCatalogues(stages) {
   return stagesPayload(stages).map((payload, index) => ({

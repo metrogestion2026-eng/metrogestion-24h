@@ -3,7 +3,7 @@ import { beginHotelRender, hasCurrentHotelRender, invalidateHotelRender } from '
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { openHotelCreate } from './hotel-create.js?v=76.9';
-import { openHotelEditor } from './hotel-editor.js?v=76.9';
+import { openHotelEditor } from './hotel-editor.js?v=76.10-autocomplete-001';
 import { requestId } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
