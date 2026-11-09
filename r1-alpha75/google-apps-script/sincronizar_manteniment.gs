@@ -449,7 +449,7 @@ function metrogestionComprobarInstalacionSoloLectura() {
     && preflight.archivo_coincide === true && preflight.receptor_coincide === true;
   const barrerasCerradasLocalmente = barriers.solo_lectura_manual_protegida === true
     && barriers.escritura_segura_manual === false
-    && barriers.pausa_importacion_identidad === true;
+    && barriers.pausa_importacion_identidad === false;
   const motivosEsperados = [];
   if (preflight.version_script_recibida !== preflight.version_script_esperada) motivosEsperados.push('VERSION_SCRIPT_DISTINTA');
   if (preflight.version_preflight_recibida !== preflight.version_preflight) motivosEsperados.push('VERSION_PREFLIGHT_DISTINTA');
