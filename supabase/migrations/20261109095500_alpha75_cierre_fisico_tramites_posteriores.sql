@@ -476,11 +476,9 @@ $migration$;
 do $backfill$
 declare
   v_id uuid;
-  v_prev_manteniment_guard text;
 begin
   perform set_config('app.request_id','cierre_fisico_admin_20261109',true);
   perform set_config('app.audit_origin','metrogestion-r1-cierre-fisico-admin',true);
-  v_prev_manteniment_guard := current_setting('app.manteniment_importando_paradas', true);
   perform set_config('app.manteniment_importando_paradas','1',true);
 
   for v_id in
@@ -525,11 +523,11 @@ begin
     perform app_private.sincronizar_situacion_operativa_hotel_alpha75(v_id,true);
   end loop;
 
-  perform set_config(
-    'app.manteniment_importando_paradas',
-    coalesce(v_prev_manteniment_guard,''),
-    true
-  );
+  -- Se mantiene a 1 hasta el COMMIT de la migración. Los triggers de situación
+  -- son diferidos y se ejecutan al final de la transacción; restaurarlo aquí
+  -- reactivaría indebidamente el outbox protegido durante el backfill.
+  -- set_config(..., true) es LOCAL y PostgreSQL lo restaura automáticamente
+  -- al terminar esta transacción.
 end;
 $backfill$;
 
