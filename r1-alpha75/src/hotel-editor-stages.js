@@ -4,7 +4,7 @@ import {
   bindCheckbox, bindText, createCheckbox, createInput, createTextarea,
   fieldLabel, makeNewStage, makeNewWork, stagesPayload
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
-import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js';
+import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js?v=75.26-autocomplete-001';
 import { catalogueCodeForOperationalState, deriveStageOperationalState } from './stage-operational-state.js?v=75.23-hf9';
 import { createStageDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { createPendingStageDocuments } from './editor-pending-documents.js?v=75.23-hf15';
