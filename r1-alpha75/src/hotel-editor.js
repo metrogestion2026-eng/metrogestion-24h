@@ -7,7 +7,7 @@ import { classifyHotelEditorSave } from './hotel-editor-save-result.js?v=75.25-e
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { renderMainSections } from './hotel-editor-main.js?v=75.25-paradas-002';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.26-autocomplete-001';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.26-dropdown-filter-002';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
   collectPendingStageDocuments,
