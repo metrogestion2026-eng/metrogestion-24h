@@ -89,18 +89,25 @@ begin
     select 1
     from public.registros_hotel r
     join public.pizarras p on p.id=r.pizarra_id and p.estado='en_curso'
-    join public.etapas_hotel e on e.registro_hotel_id=r.id
     where not r.cancelado
       and not r.retirado_hotel_activo
-      and not e.cancelado
-      and e.estado='en_curso'
-      and (
-        e.accion_sistema='recuperar_y_liberar'
-        or lower(coalesce(e.tipo_etapa,'')) in ('recuperar_ruta','recuperar')
+      and exists (
+        select 1
+        from public.etapas_hotel e
+        where e.registro_hotel_id=r.id
+          and not e.cancelado
+          and e.estado='en_curso'
+          and (
+            e.accion_sistema='recuperar_y_liberar'
+            or lower(coalesce(e.tipo_etapa,'')) in ('recuperar_ruta','recuperar')
+          )
       )
-      and r.estado <> 'recogido_pendiente_ruta'
+      and r.estado is distinct from (
+        app_private.proyectar_situacion_operativa_hotel_alpha75(r.id)
+        ->> 'estado_proyectado'
+      )
   ) then
-    raise exception 'MG75-RECUPERACION-ACTIVA-001: queda recuperación en curso fuera de Pendiente de recuperar';
+    raise exception 'MG75-RECUPERACION-ACTIVA-001: una ficha afectada no coincide con su proyección final';
   end if;
 end;
 $check$;
