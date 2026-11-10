@@ -206,6 +206,14 @@ function typeKey(value) {
   return normalized(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+function isPhysicalWorkshopStage(stage = {}) {
+  const type = typeKey(stage.tipo_etapa);
+  if (['tramite', 'gestion', '24h', 'recuperar_ruta', 'recuperar', 'recogida_taller'].includes(type)) {
+    return false;
+  }
+  return type === 'entrada_taller' || Boolean(stage.taller_id || stage.centro_taller_id);
+}
+
 export function isRecovery(stage = {}) {
   return !stage?.cancelado && normalized(stage.estado) !== 'anulada' && (
     normalized(stage.accion_sistema) === 'recuperar_y_liberar'
@@ -330,8 +338,11 @@ export function deriveHotelOperationalState(ficha = {}, stages = []) {
   // Solo afecta a la presentación: no cambia los hechos ni los datos manuales.
   const activeWorkshop = (Array.isArray(stages) ? stages : [])
     .filter(stage => !stage?.cancelado && normalized(stage.estado) !== 'anulada')
-    .filter(stage => normalized(stage.tipo_etapa) === 'entrada_taller'
-      && Boolean(stage.fecha_inicio_real) && !stage.fecha_real)
+    .filter(stage => isPhysicalWorkshopStage(stage)
+      && legacyStageState(stage) === 'en_curso'
+      && Boolean(stage.fecha_inicio_real)
+      && !stage.fecha_fin_real
+      && !stage.fecha_real)
     .sort((a, b) => stagePosition(a) - stagePosition(b)).at(-1);
   if (activeWorkshop) {
     return activeWorkshop.fecha_fin_real ? 'terminado_pendiente_recogida' : 'en_taller';
