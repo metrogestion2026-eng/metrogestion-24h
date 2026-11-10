@@ -125,8 +125,8 @@ const source = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
   const boot = source('r1-alpha75/src/boot75.js');
   assert.ok(html.includes('boot75.js?v=75.26'));
   assert.ok(boot.includes('app.js?v=75.26'));
-  assert.ok(boot.includes('hotel-native.js?v=75.26-autocomplete-001'));
-  assert.ok(boot.includes('history-native.js?v=75.26-autocomplete-001'));
+  assert.ok(boot.includes('hotel-native.js?v=75.26-dropdown-filter-002'));
+  assert.ok(boot.includes('history-native.js?v=75.26-dropdown-filter-002'));
 });
 
  test('el guardado mantiene RPC, identidad, versión y protección contra doble clic', () => {
