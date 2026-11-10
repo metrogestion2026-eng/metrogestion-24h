@@ -37,8 +37,8 @@ function catalogueSearchText(item) {
 }
 
 export function createEditableCatalogueField(labelText, catalogue, value, {
-  placeholder = 'Escribe para buscar o crear una opción',
-  hint = 'Empieza a escribir para ver coincidencias. Si escribes un valor nuevo, quedará guardado en el listado al guardar la ficha.',
+  placeholder = 'Elige una opción o escribe para buscar',
+  hint = 'Pulsa para desplegar opciones o escribe para filtrar. Si introduces un valor nuevo, se añadirá al guardar.',
   onChange,
 } = {}) {
   let items = Array.isArray(catalogue) ? catalogue : [];
@@ -48,14 +48,23 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
   const inputId = `a71-catalogue-input-${crypto.randomUUID()}`;
   const listId = `a71-catalogue-list-${crypto.randomUUID()}`;
   const input = createInput({ value: selected?.nombre || value || '', placeholder });
+  const trigger = element('button', {
+    className: 'a71-catalogue-trigger',
+    type: 'button',
+    title: `Desplegar opciones de ${labelText}`,
+    'aria-label': `Desplegar opciones de ${labelText}`,
+    'aria-controls': listId,
+    'aria-expanded': 'false',
+    text: '▾'
+  });
   const listbox = element('div', {
     className: 'a71-catalogue-listbox',
     id: listId,
     role: 'listbox',
-    'aria-label': `Sugerencias de ${labelText}`,
+    'aria-label': `Opciones de ${labelText}`,
     hidden: ''
   });
-  const combo = element('div', { className: 'a71-editable-catalogue' }, [input, listbox]);
+  const combo = element('div', { className: 'a71-editable-catalogue' }, [input, trigger, listbox]);
   const label = element('label', { className: 'a71-catalogue-label', for: inputId, text: labelText });
   const field = element('div', { className: 'editor-field' }, [label, combo]);
 
@@ -75,9 +84,19 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
       return orderA - orderB || catalogueName(a).localeCompare(catalogueName(b), 'es');
     });
 
+  const matchingItems = () => {
+    const query = normaliseCatalogueValue(input.value);
+    const ordered = sortedItems();
+    if (!query) return ordered.slice(0, 30);
+    return ordered
+      .filter(item => catalogueSearchText(item).includes(query))
+      .slice(0, 30);
+  };
+
   const setOpen = open => {
     const nextOpen = Boolean(open) && !input.disabled;
     listbox.hidden = !nextOpen;
+    trigger.setAttribute('aria-expanded', String(nextOpen));
     input.setAttribute('aria-expanded', String(nextOpen));
     if (!nextOpen) activeIndex = -1;
   };
@@ -100,29 +119,18 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     });
   };
 
-  const filteredItems = () => {
-    const query = normaliseCatalogueValue(input.value);
-    if (!query) return [];
-    return sortedItems()
-      .filter(item => catalogueSearchText(item).includes(query))
-      .slice(0, 15);
-  };
-
   const renderOptions = ({ open = true } = {}) => {
     listbox.replaceChildren();
-    visibleItems = filteredItems();
+    visibleItems = matchingItems();
     activeIndex = -1;
     const typed = input.value.trim();
-
-    if (!typed) {
-      setOpen(false);
-      return;
-    }
 
     if (!visibleItems.length) {
       listbox.append(element('div', {
         className: 'a71-catalogue-empty',
-        text: `“${typed}” es un valor nuevo. Se incorporará al listado cuando guardes la ficha.`
+        text: typed
+          ? `“${typed}” es un valor nuevo. Se incorporará al listado cuando guardes la ficha.`
+          : 'No hay valores guardados todavía.'
       }));
       setOpen(open);
       return;
@@ -135,7 +143,7 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
         className: 'a71-catalogue-option',
         type: 'button',
         role: 'option',
-        'aria-selected': 'false'
+        'aria-selected': String(findCatalogueItem([item], input.value) !== null)
       }, [
         element('span', { text: name }),
         code && normaliseCatalogueValue(code) !== normaliseCatalogueValue(name)
@@ -155,13 +163,13 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
       const next = findCatalogueItem(items, nextValue);
       input.value = next?.nombre || nextValue || '';
     }
-    if (!listbox.hidden) renderOptions();
+    if (!listbox.hidden) renderOptions({ open: true });
   };
 
   const update = () => {
     const typed = input.value.trim();
     onChange?.(findCatalogueItem(items, typed), typed);
-    renderOptions({ open: Boolean(typed) });
+    renderOptions({ open: true });
   };
 
   input.addEventListener('input', update);
@@ -169,8 +177,9 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     const typed = input.value.trim();
     onChange?.(findCatalogueItem(items, typed), typed);
   });
-  input.addEventListener('focus', () => {
-    if (input.value.trim()) renderOptions({ open: true });
+  input.addEventListener('focus', () => renderOptions({ open: true }));
+  input.addEventListener('click', () => {
+    if (listbox.hidden) renderOptions({ open: true });
   });
   input.addEventListener('keydown', event => {
     if (event.key === 'ArrowDown') {
@@ -191,6 +200,17 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     }
   });
 
+  trigger.addEventListener('mousedown', event => event.preventDefault());
+  trigger.addEventListener('click', () => {
+    if (listbox.hidden) {
+      renderOptions({ open: true });
+      input.focus({ preventScroll: true });
+    } else {
+      setOpen(false);
+      input.focus({ preventScroll: true });
+    }
+  });
+
   combo.addEventListener('focusout', () => {
     window.setTimeout(() => {
       if (!combo.contains(document.activeElement)) setOpen(false);
@@ -205,6 +225,7 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     rebuild,
     setDisabled(disabled) {
       input.disabled = Boolean(disabled);
+      trigger.disabled = Boolean(disabled);
       if (disabled) setOpen(false);
     }
   };
