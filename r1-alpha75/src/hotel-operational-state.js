@@ -339,9 +339,8 @@ export function deriveHotelOperationalState(ficha = {}, stages = []) {
   const activeWorkshop = (Array.isArray(stages) ? stages : [])
     .filter(stage => !stage?.cancelado && normalized(stage.estado) !== 'anulada')
     .filter(stage => isPhysicalWorkshopStage(stage)
-      && legacyStageState(stage) === 'en_curso'
+      && normalized(stage.estado) === 'en_curso'
       && Boolean(stage.fecha_inicio_real)
-      && !stage.fecha_fin_real
       && !stage.fecha_real)
     .sort((a, b) => stagePosition(a) - stagePosition(b)).at(-1);
   if (activeWorkshop) {
