@@ -1,4 +1,5 @@
 import { claimHotelModule, refreshHotelRouter } from '../../shared/hotel-module-owner.js?v=hotel-identidad-001';
+import './navigation-alpha75.js?v=75.26-nav-current-001';
 
 claimHotelModule('alpha75');
 globalThis.__METROGESTION_MODULE_OWNERS__ = Object.freeze({
