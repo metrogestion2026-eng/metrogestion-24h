@@ -239,10 +239,12 @@ export function renderMainSections(detail, markDirty) {
   const syncOperationalState = () => {
     if (!detail.ficha.cancelado) {
       const latestMovement = latestStageMovement(detail.etapas);
-      if (isLaterMovement(latestMovement, detail.ficha.fecha_entrada)) {
-        detail.ficha.fecha_entrada = latestMovement;
-        if (controls.fecha_entrada) controls.fecha_entrada.value = latestMovement;
-        markDirty();
+      if (isLaterMovement(latestMovement, detail.ficha.fecha_entrada)
+          && controls.fecha_entrada) {
+        // Previsualización únicamente: fecha_entrada es una consecuencia de los
+        // hitos y la persiste el servidor. No la convertimos en una edición
+        // manual del payload porque CONTINUIDAD-001 protege los hechos físicos.
+        controls.fecha_entrada.value = latestMovement;
       }
     }
     if (detail.ficha.sustitucion_temporal || detail.ficha.cancelado) return;
