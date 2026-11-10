@@ -20,6 +20,24 @@ test('recuperación activa sin taller físico proyecta Pendiente de recuperar', 
   assert.equal(deriveHotelOperationalState(ficha, stages), 'recogido_pendiente_ruta');
 });
 
+test('sin sustitución no convierte una recuperación heredada en Pendiente de recuperar', () => {
+  const ficha = {
+    estado:'t_pendientes',
+    modelo_flujo_taller:'entrada_hitos_v1',
+    modalidad_operativa:'sin_sustitucion',
+    vehiculo_reserva:'',
+  };
+  const stages = [{
+    id:'rec-legacy',
+    posicion:2,
+    nombre:'Recuperar ruta y liberar reserva',
+    tipo_etapa:'otro',
+    estado:'pendiente',
+    cancelado:false,
+  }];
+  assert.equal(deriveHotelOperationalState(ficha, stages), 't_pendientes');
+});
+
 test('taller físico activo conserva prioridad sobre recuperación activa', () => {
   const ficha = { estado:'en_taller', modelo_flujo_taller:'entrada_hitos_v1' };
   const stages = [
@@ -50,4 +68,7 @@ test('la migración reconoce recuperación en curso antes de otra T genérica', 
   assert.match(sql, /recuperacion_en_curso/);
   assert.match(sql, /recogido_pendiente_ruta/);
   assert.match(sql, /accion_sistema='recuperar_y_liberar'/);
+  assert.match(sql, /sin_sustitucion/);
+  assert.match(sql, /reparado_en_ruta/);
+  assert.match(sql, /reserva_en_reparacion/);
 });
