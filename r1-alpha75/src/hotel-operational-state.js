@@ -280,8 +280,17 @@ function deriveNewFlowOperationalState(ficha = {}, stages = []) {
   const decision = recoveryPreview(ficha, Array.isArray(stages) ? stages : []);
   if (!active.length) return normalized(ficha.estado) || 'pendiente_taller';
   const tasks = active.filter(stage => !isRecovery(stage));
-  const recovery = decision.required ? active.find(isRecovery) : null;
+  const activeRecovery = active.find(stage =>
+    isRecovery(stage)
+    && ['pendiente', 'programada', 'en_curso'].includes(normalized(stage.estado))
+  );
+  const recovery = decision.required ? active.find(isRecovery) : activeRecovery;
   const hasFacts = hasStageDrivenSituation(ficha, active);
+
+  // Una recuperación explícita pendiente o en curso ya acredita que el
+  // vehículo está pendiente de recuperar. No debe degradarse a T pendientes
+  // por faltar una T separada de recogida_taller.
+  if (activeRecovery) return 'recogido_pendiente_ruta';
 
   // Una estancia física abierta conserva prioridad sobre entradas futuras.
   const inWorkshop = tasks.find(stage => isNewFlowEntry(stage) && stage.fecha_inicio_real && !stage.fecha_real);
