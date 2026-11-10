@@ -28,13 +28,13 @@ test('Tipo Taller y Centro usan el componente común activo', async () => {
 });
 
 test('la caché del editor activo se renueva hasta la entrada de Alpha75', async () => {
-  assert.match(await read('r1-alpha75/src/hotel-editor.js'), /hotel-editor-stages\.js\?v=75\.26-dropdown-filter-002/);
-  assert.match(await read('r1-alpha75/src/hotel-native.js'), /hotel-editor\.js\?v=75\.26-dropdown-filter-002/);
+  assert.match(await read('r1-alpha75/src/hotel-editor.js'), /hotel-editor-stages\.js\?v=75\.26-movimiento-taller-001/);
+  assert.match(await read('r1-alpha75/src/hotel-native.js'), /hotel-editor\.js\?v=75\.26-movimiento-taller-001/);
   const boot = await read('r1-alpha75/src/boot75.js');
-  assert.match(boot, /hotel-editor-stages\.js\?v=75\.26-dropdown-filter-002/);
-  assert.match(boot, /hotel-native\.js\?v=75\.26-dropdown-filter-002/);
-  assert.match(boot, /history-native\.js\?v=75\.26-dropdown-filter-002/);
+  assert.match(boot, /hotel-editor-stages\.js\?v=75\.26-movimiento-taller-001/);
+  assert.match(boot, /hotel-native\.js\?v=75\.26-movimiento-taller-001/);
+  assert.match(boot, /history-native\.js\?v=75\.26-movimiento-taller-001/);
   const html = await read('r1-alpha75/index.html');
-  assert.match(html, /editable-catalogue\.css\?v=75\.26-dropdown-filter-002/);
-  assert.match(html, /boot75\.js\?v=75\.26-dropdown-filter-002/);
+  assert.match(html, /editable-catalogue\.css\?v=75\.26-movimiento-taller-001/);
+  assert.match(html, /boot75\.js\?v=75\.26-movimiento-taller-001/);
 });

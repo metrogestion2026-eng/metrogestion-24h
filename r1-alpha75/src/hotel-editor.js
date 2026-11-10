@@ -1,13 +1,13 @@
 import { installVehicleCorrection, substituteLabel } from './hotel-vehicle-correction.js?v=75.23-hf25';
-import { bindRecoveryPreview } from './hotel-operational-state.js?v=75.25-paradas-002';
+import { bindRecoveryPreview } from './hotel-operational-state.js?v=75.26-movimiento-taller-001';
 import { element } from '../../r1-alpha17/src/dom.js';
 import { refreshConfirmedHotelSave } from './hotel-save-completion.js?v=75.23-hf24';
 import { createEditorTimestampRestorer, EDITOR_TIMESTAMP_CONTRACT } from './hotel-editor-timestamps.js?v=75.25-editor-fechas-001';
 import { classifyHotelEditorSave } from './hotel-editor-save-result.js?v=75.25-editor-fechas-001';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { renderMainSections } from './hotel-editor-main.js?v=75.25-paradas-002';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.26-dropdown-filter-002';
+import { renderMainSections } from './hotel-editor-main.js?v=75.26-movimiento-taller-001';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.26-movimiento-taller-001';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
   collectPendingStageDocuments,

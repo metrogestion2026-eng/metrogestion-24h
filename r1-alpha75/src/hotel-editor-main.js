@@ -3,8 +3,8 @@ import {
   bindCheckbox, bindText, createCheckbox, createInput,
   createTextarea, fieldLabel, makeNewStage
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
-import { createEditableCatalogueField } from './editable-catalogue.js';
-import { deriveHotelOperationalState, hasStageDrivenSituation } from './hotel-operational-state.js?v=75.25-paradas-002';
+import { createEditableCatalogueField } from './editable-catalogue.js?v=75.26-movimiento-taller-001';
+import { deriveHotelOperationalState, hasStageDrivenSituation } from './hotel-operational-state.js?v=75.26-movimiento-taller-001';
 
 function normaliseVehicleKey(value) {
   return String(value || '').replace(/\s+/g, '').trim().toUpperCase();
@@ -39,6 +39,31 @@ function normaliseOperationalCode(value) {
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLocaleLowerCase('es-ES');
+}
+
+function latestStageMovement(stages = []) {
+  const values = (Array.isArray(stages) ? stages : [])
+    .filter(stage => !stage?.cancelado)
+    .flatMap(stage => [stage.fecha_inicio_real, stage.fecha_fin_real, stage.fecha_real])
+    .filter(Boolean);
+  return values.reduce((latest, value) => {
+    if (!latest) return value;
+    const nextTime = Date.parse(value);
+    const latestTime = Date.parse(latest);
+    if (!Number.isFinite(nextTime)) return latest;
+    if (!Number.isFinite(latestTime) || nextTime > latestTime) return value;
+    return latest;
+  }, '');
+}
+
+function isLaterMovement(next, current) {
+  if (!next) return false;
+  if (!current) return true;
+  const nextTime = Date.parse(next);
+  const currentTime = Date.parse(current);
+  if (!Number.isFinite(nextTime)) return false;
+  if (!Number.isFinite(currentTime)) return true;
+  return nextTime > currentTime;
 }
 
 function ensureSituationStage(detail, stateCode) {
@@ -212,6 +237,16 @@ export function renderMainSections(detail, markDirty) {
     }
   );
   const syncOperationalState = () => {
+    if (!detail.ficha.cancelado) {
+      const latestMovement = latestStageMovement(detail.etapas);
+      if (isLaterMovement(latestMovement, detail.ficha.fecha_entrada)
+          && controls.fecha_entrada) {
+        // Previsualización únicamente: fecha_entrada es una consecuencia de los
+        // hitos y la persiste el servidor. No la convertimos en una edición
+        // manual del payload porque CONTINUIDAD-001 protege los hechos físicos.
+        controls.fecha_entrada.value = latestMovement;
+      }
+    }
     if (detail.ficha.sustitucion_temporal || detail.ficha.cancelado) return;
     const stageDriven = hasStageDrivenSituation(detail.ficha, detail.etapas);
     const nextState = deriveHotelOperationalState(detail.ficha, detail.etapas);
@@ -223,7 +258,6 @@ export function renderMainSections(detail, markDirty) {
     stateEditor.rebuild(availableStates, nextState || baseState(), true);
     stateEditor.setDisabled(isNewFlow && stageDriven);
   };
-  syncOperationalState();
   const simpleFields = [
     ['Lugar', 'lugar', 'text'], ['Fecha programada de parada', 'fecha_programada_parada', 'date'],
     ['Fecha real de parada', 'fecha_parada', 'date'],
@@ -233,9 +267,11 @@ export function renderMainSections(detail, markDirty) {
   operationGrid.append(fieldLabel('Prioridad', priority), stateEditor.field);
   for (const [label, key, type] of simpleFields) {
     const control = createInput({ type, value: detail.ficha[key] || '' });
+    controls[key] = control;
     bindText(control, detail.ficha, key, markDirty);
     operationGrid.append(fieldLabel(label, control));
   }
+  syncOperationalState();
   const order = createInput({ type: 'number', min: 0, max: 9999, step: 1, value: detail.ficha.orden ?? 0 });
   bindText(order, detail.ficha, 'orden', markDirty, Number);
   operationGrid.append(fieldLabel('Orden visual', order));
