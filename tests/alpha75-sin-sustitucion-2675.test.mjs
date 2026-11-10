@@ -46,5 +46,5 @@ test('la candidata carga la derivación actual y conserva la validación del edi
   assert.match(main, /hotel-operational-state\.js\?v=75\.26-movimiento-taller-001/);
   assert.match(editor, /hotel-editor-validation\.js\?v=75\.23-hf18/);
   assert.match(html, /boot75\.js\?v=75\.26/);
-  assert.match(boot, /hotel-native\.js\?v=75\.26-dropdown-filter-002/);
+  assert.match(boot, /hotel-native\.js\?v=75\.26-movimiento-taller-001/);
 });
