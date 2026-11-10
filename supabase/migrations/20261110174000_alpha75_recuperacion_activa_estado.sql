@@ -35,8 +35,15 @@ declare
 
         if found then
           v_lugar := coalesce(nullif(btrim(v_stage.lugar), ''), v_r.lugar);
-          if coalesce(v_stage.accion_sistema,'') = 'recuperar_y_liberar'
-             or lower(coalesce(v_stage.tipo_etapa,'')) in ('recuperar_ruta','recuperar') then
+          if (
+               coalesce(v_stage.accion_sistema,'') = 'recuperar_y_liberar'
+               or lower(coalesce(v_stage.tipo_etapa,'')) in ('recuperar_ruta','recuperar')
+             )
+             and lower(coalesce(v_r.modalidad_operativa,'')) not in (
+               'sin_sustitucion',
+               'reparado_en_ruta',
+               'reserva_en_reparacion'
+             ) then
             v_estado := 'recogido_pendiente_ruta';
             v_motivo := 'recuperacion_en_curso';
           else
