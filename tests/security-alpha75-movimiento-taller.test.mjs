@@ -52,7 +52,8 @@ test('la cabecera de edición avanza Entrada / movimiento con el último hito re
   assert.match(main, /stage\.fecha_inicio_real, stage\.fecha_fin_real, stage\.fecha_real/);
   assert.match(main, /isLaterMovement\(latestMovement, detail\.ficha\.fecha_entrada\)/);
   assert.doesNotMatch(main, /detail\.ficha\.fecha_entrada = latestMovement/);
-  assert.match(main, /controls\.fecha_entrada\.value = latestMovement/);\n  assert.match(main, /Previsualización únicamente/);
+  assert.match(main, /controls\.fecha_entrada\.value = latestMovement/);
+  assert.match(main, /Previsualización únicamente/);
   assert.match(main, /controls\[key\] = control/);
 });
 
