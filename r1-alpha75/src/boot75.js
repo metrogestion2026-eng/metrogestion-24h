@@ -15,7 +15,7 @@ try {
 }
 
 const preloadFiles = [
-  './hotel-editor-stages.js?v=75.26-autocomplete-001',
+  './hotel-editor-stages.js?v=75.26-dropdown-filter-002',
   './hotel-create.js?v=75.26-create-documents-001',
   '../../r1-alpha29/src/app.js',
   '../../r1-alpha30/src/app.js',
@@ -36,6 +36,6 @@ await Promise.all(preloadFiles.map(async path => {
 
 await import('./app.js?v=75.26');
 await import('./h73-register-device.js?v=73.3');
-await import('./hotel-native.js?v=75.26-autocomplete-001');
-await import('./history-native.js?v=75.26-autocomplete-001');
+await import('./hotel-native.js?v=75.26-dropdown-filter-002');
+await import('./history-native.js?v=75.26-dropdown-filter-002');
 await import('./panel-native-hf23.js?v=75.25-panel-t-actual-001');
