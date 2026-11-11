@@ -1,8 +1,10 @@
 -- MG75-ESTADO-REAL-ORDEN-001
--- El orden manual de las T manda. La normalización solo compacta posiciones
--- sin mover Recuperar por tipo. El estado pendiente se deriva de la primera T
--- no resuelta por posición, salvo hechos físicos ya iniciados que describen
--- la situación real actual.
+-- 1) El orden manual de las T se conserva. Normalizar solo compacta huecos.
+-- 2) Recuperar no adelanta ni retrasa otras T por su tipo.
+-- 3) El estado se deriva de hechos reales y, para T pendientes, del orden
+--    operativo, conservando las situaciones pre-entrada ya válidas.
+-- 4) TM/NAVE TM no sustituye una situación Pendiente de taller cuando existe
+--    una entrada de taller posterior todavía pendiente.
 
 create or replace function app_private.normalizar_orden_t_parada(p_registro_id uuid)
 returns integer
@@ -31,11 +33,7 @@ begin
   select
     e.id,
     row_number() over (
-      order by
-        e.posicion,
-        case when e.tipo_etapa='recogida_taller' then 0 else 1 end,
-        e.creado_en,
-        e.id
+      order by e.posicion,e.creado_en,e.id
     )::integer
   from public.etapas_hotel e
   where e.registro_hotel_id=p_registro_id
@@ -74,7 +72,9 @@ as $function$
 declare
   v_r public.registros_hotel%rowtype;
   v_e public.etapas_hotel%rowtype;
+  v_later public.etapas_hotel%rowtype;
   v_tipo text;
+  v_nombre text;
   v_es_recuperacion boolean:=false;
   v_estado text;
   v_motivo text;
@@ -116,6 +116,50 @@ begin
       'AEIOUUNaeiouun'
     )
   );
+  v_nombre := lower(
+    translate(
+      regexp_replace(btrim(coalesce(v_e.nombre,'')),'[[:space:]]+',' ','g'),
+      'ÁÉÍÓÚÜÑáéíóúüñ',
+      'AEIOUUNaeiouun'
+    )
+  );
+
+  if v_tipo='tramite' and v_nombre in ('tm','nave tm') then
+    select e.* into v_later
+    from public.etapas_hotel e
+    where e.registro_hotel_id=p_registro_id
+      and not e.cancelado
+      and e.estado in ('pendiente','programada','en_curso')
+      and e.posicion>v_e.posicion
+      and lower(
+        translate(
+          btrim(coalesce(e.tipo_etapa,'')),
+          'ÁÉÍÓÚÜÑáéíóúüñ',
+          'AEIOUUNaeiouun'
+        )
+      )='entrada_taller'
+    order by e.posicion,e.creado_en,e.id
+    limit 1;
+
+    if found then
+      if lower(coalesce(v_r.estado,'')) in (
+        'planificado','pendiente_taller','entrada_taller_programada'
+      ) then
+        v_estado:=v_r.estado;
+      elsif v_later.estado='programada' or v_later.fecha_prevista is not null then
+        v_estado:='entrada_taller_programada';
+      else
+        v_estado:='pendiente_taller';
+      end if;
+      return jsonb_build_object(
+        'estado',v_estado,
+        'motivo','tm_neutra_antes_taller',
+        'etapa_id',v_e.id,
+        'posicion',v_e.posicion
+      );
+    end if;
+  end if;
+
   v_es_recuperacion :=
     coalesce(v_e.accion_sistema,'')='recuperar_y_liberar'
     or v_tipo in ('recuperar_ruta','recuperar');
@@ -124,13 +168,20 @@ begin
     v_estado := 'recogido_pendiente_ruta';
     v_motivo := 'primera_t_recuperacion';
   elsif v_tipo='entrada_taller' then
-    if v_e.fecha_inicio_real is not null and v_e.fecha_fin_real is not null
+    if v_e.fecha_inicio_real is not null
+       and v_e.fecha_fin_real is not null
        and v_e.fecha_real is null then
       v_estado := 'terminado_pendiente_recogida';
       v_motivo := 'primera_t_taller_acabada';
-    elsif v_e.fecha_inicio_real is not null and v_e.fecha_real is null then
+    elsif v_e.fecha_inicio_real is not null
+          and v_e.fecha_real is null then
       v_estado := 'en_taller';
       v_motivo := 'primera_t_taller_en_curso';
+    elsif lower(coalesce(v_r.estado,'')) in (
+      'planificado','pendiente_taller','entrada_taller_programada'
+    ) then
+      v_estado := v_r.estado;
+      v_motivo := 'situacion_preentrada_conservada';
     elsif v_e.estado='programada' or v_e.fecha_prevista is not null then
       v_estado := 'entrada_taller_programada';
       v_motivo := 'primera_t_taller_programada';
@@ -175,33 +226,46 @@ declare
   definition text := pg_get_functiondef(
     'app_private.proyectar_situacion_operativa_hotel_alpha75(uuid)'::regprocedure
   );
+
   old_decl text := $old$  v_stage record;
   v_cierre_admin jsonb;$old$;
   new_decl text := $new$  v_stage record;
   v_cierre_admin jsonb;
   v_orden jsonb;$new$;
-  old_physical_select text := $old$    e.lugar,
+
+  old_physical text := $old$  where e.registro_hotel_id = p_registro_id
+    and not e.cancelado
+    and e.estado = 'en_curso'
+    and e.fecha_inicio_real is not null
+    and coalesce(e.fecha_fin_real, e.fecha_real) is null
+    and ($old$;
+  new_physical text := $new$  where e.registro_hotel_id = p_registro_id
+    and not e.cancelado
+    and e.estado in ('en_curso','realizada')
+    and e.fecha_inicio_real is not null
+    and e.fecha_real is null
+    and ($new$;
+
+  old_select text := $old$    e.lugar,
     t.nombre as taller,
     ct.nombre as centro$old$;
-  new_physical_select text := $new$    e.lugar,
+  new_select text := $new$    e.lugar,
     e.fecha_fin_real,
     t.nombre as taller,
     ct.nombre as centro$new$;
-  old_physical_condition text := $old$    and coalesce(e.fecha_fin_real, e.fecha_real) is null$old$;
-  old_physical_state text := $old$    else
+
+  old_state text := $old$    else
       v_estado := 'en_taller';
     end if;$old$;
-  new_physical_state text := $new$    else
+  new_state text := $new$    else
       v_estado := case
         when v_stage.fecha_fin_real is not null
           then 'terminado_pendiente_recogida'
         else 'en_taller'
       end;
     end if;$new$;
-  old_generic_select text := $old$        select e.id, e.lugar, e.tipo_etapa, e.accion_sistema$old$;
-  new_generic_select text := $new$        select e.id, e.lugar, e.tipo_etapa, e.accion_sistema, e.fecha_fin_real$new$;
-  old_generic_block text := $old$          v_lugar := coalesce(nullif(btrim(v_stage.lugar), ''), v_r.lugar);
-          if (
+
+  old_generic_if text := $old$          if (
                coalesce(v_stage.accion_sistema,'') = 'recuperar_y_liberar'
                or lower(coalesce(v_stage.tipo_etapa,'')) in ('recuperar_ruta','recuperar')
              )
@@ -212,16 +276,8 @@ declare
              ) then
             v_estado := 'recogido_pendiente_ruta';
             v_motivo := 'recuperacion_en_curso';
-          else
-            v_estado := case
-              when v_r.estado in ('tramite','gestion','en_taller','asistencia_24h')
-                then v_r.estado
-              else 't_pendientes'
-            end;
-            v_motivo := 'otra_t_en_curso';
-          end if;$old$;
-  new_generic_block text := $new$          v_lugar := coalesce(nullif(btrim(v_stage.lugar), ''), v_r.lugar);
-          if lower(coalesce(v_stage.tipo_etapa,''))='recogida_taller' then
+          else$old$;
+  new_generic_if text := $new$          if lower(coalesce(v_stage.tipo_etapa,''))='recogida_taller' then
             v_estado := 'terminado_pendiente_recogida';
             v_motivo := 'recogida_taller_en_curso';
           elsif (
@@ -235,14 +291,8 @@ declare
              ) then
             v_estado := 'recogido_pendiente_ruta';
             v_motivo := 'recuperacion_en_curso';
-          else
-            v_estado := case
-              when v_r.estado in ('tramite','gestion','en_taller','asistencia_24h')
-                then v_r.estado
-              else 't_pendientes'
-            end;
-            v_motivo := 'otra_t_en_curso';
-          end if;$new$;
+          else$new$;
+
   old_pending_anchor text := $old$        else
         select
           p.id,$old$;
@@ -271,34 +321,20 @@ declare
         select
           p.id,$new$;
 begin
-  if position(old_decl in definition)=0 then
-    raise exception 'MG75-ESTADO-REAL-ORDEN-001: declaración no localizada';
-  end if;
-  if position(old_physical_select in definition)=0 then
-    raise exception 'MG75-ESTADO-REAL-ORDEN-001: select físico no localizado';
-  end if;
-  if position(old_physical_condition in definition)=0 then
-    raise exception 'MG75-ESTADO-REAL-ORDEN-001: condición física no localizada';
-  end if;
-  if position(old_physical_state in definition)=0 then
-    raise exception 'MG75-ESTADO-REAL-ORDEN-001: estado físico no localizado';
-  end if;
-  if position(old_generic_select in definition)=0 then
-    raise exception 'MG75-ESTADO-REAL-ORDEN-001: select genérico no localizado';
-  end if;
-  if position(old_generic_block in definition)=0 then
-    raise exception 'MG75-ESTADO-REAL-ORDEN-001: bloque genérico no localizado';
-  end if;
-  if position(old_pending_anchor in definition)=0 then
-    raise exception 'MG75-ESTADO-REAL-ORDEN-001: punto de orden pendiente no localizado';
+  if position(old_decl in definition)=0
+     or position(old_physical in definition)=0
+     or position(old_select in definition)=0
+     or position(old_state in definition)=0
+     or position(old_generic_if in definition)=0
+     or position(old_pending_anchor in definition)=0 then
+    raise exception 'MG75-ESTADO-REAL-ORDEN-001: cambió la función de proyección; revisar antes de aplicar';
   end if;
 
   definition := replace(definition,old_decl,new_decl);
-  definition := replace(definition,old_physical_select,new_physical_select);
-  definition := replace(definition,old_physical_condition,'    and e.fecha_real is null');
-  definition := replace(definition,old_physical_state,new_physical_state);
-  definition := replace(definition,old_generic_select,new_generic_select);
-  definition := replace(definition,old_generic_block,new_generic_block);
+  definition := replace(definition,old_physical,new_physical);
+  definition := replace(definition,old_select,new_select);
+  definition := replace(definition,old_state,new_state);
+  definition := replace(definition,old_generic_if,new_generic_if);
   definition := replace(definition,old_pending_anchor,new_pending_anchor);
   execute definition;
 end;
@@ -320,12 +356,16 @@ begin
       and not r.cancelado
       and not r.retirado_hotel_activo
       and exists (
-        select 1 from public.etapas_hotel e
+        select 1
+        from public.etapas_hotel e
         where e.registro_hotel_id=r.id
           and not e.cancelado
       )
   loop
-    perform app_private.sincronizar_situacion_operativa_hotel_alpha75(v_id,true);
+    perform app_private.sincronizar_situacion_operativa_hotel_alpha75(
+      v_id,
+      false
+    );
   end loop;
 end;
 $backfill$;
@@ -340,7 +380,8 @@ begin
       and not r.cancelado
       and not r.retirado_hotel_activo
       and exists (
-        select 1 from public.etapas_hotel e
+        select 1
+        from public.etapas_hotel e
         where e.registro_hotel_id=r.id
           and not e.cancelado
       )
