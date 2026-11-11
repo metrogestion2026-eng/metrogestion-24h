@@ -449,7 +449,7 @@ function metrogestionComprobarInstalacionSoloLectura() {
     && preflight.archivo_coincide === true && preflight.receptor_coincide === true;
   const barrerasCerradasLocalmente = barriers.solo_lectura_manual_protegida === true
     && barriers.escritura_segura_manual === false
-    && barriers.pausa_importacion_identidad === true;
+    && barriers.pausa_importacion_identidad === false;
   const motivosEsperados = [];
   if (preflight.version_script_recibida !== preflight.version_script_esperada) motivosEsperados.push('VERSION_SCRIPT_DISTINTA');
   if (preflight.version_preflight_recibida !== preflight.version_preflight) motivosEsperados.push('VERSION_PREFLIGHT_DISTINTA');
@@ -1535,11 +1535,35 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
         trabajos_creados: createdWorks,
       };
     }
+    if (payload.eliminar_propuesta === true) {
+      const rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, payload, sheetState);
+      if (!rowNumber) {
+        return { tipo: 'parada', sync_id: syncId, revision: Number(command.revision),
+          estado: 'aplicado', propuesta_eliminada: false, fila: 0 };
+      }
+      const actual = sheetState?.values?.[rowNumber - 1]
+        || sheet.getRange(rowNumber, 1, 1, 17).getDisplayValues()[0];
+      const note = sheetState?.notesA?.[rowNumber - 1]
+        ?? sheet.getRange(rowNumber,1).getNote();
+      if (metrogestionNotaParadaId_(note)?.toLowerCase() !== syncId.toLowerCase()
+          || metrogestionNormalizar_(actual[7]) !== 'PARADA'
+          || metrogestionNormalizar_(actual[0]) !== metrogestionNormalizar_(payload.dfm)
+          || metrogestionNormalizar_(actual[4]) !== metrogestionNormalizar_(payload.numero_parada)
+          || [actual[9],actual[10],actual[11],actual[15],actual[16]].some(value => !metrogestionVacio_(value))) {
+        throw new Error('La fila ya no es una propuesta provisional I-only; no puede eliminarse automáticamente.');
+      }
+      sheet.deleteRow(rowNumber);
+      if (sheetState?.values) sheetState.values.splice(rowNumber - 1,1);
+      if (sheetState?.notesA) sheetState.notesA.splice(rowNumber - 1,1);
+      if (sheetState?.notesE) sheetState.notesE.splice(rowNumber - 1,1);
+      return { tipo: 'parada', sync_id: syncId, revision: Number(command.revision),
+        estado: 'aplicado', propuesta_eliminada: true, fila: rowNumber };
+    }
     const rolloverSourceRow = metrogestionCerrarPeriodoAnterior_(sheet, payload, syncId, sheetState);
     let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, payload, sheetState);
     if (!rowNumber) rowNumber = metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState);
     const nuevaFila = !rowNumber;
-    if (nuevaFila) rowNumber = metrogestionInsertarFilaParada_(sheet, payload, sheetState);
+    if (nuevaFila) rowNumber = metrogestionInsertarFilaParada_(sheet, payload, sheetState, rolloverSourceRow || 0);
     metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuevaFila, sheetState);
     if (nuevaFila && rolloverSourceRow) {
       metrogestionCopiarFormulasCortePeriodo_(sheet, rolloverSourceRow, rowNumber);
@@ -2222,7 +2246,7 @@ function metrogestionCopiarFormulasCortePeriodo_(sheet, sourceRow, targetRow) {
   });
 }
 
-function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
+function metrogestionInsertarFilaParada_(sheet, payload, sheetState, preferredAnchorRow) {
   const lastRow = sheetState?.values?.length || sheet.getLastRow();
   const values = sheetState?.values?.slice(1).map(row => row.slice(0, 8))
     || sheet.getRange(2, 1, Math.max(lastRow - 1, 1), 8).getDisplayValues();
@@ -2248,7 +2272,20 @@ function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
   // La plantilla aporta formato, nunca un alta ni datos de otro vehículo.
   const templateRow = altaRow || paradaRow || anchorRow || exampleRow;
   if (!templateRow) throw new Error('No existe una fila operativa que pueda utilizarse como plantilla.');
-  anchorRow = anchorRow || lastRow;
+  if (Number.isSafeInteger(preferredAnchorRow) && preferredAnchorRow >= 2 && preferredAnchorRow <= lastRow) {
+    const preferred = sheetState?.values?.[preferredAnchorRow - 1]
+      || sheet.getRange(preferredAnchorRow, 1, 1, 17).getDisplayValues()[0];
+    const sameDfm = metrogestionNormalizar_(preferred[0]) === dfm;
+    const sameStop = metrogestionClaveNumeroParada_(preferred[4])
+      === metrogestionClaveNumeroParada_(payload.numero_parada);
+    const isStop = metrogestionNormalizar_(preferred[7]) === 'PARADA';
+    if (!sameDfm || !sameStop || !isStop) {
+      throw new Error('El tramo anterior no acredita la misma PARADA; no se inserta el nuevo periodo.');
+    }
+    anchorRow = preferredAnchorRow;
+  } else {
+    anchorRow = anchorRow || lastRow;
+  }
   sheet.insertRowAfter(anchorRow);
   const targetRow = anchorRow + 1;
   if (metrogestionTieneRegistroFilasReal_(sheet)) metrogestionAsignarIdFilaNueva_(sheet, targetRow, 'PARADA_METROGESTION');
@@ -2305,6 +2342,8 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
       [actual[4], payload.numero_parada, 'E · actuación', 'texto'],
       [actual[6], payload.sustituto, 'G · sustituto', 'texto'],
       [actual[7], estado, 'H · estado PARADA', 'texto'],
+      [actual[8], payload.fecha_programada, 'I · fecha programada', 'fecha'],
+      [actual[9], payload.fecha_parada, 'J · fecha real de parada', 'fecha'],
       [actual[10], payload.fecha_k, 'K · fecha de recuperación/corte', 'fecha'],
       [actual[11], payload.dias_parada, 'L · días de parada', 'numero'],
       [actual[14], payload.marca, 'O · marca', 'texto'],
@@ -2325,16 +2364,19 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,5,payload.numero_parada,'E · actuación',sheetState,4,'texto');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,7,payload.sustituto,'G · sustituto',sheetState,6,'texto');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,8,estado,'H · estado PARADA',sheetState,7,'texto');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,9,payload.fecha_programada,'I · fecha programada',sheetState,8,'fecha');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,10,payload.fecha_parada,'J · fecha real de parada',sheetState,9,'fecha');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,11,payload.fecha_k,'K · fecha de recuperación/corte',sheetState,10,'fecha');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,12,payload.dias_parada,'L · días de parada',sheetState,11,'numero');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,15,payload.marca,'O · marca',sheetState,14,'texto');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,16,payload.km_facturables,'P · km facturables',sheetState,15,'numero');
+    if (!metrogestionVacio_(payload.km_facturables)) sheet.getRange(rowNumber,16).setNumberFormat('#,##0');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,17,payload.tancament,'Q · cierre/entrada',sheetState,16,'texto');
   }
   if (nuevaFila) {
     sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
     sheet.getRange(rowNumber, 12).setNumberFormat('0');
-    sheet.getRange(rowNumber, 16).setNumberFormat('0.00');
+    sheet.getRange(rowNumber, 16).setNumberFormat('#,##0');
   }
   const paradaCell = sheet.getRange(rowNumber, 1);
   const paradaNoteActual = sheetState?.notesA?.[rowNumber - 1] ?? '';
@@ -3552,6 +3594,17 @@ function metrogestionHojaEnMemoria_(source, photo) {
       this.heights = Object.fromEntries(Object.entries(this.heights).map(([r, h]) => [Number(r) > row ? Number(r) + 1 : r, h]));
       this.operations.push({ method: 'insertRowAfter', row }); return this;
     },
+    deleteRow(row) {
+      if (!Number.isSafeInteger(row) || row < 2 || row > this.rows.length) {
+        throw new Error('El borrado no identifica una fila operativa existente.');
+      }
+      this.rows.splice(row - 1, 1);
+      this.origins.splice(row - 1, 1); this.maxRows--;
+      this.heights = Object.fromEntries(Object.entries(this.heights)
+        .filter(([r]) => Number(r) !== row)
+        .map(([r, h]) => [Number(r) > row ? Number(r) - 1 : r, h]));
+      this.operations.push({ method: 'deleteRow', row }); return this;
+    },
     getRange(row, column, height, width) { return metrogestionRangoEnMemoria_(this, row, column, height || 1, width || 1); },
   };
   return memory;
@@ -3788,6 +3841,37 @@ function metrogestionDiagnosticarInsercionesOrden_(photo, operations) {
       'La invariancia R1C1 no acredita el significado de las fechas, la identidad ni los datos de la orden.'] };
 }
 
+function metrogestionExigirBorradosPlanificables_(photo, operations) {
+  const deletes = (operations || []).filter(op => op?.method === 'deleteRow');
+  if (!deletes.length) return;
+  if (deletes.length !== 1) throw new Error('Una orden no puede borrar más de una propuesta de parada.');
+  const deleted = deletes[0].row;
+  const sheetName = String(photo.sheetName || METROGESTION.sheetName).toUpperCase();
+  photo.rows.forEach((row, r) => row.forEach((cell, c) => {
+    if (!cell.formula) return;
+    if (!cell.r1c1 || /\b(ARRAYFORMULA|IMPORTRANGE|FILTER|QUERY|SEQUENCE|TRANSPOSE|FLATTEN|SPLIT)\s*\(/i.test(cell.formula)) {
+      throw new Error(`El borrado de la propuesta no puede acreditarse por la fórmula ${r + 1}:${c + 1}.`);
+    }
+    const refs = metrogestionReferenciasR1C1Orden_(cell.r1c1);
+    const source = r + 1, sourceAfter = source > deleted ? source - 1 : source;
+    refs.forEach(ref => {
+      const ownSheet = ref.hoja === null || ref.hoja.toUpperCase() === sheetName;
+      if (!ownSheet) return;
+      const target = ref.fila.relativa ? source + ref.fila.valor : ref.fila.valor;
+      if (target === deleted) {
+        throw new Error(`La fila provisional ${deleted} está referenciada por una fórmula; no se elimina automáticamente.`);
+      }
+      const targetAfter = target > deleted ? target - 1 : target;
+      const invariant = ref.fila.relativa
+        ? targetAfter - sourceAfter === ref.fila.valor
+        : targetAfter === target;
+      if (!invariant) {
+        throw new Error(`Borrar la fila provisional ${deleted} cambiaría una fórmula en ${source}:${c + 1}; revisión manual obligatoria.`);
+      }
+    });
+  }));
+}
+
 function metrogestionExigirFormulasPlanificables_(photo, operations) {
   const inserts = metrogestionInsercionesOrden_(photo, operations);
   const diagnostic = inserts.length ? metrogestionDiagnosticarInsercionesOrden_(photo, operations) : null;
@@ -3801,9 +3885,31 @@ function metrogestionExigirFormulasPlanificables_(photo, operations) {
     }
     if (!inserts.length) return;
     const checked = checkedCells.get(`${r + 1}:${c + 1}`);
-    if (!checked.invariante) {
+    const referencias = Array.isArray(checked?.referencias) ? checked.referencias : [];
+    // Una inserción nativa puede desplazar la propia celda de fórmula sin
+    // desplazar su destino. En ese caso cambia el offset R1C1 aunque la fórmula
+    // siga apuntando exactamente a la misma celda lógica. Sólo se modela esta
+    // relocalización cuando TODAS las referencias son celdas simples de esta
+    // misma hoja, dentro de A:Q, y el diagnóstico ya resolvió su fila antes y
+    // después. Rangos, otras hojas y sintaxis no cubierta siguen bloqueando.
+    const relocalizacionAcreditada = checked?.invariante === false
+      && referencias.length > 0
+      && referencias.every(ref => {
+        const celdaSimple = ref.rango === null
+          && Number.isSafeInteger(ref.fila) && ref.fila >= 1
+          && Number.isSafeInteger(ref.fila_despues) && ref.fila_despues >= 1
+          && Number.isSafeInteger(ref.columna) && ref.columna >= 1;
+        if (!celdaSimple) return false;
+        if (ref.hoja_propia === true) return ref.columna <= 17;
+        // Referencia explícita a otra hoja: la inserción sólo ocurre en
+        // MANTENIMENT, por lo que el destino externo debe permanecer idéntico.
+        return typeof ref.hoja === 'string' && ref.hoja.trim() !== ''
+          && ref.fila_despues === ref.fila;
+      });
+    if (!checked.invariante && !relocalizacionAcreditada) {
       throw new Error(`La inserción no está acreditada en ${r + 1}:${c + 1}: ${checked.motivo} No se ha escrito nada.`);
     }
+    if (relocalizacionAcreditada) return;
     const formula = cell.r1c1.replace(/"(?:[^"]|"")*"/g, '');
     const refs = [...formula.matchAll(/(?:^|[^A-Z0-9_])R(\[-?\d+\]|\d+)?C(?:\[-?\d+\]|\d+)?/gi)];
     if (refs.some(match => match[1] && !['[0]', '1'].includes(match[1]))) {
@@ -3912,6 +4018,19 @@ function metrogestionValidarOrdenCompleta_(command, photo) {
     if (payload[name] !== undefined && !Array.isArray(payload[name])) throw new Error('La lista completa de trabajos no es válida.');
   });
   ['fecha_programada', 'fecha_parada', 'fecha_k'].forEach(name => metrogestionFechaOrden_(payload[name]));
+  if (payload.propuesta_parada === true) {
+    if (!payload.fecha_programada) {
+      throw new Error('Una propuesta de parada debe acreditar únicamente la fecha programada en I.');
+    }
+    if (payload.fecha_parada || payload.fecha_k || payload.dias_parada !== undefined
+        || payload.km_facturables !== undefined || metrogestionNormalizar_(payload.tancament)) {
+      throw new Error('Una propuesta de parada no puede contener J, K, días, km ni TANCAMENT.');
+    }
+    if (payload.eliminar_propuesta === true
+        && ((payload.trabajos_crear || []).length || (payload.trabajos_asignados || []).length)) {
+      throw new Error('El borrado de una propuesta no puede mezclar trabajos.');
+    }
+  }
   if (payload.fecha_k && payload.fecha_parada && payload.fecha_k < payload.fecha_parada) throw new Error('La fecha de cierre es anterior a la entrada de la parada.');
   if (payload.cierre_periodo_anterior) {
     const previous = payload.cierre_periodo_anterior;
@@ -4123,6 +4242,7 @@ function metrogestionPlanificarOrdenCompleta_(sheet, command) {
     notesA: photo.rows.map(row => row[0].note), notesE: photo.rows.map(row => row[4].note), cierresAdministrativos: [] };
   const confirmation = metrogestionAplicarComandos_(memory, [planningCommand], state, [])[0];
   confirmation.payload_sha256 = reference.payload_sha256;
+  metrogestionExigirBorradosPlanificables_(photo, memory.operations);
   const formulaDiagnostic = metrogestionExigirFormulasPlanificables_(photo, memory.operations);
   if (memory.filter) {
     memory.filter = { ...memory.filter, filas: Math.min(memory.maxRows - memory.filter.fila + 1,
@@ -4219,6 +4339,7 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
         sheet.insertRowAfter(op.row);
         insertedRows.push(op.row + 1);
       }
+      else if (op.method === 'deleteRow') sheet.deleteRow(op.row)
       else if (op.method === 'setRowHeight') sheet.setRowHeight(op.row, op.height);
       else if (op.method === 'enlazarArchivo') metrogestionAplicarArchivoPlan_(sheet, plan.memory, plan.memory.drivePlans[op.driveIndex]);
       else if (op.method === 'copyTo') {
