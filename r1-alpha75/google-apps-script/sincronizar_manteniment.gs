@@ -2318,6 +2318,8 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
       [actual[4], payload.numero_parada, 'E · actuación', 'texto'],
       [actual[6], payload.sustituto, 'G · sustituto', 'texto'],
       [actual[7], estado, 'H · estado PARADA', 'texto'],
+      [actual[8], payload.fecha_programada, 'I · fecha programada', 'fecha'],
+      [actual[9], payload.fecha_parada, 'J · fecha real de parada', 'fecha'],
       [actual[10], payload.fecha_k, 'K · fecha de recuperación/corte', 'fecha'],
       [actual[11], payload.dias_parada, 'L · días de parada', 'numero'],
       [actual[14], payload.marca, 'O · marca', 'texto'],
@@ -2338,16 +2340,19 @@ function metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuev
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,5,payload.numero_parada,'E · actuación',sheetState,4,'texto');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,7,payload.sustituto,'G · sustituto',sheetState,6,'texto');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,8,estado,'H · estado PARADA',sheetState,7,'texto');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,9,payload.fecha_programada,'I · fecha programada',sheetState,8,'fecha');
+    metrogestionCompletarCeldaSegura_(sheet,rowNumber,10,payload.fecha_parada,'J · fecha real de parada',sheetState,9,'fecha');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,11,payload.fecha_k,'K · fecha de recuperación/corte',sheetState,10,'fecha');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,12,payload.dias_parada,'L · días de parada',sheetState,11,'numero');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,15,payload.marca,'O · marca',sheetState,14,'texto');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,16,payload.km_facturables,'P · km facturables',sheetState,15,'numero');
+    if (!metrogestionVacio_(payload.km_facturables)) sheet.getRange(rowNumber,16).setNumberFormat('#,##0');
     metrogestionCompletarCeldaSegura_(sheet,rowNumber,17,payload.tancament,'Q · cierre/entrada',sheetState,16,'texto');
   }
   if (nuevaFila) {
     sheet.getRange(rowNumber, 9, 1, 3).setNumberFormat('dd/MM/yyyy');
     sheet.getRange(rowNumber, 12).setNumberFormat('0');
-    sheet.getRange(rowNumber, 16).setNumberFormat('0.00');
+    sheet.getRange(rowNumber, 16).setNumberFormat('#,##0');
   }
   const paradaCell = sheet.getRange(rowNumber, 1);
   const paradaNoteActual = sheetState?.notesA?.[rowNumber - 1] ?? '';
@@ -3947,6 +3952,19 @@ function metrogestionValidarOrdenCompleta_(command, photo) {
     if (payload[name] !== undefined && !Array.isArray(payload[name])) throw new Error('La lista completa de trabajos no es válida.');
   });
   ['fecha_programada', 'fecha_parada', 'fecha_k'].forEach(name => metrogestionFechaOrden_(payload[name]));
+  if (payload.propuesta_parada === true) {
+    if (!payload.fecha_programada) {
+      throw new Error('Una propuesta de parada debe acreditar únicamente la fecha programada en I.');
+    }
+    if (payload.fecha_parada || payload.fecha_k || payload.dias_parada !== undefined
+        || payload.km_facturables !== undefined || metrogestionNormalizar_(payload.tancament)) {
+      throw new Error('Una propuesta de parada no puede contener J, K, días, km ni TANCAMENT.');
+    }
+    if (payload.eliminar_propuesta === true
+        && ((payload.trabajos_crear || []).length || (payload.trabajos_asignados || []).length)) {
+      throw new Error('El borrado de una propuesta no puede mezclar trabajos.');
+    }
+  }
   if (payload.fecha_k && payload.fecha_parada && payload.fecha_k < payload.fecha_parada) throw new Error('La fecha de cierre es anterior a la entrada de la parada.');
   if (payload.cierre_periodo_anterior) {
     const previous = payload.cierre_periodo_anterior;
