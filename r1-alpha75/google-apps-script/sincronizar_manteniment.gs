@@ -1535,6 +1535,30 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
         trabajos_creados: createdWorks,
       };
     }
+    if (payload.eliminar_propuesta === true) {
+      const rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, payload, sheetState);
+      if (!rowNumber) {
+        return { tipo: 'parada', sync_id: syncId, revision: Number(command.revision),
+          estado: 'aplicado', propuesta_eliminada: false, fila: 0 };
+      }
+      const actual = sheetState?.values?.[rowNumber - 1]
+        || sheet.getRange(rowNumber, 1, 1, 17).getDisplayValues()[0];
+      const note = sheetState?.notesA?.[rowNumber - 1]
+        ?? sheet.getRange(rowNumber,1).getNote();
+      if (metrogestionNotaParadaId_(note)?.toLowerCase() !== syncId.toLowerCase()
+          || metrogestionNormalizar_(actual[7]) !== 'PARADA'
+          || metrogestionNormalizar_(actual[0]) !== metrogestionNormalizar_(payload.dfm)
+          || metrogestionNormalizar_(actual[4]) !== metrogestionNormalizar_(payload.numero_parada)
+          || [actual[9],actual[10],actual[11],actual[15],actual[16]].some(value => !metrogestionVacio_(value))) {
+        throw new Error('La fila ya no es una propuesta provisional I-only; no puede eliminarse automáticamente.');
+      }
+      sheet.deleteRow(rowNumber);
+      if (sheetState?.values) sheetState.values.splice(rowNumber - 1,1);
+      if (sheetState?.notesA) sheetState.notesA.splice(rowNumber - 1,1);
+      if (sheetState?.notesE) sheetState.notesE.splice(rowNumber - 1,1);
+      return { tipo: 'parada', sync_id: syncId, revision: Number(command.revision),
+        estado: 'aplicado', propuesta_eliminada: true, fila: rowNumber };
+    }
     const rolloverSourceRow = metrogestionCerrarPeriodoAnterior_(sheet, payload, syncId, sheetState);
     let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, payload, sheetState);
     if (!rowNumber) rowNumber = metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState);
@@ -3570,6 +3594,17 @@ function metrogestionHojaEnMemoria_(source, photo) {
       this.heights = Object.fromEntries(Object.entries(this.heights).map(([r, h]) => [Number(r) > row ? Number(r) + 1 : r, h]));
       this.operations.push({ method: 'insertRowAfter', row }); return this;
     },
+    deleteRow(row) {
+      if (!Number.isSafeInteger(row) || row < 2 || row > this.rows.length) {
+        throw new Error('El borrado no identifica una fila operativa existente.');
+      }
+      this.rows.splice(row - 1, 1);
+      this.origins.splice(row - 1, 1); this.maxRows--;
+      this.heights = Object.fromEntries(Object.entries(this.heights)
+        .filter(([r]) => Number(r) !== row)
+        .map(([r, h]) => [Number(r) > row ? Number(r) - 1 : r, h]));
+      this.operations.push({ method: 'deleteRow', row }); return this;
+    },
     getRange(row, column, height, width) { return metrogestionRangoEnMemoria_(this, row, column, height || 1, width || 1); },
   };
   return memory;
@@ -3804,6 +3839,37 @@ function metrogestionDiagnosticarInsercionesOrden_(photo, operations) {
       'No se han inventariado protecciones, formatos condicionales, rangos con nombre ni validaciones fuera de la fotografía.',
       'No se modelan las referencias de fórmulas copiadas o creadas durante el plan.',
       'La invariancia R1C1 no acredita el significado de las fechas, la identidad ni los datos de la orden.'] };
+}
+
+function metrogestionExigirBorradosPlanificables_(photo, operations) {
+  const deletes = (operations || []).filter(op => op?.method === 'deleteRow');
+  if (!deletes.length) return;
+  if (deletes.length !== 1) throw new Error('Una orden no puede borrar más de una propuesta de parada.');
+  const deleted = deletes[0].row;
+  const sheetName = String(photo.sheetName || METROGESTION.sheetName).toUpperCase();
+  photo.rows.forEach((row, r) => row.forEach((cell, c) => {
+    if (!cell.formula) return;
+    if (!cell.r1c1 || /\b(ARRAYFORMULA|IMPORTRANGE|FILTER|QUERY|SEQUENCE|TRANSPOSE|FLATTEN|SPLIT)\s*\(/i.test(cell.formula)) {
+      throw new Error(`El borrado de la propuesta no puede acreditarse por la fórmula ${r + 1}:${c + 1}.`);
+    }
+    const refs = metrogestionReferenciasR1C1Orden_(cell.r1c1);
+    const source = r + 1, sourceAfter = source > deleted ? source - 1 : source;
+    refs.forEach(ref => {
+      const ownSheet = ref.hoja === null || ref.hoja.toUpperCase() === sheetName;
+      if (!ownSheet) return;
+      const target = ref.fila.relativa ? source + ref.fila.valor : ref.fila.valor;
+      if (target === deleted) {
+        throw new Error(`La fila provisional ${deleted} está referenciada por una fórmula; no se elimina automáticamente.`);
+      }
+      const targetAfter = target > deleted ? target - 1 : target;
+      const invariant = ref.fila.relativa
+        ? targetAfter - sourceAfter === ref.fila.valor
+        : targetAfter === target;
+      if (!invariant) {
+        throw new Error(`Borrar la fila provisional ${deleted} cambiaría una fórmula en ${source}:${c + 1}; revisión manual obligatoria.`);
+      }
+    });
+  }));
 }
 
 function metrogestionExigirFormulasPlanificables_(photo, operations) {
@@ -4176,6 +4242,7 @@ function metrogestionPlanificarOrdenCompleta_(sheet, command) {
     notesA: photo.rows.map(row => row[0].note), notesE: photo.rows.map(row => row[4].note), cierresAdministrativos: [] };
   const confirmation = metrogestionAplicarComandos_(memory, [planningCommand], state, [])[0];
   confirmation.payload_sha256 = reference.payload_sha256;
+  metrogestionExigirBorradosPlanificables_(photo, memory.operations);
   const formulaDiagnostic = metrogestionExigirFormulasPlanificables_(photo, memory.operations);
   if (memory.filter) {
     memory.filter = { ...memory.filter, filas: Math.min(memory.maxRows - memory.filter.fila + 1,
@@ -4272,6 +4339,7 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
         sheet.insertRowAfter(op.row);
         insertedRows.push(op.row + 1);
       }
+      else if (op.method === 'deleteRow') sheet.deleteRow(op.row)
       else if (op.method === 'setRowHeight') sheet.setRowHeight(op.row, op.height);
       else if (op.method === 'enlazarArchivo') metrogestionAplicarArchivoPlan_(sheet, plan.memory, plan.memory.drivePlans[op.driveIndex]);
       else if (op.method === 'copyTo') {
