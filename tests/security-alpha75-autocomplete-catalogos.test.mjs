@@ -36,5 +36,5 @@ test('la caché del editor activo se renueva hasta la entrada de Alpha75', async
   assert.match(boot, /history-native\.js\?v=75\.26-movimiento-taller-001/);
   const html = await read('r1-alpha75/index.html');
   assert.match(html, /editable-catalogue\.css\?v=75\.26-movimiento-taller-001/);
-  assert.match(html, /boot75\.js\?v=75\.26-nav-current-001/);
+  assert.match(html, /boot75\.js\?v=75\.26-estado-real-orden-001/);
 });
