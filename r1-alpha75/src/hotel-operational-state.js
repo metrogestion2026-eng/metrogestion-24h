@@ -325,6 +325,10 @@ function deriveNewFlowOperationalState(ficha = {}, stages = []) {
 
     const situation = nextStageSituation(stage);
     if (!situation) continue;
+    if (['tramite', 'gestion'].includes(situation)
+        && normalized(ficha.estado) === 't_pendientes') {
+      return 't_pendientes';
+    }
     if (isNewFlowEntry(stage) && !hasFacts) {
       const current = normalized(ficha.estado);
       if (current === 'realizada' && tasks.some(item => typeKey(item.tipo_etapa) === '24h'
