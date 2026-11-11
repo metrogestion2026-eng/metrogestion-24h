@@ -254,6 +254,12 @@ function recoveryPreview(ficha, stages) {
   return { required: true, complete: false };
 }
 
+function isNeutralTmProcedure(stage = {}) {
+  const type = typeKey(stage.tipo_etapa);
+  const name = typeKey(stage.nombre).replace(/\s+/g, ' ');
+  return type === 'tramite' && ['tm', 'nave tm'].includes(name);
+}
+
 function nextStageSituation(stage = {}) {
   const type = typeKey(stage.tipo_etapa);
   if (type === 'entrada_taller') {
@@ -304,13 +310,25 @@ function deriveNewFlowOperationalState(ficha = {}, stages = []) {
       continue;
     }
 
+    if (isNeutralTmProcedure(stage)) {
+      const laterWorkshop = active.find(candidate =>
+        stagePosition(candidate) > stagePosition(stage)
+        && isNewFlowEntry(candidate)
+        && normalized(candidate.estado) !== 'realizada'
+      );
+      if (laterWorkshop) {
+        const current = normalized(ficha.estado);
+        if (PRE_ENTRY_STATES.has(current)) return current;
+        return laterWorkshop.fecha_prevista ? 'entrada_taller_programada' : 'pendiente_taller';
+      }
+    }
+
     const situation = nextStageSituation(stage);
     if (!situation) continue;
     if (isNewFlowEntry(stage) && !hasFacts) {
       const current = normalized(ficha.estado);
       if (current === 'realizada' && tasks.some(item => typeKey(item.tipo_etapa) === '24h'
         && normalized(item.estado) === 'realizada')) return situation;
-      if (current === 'planificado' && !stage.fecha_prevista) return 'pendiente_taller';
       return PRE_ENTRY_STATES.has(current) ? current : situation;
     }
     return situation;
