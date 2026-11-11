@@ -43,7 +43,7 @@ test('la candidata carga la derivación actual y conserva la validación del edi
   const editor = await readFile('r1-alpha75/src/hotel-editor.js', 'utf8');
   const html = await readFile('r1-alpha75/index.html', 'utf8');
   const boot = await readFile('r1-alpha75/src/boot75.js', 'utf8');
-  assert.match(main, /hotel-operational-state\.js\?v=75\.26-recuperacion-activa-001/);
+  assert.match(main, /hotel-operational-state\.js\?v=75\.26-estado-real-orden-001/);
   assert.match(editor, /hotel-editor-validation\.js\?v=75\.23-hf18/);
   assert.match(html, /boot75\.js\?v=75\.26/);
   assert.match(boot, /hotel-native\.js\?v=75\.26-movimiento-taller-001/);
