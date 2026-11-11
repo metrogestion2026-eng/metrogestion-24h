@@ -188,7 +188,6 @@ declare
     t.nombre as taller,
     ct.nombre as centro$new$;
   old_physical_condition text := $old$    and coalesce(e.fecha_fin_real, e.fecha_real) is null$old$;
-  new_physical_condition text := $new$    and e.fecha_real is null$considered$new$;
   old_physical_state text := $old$    else
       v_estado := 'en_taller';
     end if;$old$;
