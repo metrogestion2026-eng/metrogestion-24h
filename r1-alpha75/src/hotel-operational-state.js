@@ -280,35 +280,39 @@ function deriveNewFlowOperationalState(ficha = {}, stages = []) {
   const decision = recoveryPreview(ficha, Array.isArray(stages) ? stages : []);
   if (!active.length) return normalized(ficha.estado) || 'pendiente_taller';
   const tasks = active.filter(stage => !isRecovery(stage));
-  const activeRecovery = active.find(stage =>
-    isRecovery(stage)
-    && ['pendiente', 'programada', 'en_curso'].includes(normalized(stage.estado))
-  );
   const recovery = decision.required ? active.find(isRecovery) : null;
   const hasFacts = hasStageDrivenSituation(ficha, active);
 
-  // Una recuperación explícita pendiente o en curso ya acredita que el
-  // vehículo está pendiente de recuperar. No debe degradarse a T pendientes
-  // por faltar una T separada de recogida_taller.
-  if (activeRecovery && decision.required) return 'recogido_pendiente_ruta';
-
-  // Una estancia física abierta conserva prioridad sobre entradas futuras.
+  // Una estancia física realmente abierta manda sobre cualquier T futura,
+  // porque describe dónde está el vehículo ahora.
   const inWorkshop = tasks.find(stage => isNewFlowEntry(stage) && stage.fecha_inicio_real && !stage.fecha_real);
   if (inWorkshop) {
     if (inWorkshop.fecha_fin_real) return 'terminado_pendiente_recogida';
     const current = normalized(ficha.estado);
     return EXCEPTION_STATES.has(current) ? current : 'en_taller';
   }
-  for (const stage of tasks) {
+
+  // Fuera de una estancia física abierta, manda el orden real de las T.
+  // Recuperar no tiene prioridad por ser Recuperar: solo manda cuando llega
+  // su turno en la secuencia que el usuario ha decidido.
+  for (const stage of active) {
+    if (normalized(stage.estado) === 'realizada' || stage.fecha_real) continue;
+
+    if (isRecovery(stage)) {
+      if (decision.conflict) return normalized(ficha.estado) || 'pendiente_taller';
+      if (decision.required) return 'recogido_pendiente_ruta';
+      continue;
+    }
+
     const situation = nextStageSituation(stage);
     if (!situation) continue;
     if (isNewFlowEntry(stage) && !hasFacts) {
       const current = normalized(ficha.estado);
       if (current === 'realizada' && tasks.some(item => typeKey(item.tipo_etapa) === '24h'
         && normalized(item.estado) === 'realizada')) return situation;
+      if (current === 'planificado' && !stage.fecha_prevista) return 'pendiente_taller';
       return PRE_ENTRY_STATES.has(current) ? current : situation;
     }
-    if (['tramite', 'gestion'].includes(situation) && normalized(ficha.estado) === 't_pendientes') return 't_pendientes';
     return situation;
   }
   // Un conflicto de modalidad impide inferir la recuperación o el cierre,
