@@ -1539,7 +1539,7 @@ function metrogestionAplicarComandos_(sheet, commands, sheetState, currentWorks)
     let rowNumber = metrogestionBuscarFilaPorSyncId_(sheet, syncId, payload, sheetState);
     if (!rowNumber) rowNumber = metrogestionBuscarFilaParadaExistente_(sheet, payload, sheetState);
     const nuevaFila = !rowNumber;
-    if (nuevaFila) rowNumber = metrogestionInsertarFilaParada_(sheet, payload, sheetState);
+    if (nuevaFila) rowNumber = metrogestionInsertarFilaParada_(sheet, payload, sheetState, rolloverSourceRow || 0);
     metrogestionEscribirFilaParada_(sheet, rowNumber, payload, syncId, nuevaFila, sheetState);
     if (nuevaFila && rolloverSourceRow) {
       metrogestionCopiarFormulasCortePeriodo_(sheet, rolloverSourceRow, rowNumber);
@@ -2222,7 +2222,7 @@ function metrogestionCopiarFormulasCortePeriodo_(sheet, sourceRow, targetRow) {
   });
 }
 
-function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
+function metrogestionInsertarFilaParada_(sheet, payload, sheetState, preferredAnchorRow) {
   const lastRow = sheetState?.values?.length || sheet.getLastRow();
   const values = sheetState?.values?.slice(1).map(row => row.slice(0, 8))
     || sheet.getRange(2, 1, Math.max(lastRow - 1, 1), 8).getDisplayValues();
@@ -2248,7 +2248,20 @@ function metrogestionInsertarFilaParada_(sheet, payload, sheetState) {
   // La plantilla aporta formato, nunca un alta ni datos de otro vehículo.
   const templateRow = altaRow || paradaRow || anchorRow || exampleRow;
   if (!templateRow) throw new Error('No existe una fila operativa que pueda utilizarse como plantilla.');
-  anchorRow = anchorRow || lastRow;
+  if (Number.isSafeInteger(preferredAnchorRow) && preferredAnchorRow >= 2 && preferredAnchorRow <= lastRow) {
+    const preferred = sheetState?.values?.[preferredAnchorRow - 1]
+      || sheet.getRange(preferredAnchorRow, 1, 1, 17).getDisplayValues()[0];
+    const sameDfm = metrogestionNormalizar_(preferred[0]) === dfm;
+    const sameStop = metrogestionClaveNumeroParada_(preferred[4])
+      === metrogestionClaveNumeroParada_(payload.numero_parada);
+    const isStop = metrogestionNormalizar_(preferred[7]) === 'PARADA';
+    if (!sameDfm || !sameStop || !isStop) {
+      throw new Error('El tramo anterior no acredita la misma PARADA; no se inserta el nuevo periodo.');
+    }
+    anchorRow = preferredAnchorRow;
+  } else {
+    anchorRow = anchorRow || lastRow;
+  }
   sheet.insertRowAfter(anchorRow);
   const targetRow = anchorRow + 1;
   if (metrogestionTieneRegistroFilasReal_(sheet)) metrogestionAsignarIdFilaNueva_(sheet, targetRow, 'PARADA_METROGESTION');
