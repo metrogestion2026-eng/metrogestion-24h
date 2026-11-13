@@ -4,8 +4,9 @@ import {
   bindCheckbox, bindText, createCheckbox, createInput, createTextarea,
   fieldLabel, makeNewStage, makeNewWork, stagesPayload
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
-import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js?v=75.26-dropdown-open-003';
-import { catalogueCodeForOperationalState, deriveStageOperationalState } from './stage-operational-state.js?v=75.23-hf9';
+import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js?v=75.26-taller-hitos-001';
+import { catalogueCodeForOperationalState, deriveStageOperationalState } from './stage-operational-state.js?v=75.26-taller-hitos-001';
+import { usesWorkshopMilestones } from './workshop-milestones.js?v=75.26-taller-hitos-001';
 import { createStageDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { createPendingStageDocuments } from './editor-pending-documents.js?v=75.23-hf15';
 import {
@@ -340,8 +341,7 @@ export function renderStagesSection(detail, markDirty, onOperationalChange, {
       if (!stage.id) refreshOperationalState();
 
       const stageType = String(stage.tipo_etapa || '').trim().toLocaleLowerCase('es-ES');
-      const isNewFlowEntry = detail.ficha.modelo_flujo_taller === 'entrada_hitos_v1'
-        && stageType === 'entrada_taller';
+      const isNewFlowEntry = usesWorkshopMilestones(stage, detail.ficha.modelo_flujo_taller);
       const isProcedure = stageType === 'trámite' || stageType === 'tramite';
       const grid = element('div', { className: 'editor-grid' }, [
         fieldLabel('Nombre de la T', name),

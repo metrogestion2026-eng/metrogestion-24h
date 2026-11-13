@@ -319,10 +319,10 @@ test('Editor completo de Hotel → cadena SQL real, continuidad y fechas precisa
       const card = await openHotel(page, normal.destination.id, { edit: false });
       const toggle = card.locator('.a75-card-stages-toggle');
       if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
-      const recovery = card.locator(`[data-stage-quick-id="${normal.recovery.id}"] .a67-quick-button`);
+      const recovery = card.locator(`[data-stage-quick-id="${normal.recovery.id}"] .a75-quick-button`);
       await recovery.click();
       await page.waitForFunction(id => {
-        const button = document.querySelector(`[data-stage-quick-id="${id}"] .a67-quick-button`);
+        const button = document.querySelector(`[data-stage-quick-id="${id}"] .a75-quick-button`);
         return button && !button.disabled;
       }, normal.recovery.id);
       const recovered = await waitForRpc(page, 'marcar_t_realizada_rapida', () => recovery.click());

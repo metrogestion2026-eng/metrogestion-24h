@@ -1,6 +1,8 @@
+import { isWorkshopEntryStage } from './workshop-milestones.js?v=75.26-taller-hitos-001';
+
 export function deriveStageOperationalState(stage = {}, model = 'legacy') {
   if (stage.cancelado) return 'anulada';
-  const isWorkshopEntry = String(stage.tipo_etapa || '').trim().toLocaleLowerCase('es-ES') === 'entrada_taller';
+  const isWorkshopEntry = isWorkshopEntryStage(stage);
   if (model === 'entrada_hitos_v1' && isWorkshopEntry) {
     if (stage.fecha_real) return 'realizada';
     if (stage.fecha_fin_real || stage.fecha_inicio_real) return 'en_curso';

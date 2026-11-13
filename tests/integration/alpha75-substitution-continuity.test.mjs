@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { FIXTURE_ACTOR, FIXTURE_BOARD, one, snapshotProtectedFacts } from '../sql/local-postgres-harness.mjs';
 import { createContinuityFixture, seedContinuityPair } from '../sql/continuity-scenarios.mjs';
 import { recoveryInventory } from '../sql/recovery-scenarios.mjs';
-import { startBrowserServer } from './browser-server.mjs';
+import { startBrowserServer, callsWithoutWorkshopContext } from './browser-server.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -347,13 +347,13 @@ test('Continuidad explícita: navegador real → RPC → PostgreSQL17 y cuatro l
       const card = await openHotel(page, normal.destination.id);
       const toggle = card.locator('.a75-card-stages-toggle');
       if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
-      const button = card.locator(`[data-stage-quick-id="${normal.recovery.id}"] .a67-quick-button`);
+      const button = card.locator(`[data-stage-quick-id="${normal.recovery.id}"] .a75-quick-button`);
       await button.waitFor({ state: 'visible' });
-      const callsBefore = server.calls.length;
+      const callsBefore = callsWithoutWorkshopContext(server).length;
       await button.click();
-      assert.equal(server.calls.length, callsBefore, 'The first recovery press only arms the action');
+      assert.equal(callsWithoutWorkshopContext(server).length, callsBefore, 'The first recovery press only arms the action');
       await page.waitForFunction(id => {
-        const node = document.querySelector(`[data-stage-quick-id="${id}"] .a67-quick-button`);
+        const node = document.querySelector(`[data-stage-quick-id="${id}"] .a75-quick-button`);
         return node && !node.disabled;
       }, normal.recovery.id);
       const response = await waitForRpc(page, 'marcar_t_realizada_rapida', () => button.click());

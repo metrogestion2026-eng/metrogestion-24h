@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { FIXTURE_ACTOR, one, snapshotProtectedFacts } from '../sql/local-postgres-harness.mjs';
 import { createContinuityFixture } from '../sql/continuity-scenarios.mjs';
 import { seedRecoveryScenario, recoveryInventory } from '../sql/recovery-scenarios.mjs';
-import { startBrowserServer } from './browser-server.mjs';
+import { startBrowserServer, callsWithoutWorkshopContext } from './browser-server.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -73,17 +73,17 @@ async function openHotel(page, id) {
 }
 
 async function armRecovery(page, card, stageId, server) {
-  const button = card.locator(`[data-stage-quick-id="${stageId}"] .a67-quick-button`);
+  const button = card.locator(`[data-stage-quick-id="${stageId}"] .a75-quick-button`);
   await button.waitFor({ state: 'visible' });
   assert.match(await button.textContent(), /Marcar recuperación realizada/);
-  const before = server.calls.length;
+  const before = callsWithoutWorkshopContext(server).length;
   await button.click();
   assert.equal(await button.isDisabled(), true, 'First press must not confirm immediately');
-  assert.equal(server.calls.length, before, 'Arming must not send a write');
-  assert.match(await card.locator(`[data-stage-quick-id="${stageId}"] .a67-quick-status`).textContent(),
+  assert.equal(callsWithoutWorkshopContext(server).length, before, 'Arming must not send a write');
+  assert.match(await card.locator(`[data-stage-quick-id="${stageId}"] .a75-quick-status`).textContent(),
     /pondrá la ficha como recuperada y liberará el sustituto/);
   await page.waitForFunction(id => {
-    const button = document.querySelector(`[data-stage-quick-id="${id}"] .a67-quick-button`);
+    const button = document.querySelector(`[data-stage-quick-id="${id}"] .a75-quick-button`);
     return button && !button.disabled;
   }, stageId);
   return { button, before };
@@ -193,10 +193,10 @@ test('Recuperación explícita e Histórico reales → PostgreSQL17 aislado', { 
       assert.equal(result.error, null, result.error?.message);
       assert.equal(result.data.ok, true);
       assert.equal(result.data.registro_estado, 'recuperado');
-      assert.equal(server.calls.length, callCount + 1);
-      assert.deepEqual(Object.keys(server.calls.at(-1).args).sort(), ['p_etapa_id', 'p_request_id', 'p_version']);
-      assert.equal(server.calls.at(-1).args.p_etapa_id, recovered.recovery.id);
-      assert.match(await card.locator('.a67-quick-success').textContent(), /ruta recuperada y sustituto liberado/);
+      assert.equal(callsWithoutWorkshopContext(server).length, callCount + 1);
+      assert.deepEqual(Object.keys(callsWithoutWorkshopContext(server).at(-1).args).sort(), ['p_etapa_id', 'p_request_id', 'p_version']);
+      assert.equal(callsWithoutWorkshopContext(server).at(-1).args.p_etapa_id, recovered.recovery.id);
+      assert.match(await card.locator('.a75-quick-success').textContent(), /ruta recuperada y sustituto liberado/);
       const after = await recoveryInventory(fixture.admin, recovered.dfm, recovered.reserve);
       const upperTime = await one(fixture.admin, 'SELECT clock_timestamp() AS value');
       const finished = after.t.find(row => row.id === recovered.recovery.id);
@@ -241,7 +241,7 @@ test('Recuperación explícita e Histórico reales → PostgreSQL17 aislado', { 
 
     await t.test('una versión obsoleta rechazada por PostgreSQL conserva la T, la reserva y el control visible', async () => {
       const card = await openHotel(page, stale.targetId);
-      await card.locator(`[data-stage-quick-id="${stale.recovery.id}"] .a67-quick-button`).waitFor({ state: 'visible' });
+      await card.locator(`[data-stage-quick-id="${stale.recovery.id}"] .a75-quick-button`).waitFor({ state: 'visible' });
       await fixture.admin.query(`UPDATE public.etapas_hotel SET observaciones=observaciones || ' · ajuste concurrente sintético'
         WHERE id=$1`, [stale.recovery.id]);
       const before = await recoveryInventory(fixture.admin, stale.dfm, stale.reserve);
@@ -250,19 +250,19 @@ test('Recuperación explícita e Histórico reales → PostgreSQL17 aislado', { 
       const result = await confirmRecovery(page, button);
       assert.equal(result.data, null);
       assert.match(result.error.message, /ha cambiado desde que se cargó/);
-      const status = card.locator(`[data-stage-quick-id="${stale.recovery.id}"] .a67-quick-status.danger`);
+      const status = card.locator(`[data-stage-quick-id="${stale.recovery.id}"] .a75-quick-status.danger`);
       await status.waitFor({ state: 'visible' });
       assert.match(await status.textContent(), /Recarga la Pizarra/);
-      assert.equal(await card.locator('.a67-quick-success').count(), 0);
+      assert.equal(await card.locator('.a75-quick-success').count(), 0);
       assert.match(await button.textContent(), /Marcar recuperación realizada/);
       assert.equal(await button.isDisabled(), false);
-      assert.equal(server.calls.length, callCount + 1);
+      assert.equal(callsWithoutWorkshopContext(server).length, callCount + 1);
       assert.deepEqual(await recoveryInventory(fixture.admin, stale.dfm, stale.reserve), before);
       assert.equal(before.reserva.estado, 'ocupada');
     });
 
     const historyBefore = await recoveryInventory(fixture.admin, recovered.dfm, recovered.reserve);
-    const historyWritesBefore = server.calls.length;
+    const historyWritesBefore = callsWithoutWorkshopContext(server).length;
     await t.test('Histórico por día conserva PA recuperada, asistencia abierta, T pendiente y nota manual', async () => {
       await openHistoryDay(page, BOARD_DATE);
       const target = historyBefore.pa.find(row => row.id === recovered.targetId);
@@ -278,10 +278,10 @@ test('Recuperación explícita e Histórico reales → PostgreSQL17 aislado', { 
       await card.locator('.a75-card-stages-toggle').click();
       const recovery = card.locator(`[data-stage-id="${recovered.recovery.id}"]`);
       const other = card.locator(`[data-stage-id="${recovered.other.id}"]`);
-      await recovery.locator('.a67-pending-panel').waitFor({ state: 'visible' });
+      await recovery.locator('.a75-pending-panel').waitFor({ state: 'visible' });
       assert.match(await recovery.textContent(), /Datos pendientes de completar/);
       assert.match(await other.locator('.a53-history-stage-head .badge').textContent(), /Pendiente/);
-      assert.equal(await card.locator('.a67-quick-button').count(), 0, 'History must not offer quick completion of pending stages');
+      assert.equal(await card.locator('.a75-quick-button').count(), 0, 'History must not offer quick completion of pending stages');
       await other.locator('.a56-history-stage-open').click();
       const detail = page.locator('.a56-stage-detail-modal');
       await detail.locator('.a56-stage-detail-content').waitFor();
@@ -291,7 +291,7 @@ test('Recuperación explícita e Histórico reales → PostgreSQL17 aislado', { 
       assert.match(await detail.textContent(), /29\/10\/26,? 9:15/);
       await detail.getByRole('button', { name: 'Cerrar', exact: true }).click();
       await capture(page, '06-history-recovered.png');
-      assert.equal(server.calls.length, historyWritesBefore, 'Opening history and stage detail must not write');
+      assert.equal(callsWithoutWorkshopContext(server).length, historyWritesBefore, 'Opening history and stage detail must not write');
     });
 
     await t.test('búsqueda global real pagina, conserva las dos PA y filtra por fechas, trabajo y anotación', async () => {
@@ -316,7 +316,7 @@ test('Recuperación explícita e Histórico reales → PostgreSQL17 aislado', { 
         assert.equal(await page.locator('[data-history-cards] .hotel-card').count(), 1);
         assert.equal(await historicalCard(page, target.numero_parada).count(), 1);
       }
-      assert.equal(server.calls.length, historyWritesBefore);
+      assert.equal(callsWithoutWorkshopContext(server).length, historyWritesBefore);
     });
 
     await t.test('históricos mixtos 2556/2637 se leen sin arrastrar recuperación ni alterar sus datos manuales', async () => {
@@ -328,7 +328,7 @@ test('Recuperación explícita e Histórico reales → PostgreSQL17 aislado', { 
       assert.equal(await mixed.locator('[data-stage-id]').count(), 2);
       assert.match(await mixed.textContent(), /Dato manual protegido/);
       assert.match(await mixed.textContent(), /Estancia taller manual/);
-      assert.equal(await mixed.locator('.a67-quick-button').count(), 0);
+      assert.equal(await mixed.locator('.a75-quick-button').count(), 0);
       const previousDateInput = await page.getByLabel('Fecha de la pizarra', { exact: true }).elementHandle();
       // openHistory awaits permissions while the previous form is still
       // connected and enabled. Force that order instead of relying on CI load.
@@ -343,7 +343,7 @@ test('Recuperación explícita e Histórico reales → PostgreSQL17 aislado', { 
       assert.match(await historical.textContent(), /Identidad y medias manuales/);
       await searchHistory(page, '2637', '2026-09-30', '2026-09-30');
       assert.equal(await page.locator('[data-history-cards] .hotel-card').count(), 1);
-      assert.equal(server.calls.length, historyWritesBefore);
+      assert.equal(callsWithoutWorkshopContext(server).length, historyWritesBefore);
       assert.deepEqual(await snapshotProtectedFacts(fixture.admin), protectedBefore);
     });
 

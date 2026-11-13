@@ -1,3 +1,5 @@
+import { isWorkshopEntryStage, normalizeStageType } from './workshop-milestones.js?v=75.26-taller-hitos-001';
+
 const EXCEPTION_STATES = new Set([
   'pendiente_diagnostico',
   'pendiente_autorizacion',
@@ -199,11 +201,11 @@ function deriveLegacyHotelOperationalState(ficha = {}, stages = []) {
 }
 
 function isNewFlowEntry(stage = {}) {
-  return !stage?.cancelado && normalized(stage.tipo_etapa) === 'entrada_taller';
+  return !stage?.cancelado && isWorkshopEntryStage(stage);
 }
 
 function typeKey(value) {
-  return normalized(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return normalizeStageType(value);
 }
 
 function isPhysicalWorkshopStage(stage = {}) {

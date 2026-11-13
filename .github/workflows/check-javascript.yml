@@ -38,6 +38,8 @@ jobs:
         run: node --test tests/alpha75-stage-order.test.mjs
       - name: Comprobar elección explícita del tipo en T nuevas
         run: node --test tests/alpha75-new-stage-type.test.mjs
+      - name: Comprobar secuencia de entrada, finalización y recogida de taller
+        run: node --test tests/alpha75-workshop-milestones.test.mjs tests/alpha75-stage-state-from-dates.test.mjs
       - name: Comprobar autocompletado de catálogos Alpha76
         run: node --test tests/alpha76-editable-catalogues.test.mjs
       - name: Comprobar que el Panel prioriza la T actual
@@ -71,6 +73,8 @@ jobs:
         run: node tests/sql/alpha75-export-fechas-origen.test.mjs
       - name: Comprobar paradas 24H con funciones y triggers reales
         run: npm test --prefix tests/sql
+      - name: Comprobar guardado de los tres hitos de taller en PostgreSQL aislado
+        run: node --test tests/sql/alpha75-workshop-milestones.test.mjs
       - name: Comprobar exclusión de archivos internos y páginas antiguas
         run: python3 tests/pages-public-files.test.py
       - name: Verificar compilación pública
@@ -103,6 +107,8 @@ jobs:
         run: npm run test:concurrency --prefix tests/sql
       - name: Comprobar recuperación explícita y conservación de otras actuaciones
         run: npm run test:recovery --prefix tests/sql
+      - name: Comprobar hitos de taller y conservación de fechas con PostgreSQL17
+        run: node --test tests/sql/alpha75-workshop-milestones.test.mjs
       - name: Comprobar continuidad, imputación y conservación de hechos reales
         run: npm run test:continuity --prefix tests/sql
       - name: Comprobar sustitución vigente por hechos operativos
@@ -123,6 +129,8 @@ jobs:
         run: npm run test:sync-execution --prefix tests/sql
       - name: Preparar navegador de prueba
         run: node tests/integration/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Comprobar botones de taller y respuesta incierta con navegador real
+        run: node --test tests/integration/alpha75-workshop-milestones.test.mjs
       - name: Comprobar identidad Hotel, navegación, formularios, editor, Histórico y caché con navegador real
         run: npm test --prefix tests/integration
       - name: Detener PostgreSQL de prueba

@@ -1,9 +1,9 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { renderMainSections } from './hotel-editor-main.js?v=75.26-dropdown-open-003';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.26-dropdown-open-003';
-import { newStageTypeIssues } from './hotel-editor-validation.js?v=75.26-dropdown-open-003';
+import { renderMainSections } from './hotel-editor-main.js?v=75.26-taller-hitos-001';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.26-taller-hitos-001';
+import { newStageTypeIssues } from './hotel-editor-validation.js?v=75.26-taller-hitos-001';
 import {
   collectPendingStageDocuments,
   uploadPendingStageDocuments,
