@@ -65,6 +65,6 @@ test('el servidor ya no recoloca Recuperar por tipo', async () => {
 test('la caché activa apunta a la revisión de estado real y orden', async () => {
   const html = await read('r1-alpha75/index.html');
   const main = await read('r1-alpha75/src/hotel-editor-main.js');
-  assert.match(html, /boot75\.js\?v=75\.26-dropdown-open-003/);
-  assert.match(main, /hotel-operational-state\.js\?v=75\.26-estado-real-orden-001/);
+  assert.match(html, /boot75\.js\?v=75\.26-taller-hitos-001/);
+  assert.match(main, /hotel-operational-state\.js\?v=75\.26-taller-hitos-001/);
 });

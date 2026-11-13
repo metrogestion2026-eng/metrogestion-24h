@@ -4,8 +4,8 @@ import { invalidateSubstitutionBilling } from './substitution-billing-hf2.js?v=7
 import { loadEditableHotelRecords } from './hotel-editable-records.js?v=75.23-hf24';
 import { clear, element, notice } from '../../r1-alpha17/src/dom.js';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { openHotelCreate } from './hotel-create.js?v=75.26-dropdown-open-003';
-import { openHotelEditor } from './hotel-editor.js?v=75.26-dropdown-open-003';
+import { openHotelCreate } from './hotel-create.js?v=75.26-taller-hitos-001';
+import { openHotelEditor } from './hotel-editor.js?v=75.26-taller-hitos-001';
 import { requestId } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
@@ -15,7 +15,7 @@ import {
   metric,
   formatBoardDate,
 } from '../../r1-alpha53/src/hotel-utils.js?v=75.2';
-import { renderHotelCard } from './hotel-card.js?v=75.25-doc-resumen-001';
+import { renderHotelCard } from './hotel-card.js?v=75.26-taller-hitos-001';
 import { openSubstitutionContinuity } from './substitution-continuity.js?v=75.25-continuidad-001';
 
 ensureNativeHotelStyle();
@@ -770,6 +770,18 @@ async function renderHotelNative(container, access) {
           canAddNotes: access.editFicha,
           canManageNotes: access.editFicha,
           generatedCancellations: rowGeneratedCancellations,
+          onMilestoneSaved: (updatedRow, updatedStages) => {
+            if (!render.current()) return;
+            card.dataset.searchBase = buildSearchBase(updatedRow, updatedStages, rowNotes);
+            summary.querySelectorAll('.hotel-filter-metric').forEach(node => {
+              const filter = HOTEL_FILTERS.find(item => item.key === node.dataset.hotelFilter);
+              const count = filter?.states ? rows.filter(item => filter.states.has(item.estado)).length : rows.length;
+              const value = node.querySelector('strong');
+              if (value) value.textContent = String(count);
+            });
+            // La tarjeta sigue a la vista para confirmar el próximo hito. Los
+            // filtros usan el estado actualizado en la siguiente interacción.
+          },
           onAddNote: async (id, text) => {
             if (!render.current()) return;
             await addQuickHotelNote(id, text);

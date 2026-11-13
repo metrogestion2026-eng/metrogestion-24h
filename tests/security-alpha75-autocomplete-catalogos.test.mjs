@@ -25,11 +25,11 @@ test('Tipo Taller y Centro usan el componente común activo', async () => {
   assert.match(stages, /createEditableCatalogueField\('Tipo'/);
   assert.match(stages, /createEditableCatalogueField\('Taller'/);
   assert.match(stages, /createEditableCatalogueField\('Centro'/);
-  assert.match(stages, /editable-catalogue\.js\?v=75\.26-dropdown-open-003/);
+  assert.match(stages, /editable-catalogue\.js\?v=75\.26-taller-hitos-001/);
 });
 
 test('la caché del catálogo se renueva desde Hotel, Histórico, Panel y Nueva ficha', async () => {
-  const revision = '75.26-dropdown-open-003';
+  const revision = '75.26-taller-hitos-001';
   const dependencies = {
     'boot75.js': ['hotel-editor-stages.js', 'hotel-create.js', 'hotel-native.js', 'history-native.js', 'panel-native-hf23.js'],
     'hotel-native.js': ['hotel-create.js', 'hotel-editor.js'],

@@ -15,7 +15,7 @@ casos de recuperación tras un traspaso explícito se describen en
 
 ## Ruta que se prueba
 
-Hotel Alpha75 importa el control de `r1-alpha67/src/stage-quick.js`. Para una T
+Hotel Alpha75 importa el control de `r1-alpha75/src/stage-quick.js`. La recuperación conserva su RPC explícita; los hitos de entrada, finalización y recogida del modelo `entrada_hitos_v1` usan su RPC independiente. Para una T
 con `accion_sistema='recuperar_y_liberar'`, su segunda confirmación llama a:
 
 ```js

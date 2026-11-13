@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { loadWorkshopContextRuntime } from '../sql/workshop-scenarios.mjs';
 
 const repo = fileURLToPath(new URL('../../', import.meta.url));
 const REAL_READS = new Set(['pizarras', 'hotel_actual_detalle', 'etapas_hotel', 'activaciones_24h', 'vehiculos', 'reservas_hotel', 'usuarios']);
@@ -58,10 +59,12 @@ const html = `<!doctype html><html lang="es"><meta charset="utf-8"><title>Metrog
 export async function startBrowserServer(db, { recoveryHistory = false, continuity = false, editor = false } = {}) {
   if (editor) continuity = true;
   if (continuity) recoveryHistory = true;
+  if (recoveryHistory) await loadWorkshopContextRuntime(db);
   const calls = [], queries = [], readTables = [], failures = [], doubledRpcs = [];
   const controls = { delayNextSave: 0, loseNextCreateResponse: false, delayNextHistoryAccess: 0, delayNextHotelRead: 0,
     delayNextContinuityConfirmation: 0, loseNextContinuityResponse: false,
     delayNextEditorSave: 0, loseNextEditorSaveResponse: false,
+    loseNextWorkshopResponse: false,
     editorSaveNetworkErrorAsValue: false, omitEditorDateContract: false };
   let origin;
   const server = createServer(async (request, response) => {
@@ -108,9 +111,12 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
           const continuityConfirm = continuity && data.name === 'confirmar_continuidad_sustitucion_alpha75';
           const editorRead = editor && data.name === 'obtener_ficha_hotel_edicion_alpha72';
           const editorSave = editor && data.name === 'guardar_ficha_hotel_edicion_alpha73';
+          const workshopContext = recoveryHistory && data.name === 'obtener_contexto_taller_t_alpha75';
+          const workshopMilestone = recoveryHistory && data.name === 'registrar_hito_taller_alpha75';
           if (data.name !== 'guardar_activacion_24h'
               && !(recoveryHistory && data.name === 'marcar_t_realizada_rapida')
-              && !continuityPreview && !continuityConfirm && !editorRead && !editorSave) {
+              && !continuityPreview && !continuityConfirm && !editorRead && !editorSave
+              && !workshopContext && !workshopMilestone) {
             throw new Error(`Unexpected fixture RPC: ${data.name}`);
           }
           calls.push(structuredClone(data));
@@ -119,7 +125,13 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
           if (wait) await new Promise(resolve => setTimeout(resolve, wait));
           const args = data.args;
           let saved;
-          if (editorRead) {
+          if (workshopContext) {
+            saved = await db.query('SELECT public.obtener_contexto_taller_t_alpha75($1::uuid[]) AS value',
+              [args.p_etapa_ids]);
+          } else if (workshopMilestone) {
+            saved = await db.query('SELECT public.registrar_hito_taller_alpha75($1::uuid,$2::integer,$3::text,$4::text) AS value',
+              [args.p_etapa_id, args.p_version, args.p_hito, args.p_request_id]);
+          } else if (editorRead) {
             saved = await db.query('SELECT public.obtener_ficha_hotel_edicion_alpha72($1::uuid) AS value',
               [args.p_registro_id]);
             if (controls.omitEditorDateContract) {
@@ -159,6 +171,14 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
           }
           if (editorSave && controls.loseNextEditorSaveResponse) {
             controls.loseNextEditorSaveResponse = false;
+            response.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': '10000' });
+            response.write('{"data":', () => response.destroy());
+            return;
+          }
+          if (workshopMilestone && controls.loseNextWorkshopResponse) {
+            controls.loseNextWorkshopResponse = false;
+            // The real SQL has committed. An incomplete body forces an
+            // uncertain transport result without silently retrying the write.
             response.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': '10000' });
             response.write('{"data":', () => response.destroy());
             return;

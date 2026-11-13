@@ -1,11 +1,11 @@
 import { detail, element } from '../../r1-alpha17/src/dom.js';
 import { createStagesToggle } from './stages-collapse.js?v=75.18';
-import { openHotelEditor } from './hotel-editor.js?v=75.26-dropdown-open-003';
+import { openHotelEditor } from './hotel-editor.js?v=75.26-taller-hitos-001';
 import { createStageDocuments, summarizeDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
 import { createOperationalDates, createSubstitutionBilling } from './card-operational.js?v=75.25-continuidad-001';
 import { substitutionOwnershipText } from './substitution-imputation.js?v=75.25-continuidad-001';
-import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
+import { createQuickStageControl } from './stage-quick.js?v=75.26-taller-hitos-001';
 import { createStageReopenControl } from './stage-reopen.js';
 import { renderAnnotationsChronology } from './annotations.js';
 import { STATE_LABELS } from '../../r1-alpha53/src/hotel-utils.js';

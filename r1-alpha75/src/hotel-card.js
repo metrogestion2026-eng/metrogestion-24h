@@ -1,10 +1,11 @@
 import { detail, element } from '../../r1-alpha17/src/dom.js';
+import { supabase } from '../../r1-alpha17/src/supabase.js';
 import { createStagesToggle } from './stages-collapse.js?v=75.18';
 import { createStageDocuments, openActuationDocuments, summarizeDocuments } from '../../r1-alpha67/src/hotel-documents.js?v=actuation-documents-001';
 import { openStageDetail } from '../../r1-alpha67/src/stage-detail.js';
 import { createOperationalDates, createSubstitutionBilling } from './card-operational.js?v=75.25-continuidad-001';
 import { substitutionOwnershipText } from './substitution-imputation.js?v=75.25-continuidad-001';
-import { createQuickStageControl } from '../../r1-alpha67/src/stage-quick.js';
+import { createQuickStageControl } from './stage-quick.js?v=75.26-taller-hitos-001';
 import { createStageReopenControl } from './stage-reopen.js';
 import { renderAnnotationsChronology, renderQuickAnnotationComposer } from './annotations.js';
 import {
@@ -43,7 +44,7 @@ function isInteractiveTarget(target) {
   return Boolean(target?.closest?.('button,a,input,textarea,select,summary,details,label'));
 }
 
-function renderStage(stage, documentsByGroup, canEditDocuments, onDocumentsChanged) {
+function renderStage(stage, documentsByGroup, canEditDocuments, onDocumentsChanged, onMilestoneSaved) {
   const visual = stageVisual(stage);
   const dateInfo = stageDate(stage);
   const meta = [];
@@ -73,12 +74,15 @@ function renderStage(stage, documentsByGroup, canEditDocuments, onDocumentsChang
   ]);
   openButton.addEventListener('click', openDetail);
 
+  const statusLabel = element('span', { className: `hotel-stage-status ${visual.className}`, text: visual.label });
+  const metaLine = element('div', { className: 'hotel-stage-meta', text: meta.join(' · ') || 'Sin lugar ni fecha' });
+  const marker = element('span', { className: 'a56-stage-marker', text: visual.marker });
   const content = element('div', { className: 'hotel-stage-content' }, [
     element('div', { className: 'hotel-stage-main' }, [
       openButton,
-      element('span', { className: `hotel-stage-status ${visual.className}`, text: visual.label }),
+      statusLabel,
     ]),
-    element('div', { className: 'hotel-stage-meta', text: meta.join(' · ') || 'Sin lugar ni fecha' }),
+    metaLine,
   ]);
 
   if (stage.observaciones) {
@@ -92,8 +96,33 @@ function renderStage(stage, documentsByGroup, canEditDocuments, onDocumentsChang
   }
 
   // Control nativo de la propia T. Solo se renderiza para el administrador principal.
-  content.append(createQuickStageControl(stage));
-  content.append(createStageReopenControl(stage));
+  let reopenControl = createStageReopenControl(stage);
+  content.append(createQuickStageControl(stage, {
+    onMilestoneSaved: async result => {
+      if (result.etapa?.id !== stage.id) return;
+      Object.assign(stage, result.etapa);
+      const nextVisual = stageVisual(stage);
+      row.className = `a56-stage-row ${nextVisual.className}`;
+      statusLabel.className = `hotel-stage-status ${nextVisual.className}`;
+      statusLabel.textContent = nextVisual.label;
+      marker.textContent = nextVisual.marker;
+      const milestones = [
+        stage.lugar,
+        stage.fecha_inicio_real ? `Entrada: ${formatDateTime(stage.fecha_inicio_real)}` : '',
+        stage.fecha_fin_real ? `Terminado: ${formatDateTime(stage.fecha_fin_real)}` : '',
+        stage.fecha_real ? `Recogido: ${formatDateTime(stage.fecha_real)}` : '',
+      ];
+      metaLine.textContent = milestones.filter(Boolean).join(' · ') || 'Sin fecha';
+      if (stage.estado === 'realizada') {
+        const nextReopen = createStageReopenControl(stage);
+        if (reopenControl.isConnected) reopenControl.replaceWith(nextReopen);
+        else content.append(nextReopen);
+        reopenControl = nextReopen;
+      }
+      await onMilestoneSaved?.(result);
+    },
+  }));
+  content.append(reopenControl);
 
   content.append(createStageDocuments(stage, {
     canEdit: canEditDocuments,
@@ -109,7 +138,7 @@ function renderStage(stage, documentsByGroup, canEditDocuments, onDocumentsChang
     className: `a56-stage-row ${visual.className}`,
     dataset: { stageId: stage.id || '' },
   }, [
-    element('span', { className: 'a56-stage-marker', text: visual.marker }),
+    marker,
     content,
   ]);
 
@@ -124,7 +153,7 @@ function documentsForStages(stages, documentsByGroup) {
   return stages.flatMap(stage => documentsByGroup.get(stage.grupo_documental_id) || []);
 }
 
-function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsChanged) {
+function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsChanged, onMilestoneSaved) {
   const ordered = stages.slice().sort((a, b) =>
     Number(Boolean(a.cancelado)) - Number(Boolean(b.cancelado))
     || Number(a.posicion || 0) - Number(b.posicion || 0)
@@ -148,7 +177,8 @@ function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsCha
       stage,
       documentsByGroup,
       canEditDocuments,
-      onDocumentsChanged
+      onDocumentsChanged,
+      onMilestoneSaved
     )));
   }
   content.append(list);
@@ -159,7 +189,8 @@ function renderStages(stages, documentsByGroup, canEditDocuments, onDocumentsCha
       stage,
       documentsByGroup,
       canEditDocuments,
-      onDocumentsChanged
+      onDocumentsChanged,
+      onMilestoneSaved
     )));
     content.append(element('details', { className: 'hotel-stage-history' }, [
       element('summary', { text: `T anuladas / histórico · ${cancelled.length}` }),
@@ -184,14 +215,17 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
   onAnnulGeneratedNote,
   onOpenEditor,
   onOpenContinuity,
+  onMilestoneSaved,
 }) {
+  const stateBadge = element('span', {
+    className: 'badge hotel-status-badge',
+    text: STATE_LABELS[row.estado] || row.estado || 'Sin estado',
+  });
+  const backgroundBadge = element('span', { className: 'badge', text: `Fondo ${row.fondo_visual || 'blanco'}` });
   const badges = element('div', { className: 'hotel-card-badges' }, [
     element('span', { className: 'badge', text: `Prioridad ${row.prioridad ?? '—'}` }),
-    element('span', {
-      className: 'badge hotel-status-badge',
-      text: STATE_LABELS[row.estado] || row.estado || 'Sin estado',
-    }),
-    element('span', { className: 'badge', text: `Fondo ${row.fondo_visual || 'blanco'}` }),
+    stateBadge,
+    backgroundBadge,
     row.trazo_marron
       ? element('span', { className: 'badge hotel-brown-outline-badge', text: 'Trazo marrón' })
       : null,
@@ -205,6 +239,54 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
     className: `card hotel-card hotel-final-card hotel-bg-${row.fondo_visual || 'blanco'}${row.trazo_marron ? ' hotel-outline-brown' : ''}`,
     dataset: { state: row.estado || '', recordId: row.id || '' },
   });
+  let operationalDates = createOperationalDates(row, stages);
+  let completedCount = detail('T realizadas', `${row.t_realizadas ?? 0} de ${row.total_t ?? 0}`);
+  let pendingCount = detail('T pendientes', row.t_pendientes ?? 0);
+
+  const refreshSummary = () => {
+    card.dataset.state = row.estado;
+    stateBadge.textContent = STATE_LABELS[row.estado] || row.estado;
+    const nextDates = createOperationalDates(row, stages);
+    operationalDates.replaceWith(nextDates);
+    operationalDates = nextDates;
+    const nextCompleted = detail('T realizadas', `${row.t_realizadas} de ${row.total_t}`);
+    completedCount.replaceWith(nextCompleted);
+    completedCount = nextCompleted;
+    const nextPending = detail('T pendientes', row.t_pendientes);
+    pendingCount.replaceWith(nextPending);
+    pendingCount = nextPending;
+  };
+  let summaryGeneration = 0;
+  const handleMilestoneSaved = async result => {
+    const generation = ++summaryGeneration;
+    if (typeof result.registro_estado === 'string') row.estado = result.registro_estado;
+    const active = stages.filter(stage => stage.cancelado !== true);
+    row.total_t = active.length;
+    row.t_realizadas = active.filter(stage => stage.estado === 'realizada').length;
+    row.t_pendientes = active.filter(stage => !['realizada', 'anulada'].includes(stage.estado)).length;
+    refreshSummary();
+
+    // Una lectura de la vista por acción trae también su color. No recreamos
+    // la tarjeta ni sus cargadores de documentos para refrescar el resumen.
+    let response;
+    try {
+      response = await supabase.from('hotel_actual_detalle')
+        .select('id,estado,fondo_visual,fecha_parada,fecha_entrada,total_t,t_realizadas,t_pendientes,version')
+        .eq('id', row.id).maybeSingle();
+    } catch (error) {
+      if (generation !== summaryGeneration || !card.isConnected) return;
+      throw error;
+    }
+    if (generation !== summaryGeneration || !card.isConnected) return;
+    if (response.error || !response.data) throw response.error || new Error('No se pudo leer el resumen actualizado de la ficha.');
+    const previousBackground = row.fondo_visual || 'blanco';
+    Object.assign(row, response.data);
+    card.classList.remove(`hotel-bg-${previousBackground}`);
+    card.classList.add(`hotel-bg-${row.fondo_visual || 'blanco'}`);
+    backgroundBadge.textContent = `Fondo ${row.fondo_visual || 'blanco'}`;
+    refreshSummary();
+    onMilestoneSaved?.(row, stages);
+  };
 
   card.append(
     element('div', { className: 'hotel-card-head' }, [
@@ -217,7 +299,7 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
       ]),
       badges,
     ]),
-    createOperationalDates(row, stages),
+    operationalDates,
     element('div', { className: 'detail-grid' }, [
       detail('N.º de actuación', row.numero_parada),
       detail('Lugar', row.lugar),
@@ -225,8 +307,8 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
       detail('Causa', row.causa),
       detail('INC', row.incidencia),
       detail('Próximo', row.proximo),
-      detail('T realizadas', `${row.t_realizadas ?? 0} de ${row.total_t ?? 0}`),
-      detail('T pendientes', row.t_pendientes ?? 0),
+      completedCount,
+      pendingCount,
     ])
   );
 
@@ -302,7 +384,7 @@ export function renderHotelCard(row, stages, documentsByGroup, manualNotes, {
   updateDocumentSummary();
   card.append(
     documentSummary,
-    renderStages(stages, documentsByGroup, canEditDocuments, updateDocumentSummary)
+    renderStages(stages, documentsByGroup, canEditDocuments, updateDocumentSummary, handleMilestoneSaved)
   );
 
   if (editMode && editable) {

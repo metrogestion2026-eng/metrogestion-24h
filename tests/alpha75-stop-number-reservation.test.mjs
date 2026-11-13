@@ -53,8 +53,8 @@ test('la revisión stop-number rompe la caché del alta sin duplicar propietario
   assert.equal((await read('r1-alpha75/VERSION')).trim(), 'r1.0.0-alpha.75.26');
   assert.match(await read('r1-alpha75/src/app.js'), /r1\.0\.0-alpha\.75\.26/);
   assert.match(await read('r1-alpha75/src/version-refresh.js'), /r1\.0\.0-alpha\.75\.26/);
-  assert.match(await read('r1-alpha75/index.html'), /boot75\.js\?v=75\.26-dropdown-open-003/);
+  assert.match(await read('r1-alpha75/index.html'), /boot75\.js\?v=75\.26-taller-hitos-001/);
   const boot = await read('r1-alpha75/src/boot75.js');
-  assert.match(boot, /hotel-create\.js\?v=75\.26-dropdown-open-003/);
+  assert.match(boot, /hotel-create\.js\?v=75\.26-taller-hitos-001/);
   assert.match(boot, /import\('\.\/app\.js\?v=75\.26'\)/);
 });

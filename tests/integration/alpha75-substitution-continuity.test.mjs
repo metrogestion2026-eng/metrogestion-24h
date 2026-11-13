@@ -347,13 +347,13 @@ test('Continuidad explícita: navegador real → RPC → PostgreSQL17 y cuatro l
       const card = await openHotel(page, normal.destination.id);
       const toggle = card.locator('.a75-card-stages-toggle');
       if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
-      const button = card.locator(`[data-stage-quick-id="${normal.recovery.id}"] .a67-quick-button`);
+      const button = card.locator(`[data-stage-quick-id="${normal.recovery.id}"] .a75-quick-button`);
       await button.waitFor({ state: 'visible' });
       const callsBefore = server.calls.length;
       await button.click();
       assert.equal(server.calls.length, callsBefore, 'The first recovery press only arms the action');
       await page.waitForFunction(id => {
-        const node = document.querySelector(`[data-stage-quick-id="${id}"] .a67-quick-button`);
+        const node = document.querySelector(`[data-stage-quick-id="${id}"] .a75-quick-button`);
         return node && !node.disabled;
       }, normal.recovery.id);
       const response = await waitForRpc(page, 'marcar_t_realizada_rapida', () => button.click());
