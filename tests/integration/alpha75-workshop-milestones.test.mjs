@@ -15,8 +15,10 @@ const CONTEXT = 'obtener_contexto_taller_t_alpha75';
 const writes = server => server.calls.filter(call => call.name === WRITE || call.name === 'marcar_t_realizada_rapida');
 
 async function confirm(page, server, host, label, hito, { lostResponse = false } = {}) {
-  const button = host.getByRole('button', { name: label, exact: true });
-  await button.waitFor({ state: 'visible' });
+  await host.getByRole('button', { name: label, exact: true }).waitFor({ state: 'visible' });
+  // Arming changes the accessible name immediately. Keep targeting the same
+  // control while checking its delay, instead of waiting for its label to reset.
+  const button = host.locator('.a75-quick-button');
   const count = writes(server).length;
   await button.click();
   assert.equal(await button.isDisabled(), true);
@@ -29,7 +31,7 @@ async function confirm(page, server, host, label, hito, { lostResponse = false }
   const [response] = await Promise.all([
     page.waitForResponse(value => value.url().endsWith('/__test/rpc')
       && value.request().postDataJSON().name === WRITE),
-    host.locator('.a75-quick-button').click(),
+    button.click(),
   ]);
   let result;
   if (lostResponse) await assert.rejects(() => response.json());
