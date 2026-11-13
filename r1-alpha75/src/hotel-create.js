@@ -1,8 +1,9 @@
 import { element } from '../../r1-alpha17/src/dom.js';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { renderMainSections } from './hotel-editor-main.js?v=75.25-paradas-002';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.23-hf25';
+import { renderMainSections } from './hotel-editor-main.js?v=75.26-dropdown-open-003';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.26-dropdown-open-003';
+import { newStageTypeIssues } from './hotel-editor-validation.js?v=75.26-dropdown-open-003';
 import {
   collectPendingStageDocuments,
   uploadPendingStageDocuments,
@@ -381,6 +382,7 @@ export async function openHotelCreate({ onSaved } = {}) {
     }
 
     const errors = validate(detail);
+    errors.push(...newStageTypeIssues(detail).map(issue => issue.message));
     renderErrors(errorsHost, errors);
     if (errors.length) {
       revealStagesFor(form.querySelector('.editor-stages'));

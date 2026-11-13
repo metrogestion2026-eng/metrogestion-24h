@@ -30,7 +30,7 @@ test('la navegación propia se instala antes de arrancar el router Alpha26', asy
 
 test('la entrada publicada rompe la caché de la navegación antigua', async () => {
   const html = await read('r1-alpha75/index.html');
-  assert.match(html, /boot75\.js\?v=75\.26-estado-real-orden-001/);
+  assert.match(html, /boot75\.js\?v=75\.26-dropdown-open-003/);
 });
 
 test('las pestañas vigentes no forman parte de la lista retirada', async () => {

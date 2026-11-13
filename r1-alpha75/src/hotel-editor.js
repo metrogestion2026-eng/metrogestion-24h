@@ -6,15 +6,15 @@ import { createEditorTimestampRestorer, EDITOR_TIMESTAMP_CONTRACT } from './hote
 import { classifyHotelEditorSave } from './hotel-editor-save-result.js?v=75.25-editor-fechas-001';
 import { revealStagesFor } from './stages-collapse.js?v=75.18';
 import { supabase } from '../../r1-alpha17/src/supabase.js';
-import { renderMainSections } from './hotel-editor-main.js?v=75.26-estado-real-orden-001';
-import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.26-estado-real-orden-001';
+import { renderMainSections } from './hotel-editor-main.js?v=75.26-dropdown-open-003';
+import { renderStagesSection, stagesPayloadWithCatalogues } from './hotel-editor-stages.js?v=75.26-dropdown-open-003';
 import { loadDocumentsForGroups } from '../../r1-alpha67/src/hotel-documents.js';
 import {
   collectPendingStageDocuments,
   uploadPendingStageDocuments,
 } from './editor-pending-documents.js?v=75.23-hf15';
 import { manualAnnotationsPayload, renderManualAnnotationsEditor } from './annotations.js';
-import { saveErrorIssues, stageStateMismatchIssues } from './hotel-editor-validation.js?v=75.23-hf18';
+import { newStageTypeIssues, saveErrorIssues, stageStateMismatchIssues } from './hotel-editor-validation.js?v=75.26-dropdown-open-003';
 import {
   displayDateTime, fichaPayload, normalizeDetail, requestId, validate
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
@@ -372,7 +372,7 @@ export async function openHotelEditor(registroId, { onSaved } = {}) {
     }
 
     clearValidationMarks(form);
-    const fieldIssues = stageStateMismatchIssues(detail);
+    const fieldIssues = [...newStageTypeIssues(detail), ...stageStateMismatchIssues(detail)];
     const errors = [...validate(detail), ...fieldIssues];
     renderErrors(errorsHost, errors);
     if (errors.length) {
