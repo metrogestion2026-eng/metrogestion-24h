@@ -36,6 +36,8 @@ jobs:
         run: node --test tests/alpha75-stop-number-reservation.test.mjs
       - name: Comprobar inserción automática de T por posición
         run: node --test tests/alpha75-stage-order.test.mjs
+      - name: Comprobar elección explícita del tipo en T nuevas
+        run: node --test tests/alpha75-new-stage-type.test.mjs
       - name: Comprobar autocompletado de catálogos Alpha76
         run: node --test tests/alpha76-editable-catalogues.test.mjs
       - name: Comprobar que el Panel prioriza la T actual

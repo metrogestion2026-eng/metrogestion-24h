@@ -4,7 +4,7 @@ import {
   bindCheckbox, bindText, createCheckbox, createInput, createTextarea,
   fieldLabel, makeNewStage, makeNewWork, stagesPayload
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
-import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js?v=75.26-dropdown-filter-002';
+import { createEditableCatalogueField, findCatalogueItem } from './editable-catalogue.js?v=75.26-dropdown-open-003';
 import { catalogueCodeForOperationalState, deriveStageOperationalState } from './stage-operational-state.js?v=75.23-hf9';
 import { createStageDocuments } from '../../r1-alpha67/src/hotel-documents.js';
 import { createPendingStageDocuments } from './editor-pending-documents.js?v=75.23-hf15';
@@ -295,15 +295,16 @@ export function renderStagesSection(detail, markDirty, onOperationalChange, {
       });
       stageStateEditor.field.dataset.validationKey = `stage:${stage.client_key || stage.id || stage.posicion}:estado`;
       const stageState = stageStateEditor.input;
-      const stageTypeEditor = createEditableCatalogueField('Tipo de T', detail.catalogos.tipos_etapa || [], stage.tipo_etapa || 'otro', {
+      const stageTypeEditor = createEditableCatalogueField('Tipo de T', detail.catalogos.tipos_etapa || [], stage.tipo_etapa || '', {
         placeholder: 'Elige un tipo de T o escribe uno nuevo',
         hint: 'Los tipos especiales conservan sus movimientos; un tipo nuevo se trata como informativo.',
         onChange: (item, typed) => {
-          stage.tipo_etapa = item?.codigo || typed || 'otro';
+          stage.tipo_etapa = item?.codigo || String(typed ?? '').trim();
           markDirty();
           onOperationalChange?.();
         }
       });
+      stageTypeEditor.field.dataset.validationKey = `stage:${stage.client_key || stage.id || stage.posicion}:tipo_etapa`;
       let centerEditor;
       const workshopEditor = createWorkshopEditor(detail, stage, markDirty, () => centerEditor?.rebuildForWorkshop());
       centerEditor = createCenterEditor(detail, stage, markDirty);
@@ -442,7 +443,10 @@ export function renderStagesSection(detail, markDirty, onOperationalChange, {
 
   addStageButton.addEventListener('click', () => {
     disclosure.setExpanded(true);
-    detail.etapas.push(makeNewStage(detail.etapas.filter(stage => !stage.cancelado)));
+    detail.etapas.push({
+      ...makeNewStage(detail.etapas.filter(stage => !stage.cancelado)),
+      tipo_etapa: ''
+    });
     markDirty();
     renderStages();
     onOperationalChange?.();

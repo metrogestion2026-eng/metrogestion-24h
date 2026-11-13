@@ -29,5 +29,5 @@ test('la publicación conserva el visor documental y rompe la caché de Hotel', 
   assert.match(await read('r1-alpha75/index.html'), /hotel-documents\.css\?v=actuation-documents-001/);
   assert.match(await read('r1-alpha75/src/hotel-card.js'), /hotel-documents\.js\?v=actuation-documents-001/);
   assert.match(await read('r1-alpha75/src/hotel-native.js'), /hotel-card\.js\?v=75\.25-doc-resumen-001/);
-  assert.match(await read('r1-alpha75/src/boot75.js'), /hotel-native\.js\?v=75\.26-estado-real-orden-001/);
+  assert.match(await read('r1-alpha75/src/boot75.js'), /hotel-native\.js\?v=75\.26-dropdown-open-003/);
 });

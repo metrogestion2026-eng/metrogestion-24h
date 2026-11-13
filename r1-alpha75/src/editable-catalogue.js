@@ -44,6 +44,8 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
   let items = Array.isArray(catalogue) ? catalogue : [];
   let activeIndex = -1;
   let visibleItems = [];
+  // El valor elegido no es una búsqueda. Solo escribir filtra el catálogo.
+  let searchQuery = '';
   const selected = findCatalogueItem(items, value);
   const inputId = `a71-catalogue-input-${crypto.randomUUID()}`;
   const listId = `a71-catalogue-list-${crypto.randomUUID()}`;
@@ -85,12 +87,10 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     });
 
   const matchingItems = () => {
-    const query = normaliseCatalogueValue(input.value);
+    const query = normaliseCatalogueValue(searchQuery);
     const ordered = sortedItems();
-    if (!query) return ordered.slice(0, 30);
-    return ordered
-      .filter(item => catalogueSearchText(item).includes(query))
-      .slice(0, 30);
+    if (!query) return ordered;
+    return ordered.filter(item => catalogueSearchText(item).includes(query));
   };
 
   const setOpen = open => {
@@ -98,15 +98,18 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     listbox.hidden = !nextOpen;
     trigger.setAttribute('aria-expanded', String(nextOpen));
     input.setAttribute('aria-expanded', String(nextOpen));
-    if (!nextOpen) activeIndex = -1;
+    if (!nextOpen) {
+      activeIndex = -1;
+      searchQuery = '';
+    }
   };
 
   const choose = item => {
     const name = catalogueName(item);
     input.value = name;
     onChange?.(item, name);
-    setOpen(false);
     input.focus({ preventScroll: true });
+    setOpen(false);
   };
 
   const setActive = index => {
@@ -157,17 +160,24 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     setOpen(open);
   };
 
+  const showAllOptions = () => {
+    searchQuery = '';
+    renderOptions({ open: true });
+  };
+
   const rebuild = (nextItems = items, nextValue, replaceValue = false) => {
     items = Array.isArray(nextItems) ? nextItems : [];
     if (replaceValue) {
       const next = findCatalogueItem(items, nextValue);
       input.value = next?.nombre || nextValue || '';
+      searchQuery = '';
     }
     if (!listbox.hidden) renderOptions({ open: true });
   };
 
   const update = () => {
     const typed = input.value.trim();
+    searchQuery = typed;
     onChange?.(findCatalogueItem(items, typed), typed);
     renderOptions({ open: true });
   };
@@ -177,13 +187,19 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
     const typed = input.value.trim();
     onChange?.(findCatalogueItem(items, typed), typed);
   });
-  input.addEventListener('focus', () => renderOptions({ open: true }));
+  input.addEventListener('focus', () => {
+    showAllOptions();
+    input.select();
+  });
   input.addEventListener('click', () => {
-    if (listbox.hidden) renderOptions({ open: true });
+    if (listbox.hidden) {
+      showAllOptions();
+      input.select();
+    }
   });
   input.addEventListener('keydown', event => {
     if (event.key === 'ArrowDown') {
-      if (listbox.hidden) renderOptions({ open: true });
+      if (listbox.hidden) showAllOptions();
       if (!visibleItems.length) return;
       event.preventDefault();
       setActive(Math.min(activeIndex + 1, visibleItems.length - 1));
@@ -202,13 +218,10 @@ export function createEditableCatalogueField(labelText, catalogue, value, {
 
   trigger.addEventListener('mousedown', event => event.preventDefault());
   trigger.addEventListener('click', () => {
-    if (listbox.hidden) {
-      renderOptions({ open: true });
-      input.focus({ preventScroll: true });
-    } else {
-      setOpen(false);
-      input.focus({ preventScroll: true });
-    }
+    const close = !listbox.hidden && !searchQuery;
+    input.focus({ preventScroll: true });
+    if (close) setOpen(false);
+    else showAllOptions();
   });
 
   combo.addEventListener('focusout', () => {

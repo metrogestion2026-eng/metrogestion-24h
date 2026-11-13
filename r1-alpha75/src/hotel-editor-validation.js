@@ -26,6 +26,17 @@ function stageValidationKey(stage) {
   return `stage:${stage.client_key || stage.id || stage.posicion}:estado`;
 }
 
+export function newStageTypeIssues(detail) {
+  return (detail?.etapas || []).flatMap((stage, index) => {
+    if (stage.cancelado || String(stage.id ?? '').trim()
+        || String(stage.tipo_etapa ?? '').trim()) return [];
+    return [{
+      key: `stage:${stage.client_key || stage.posicion}:tipo_etapa`,
+      message: `${Number(stage.posicion) || index + 1}T · ${stage.nombre || 'Sin nombre'}: elige un tipo de T o escribe uno nuevo.`
+    }];
+  });
+}
+
 export function stageStateMismatchIssues(detail) {
   const catalogue = detail?.catalogos?.estados_etapa || [];
   return (detail?.etapas || []).flatMap((stage, index) => {

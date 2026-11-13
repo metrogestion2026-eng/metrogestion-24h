@@ -3,7 +3,7 @@ import {
   bindCheckbox, bindText, createCheckbox, createInput,
   createTextarea, fieldLabel, makeNewStage
 } from '../../r1-alpha17/src/modules/hotel-editor-utils.js';
-import { createEditableCatalogueField } from './editable-catalogue.js?v=75.26-estado-real-orden-001';
+import { createEditableCatalogueField } from './editable-catalogue.js?v=75.26-dropdown-open-003';
 import { deriveHotelOperationalState, hasStageDrivenSituation } from './hotel-operational-state.js?v=75.26-estado-real-orden-001';
 
 function normaliseVehicleKey(value) {

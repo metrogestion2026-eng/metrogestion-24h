@@ -48,11 +48,11 @@ test('Alpha75 published index and warm HTTP cache', { timeout: 60000 }, async t 
         assert.ok(server.calls.some(call => call.path === `/r1-alpha75/src/${file}` && call.query === '?v=75.25-paradas-002'), file);
       }
       assert.ok(server.calls.some(call => call.path === '/r1-alpha75/src/hotel-native.js'
-        && call.query === '?v=75.26-estado-real-orden-001'), 'Hotel loads the corrected owner and lifecycle');
+        && call.query === '?v=75.26-dropdown-open-003'), 'Hotel loads the corrected owner and lifecycle');
       assert.ok(server.calls.some(call => call.path === '/r1-alpha75/src/history-native.js'
-        && call.query === '?v=75.26-estado-real-orden-001'), 'history-native.js');
+        && call.query === '?v=75.26-dropdown-open-003'), 'history-native.js');
       assert.ok(server.calls.some(call => call.path === '/r1-alpha75/src/panel-native-hf23.js'
-        && call.query === '?v=75.25-panel-t-actual-001'), 'panel-native-hf23.js');
+        && call.query === '?v=75.26-dropdown-open-003'), 'panel-native-hf23.js');
       assert.ok((await page.evaluate(() => globalThis.__BOOT_AUTH_CALLS__)).includes('getSession'));
       assert.deepEqual(errors, []);
     });
@@ -158,7 +158,7 @@ test('Alpha75 published index and warm HTTP cache', { timeout: 60000 }, async t 
         await awaitBoot(editorPage);
         assert.equal(await editorPage.evaluate(() => globalThis.__BOOT_STALE_EDITOR__), undefined);
         const loaded = server.calls.filter(call => call.path === HOTEL_EDITOR).slice(before);
-        assert.ok(loaded.some(call => call.query === '?v=75.26-estado-real-orden-001'
+        assert.ok(loaded.some(call => call.query === '?v=75.26-dropdown-open-003'
           && call.sha256 === server.currentEditorSha256 && call.bodyEndedAt),
         'The candidate must retrieve the exact corrected editor through its new graph');
         assert.ok(server.calls.some(call => call.path === '/r1-alpha75/src/hotel-editor-timestamps.js'

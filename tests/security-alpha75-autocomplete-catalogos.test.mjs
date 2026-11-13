@@ -7,10 +7,11 @@ const read = path => readFile(new URL('../' + path, import.meta.url), 'utf8');
 test('el catálogo real de Alpha75 conserva desplegable y filtra mientras se escribe', async () => {
   const src = await read('r1-alpha75/src/editable-catalogue.js');
   assert.match(src, /matchingItems/);
-  assert.match(src, /if \(!query\) return ordered\.slice\(0, 30\)/);
+  assert.match(src, /if \(!query\) return ordered;/);
+  assert.doesNotMatch(src, /const query = normaliseCatalogueValue\(input\.value\)/);
   assert.match(src, /catalogueSearchText\(item\)\.includes\(query\)/);
   assert.match(src, /input\.addEventListener\('input', update\)/);
-  assert.match(src, /input\.addEventListener\('focus', \(\) => renderOptions\(\{ open: true \}\)\)/);
+  assert.match(src, /input\.addEventListener\('focus'/);
   assert.match(src, /input\.addEventListener\('click'/);
   assert.match(src, /className: 'a71-catalogue-trigger'/);
   assert.match(src, /text: '▾'/);
@@ -24,17 +25,29 @@ test('Tipo Taller y Centro usan el componente común activo', async () => {
   assert.match(stages, /createEditableCatalogueField\('Tipo'/);
   assert.match(stages, /createEditableCatalogueField\('Taller'/);
   assert.match(stages, /createEditableCatalogueField\('Centro'/);
-  assert.match(stages, /editable-catalogue\.js\?v=75\.26-dropdown-filter-002/);
+  assert.match(stages, /editable-catalogue\.js\?v=75\.26-dropdown-open-003/);
 });
 
-test('la caché del editor activo se renueva hasta la entrada de Alpha75', async () => {
-  assert.match(await read('r1-alpha75/src/hotel-editor.js'), /hotel-editor-stages\.js\?v=75\.26-estado-real-orden-001/);
-  assert.match(await read('r1-alpha75/src/hotel-native.js'), /hotel-editor\.js\?v=75\.26-estado-real-orden-001/);
-  const boot = await read('r1-alpha75/src/boot75.js');
-  assert.match(boot, /hotel-editor-stages\.js\?v=75\.26-estado-real-orden-001/);
-  assert.match(boot, /hotel-native\.js\?v=75\.26-estado-real-orden-001/);
-  assert.match(boot, /history-native\.js\?v=75\.26-estado-real-orden-001/);
+test('la caché del catálogo se renueva desde Hotel, Histórico, Panel y Nueva ficha', async () => {
+  const revision = '75.26-dropdown-open-003';
+  const dependencies = {
+    'boot75.js': ['hotel-editor-stages.js', 'hotel-create.js', 'hotel-native.js', 'history-native.js', 'panel-native-hf23.js'],
+    'hotel-native.js': ['hotel-create.js', 'hotel-editor.js'],
+    'history-native.js': ['history-card.js'],
+    'history-card.js': ['hotel-editor.js'],
+    'panel-native-hf23.js': ['hotel-editor.js'],
+    'hotel-editor.js': ['hotel-editor-main.js', 'hotel-editor-stages.js'],
+    'hotel-create.js': ['hotel-editor-main.js', 'hotel-editor-stages.js'],
+    'hotel-editor-main.js': ['editable-catalogue.js'],
+    'hotel-editor-stages.js': ['editable-catalogue.js'],
+  };
+  for (const [file, imports] of Object.entries(dependencies)) {
+    const source = await read(`r1-alpha75/src/${file}`);
+    for (const dependency of imports) {
+      assert.ok(source.includes(`./${dependency}?v=${revision}`), `${file} debe renovar ${dependency}`);
+    }
+  }
   const html = await read('r1-alpha75/index.html');
   assert.match(html, /editable-catalogue\.css\?v=75\.26-movimiento-taller-001/);
-  assert.match(html, /boot75\.js\?v=75\.26-estado-real-orden-001/);
+  assert.ok(html.includes(`./src/boot75.js?v=${revision}`));
 });
