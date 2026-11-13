@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { FIXTURE_ACTOR, one, snapshotProtectedFacts } from '../sql/local-postgres-harness.mjs';
 import { createContinuityFixture } from '../sql/continuity-scenarios.mjs';
-import { startBrowserServer } from './browser-server.mjs';
+import { startBrowserServer, callsWithoutWorkshopContext } from './browser-server.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -66,7 +66,8 @@ async function prepareActivation(page, dfm, caseNumber) {
 }
 
 async function saveWizard(page) {
-  const response = page.waitForResponse(value => value.url().endsWith('/__test/rpc'));
+  const response = page.waitForResponse(value => value.url().endsWith('/__test/rpc')
+    && value.request().postDataJSON().name === 'guardar_activacion_24h');
   await page.locator('.h24-nav .button.primary').click();
   const result = await (await response).json();
   assert.equal(result.error, null, result.error?.message);
@@ -150,11 +151,11 @@ test('Chromium real → RPC pública PostgreSQL17 → vistas Hotel y Panel', { t
       const before = await one(fixture.admin, 'SELECT to_jsonb(r) AS value FROM public.registros_hotel r WHERE id=$1', [priorWorkshop.id]);
       await load();
       await prepareActivation(page, 'TEST-UI-TRANSFER', 'TEST-UI-CASE-TRANSFER');
-      const callsBefore = server.calls.length;
+      const callsBefore = callsWithoutWorkshopContext(server).length;
       server.controls.delayNextSave = 150;
       await page.locator('.h24-nav .button.primary').dblclick();
       await page.locator('#h24-current-state').waitFor();
-      assert.equal(server.calls.length - callsBefore, 1);
+      assert.equal(callsWithoutWorkshopContext(server).length - callsBefore, 1);
       const opened = await activation(fixture.admin, 'TEST-UI-CASE-TRANSFER');
       assert.equal(opened.estado, 'abierta');
       assert.notEqual(opened.registro_hotel_id, priorWorkshop.id);
@@ -166,7 +167,7 @@ test('Chromium real → RPC pública PostgreSQL17 → vistas Hotel y Panel', { t
       await page.locator('#h24-repair-end').fill('09:59');
       await page.locator('.h24-nav .button.primary').click();
       assert.match(await page.locator('.h24-status.danger').textContent(), /anterior a la activación/);
-      assert.equal(server.calls.length - callsBefore, 1);
+      assert.equal(callsWithoutWorkshopContext(server).length - callsBefore, 1);
       assert.equal(await page.locator('#h24-oper').isChecked(), false);
       await page.locator('#h24-repair-end').fill('11:00');
       await capture(page, '01-assistance-form.png');
@@ -207,10 +208,11 @@ test('Chromium real → RPC pública PostgreSQL17 → vistas Hotel y Panel', { t
       await dialog.getByLabel('Hora de fin de asistencia', { exact: true }).fill('11:30');
       await capture(page, '04-followup-form.png');
       const previousStages = (await fixture.admin.query('SELECT to_jsonb(e) AS value FROM public.etapas_hotel e WHERE registro_hotel_id=$1', [opened.registro_hotel_id])).rows;
-      const response = page.waitForResponse(value => value.url().endsWith('/__test/rpc'));
+      const response = page.waitForResponse(value => value.url().endsWith('/__test/rpc')
+        && value.request().postDataJSON().name === 'guardar_activacion_24h');
       await dialog.getByRole('button', { name: 'Guardar seguimiento', exact: true }).click();
       const result = await (await response).json();
-      assert.equal(result.error, null, JSON.stringify({ error: result.error, payload: server.calls.at(-1)?.args.p_payload, previousStages }));
+      assert.equal(result.error, null, JSON.stringify({ error: result.error, payload: callsWithoutWorkshopContext(server).at(-1)?.args.p_payload, previousStages }));
       await dialog.waitFor({ state: 'detached' });
       const card = page.locator(`.a50-card[data-activation-id="${opened.id}"]`);
       assert.equal(await card.locator('.a50-state').textContent(), 'CERRADA');
@@ -236,7 +238,7 @@ test('Chromium real → RPC pública PostgreSQL17 → vistas Hotel y Panel', { t
     await t.test('respuesta perdida después del commit reintenta el alta con misma identidad de petición', async () => {
       await load();
       await prepareActivation(page, 'TEST-UI-RETRY', 'TEST-UI-CASE-RETRY');
-      const before = server.calls.length;
+      const before = callsWithoutWorkshopContext(server).length;
       server.controls.loseNextCreateResponse = true;
       await page.locator('.h24-nav .button.primary').click();
       await page.locator('.h24-status.danger').waitFor();
@@ -246,11 +248,11 @@ test('Chromium real → RPC pública PostgreSQL17 → vistas Hotel y Panel', { t
       const replay = await saveWizard(page);
       assert.equal(replay.id, committed.id);
       assert.equal(replay.reutilizada, true);
-      assert.equal(server.calls.length - before, 2);
-      assert.equal(server.calls[before].args.p_id, null);
-      assert.equal(server.calls[before + 1].args.p_id, null);
-      assert.equal(server.calls[before].args.p_request_id, server.calls[before + 1].args.p_request_id);
-      assert.deepEqual(server.calls[before].args.p_payload, server.calls[before + 1].args.p_payload);
+      assert.equal(callsWithoutWorkshopContext(server).length - before, 2);
+      assert.equal(callsWithoutWorkshopContext(server)[before].args.p_id, null);
+      assert.equal(callsWithoutWorkshopContext(server)[before + 1].args.p_id, null);
+      assert.equal(callsWithoutWorkshopContext(server)[before].args.p_request_id, callsWithoutWorkshopContext(server)[before + 1].args.p_request_id);
+      assert.deepEqual(callsWithoutWorkshopContext(server)[before].args.p_payload, callsWithoutWorkshopContext(server)[before + 1].args.p_payload);
       assert.equal((await one(fixture.admin, 'SELECT count(*)::int AS n FROM public.registros_hotel WHERE vehiculo_sustituido=$1', [committed.dfm])).n, 1);
     });
 
@@ -265,7 +267,8 @@ test('Chromium real → RPC pública PostgreSQL17 → vistas Hotel y Panel', { t
       await dialog.getByLabel('Situación actual').selectOption('realizada');
       await dialog.getByLabel('Fecha de fin de asistencia', { exact: true }).fill(DATE);
       await dialog.getByLabel('Hora de fin de asistencia', { exact: true }).fill('11:00');
-      const response = page.waitForResponse(value => value.url().endsWith('/__test/rpc'));
+      const response = page.waitForResponse(value => value.url().endsWith('/__test/rpc')
+        && value.request().postDataJSON().name === 'guardar_activacion_24h');
       await dialog.getByRole('button', { name: 'Guardar seguimiento', exact: true }).click();
       const rejected = await (await response).json();
       assert.match(rejected.error.message, /única T/);

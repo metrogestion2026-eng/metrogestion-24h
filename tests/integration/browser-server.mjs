@@ -23,6 +23,13 @@ const identifier = value => {
   return `"${value}"`;
 };
 
+// Preserve the earlier journeys' RPC assertions while allowing the new
+// read-only context fetch. Every other RPC, including an unexpected mutation,
+// remains observable in their counts and request-order checks.
+export function callsWithoutWorkshopContext(server) {
+  return server.calls.filter(call => call.name !== 'obtener_contexto_taller_t_alpha75');
+}
+
 async function readQuery(db, spec, recoveryHistory, continuity, editor) {
   const actual = REAL_READS.has(spec.table) || (recoveryHistory && RECOVERY_HISTORY_READS.has(spec.table))
     || (continuity && CONTINUITY_READS.has(spec.table)) || (editor && EDITOR_READS.has(spec.table));
@@ -120,8 +127,8 @@ export async function startBrowserServer(db, { recoveryHistory = false, continui
             throw new Error(`Unexpected fixture RPC: ${data.name}`);
           }
           calls.push(structuredClone(data));
-          const wait = controls.delayNextSave;
-          controls.delayNextSave = 0;
+          const wait = workshopContext ? 0 : controls.delayNextSave;
+          if (!workshopContext) controls.delayNextSave = 0;
           if (wait) await new Promise(resolve => setTimeout(resolve, wait));
           const args = data.args;
           let saved;
