@@ -16,7 +16,7 @@ export const IDS = Object.freeze({
 });
 export const HEADERS = ['DFM', 'MATRI', 'TIPO', 'UPC/INC', 'PA', 'LUGAR/TALLER/TEL',
   'PEDIDO/NOTA/FIN CONTRA', 'MANTENIMENT', 'PROGRAMAT', 'ENTRADA', 'SALIDA', 'DIES',
-  'OBS', 'ASSIGNAT', 'MARCA', 'KM', 'ALBARA / ENTRADA'];
+  'OBS', 'ASSIGNAT', 'MARCA', 'KM', 'ALBARA / ENTRADA', '', '', 'ID_FILA'];
 const clone = value => structuredClone(value);
 function assertDatePattern(pattern) {
   if (pattern !== 'yyyy-MM-dd') throw new Error('The fixture does not model this Utilities.formatDate pattern');
@@ -189,8 +189,14 @@ class Filter {
 
 class Sheet {
   constructor(world, rows, options) {
-    Object.assign(this, { world, rows: rows.map(r => r.map(cell)), heights: {}, maxRows: options.maxRows || 100, maxColumns: 19,
+    Object.assign(this, { world, rows: rows.map(r => r.map(cell)), heights: {}, maxRows: options.maxRows || 100, maxColumns: 20,
       filter: null });
+    // Legacy fixtures specify A:Q. Give those fixture objects explicit synthetic
+    // T values once at construction, never in the product or during a retry.
+    // A supplied T (including blank/invalid) is preserved for rejection tests.
+    if (!options.registryFixture) rows.forEach((row, index) => {
+      if (row.length < 20) this.at(index + 1, 20).value = index ? 900000 + index : 'ID_FILA';
+    });
     // Matrix input makes the harness reusable with a private exported snapshot.
     // Cached cell values and formula text stay separate; this is not a formula
     // evaluator. No fixture data are loaded or written merely by importing it.
@@ -236,7 +242,7 @@ class Sheet {
   setRowHeight(row, height) { this.world.effect({ kind: 'sheet', method: 'setRowHeight', row, height }, () => { this.heights[row] = height; }); return this; }
   insertRowAfter(row) {
     this.world.effect({ kind: 'sheet', method: 'insertRowAfter', row }, () => {
-      this.rows.splice(row, 0, Array.from({ length: 19 }, () => cell('')));
+      this.rows.splice(row, 0, Array.from({ length: 20 }, () => cell('')));
       this.maxRows++;
       this.heights = Object.fromEntries(Object.entries(this.heights).map(([r, v]) => [Number(r) > row ? Number(r) + 1 : r, v]));
     });
@@ -247,7 +253,7 @@ class Sheet {
     // Include only initialized rows/columns up to the existing sheet dimensions;
     // trailing blank read buffers do not change observable state.
     const last = Math.max(this.getLastRow(), ...this.rows.map((r, i) => r.some(c => c.note || c.link || c.background !== '#ffffff' || c.format) ? i + 1 : 0));
-    const rows = Array.from({ length: last }, (_, r) => Array.from({ length: 19 }, (_, c) => clone(this.at(r + 1, c + 1))));
+    const rows = Array.from({ length: last }, (_, r) => Array.from({ length: 20 }, (_, c) => clone(this.at(r + 1, c + 1))));
     return { rows, maxRows: this.maxRows, heights: clone(this.heights), filter: this.filter ? { range: clone(this.filter.range), criteria: clone(this.filter.criteria) } : null };
   }
 }
@@ -311,6 +317,13 @@ export function createExecutorHarness(options = {}) {
   };
   const sheet = new Sheet(world, options.rows || options.values || [HEADERS, paradaRow()], options);
   world.sheet = sheet;
+  const initialIds = [...new Set(sheet.rows.slice(1).map(row => row[19]?.value)
+    .filter(value => Number.isSafeInteger(Number(value)) && Number(value) > 0).map(Number))];
+  const registry = new Sheet(world, options.registryRows || [['ID_FILA', 'ESTADO'],
+    ...initialIds.map(id => [id, 'ACTIVA'])], { registryFixture: true });
+  registry.getName = () => 'REGISTRO_FILAS';
+  registry.at(2, 8).value = options.registryCounter ?? Math.max(900000, ...initialIds);
+  world.registry = registry;
   const properties = {
     getProperty: key => world.properties.get(key) ?? null,
     getProperties: () => Object.fromEntries(world.properties),
@@ -381,7 +394,8 @@ export function createExecutorHarness(options = {}) {
         return { getResponseCode: () => result?.status ?? 200,
           getContentText: () => typeof result?.body === 'string' ? result.body : JSON.stringify(result?.body ?? result) };
       } },
-      LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }) },
+      LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }),
+        getDocumentLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
       ScriptApp: { getProjectTriggers: () => world.triggers, deleteTrigger: trigger => world.effect({ kind: 'trigger', method: 'delete' }, () => { world.triggers = world.triggers.filter(t => t !== trigger); }),
         newTrigger: name => { const builder = { timeBased: () => builder, everyHours: () => builder, after: () => builder,
           create: () => world.effect({ kind: 'trigger', method: 'create', name }, () => world.triggers.push({ getHandlerFunction: () => name })) }; return builder; } },
@@ -392,7 +406,9 @@ export function createExecutorHarness(options = {}) {
     world.context = context;
     world.config = vm.runInContext('METROGESTION', context);
     world.book = { getId: () => world.config.spreadsheetId, getName: () => world.config.spreadsheetName,
-      getSheetByName: name => name === world.config.sheetName ? sheet : null, getSpreadsheetTimeZone: () => 'Europe/Madrid' };
+      getSheetByName: name => name === world.config.sheetName ? sheet
+        : name === world.config.registroFilasSheet && options.registry !== false ? registry : null,
+      getSpreadsheetTimeZone: () => 'Europe/Madrid' };
     if (!world.properties.has(world.config.tokenProperty)) world.properties.set(world.config.tokenProperty, 'mg_' + '0'.repeat(64));
     return context;
   };
