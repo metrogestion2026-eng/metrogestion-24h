@@ -33,6 +33,8 @@ Consulta reproducible en `docs/sincro11-auditoria-rollover-20261116.sql`:
 
 El caso de orden es la etapa «Recuperar ruta y liberar reserva» del R1246, con posición 3 en origen y 2 en destino: R1246 figura actualmente retirado. La discrepancia **no se etiqueta como error ni se revierte**, pues el usuario puede reordenar. Los cinco cambios de estado tampoco se atribuyen automáticamente a error de copia: son hechos posteriores que requieren origen/revisión para clasificarse. Los cambios humanos entre días son válidos y el cierre de día por sí solo no autoriza escribir fechas nuevas.
 
+**Contraste adicional de las 68 etapas (lectura posterior):** 0 diferencias de observaciones, nombre, lugar, fecha prevista y grupo documental. Hay 1 diferencia de orden, 6 de estado, 2 de inicio real, 4 de fin real y 4 de fecha real. No se les atribuye origen automático, pues Metro puede modificar etapas después del cambio de Pizarra. Hay 8 diferencias de referencia `etapa_origen_id`: la función copia y remapea identificadores internos; una diferencia de UUID físico no prueba pérdida de continuidad. No se recalculan ni escriben fechas.
+
 Las tablas de documentos y notas pueden vincularse al seguimiento y al grupo documental, además del registro/etapa físicos. El SQL de copia conserva el grupo documental de la etapa, pero **no clona explícitamente** `documentos_gestion` ni `anotaciones_manuales_hotel`; esto **no prueba pérdida** por sí mismo. El cotejo directo de `documentos_gestion` por registro y seguimiento fue **0** en estas dos fechas. Queda pendiente un ensayo aislado que verifique acceso a los documentos reales por sus enlaces estables, sin copiar ni alterar ninguno.
 
 ## Limitación principal y próximos ensayos
