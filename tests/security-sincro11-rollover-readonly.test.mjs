@@ -15,7 +15,7 @@ test('auditoría es un único SELECT con CTE sin vías de escritura', () => {
 test('consulta fechas acotadas: no intenta crear ni archivar Pizarras',()=>{
  assert.match(sql,/DATE '2026-11-15'/);
  assert.match(sql,/DATE '2026-11-16'/);
- assert.match(sql,/public\.pizarras p JOIN dates/);
+ assert.match(sql,/public\.pizarras p ON p\.id=r\.pizarra_id JOIN dates d ON p\.fecha=d\.(src|dst)/);
  assert.doesNotMatch(sql,/\bcrear_pizarra_diaria\s*\(/i);
 });
 test('fichas se casan por seguimiento estable, no por lugar ni DFM',()=>{
@@ -31,7 +31,7 @@ test('etapas se casan por identidad dentro de ficha, no por posición',()=>{
 });
 test('trabajos se comprueban por etapa y no se presumen iguales',()=>{
  assert.match(sql,/public\.trabajos_etapa_hotel/);
- assert.match(sql,/b\.n AS destino_n/); // caso improbable: forzar error si cambian contratos sin actualizar prueba
+ assert.match(sql,/b\.n AS destino_n/);
 });
 test('altas, retiradas y modificaciones humanas no se tratan como pérdida o corrección automática',()=>{
  assert.match(sql,/WHERE NOT r\.cancelado AND NOT r\.retirado_hotel_activo/);
