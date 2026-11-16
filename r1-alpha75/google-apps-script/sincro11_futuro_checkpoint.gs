@@ -299,3 +299,19 @@ function metroSincro11F2Comparar() {
     aviso:'La referencia F2 no es V1. Una diferencia no demuestra autoría ni fecha de edición; confirmar antes de cualquier futura sincronización.'
   };
 }
+
+/**
+ * Punto de entrada sencillo para el menú Ejecutar de Apps Script.
+ * No crea ni modifica referencias: previsualiza, consulta el estado y solo
+ * compara cuando una referencia F2 ya existe y fue autorizada previamente.
+ */
+function metroSincro11F2Verificar() {
+  const estado = metroSincro11F2Estado();
+  const previa = metroSincro11F2Previsualizar();
+  const comparacion = estado.referencia_f2_existente
+    ? metroSincro11F2Comparar()
+    : { aviso: 'Sin referencia F2: no se comparan cambios históricos ni se sella nada.' };
+  const resultado = { estado, previa, comparacion };
+  console.log(JSON.stringify(resultado, null, 2));
+  return resultado;
+}
