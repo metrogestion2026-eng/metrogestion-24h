@@ -75,7 +75,7 @@ function fixture(n=2,options={}) {
       computeDigest:(algo,data)=>Array.from(createHash(algo).update(data,'utf8').digest()),
       base64EncodeWebSafe:arr=>Buffer.from(arr).toString('base64url'),
       getUuid:()=>randomUUID(),
-    },console,
+    },console:{log:(...args)=>effects.push(['console',args.length])},
   };
   const ctx=vm.createContext(runtime);
   vm.runInContext(SOURCE,ctx,{filename:'sincro11_futuro_checkpoint.gs'});
@@ -269,4 +269,24 @@ test('F2 notes and formulas are observed but private note text is never reported
   const x=fixture(1);x.call('metroSincro11F2CrearReferencia_',CHOICE);
   x.rows[0].notes[8]='NOTA PRIVADA';const out=x.call('metroSincro11F2Comparar');
   assert.equal(out.cambios_observados,1);assert.equal(JSON.stringify(out).includes('NOTA PRIVADA'),false);
+});
+
+
+test('single verification command is read-only, no sealing and complete logs',()=>{
+ const x=fixture(4);
+ const out=x.call('metroSincro11F2Verificar');
+ assert.equal(out.estado.referencia_f2_existente,false);
+ assert.equal(out.previa.filas,4);
+ assert.match(out.comparacion.aviso,/Sin referencia F2/);
+ assert.equal(x.writes.length,0);
+ assert.ok(x.effects.some(e=>e[0]==='console'));
+});
+
+test('verification with an authorized F2 reference reports current differences only',()=>{
+ const x=fixture(2);x.call('metroSincro11F2CrearReferencia_',CHOICE);
+ const before=x.writes.length;x.rows[1].values[8]='16/11/2026';
+ const out=x.call('metroSincro11F2Verificar');
+ assert.equal(out.estado.referencia_f2_existente,true);
+ assert.equal(out.comparacion.cambios_observados,1);
+ assert.equal(x.writes.length,before);
 });
