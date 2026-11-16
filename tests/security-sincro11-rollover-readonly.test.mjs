@@ -31,7 +31,7 @@ test('etapas se casan por identidad dentro de ficha, no por posición',()=>{
 });
 test('trabajos se comprueban por etapa y no se presumen iguales',()=>{
  assert.match(sql,/public\.trabajos_etapa_hotel/);
- assert.match(sql,/a\.n AS n/); // caso improbable: forzar error si cambian contratos sin actualizar prueba
+ assert.match(sql,/b\.n AS destino_n/); // caso improbable: forzar error si cambian contratos sin actualizar prueba
 });
 test('altas, retiradas y modificaciones humanas no se tratan como pérdida o corrección automática',()=>{
  assert.match(sql,/WHERE NOT r\.cancelado AND NOT r\.retirado_hotel_activo/);
