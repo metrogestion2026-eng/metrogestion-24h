@@ -5,6 +5,10 @@ on:
     paths:
       - 'sql/sincro11_receptor_cas_laboratorio_20261117.sql'
       - 'tests/security-sincro11-cas-lab.test.mjs'
+      - 'sql/sincro11_concurrencia_setup_20261117.sql'
+      - 'sql/sincro11_concurrencia_teardown_20261117.sql'
+      - 'tests/security-sincro11-concurrencia.test.mjs'
+      - 'tests/security-sincro11-concurrencia-static.test.mjs'
       - '.github/workflows/sincro11-cas-laboratorio.yml'
   workflow_dispatch:
 
@@ -14,7 +18,7 @@ permissions:
 jobs:
   cas-lab:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     services:
       postgres:
         image: postgres:17
@@ -35,7 +39,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Verificar contrato sin escrituras operativas
-        run: node --test tests/security-sincro11-cas-lab.test.mjs
+        run: node --test tests/security-sincro11-cas-lab.test.mjs tests/security-sincro11-concurrencia-static.test.mjs
       - name: SQL real con ROLLBACK en PostgreSQL 17 aislado
         env:
           PGHOST: 127.0.0.1
@@ -54,3 +58,24 @@ jobs:
           grep -q 'SINCRO 11 CAS SOLO LAB' /tmp/sincro11_cas_laboratorio.log
           grep -q '^ROLLBACK$' /tmp/sincro11_cas_laboratorio.log
           test "$(psql -X -Atc "SELECT count(*) FROM pg_tables WHERE tablename LIKE 's11_%' AND schemaname NOT IN ('pg_catalog','information_schema')")" = '0'
+
+      - name: Dos sesiones simultaneas en PG17 - CAS por T y campo
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGDATABASE: sincro11_lab
+          PGUSER: laboratorio
+          PGPASSWORD: solamente_ci_no_es_clave_real
+          PGCONNECT_TIMEOUT: '10'
+        run: |
+          set -Eeuo pipefail
+          test "$(psql -X -Atc 'SELECT current_database()')" = 'sincro11_lab'
+          cleanup() {
+            psql -X -v ON_ERROR_STOP=1 -f sql/sincro11_concurrencia_teardown_20261117.sql || true
+          }
+          trap cleanup EXIT
+          psql -X -v ON_ERROR_STOP=1 -f sql/sincro11_concurrencia_setup_20261117.sql
+          node --test tests/security-sincro11-concurrencia.test.mjs
+          psql -X -v ON_ERROR_STOP=1 -f sql/sincro11_concurrencia_teardown_20261117.sql
+          trap - EXIT
+          test "$(psql -X -Atc "SELECT count(*) FROM pg_namespace WHERE nspname='s11_ci'")" = '0'
