@@ -7,7 +7,7 @@ on:
       - 'tests/security-sincro11-cas-lab.test.mjs'
       - 'sql/sincro11_concurrencia_setup_20261117.sql'
       - 'sql/sincro11_concurrencia_teardown_20261117.sql'
-      - 'tests/security-sincro11-concurrencia.test.mjs'
+      - 'tests/integration-sincro11-concurrencia.pg.test.mjs'
       - 'tests/security-sincro11-concurrencia-static.test.mjs'
       - '.github/workflows/sincro11-cas-laboratorio.yml'
   workflow_dispatch:
@@ -75,7 +75,7 @@ jobs:
           }
           trap cleanup EXIT
           psql -X -v ON_ERROR_STOP=1 -f sql/sincro11_concurrencia_setup_20261117.sql
-          node --test tests/security-sincro11-concurrencia.test.mjs
+          node --test tests/integration-sincro11-concurrencia.pg.test.mjs
           psql -X -v ON_ERROR_STOP=1 -f sql/sincro11_concurrencia_teardown_20261117.sql
           trap - EXIT
           test "$(psql -X -Atc "SELECT count(*) FROM pg_namespace WHERE nspname='s11_ci'")" = '0'
