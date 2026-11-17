@@ -19,7 +19,8 @@ fichas AS (
  s.lugar AS lugar_origen,d.lugar AS lugar_destino,
  s.observaciones AS obs_origen,d.observaciones AS obs_destino,
  s.causa AS causa_origen,d.causa AS causa_destino,
- s.proximo AS proximo_origen,d.proximo AS proximo_destino
+ s.proximo AS proximo_origen,d.proximo AS proximo_destino,
+ s.tipo_sustituto AS tipo_origen,d.tipo_sustituto AS tipo_destino
  FROM src s LEFT JOIN dst d ON s.seguimiento_id=d.seguimiento_id
 ),
 etapas_origen AS (
@@ -53,6 +54,7 @@ SELECT
  (SELECT count(*) FROM fichas WHERE estado_origen IS DISTINCT FROM estado_destino) AS estados_observados_distintos,
  (SELECT count(*) FROM fichas WHERE lugar_origen IS DISTINCT FROM lugar_destino) AS lugares_observados_distintos,
  (SELECT count(*) FROM fichas WHERE obs_origen IS DISTINCT FROM obs_destino OR causa_origen IS DISTINCT FROM causa_destino OR proximo_origen IS DISTINCT FROM proximo_destino) AS notas_observadas_distintas,
+ (SELECT count(*) FROM fichas WHERE tipo_origen IS DISTINCT FROM tipo_destino) AS tipos_sustituto_observados_distintos,
  (SELECT count(*) FROM etapas_origen) AS etapas_origen,
  (SELECT count(*) FROM etapas_destino) AS etapas_destino,
  (SELECT count(*) FROM etapas WHERE etapa_nueva IS NOT NULL) AS etapas_conservadas,
