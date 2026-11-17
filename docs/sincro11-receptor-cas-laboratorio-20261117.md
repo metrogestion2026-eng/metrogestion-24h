@@ -45,3 +45,13 @@ El fichero `sql/sincro11_receptor_cas_laboratorio_20261117.sql` implementa **sol
 Captura manual auditada y firma/autoría auténticas; vínculo comprobado por T para cada clase; mapeo de campo y significado operativo completo; revisión CAS verificable del destino; invalidación de colas antiguas con trazabilidad por campo sin anular órdenes independientes; bloqueo de escritura hacia MANTENIMENT; pruebas multi-sesión y de idempotencia; pruebas integradas completas y autorización expresa de Metro.
 
 **Estado de producción:** ninguna modificación por este trabajo. La base V1 sellada el 16/11/2026 permanece intacta; F2 sigue sin instalar y sin referencia creada. PR borrador: https://github.com/metrogestion2026-eng/metrogestion-24h/pull/132.
+
+## 5. Verificación efectivamente realizada el 17/11/2026
+
+- GitHub Actions, ejecución **44034986250** (`SINCRO 11 - Receptor CAS en PostgreSQL 17 aislado`): **SUCCESS**.
+- `node --test tests/security-sincro11-cas-lab.test.mjs`: **8/8**.
+- PostgreSQL **17** real en contenedor aislado: se ejecutó el fichero SQL completo. El registro confirma `CREATE FUNCTION`, `NOTICE: SINCRO 11 CAS SOLO LAB: 11 comprobaciones; 1 aplicación ficticia...`, seguido de `ROLLBACK`.
+- Postcondición del workflow: ninguna tabla `s11_%` persistente encontrada. No se han usado credenciales de Supabase real.
+- Primera tentativa de CI 44034800466 fue **FAILURE antes de ejecutar SQL** por entrecomillado de `--health-cmd` al crear el contenedor. Se corrigió únicamente la opción de arranque y se volvió a probar; la ejecución 44034986250 pasó íntegramente. Este histórico no se oculta ni se cuenta como aprobación SQL.
+
+**Aceptación de esta fase:** mecanismo **ficticio** de transacción/retención/acuse y sus controles superados en PostgreSQL real, sin escritura operativa. **No aceptado para producción:** procedencia humana, vínculo T↔UUID no ambiguo, reconciliación universal por clase/campo, revisión CAS del destino real, outbox real y pruebas de simultaneidad entre dos conexiones.
