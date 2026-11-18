@@ -8,7 +8,7 @@ import test from 'node:test';
 import {spawn,spawnSync} from 'node:child_process';
 assert.equal(process.env.PGDATABASE,'sincro11_lab','S12: base ficticia obligatoria');
 assert.equal(process.env.PGUSER,'laboratorio','S12: rol laboratorio obligatorio');
-const f=n=>('00000000'+n).slice(-12);
+const f=n=>String(n).padStart(12,'0');
 const uuid=(pref,n)=>pref+'0000000-0000-4000-8000-'+f(n);
 const LOT=n=>uuid('c',n),REQ=n=>uuid('f',n),NONCE=n=>uuid('9',n);
 const SESSION_OK='a1111111-1111-4111-8111-111111111111';
