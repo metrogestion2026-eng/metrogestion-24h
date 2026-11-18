@@ -270,6 +270,21 @@ test('sin permiso real de escritura ni bibliotecas de red',()=>{
   /\bfetch\(/,/\bINSERT INTO\b/,/\bUPDATE \w+ SET\b/,/service_role/i])
    assert.doesNotMatch(s,rx);
 });
+test('T inválida no se confunde con duplicado ni se busca por fila física',()=>{
+ const f=fixture();f.evento.id_fila='A1624';
+ const r=result(f);
+ assert.equal(r.detalles[0].motivo,'IDENTIDAD_T_CAMPO_U_HOJA_INVALIDA');
+ closed(r);
+});
+test('captura nula o con estructura incorrecta se retiene sin consultar celdas',()=>{
+ const f=fixture(),p=paquete([f]);
+ p.eventos=[null];
+ const a=auditar(p);
+ assert.equal(a.detalles[0].motivo,'ID_EVENTO_INVALIDO');closed(a);
+ const p2=paquete([f]);p2.eventos=[{...f.evento,dfm:'no_autorizado'}];
+ const b=auditar(p2);
+ assert.equal(b.detalles[0].motivo,'APROBACION_DE_LOTE_AUSENTE_O_INCOMPLETA');closed(b);
+});
 test('lotes desmesurados e identidad excluida ilegible fallan cerrados',()=>{
  const f=fixture();
  assert.throws(()=>auditar({observado_en:T.now,eventos:Array(5001).fill(f.evento)}),/lote eventos/);
