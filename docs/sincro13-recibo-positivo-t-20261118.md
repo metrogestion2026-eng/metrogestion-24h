@@ -45,3 +45,17 @@ El test usa un clon de Google Sheets en memoria y carga el mismo archivo Apps Sc
 ## Continuidad
 
 La PR #132 queda congelada como laboratorio. Esta rama es independiente y parte de main. Alpha75.26 no queda validada por este trabajo; no fusionar ni activar la sincronización. Documentos rectores: Biblia SYNC-001, Bitácora central y Diccionario de MANTENIMENT.
+
+## Ampliación verificada · puente privado de recepción · 18/11/2026
+
+**Desarrollo en la misma PR #133, todavía DRAFT y sin desplegar.**
+
+- Archivo sql/sincro13_recibos_t_candidato_20261118.sql: receptor privado para un lote de 1–8 T nuevas. Verifica token, entrega íntegra del servidor, huella de orden, fecha de entrega posterior al corte, UUID del trabajo y objeto de Hotel/seguimiento. La T procede solo del recibo del ejecutor, no de fila física, PA ni DFM.
+- Tablas nuevas solo en SQL candidato, NO en Supabase: app_private.sincro13_lotes_t y app_private.sincro13_recibos_t. Conservan recibos idempotentes, rechazan contradicciones y dejan siempre estado PENDIENTE_VERIFICACION_GOOGLE. No modifican mg9_filas_identidad, outbox, Hotel ni MANTENIMENT.
+- Edge Function manteniment-sync-r1: acción separada ack_t_nuevas y contrato exacto. La función SQL pública es SECURITY INVOKER y accesible solo a service_role, con lógica privilegiada dentro de app_private.
+- Apps Script: metroSincro13TransmitirReciboT_ queda preparada para enviar la T ANTES del ACK ordinario, comprobar respuesta exacta y retener el journal ante errores. Bandera METROGESTION_S13_RECIBOS_RECEPTOR_VALIDADO=false: no se ejecuta este envío ni se modifica la operativa actual.
+- tests/security-sincro13-edge-recibos.test.mjs, sql/sincro13_lab_setup_20261118.sql, tests/integration-sincro13-recibo.pg.test.mjs y .github/workflows/sincro13-recibos-t-lab.yml: pruebas con PostgreSQL 17 autónomo y datos totalmente ficticios.
+
+**Resultados constatados**: GitHub Actions 44361375378, receptor PostgreSQL 17 ficticio SUCCESS; 44361375398 seguridad SUCCESS, integración nativa pendiente de verificar al anotar esta línea.
+
+**Pendiente antes de una SINCRO de verdad**: comprobar la asignación T en un libro de ensayo con REGISTRO_FILAS; resolver concurrencia con onChange; cotejar de forma independiente en Google la T registrada; acreditar el vínculo en destino bajo permisos explícitos; receptor CAS de retorno de correcciones manuales T/campo; aceptación supervisada sin movimientos falsos. No instalar ni fusionar esta PR todavía.
