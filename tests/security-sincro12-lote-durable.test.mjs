@@ -59,3 +59,16 @@ test('dos sesiones PostgreSQL y los datos ficticios no son pruebas sobre la hoja
  assert.match(sql,/LIBRO_FICTICIO/);
  assert.doesNotMatch(sql,/1PQE5VsjTvDFvQZcqedyQKIs3RbSySHFK4JPQXBD0XyU/);
 });
+test('encabezado confirmado se bloquea para cualquier mutación posterior',()=>{
+ assert.match(sql,/CREATE TRIGGER s12_no_mutar_lotes_confirmados/);
+ assert.match(sql,/S12_LOTE_CONFIRMADO_INMUTABLE/);
+ assert.match(sql,/S12_LOTE_NO_NACE_CONFIRMADO/);
+});
+test('el CAS requiere revisión y huella de origen y destino exactas',()=>{
+ assert.match(sql,/revision_destino_base bigint NOT NULL/);
+ assert.match(sql,/hash_destino_base text NOT NULL/);
+ assert.match(sql,/h\.revision<>e\.revision_nueva/);
+ assert.match(sql,/d\.revision<>e\.revision_destino_base/);
+ assert.match(sql,/d\.hash_vigente<>e\.hash_destino_base/);
+ assert.match(sql,/S12_DESTINO_OBSOLETO_AL_SELLAR/);
+});
