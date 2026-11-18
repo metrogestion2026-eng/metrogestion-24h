@@ -57,6 +57,8 @@ CREATE TABLE s12_lab.eventos(
  origen text NOT NULL CHECK(origen IN('CONTROLADO_FICTICIO','OBSERVACION_FICTICIA')),
  revision_base bigint NOT NULL CHECK(revision_base>0),
  revision_nueva bigint NOT NULL CHECK(revision_nueva=revision_base+1),
+ revision_destino_base bigint NOT NULL CHECK(revision_destino_base>0),
+ hash_destino_base text NOT NULL CHECK(hash_destino_base ~ '^[0-9a-f]{64}$'),
  hash_anterior text NOT NULL CHECK(hash_anterior ~ '^[0-9a-f]{64}$'),
  hash_nuevo text NOT NULL CHECK(hash_nuevo ~ '^[0-9a-f]{64}$'),
  observado_en timestamptz NOT NULL,
@@ -86,6 +88,29 @@ CREATE TABLE s12_lab.recibos_inmutables(
  respuesta jsonb NOT NULL,
  confirmado_en timestamptz NOT NULL DEFAULT clock_timestamp()
 );
+CREATE FUNCTION s12_lab.proteger_lote_sellado() RETURNS trigger
+ LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,s12_lab AS $f$
+BEGIN
+ IF current_database()<>'sincro11_lab' THEN
+  RAISE EXCEPTION 'S12_LAB_NO_AUTORIZADO';
+ END IF;
+ IF TG_OP='INSERT' THEN
+  IF NEW.estado<>'BORRADOR' THEN RAISE EXCEPTION 'S12_LOTE_NO_NACE_CONFIRMADO'; END IF;
+  RETURN NEW;
+ END IF;
+ IF TG_OP='DELETE' OR OLD.estado='CONFIRMADO_FICTICIO' THEN
+  RAISE EXCEPTION 'S12_LOTE_CONFIRMADO_INMUTABLE';
+ END IF;
+ IF NEW.estado<>'CONFIRMADO_FICTICIO'
+   OR NEW.lote_id<>OLD.lote_id OR NEW.tipo<>OLD.tipo
+   OR NEW.creado_en<>OLD.creado_en OR NEW.aprobado_en IS NULL
+   OR NEW.session_id IS NULL OR NEW.request_id IS NULL OR NEW.huella IS NULL THEN
+  RAISE EXCEPTION 'S12_LOTE_TRANSICION_NO_AUTORIZADA';
+ END IF;
+ RETURN NEW;
+END $f$;
+CREATE TRIGGER s12_no_mutar_lotes_confirmados BEFORE INSERT OR UPDATE OR DELETE
+ ON s12_lab.lotes FOR EACH ROW EXECUTE FUNCTION s12_lab.proteger_lote_sellado();
 CREATE FUNCTION s12_lab.no_mutar_recibo() RETURNS trigger
  LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog,s12_lab AS $f$
 BEGIN
@@ -126,7 +151,7 @@ BEGIN
  END IF;
  SELECT coalesce(jsonb_agg(
   jsonb_build_array(evento_id::text,id_fila,columna,significado,origen,
-    revision_base,revision_nueva,hash_anterior,hash_nuevo,observado_en)
+    revision_base,revision_nueva,revision_destino_base,hash_destino_base,hash_anterior,hash_nuevo,observado_en)
   ORDER BY id_fila,columna,evento_id::text),'[]'::jsonb)
  INTO v_json FROM s12_lab.eventos WHERE lote_id=p_lote;
  RETURN encode(sha256(convert_to(v_json::text,'UTF8')),'hex');
@@ -198,6 +223,15 @@ BEGIN
   OR e.observado_en>clock_timestamp()
  ) LIMIT 1;
  IF FOUND THEN RAISE EXCEPTION 'S12_EVENTO_O_VINCULO_NO_ACREDITADO_LAB'; END IF;
+ IF EXISTS(
+  SELECT 1 FROM s12_lab.eventos e
+  JOIN s12_lab.vinculos v ON v.id_fila=e.id_fila AND v.columna=e.columna
+  LEFT JOIN s12_lab.destinos d
+    ON d.objeto_id=v.objeto_id AND d.campo_destino=v.campo_destino
+  WHERE e.lote_id=p_lote AND
+   (d.objeto_id IS NULL OR d.revision<>e.revision_destino_base
+    OR d.hash_vigente<>e.hash_destino_base)
+ ) THEN RAISE EXCEPTION 'S12_DESTINO_OBSOLETO_AL_SELLAR'; END IF;
  v_actual:=s12_lab.huella_lote_ficticia(p_lote);
  IF v_actual<>p_huella THEN RAISE EXCEPTION 'S12_HUELLA_LOTE_DISTINTA'; END IF;
  UPDATE s12_lab.lotes SET estado='CONFIRMADO_FICTICIO',
@@ -221,11 +255,13 @@ CREATE FUNCTION s12_lab.candidatos_del_lote_ficticio(p_lote uuid)
  SELECT e.id_fila,e.columna,
   CASE
    WHEN l.estado<>'CONFIRMADO_FICTICIO' THEN 'LOTE_NO_CONFIRMADO'
-   WHEN h.id_fila IS NULL OR h.revision<e.revision_nueva
+   WHEN h.id_fila IS NULL OR h.revision<>e.revision_nueva
      OR h.hash_vigente<>e.hash_nuevo OR h.leido_en<l.aprobado_en
      THEN 'HOJA_NO_RELEIDA_O_CAMBIADA'
    WHEN d.objeto_id IS NULL THEN 'DESTINO_NO_ENCONTRADO'
    WHEN d.hash_vigente=e.hash_nuevo THEN 'DESTINO_YA_COINCIDE'
+   WHEN d.revision<>e.revision_destino_base OR d.hash_vigente<>e.hash_destino_base
+     THEN 'DESTINO_CAMBIADO_TRAS_APROBACION'
    ELSE 'CANDIDATO_LAB_NO_AUTORIZADO'
   END::text AS resultado,
   false::boolean AS autoriza_sincronizar
@@ -268,17 +304,17 @@ INSERT INTO s12_lab.lotes(lote_id,tipo,creado_en) VALUES
  ('c0000000-0000-4000-8000-000000000008','CONTROLADO_LAB',clock_timestamp()-interval '5 minutes');
 INSERT INTO s12_lab.eventos(
  evento_id,lote_id,id_fila,columna,significado,origen,
- revision_base,revision_nueva,hash_anterior,hash_nuevo,observado_en)
+ revision_base,revision_nueva,revision_destino_base,hash_destino_base,hash_anterior,hash_nuevo,observado_en)
 VALUES
- ('d0000000-0000-4000-8000-000000000001','c0000000-0000-4000-8000-000000000001',90001,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',6,7,repeat('a',64),repeat('b',64),clock_timestamp()-interval '4 minutes'),
- ('d0000000-0000-4000-8000-000000000002','c0000000-0000-4000-8000-000000000002',90002,'K','RECOGIDA_REAL_TALLER','OBSERVACION_FICTICIA',3,4,repeat('c',64),repeat('d',64),clock_timestamp()-interval '4 minutes'),
- ('d0000000-0000-4000-8000-000000000003','c0000000-0000-4000-8000-000000000003',90003,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,repeat('e',64),repeat('f',64),clock_timestamp()-interval '4 minutes'),
- ('d0000000-0000-4000-8000-000000000004','c0000000-0000-4000-8000-000000000004',90004,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,repeat('e',64),repeat('f',64),clock_timestamp()-interval '4 minutes'),
- ('d0000000-0000-4000-8000-000000000005','c0000000-0000-4000-8000-000000000005',90005,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,repeat('e',64),repeat('f',64),'2026-11-15T22:59:59+00'::timestamptz),
- ('d0000000-0000-4000-8000-000000000006','c0000000-0000-4000-8000-000000000006',90006,'J','ENTRADA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,repeat('e',64),repeat('f',64),clock_timestamp()-interval '4 minutes'),
- ('d0000000-0000-4000-8000-000000000007','c0000000-0000-4000-8000-000000000007',90007,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,repeat('1',64),repeat('2',64),clock_timestamp()-interval '4 minutes'),
- ('d0000000-0000-4000-8000-000000000008','c0000000-0000-4000-8000-000000000007',90008,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,repeat('3',64),repeat('4',64),clock_timestamp()-interval '4 minutes'),
- ('d0000000-0000-4000-8000-000000000009','c0000000-0000-4000-8000-000000000008',90009,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,repeat('5',64),repeat('6',64),clock_timestamp()-interval '4 minutes');
+ ('d0000000-0000-4000-8000-000000000001','c0000000-0000-4000-8000-000000000001',90001,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',6,7,4,repeat('a',64),repeat('a',64),repeat('b',64),clock_timestamp()-interval '4 minutes'),
+ ('d0000000-0000-4000-8000-000000000002','c0000000-0000-4000-8000-000000000002',90002,'K','RECOGIDA_REAL_TALLER','OBSERVACION_FICTICIA',3,4,4,repeat('a',64),repeat('c',64),repeat('d',64),clock_timestamp()-interval '4 minutes'),
+ ('d0000000-0000-4000-8000-000000000003','c0000000-0000-4000-8000-000000000003',90003,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,4,repeat('a',64),repeat('e',64),repeat('f',64),clock_timestamp()-interval '4 minutes'),
+ ('d0000000-0000-4000-8000-000000000004','c0000000-0000-4000-8000-000000000004',90004,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,4,repeat('a',64),repeat('e',64),repeat('f',64),clock_timestamp()-interval '4 minutes'),
+ ('d0000000-0000-4000-8000-000000000005','c0000000-0000-4000-8000-000000000005',90005,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,4,repeat('a',64),repeat('e',64),repeat('f',64),'2026-11-15T22:59:59+00'::timestamptz),
+ ('d0000000-0000-4000-8000-000000000006','c0000000-0000-4000-8000-000000000006',90006,'J','ENTRADA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,4,repeat('a',64),repeat('e',64),repeat('f',64),clock_timestamp()-interval '4 minutes'),
+ ('d0000000-0000-4000-8000-000000000007','c0000000-0000-4000-8000-000000000007',90007,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,4,repeat('a',64),repeat('1',64),repeat('2',64),clock_timestamp()-interval '4 minutes'),
+ ('d0000000-0000-4000-8000-000000000008','c0000000-0000-4000-8000-000000000007',90008,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,4,repeat('a',64),repeat('3',64),repeat('4',64),clock_timestamp()-interval '4 minutes'),
+ ('d0000000-0000-4000-8000-000000000009','c0000000-0000-4000-8000-000000000008',90009,'K','RECOGIDA_REAL_TALLER','CONTROLADO_FICTICIO',2,3,4,repeat('a',64),repeat('5',64),repeat('6',64),clock_timestamp()-interval '4 minutes');
 INSERT INTO s12_lab.destinos(objeto_id,campo_destino,revision,hash_vigente)
  SELECT i.objeto_id,'fecha_recogida',4,repeat('a',64)
  FROM s12_lab.identidades i WHERE i.id_fila<>90003;
