@@ -1,0 +1,66 @@
+name: SINCRO 13 - Recepción T en PostgreSQL 17 aislado
+
+on:
+  pull_request:
+    paths:
+      - 'sql/sincro13_*'
+      - 'tests/integration-sincro13-recibo.pg.test.mjs'
+      - '.github/workflows/sincro13-recibos-t-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recibir-t-laboratorio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: sincro13_lab
+          POSTGRES_USER: laboratorio
+          POSTGRES_PASSWORD: solamente_laboratorio_s13
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: sincro13_lab
+      PGUSER: laboratorio
+      PGPASSWORD: solamente_laboratorio_s13
+      PGCONNECT_TIMEOUT: '10'
+    steps:
+      - name: Consultar código únicamente de la rama de la PR
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Verificar base ficticia e instalar esquema de ensayo
+        run: |
+          set -Eeuo pipefail
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          test "$(psql -X -Atc 'SELECT current_database()')" = 'sincro13_lab'
+          test "$(psql -X -Atc 'SELECT current_user')" = 'laboratorio'
+          psql -X -v ON_ERROR_STOP=1 -f sql/sincro13_lab_setup_20261118.sql
+          psql -X -v ON_ERROR_STOP=1 -f sql/sincro13_recibos_t_candidato_20261118.sql
+
+      - name: Ensayar receptor SQL real con datos ficticios
+        run: |
+          node --test tests/integration-sincro13-recibo.pg.test.mjs
+
+      - name: Confirmar aislamiento respecto de MG9
+        run: |
+          set -Eeuo pipefail
+          test "$(psql -X -Atc 'SELECT count(*) FROM app_private.mg9_filas_identidad')" = '0'
+          test "$(psql -X -Atc "SELECT count(*) FROM app_private.sincro13_recibos_t WHERE estado <> 'PENDIENTE_VERIFICACION_GOOGLE'")" = '0'
+          echo "SINCRO 13: PG17 ficticio; sin escrituras operativas"
