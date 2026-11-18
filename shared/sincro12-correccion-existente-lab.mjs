@@ -77,8 +77,8 @@ function indexar(items,keys){
  return mapa;
 }
 function cotejar(e,v,l,d,a,now,excluidos,usados,loteCorrecto){
- const id=ident(e.id_fila);
  if(!exact(e,EVENTO_KEYS))return 'CAPTURA_CONTRATO_INVALIDO';
+ const id=ident(e.id_fila);
  if(e.spreadsheet_id!==LIBRO||id===null||!RE_CAMPO.test(e.columna??''))
   return 'IDENTIDAD_T_CAMPO_U_HOJA_INVALIDA';
  if(excluidos.has(id))return 'T_EXCLUIDA_POR_OPERADOR';
@@ -181,6 +181,8 @@ export function auditarCorreccionesExistentesS12({
   const eid=uuid(e?.evento_id)?e.evento_id.toLowerCase():null;
   let motivo;
   if(eid===null)motivo='ID_EVENTO_INVALIDO';
+  else if(id===null||col===null||!RE_CAMPO.test(col))
+   motivo='IDENTIDAD_T_CAMPO_U_HOJA_INVALIDA';
   else if(eventIds.get(eid)!==1||pares.get(id+'|'+col)!==1)
    motivo='EVENTO_O_T_CAMPO_DUPLICADO';
   else if([links.get(eid),reads.get(eid),targets.get(eid)].some(arr=>arr&&arr.length!==1))
