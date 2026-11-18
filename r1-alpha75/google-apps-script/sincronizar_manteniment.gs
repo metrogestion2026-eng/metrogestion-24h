@@ -4139,7 +4139,7 @@ function metrogestionPlanificarOrdenCompleta_(sheet, command) {
   // Contar también el posible recibo positivo de cada T nueva antes de escribir.
   // Si no cabe en el journal, se bloquea la orden ANTES de la primera mutación.
   const previstosS13 = (confirmation.trabajos_creados || []).length;
-  if (previstosS13 > 8) throw new Error('S13: más de ocho trabajos nuevos en una orden.');
+  if (previstosS13 > 8) throw new Error('S13: el recibo durable no admite más de ocho trabajos nuevos en una orden.');
   expectedReceipt.recibos_t_nuevas = Array.from({ length: previstosS13 },
     () => ({ id_fila: 999999999999, trabajo_sync_id: 'f'.repeat(36),
       creado_en: '2026-11-18T23:59:59.999Z',
