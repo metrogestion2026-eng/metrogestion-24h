@@ -2997,6 +2997,11 @@ function metrogestionProcesarOrdenesLote_(sheet, state, token, deadline) {
   }
   if (record.estado !== 'aplicado') throw new Error('Resultado incierto: esta orden no permite reaplicación ni acuse automático.');
   metrogestionVerificarReciboAplicado_(sheet, record);
+  // El piloto permanece apagado. Cuando se valide en aislamiento, el recibo T
+  // deberá persistirse ANTES del ACK; todo fallo retiene el journal 'aplicado'.
+  if (METROGESTION_S13_RECIBOS_RECEPTOR_VALIDADO) {
+    metroSincro13TransmitirReciboT_(token, record);
+  }
   metrogestionConfirmarEjecucion_(token, record);
   record.estado = 'confirmado';
   metrogestionGuardarJournalOrden_(record);
@@ -3422,6 +3427,40 @@ function metrogestionExigirJournalResuelto_(allowedRef) {
     if (saved.estado === 'aplicado' && allowedRef && metrogestionMismaReferencia_(saved.referencia, allowedRef)) return;
     throw new Error(`Resultado incierto o pendiente de la orden ${saved.referencia.tipo}/${saved.referencia.sync_id}/${saved.referencia.revision}. No se repetirá ninguna mutación; conserva esta referencia para revisión.`);
   });
+}
+
+// SINCRO 13: apagado hasta validar el receptor de recibos en un libro de ensayo.
+// El código no concede permisos y no altera la sincronización ya instalada.
+const METROGESTION_S13_RECIBOS_RECEPTOR_VALIDADO = false;
+
+function metroSincro13TransmitirReciboT_(token, record) {
+  const recibos = record?.recibos_t_nuevas || [];
+  if (!Array.isArray(recibos) || recibos.length > 8) throw new Error('S13: recibo durable inválido.');
+  if (!recibos.length) return { enviados: 0 };
+  if (!METROGESTION_S13_RECIBOS_RECEPTOR_VALIDADO) {
+    throw new Error('S13: receptor aún no validado. No se puede entregar un recibo T.');
+  }
+  const requestId = Utilities.getUuid().toLowerCase();
+  const ref = metrogestionReferenciaOrden_(record.referencia);
+  const result = metrogestionSolicitudEjecucion_('ack_t_nuevas', token, {
+    version_ejecucion: METROGESTION.executorVersion,
+    spreadsheet_id: METROGESTION.spreadsheetId,
+    request_id: requestId,
+    orden: ref,
+    recibos
+  });
+  const ack = result.recibos_t;
+  if (!metrogestionClavesPreflightExactas_(result,['ok','recibos_t'])
+    || !metrogestionClavesPreflightExactas_(ack,[
+      'protocolo','request_id','spreadsheet_id','recibidos','estado','autoriza_sincronizar'
+    ])
+    || ack.protocolo !== 'sincro13-recibos-nuevos-v1'
+    || ack.request_id !== requestId || ack.spreadsheet_id !== METROGESTION.spreadsheetId
+    || ack.recibidos !== recibos.length || ack.estado !== 'PENDIENTE_VERIFICACION_GOOGLE'
+    || ack.autoriza_sincronizar !== false) {
+    throw new Error('S13: el servidor no confirmó el recibo T exacto. No se envía ACK de ejecución.');
+  }
+  return { enviados: recibos.length };
 }
 
 function metrogestionConfirmarEjecucion_(token, record) {
