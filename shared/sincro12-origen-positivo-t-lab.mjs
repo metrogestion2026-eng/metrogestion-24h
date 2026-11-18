@@ -71,7 +71,8 @@ function keyring(reg){
 function signed(envelope,tipo,keys){
  if(!exact(envelope,['payload','kid','firma']))return null;
  const p=envelope.payload,owner=tipo==='ACUSE'||tipo==='RELECTURA'?'hoja':'servidor';
- if(!exact(p,SHAPES[tipo])||p.dominio!==S12_PUENTE_DOMINIO
+ if(!exact(p,SHAPES[tipo])||Object.values(p).some(v=>v===null||typeof v==='object')
+   ||p.dominio!==S12_PUENTE_DOMINIO
    ||p.tipo!==tipo||envelope.kid!==keys[owner].kid
    ||typeof envelope.firma!=='string'||!RE_SIGN.test(envelope.firma))return null;
  // El sobre no es una firma de sesión; es verificación criptográfica ficticia.
@@ -164,6 +165,7 @@ export function auditarPuentePositivoS12({
  const nos=new Map(),filas=new Map();
  for(const [req,groups] of intents){
   for(const p of groups){
+   if(typeof p.nonce!=='string'||!uuid(p.nonce))continue;
    const n=p.nonce.toLowerCase();
    nos.set(n,(nos.get(n)||0)+1);
   }
@@ -179,9 +181,11 @@ export function auditarPuentePositivoS12({
   let motivo;
   if(groups.length!==1||as.length>1||rs.length>1||ds.length>1)
    motivo='REQUEST_O_EVIDENCIA_DUPLICADA';
+  else if(!uuid(ia.nonce))
+   motivo='INTENCION_SIN_CONTRATO_VALIDO';
   else if(nos.get(ia.nonce.toLowerCase())!==1)
    motivo='NONCE_REUTILIZADO_ENTRE_INTENCIONES';
-  else if(as.length&&filas.get(id(as[0].id_fila))!==1)
+  else if(as.length&&id(as[0].id_fila)!==null&&filas.get(id(as[0].id_fila))!==1)
    motivo='MISMA_T_EN_VARIAS_SOLICITUDES';
   else motivo=reason(ia,as[0],rs[0],ds[0],now,consumed,excluidos);
   motivos[motivo]=(motivos[motivo]||0)+1;
