@@ -215,6 +215,50 @@ function preflightResultValid(value: unknown, client: Record<string, unknown>, s
     && !secrets.some(secret => secret && serialized.includes(secret));
 }
 
+// SINCRO 13. El recibo declara un hecho técnico y queda PENDIENTE de Google.
+// Ni esta ruta ni su SQL autorizan sincronización ni acreditan autoría humana.
+const s13ReceiptProtocol = "sincro13-recibos-nuevos-v1";
+function s13ReceiptRequestValid(body: Record<string, unknown>, value: unknown) {
+  if (!exactKeys(body, ["action","token","payload"]) || body.action !== "ack_t_nuevas"
+    || typeof body.token !== "string" || !objectRecord(value)
+    || !exactKeys(value, ["version_ejecucion","spreadsheet_id","request_id","orden","recibos"])
+    || value.version_ejecucion !== executionRevision
+    || typeof value.spreadsheet_id !== "string"
+    || !/^[A-Za-z0-9_-]{20,150}$/.test(value.spreadsheet_id)
+    || !executionUuidValid(value.request_id) || !executionReferenceValid(value.orden)
+    || !Array.isArray(value.recibos) || value.recibos.length < 1 || value.recibos.length > 8) return false;
+  const seenT = new Set<number>(), seenWork = new Set<string>();
+  for (const item of value.recibos) {
+    if (!objectRecord(item)
+      || !exactKeys(item,["id_fila","trabajo_sync_id","creado_en","origen","estado"])
+      || !Number.isSafeInteger(item.id_fila) || (item.id_fila as number) <= 0
+      || !executionUuidValid(item.trabajo_sync_id)
+      || typeof item.creado_en !== "string"
+      || !Number.isFinite(exactUtcMilliseconds(item.creado_en))
+      || Date.parse(item.creado_en) < Date.parse("2026-11-15T23:00:00.000Z")
+      || Date.parse(item.creado_en) > Date.now() + 5 * 60 * 1000
+      || item.origen !== "ORDEN_AUTORIZADA"
+      || item.estado !== "PENDIENTE_COTEJO_OBJETO") return false;
+    const uuid = (item.trabajo_sync_id as string).toLowerCase();
+    if (seenT.has(item.id_fila as number) || seenWork.has(uuid)) return false;
+    seenT.add(item.id_fila as number); seenWork.add(uuid);
+  }
+  return true;
+}
+function s13ReceiptResultValid(value: unknown, input: Record<string, unknown>, secrets: string[]) {
+  if (!objectRecord(value) || !exactKeys(value,[
+    "protocolo","request_id","spreadsheet_id","recibidos","estado","autoriza_sincronizar"
+  ]) || value.protocolo !== s13ReceiptProtocol
+    || value.request_id !== input.request_id
+    || value.spreadsheet_id !== input.spreadsheet_id
+    || !Array.isArray(input.recibos) || value.recibidos !== input.recibos.length
+    || value.estado !== "PENDIENTE_VERIFICACION_GOOGLE"
+    || value.autoriza_sincronizar !== false) return false;
+  const raw = JSON.stringify(value);
+  return !/mg_[0-9a-f]{64}/i.test(raw)
+    && !secrets.some(secret => secret && raw.includes(secret));
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method !== "POST") {
     return reply(405, { ok: false, error: "Método no permitido." });
@@ -246,7 +290,7 @@ Deno.serve(async (request: Request) => {
   if (!/^mg_[0-9a-f]{64}$/i.test(token)) {
     return reply(401, { ok: false, error: "Clave de conexión no válida." });
   }
-  if (!["sync", "ack", "preflight", "authorize", "ack_execution", "scope_status"].includes(action)) {
+  if (!["sync", "ack", "preflight", "authorize", "ack_execution", "scope_status", "ack_t_nuevas"].includes(action)) {
     return reply(400, { ok: false, error: "Acción de sincronización no válida." });
   }
   if (action === "scope_status" && !scopeStatusRequestValid(body, payload)) {
@@ -260,6 +304,9 @@ Deno.serve(async (request: Request) => {
   }
   if (action === "ack_execution" && !executionAckRequestValid(body, payload)) {
     return reply(400, { ok: false, error: "Acuse de ejecución no válido." });
+  }
+  if (action === "ack_t_nuevas" && !s13ReceiptRequestValid(body, payload)) {
+    return reply(400, { ok: false, error: "Recibo de T nuevas no válido." });
   }
   if (action === "sync" && (!payload || !rows)) {
     return reply(400, { ok: false, error: "No se ha recibido una fotografía válida de MANTENIMENT." });
@@ -280,6 +327,29 @@ Deno.serve(async (request: Request) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceRoleKey) {
     return reply(500, { ok: false, error: "Configuración segura incompleta." });
+  }
+
+  if (action === "ack_t_nuevas") {
+    try {
+      // La RPC es un invoker público ejecutable solo por service_role;
+      // el receptor PRIVADO valida token, entrega y trabajo canónico.
+      const receiver = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const {data,error} = await receiver.rpc("sincro13_registrar_recibo_t", {
+        p_token:token, p_solicitud:payload,
+      });
+      if (error) return reply(error.code === "28000" ? 401 : 400, {
+        ok:false,error:error.code === "28000" ? "Clave de conexión no válida."
+          : "No pudo conservarse el recibo T. No se ha confirmado la orden.",
+      });
+      if (!s13ReceiptResultValid(data,payload!,[token,serviceRoleKey])) {
+        return reply(502,{ok:false,error:"Recibo T no verificable. No se ha confirmado la orden."});
+      }
+      return reply(200,{ok:true,recibos_t:data});
+    } catch {
+      return reply(502,{ok:false,error:"No se pudo completar la recepción de la T."});
+    }
   }
 
   if (action === "scope_status") {
