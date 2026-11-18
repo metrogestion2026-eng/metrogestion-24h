@@ -4136,6 +4136,14 @@ function metrogestionPlanificarOrdenCompleta_(sheet, command) {
   const expectedReceipt = { ...record, estado: 'aplicado', fotografia_final_sha256: 'f'.repeat(64),
     verificado_en: new Date().toISOString(), confirmacion: confirmation,
     archivos: memory.drivePlans.map(drive => ({ ...JSON.parse(metrogestionFirmaArchivoPlan_(drive)), folderId: 'x'.repeat(200), stopsId: 'x'.repeat(200), url: 'x'.repeat(500) })) };
+  // Contar también el posible recibo positivo de cada T nueva antes de escribir.
+  // Si no cabe en el journal, se bloquea la orden ANTES de la primera mutación.
+  const previstosS13 = (confirmation.trabajos_creados || []).length;
+  if (previstosS13 > 8) throw new Error('S13: más de ocho trabajos nuevos en una orden.');
+  expectedReceipt.recibos_t_nuevas = Array.from({ length: previstosS13 },
+    () => ({ id_fila: 999999999999, trabajo_sync_id: 'f'.repeat(36),
+      creado_en: '2026-11-18T23:59:59.999Z',
+      origen: 'ORDEN_AUTORIZADA', estado: 'PENDIENTE_COTEJO_OBJETO' }));
   if (Utilities.newBlob(JSON.stringify(expectedReceipt)).getBytes().length > 8000) {
     throw new Error('El recibo completo previsto supera 8 KB. La orden requiere dividirse o revisarse antes de cualquier efecto.');
   }
@@ -4248,9 +4256,13 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
       insertedRows.forEach(row => metrogestionAsignarIdFilaNueva_(sheet, row, 'ORDEN_AUTORIZADA'));
       SpreadsheetApp.flush();
     }
+    // Solo las T asignadas por inserciones de ESTA orden obtienen recibo.
+    // Un UUID en una fila vieja, aunque coincida, no acredita un vínculo.
+    const recibosT = metroSincro13CapturarRecibosT_(sheet, plan, insertedRows);
     const actualFinal = metrogestionLeerFotografiaOrden_(sheet);
     Object.assign(record, { estado: 'aplicado', fotografia_final_sha256: metrogestionHuellaFotoOrden_(actualFinal),
       verificado_en: new Date().toISOString(), confirmacion: plan.confirmacion,
+      recibos_t_nuevas: recibosT,
       archivos: plan.memory.drivePlans.map(drive => JSON.parse(metrogestionFirmaArchivoPlan_(drive))) });
     metrogestionGuardarJournalOrden_(record);
     return record;
@@ -4261,7 +4273,130 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
   }
 }
 
+// SINCRO 13. Acuse LOCAL de T realmente asignada durante una orden autorizada.
+// No envía nada, no crea vínculos en Supabase y no autoriza sincronizar.
+// La fila física solo permite localizar la inserción en ese instante; el recibo
+// persistido usa EXCLUSIVAMENTE el valor permanente de columna T / ID_FILA.
+function metroSincro13InventarioT_(sheet) {
+  if (!metrogestionTieneRegistroFilasReal_(sheet)) {
+    throw new Error('S13: falta el registro original de IDs. No se emite ningún acuse T.');
+  }
+  const count = sheet.getLastRow();
+  const ids = count >= 2
+    ? sheet.getRange(2, METROGESTION.idFilaColumn, count - 1, 1).getValues()
+    : [];
+  const ubicaciones = new Map();
+  ids.forEach((item, index) => {
+    const id = metrogestionNumeroIdFila_(item[0]);
+    if (!id || !Number.isSafeInteger(id)) return;
+    if (ubicaciones.has(id)) throw new Error('S13: T duplicada. Sin acuse ni sincronización.');
+    ubicaciones.set(id, index + 2);
+  });
+  const hoja = metrogestionHojaRegistroFilas_();
+  const last = hoja.getLastRow();
+  const filas = last >= 2 ? hoja.getRange(2, 1, last - 1, 5).getValues() : [];
+  const registros = new Map();
+  filas.forEach(item => {
+    const id = metrogestionNumeroIdFila_(item[0]);
+    if (!id || !Number.isSafeInteger(id)) return;
+    if (registros.has(id)) throw new Error('S13: T duplicada en REGISTRO_FILAS.');
+    registros.set(id, {
+      estado: String(item[1] || '').trim().toUpperCase(),
+      fecha: item[2],
+      origen: String(item[4] || '').trim().toUpperCase()
+    });
+  });
+  return { ubicaciones, registros, ids };
+}
+
+function metroSincro13ComprobarVinculo_(sheet, inventario, id, workId) {
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error('S13: ID_FILA no válido.');
+  const row = inventario.ubicaciones.get(id);
+  const registro = inventario.registros.get(id);
+  if (!row || !registro || registro.estado !== 'ACTIVA'
+      || registro.origen !== 'ORDEN_AUTORIZADA'
+      || !(registro.fecha instanceof Date)
+      || !Number.isFinite(registro.fecha.getTime())
+      || registro.fecha.getTime() < Date.parse('2026-11-15T23:00:00.000Z')) {
+    throw new Error('S13: no consta asignación nueva y autorizada de la T.');
+  }
+  if (metrogestionNormalizar_(sheet.getRange(row, 1).getDisplayValue()) === 'R1515') {
+    throw new Error('S13: unidad expresamente excluida.');
+  }
+  const tipo = metrogestionNormalizar_(sheet.getRange(row, 8).getDisplayValue());
+  if (!tipo || ['ALTA','BAJA','PARADA','ANULADA','FIN','ROAD','ARCHIVO'].includes(tipo)) {
+    throw new Error('S13: la T no identifica una fila de trabajo.');
+  }
+  const note = String(sheet.getRange(row, 5).getNote() || '');
+  const found = [...note.matchAll(/(?:^|\r?\n)METROGESTION_T:([0-9a-f-]{36})(?=\r?\n|$)/gi)];
+  if (found.length !== 1 || found[0][1].toLowerCase() !== workId.toLowerCase()) {
+    throw new Error('S13: la referencia de trabajo no coincide de forma única.');
+  }
+  return { creado_en: registro.fecha.toISOString(), origen: registro.origen };
+}
+
+function metroSincro13CapturarRecibosT_(sheet, plan, insertedRows) {
+  const previstos = Array.isArray(plan?.confirmacion?.trabajos_creados)
+    ? plan.confirmacion.trabajos_creados : [];
+  if (!previstos.length || !insertedRows.length) return [];
+  if (previstos.length > 8) throw new Error('S13: una orden tiene demasiados trabajos para un recibo durable.');
+  const permitidos = new Set();
+  previstos.forEach(item => {
+    const uuid = String(item?.trabajo_sync_id || '').toLowerCase();
+    if (!METROGESTION_UUID_ORDEN.test(uuid) || permitidos.has(uuid)) {
+      throw new Error('S13: el acuse previsto contiene UUID de trabajo repetido o inválido.');
+    }
+    permitidos.add(uuid);
+  });
+  const inventario = metroSincro13InventarioT_(sheet);
+  const resultado = [], usados = new Set();
+  for (const row of insertedRows) {
+    const esperado = String(plan?.memory?.rows?.[row - 1]?.[4]?.note || '');
+    const actual = String(sheet.getRange(row, 5).getNote() || '');
+    if (esperado !== actual) throw new Error('S13: la nota E de la T nueva cambió tras ejecutar el plan.');
+    const encontrados = [...actual.matchAll(/(?:^|\r?\n)METROGESTION_T:([0-9a-f-]{36})(?=\r?\n|$)/gi)];
+    if (!encontrados.length) continue; // Puede ser PARADA, nunca inventar T de trabajo.
+    if (encontrados.length !== 1) throw new Error('S13: varias referencias de trabajo en una T nueva.');
+    const uuid = encontrados[0][1].toLowerCase();
+    if (!permitidos.has(uuid) || usados.has(uuid)) {
+      throw new Error('S13: trabajo no incluido o repetido en la orden ejecutada.');
+    }
+    const id = metrogestionNumeroIdFila_(inventario.ids[row - 2]?.[0]);
+    const validado = metroSincro13ComprobarVinculo_(sheet, inventario, id, uuid);
+    usados.add(uuid);
+    // No guardar posición, PA, DFM ni contenido operativo en el journal.
+    resultado.push({
+      id_fila: id, trabajo_sync_id: uuid, creado_en: validado.creado_en,
+      origen: validado.origen, estado: 'PENDIENTE_COTEJO_OBJETO'
+    });
+  }
+  return resultado;
+}
+
+function metroSincro13VerificarRecibosT_(sheet, recibos) {
+  if (!Array.isArray(recibos) || recibos.length > 8) throw new Error('S13: recibos T no verificables.');
+  if (!recibos.length) return;
+  const inventario = metroSincro13InventarioT_(sheet);
+  const ids = new Set(), works = new Set();
+  recibos.forEach(r => {
+    if (!r || Object.keys(r).sort().join('|') !==
+        ['creado_en','estado','id_fila','origen','trabajo_sync_id'].join('|')
+        || r.estado !== 'PENDIENTE_COTEJO_OBJETO' || r.origen !== 'ORDEN_AUTORIZADA'
+        || !METROGESTION_UUID_ORDEN.test(String(r.trabajo_sync_id || ''))
+        || ids.has(r.id_fila) || works.has(r.trabajo_sync_id)) {
+      throw new Error('S13: un recibo T está alterado, duplicado o es ilegible.');
+    }
+    const lectura = metroSincro13ComprobarVinculo_(sheet, inventario, r.id_fila, r.trabajo_sync_id);
+    if (lectura.creado_en !== r.creado_en) {
+      throw new Error('S13: la fecha de asignación de T ya no coincide.');
+    }
+    ids.add(r.id_fila);
+    works.add(r.trabajo_sync_id);
+  });
+}
+
 function metrogestionVerificarReciboAplicado_(sheet, record) {
+  metroSincro13VerificarRecibosT_(sheet, record.recibos_t_nuevas || []);
   if (metrogestionHuellaFotoOrden_(metrogestionLeerFotografiaOrden_(sheet)) !== record.fotografia_final_sha256) {
     throw new Error('La hoja cambió después del recibo aplicado. No se repetirá la orden ni se enviará un acuse sin revisión.');
   }
