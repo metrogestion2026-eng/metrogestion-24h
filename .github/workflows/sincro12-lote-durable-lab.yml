@@ -1,0 +1,67 @@
+name: SINCRO 12 - Ledger de lotes en PostgreSQL 17 ficticio
+
+on:
+  pull_request:
+    paths:
+      - 'sql/sincro12_lote_durable_setup_20261118.sql'
+      - 'sql/sincro12_lote_durable_teardown_20261118.sql'
+      - 'tests/integration-sincro12-lote-durable.pg.test.mjs'
+      - 'tests/security-sincro12-lote-durable.test.mjs'
+      - '.github/workflows/sincro12-lote-durable-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ledger-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: sincro11_lab
+          POSTGRES_USER: laboratorio
+          POSTGRES_PASSWORD: solamente_ci_no_es_clave_real
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - name: Descargar solo codigo de la PR
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verificar guardas y ausencia de permiso real
+        run: node --test tests/security-sincro12-lote-durable.test.mjs
+      - name: Ledger duradero y dos sesiones reales en PG17 ficticio
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGDATABASE: sincro11_lab
+          PGUSER: laboratorio
+          PGPASSWORD: solamente_ci_no_es_clave_real
+          PGCONNECT_TIMEOUT: '10'
+        run: |
+          set -Eeuo pipefail
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          test "$(psql -X -Atc 'SELECT current_database()')" = 'sincro11_lab'
+          test "$(psql -X -Atc 'SELECT current_user')" = 'laboratorio'
+          cleanup() {
+            if test "$(psql -X -Atc "SELECT count(*) FROM pg_namespace WHERE nspname='s12_lab'")" = '1'; then
+              psql -X -v ON_ERROR_STOP=1 -f sql/sincro12_lote_durable_teardown_20261118.sql || true
+            fi
+          }
+          trap cleanup EXIT
+          psql -X -v ON_ERROR_STOP=1 -f sql/sincro12_lote_durable_setup_20261118.sql
+          node --test tests/integration-sincro12-lote-durable.pg.test.mjs
+          psql -X -v ON_ERROR_STOP=1 -f sql/sincro12_lote_durable_teardown_20261118.sql
+          trap - EXIT
+          test "$(psql -X -Atc "SELECT count(*) FROM pg_namespace WHERE nspname='s12_lab'")" = '0'
