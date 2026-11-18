@@ -283,7 +283,7 @@ test('captura nula o con estructura incorrecta se retiene sin consultar celdas',
  assert.equal(a.detalles[0].motivo,'ID_EVENTO_INVALIDO');closed(a);
  const p2=paquete([f]);p2.eventos=[{...f.evento,dfm:'no_autorizado'}];
  const b=auditar(p2);
- assert.equal(b.detalles[0].motivo,'APROBACION_DE_LOTE_AUSENTE_O_INCOMPLETA');closed(b);
+ assert.equal(b.detalles[0].motivo,'CAPTURA_CONTRATO_INVALIDO');closed(b);
 });
 test('lotes desmesurados e identidad excluida ilegible fallan cerrados',()=>{
  const f=fixture();
