@@ -97,6 +97,20 @@ test('recibo confirmado no puede actualizarse ni borrarse',()=>{
   reject:true,reason:/S12_RECIBO_INMUTABLE/
  });
 });
+test('cabecera del lote confirmado es inmutable, además del recibo',()=>{
+ sqlsync("UPDATE s12_lab.lotes SET huella=repeat('c',64) WHERE lote_id='"+LOTE(1)+"'",{
+  reject:true,reason:/S12_LOTE_CONFIRMADO_INMUTABLE/
+ });
+ sqlsync("DELETE FROM s12_lab.lotes WHERE lote_id='"+LOTE(1)+"'",{
+  reject:true,reason:/S12_LOTE_CONFIRMADO_INMUTABLE/
+ });
+ assert.equal(sqlsync("SELECT estado FROM s12_lab.lotes WHERE lote_id='"+LOTE(1)+"'"),'CONFIRMADO_FICTICIO');
+});
+test('ningún lote puede nacer directamente aprobado sin transacción',()=>{
+ sqlsync("INSERT INTO s12_lab.lotes(lote_id,tipo,estado,creado_en,aprobado_en,session_id,request_id,huella) VALUES ('c0000000-0000-4000-8000-000000000099','CONTROLADO_LAB','CONFIRMADO_FICTICIO',clock_timestamp(),clock_timestamp(),'"+SESSION_OK+"','"+REQ(99)+"',repeat('a',64))",{
+  reject:true,reason:/S12_LOTE_NO_NACE_CONFIRMADO/
+ });
+});
 test('eventos del lote sellado no pueden rejuvenecerse ni agregarse',()=>{
  sqlsync("UPDATE s12_lab.eventos SET hash_nuevo=repeat('9',64) WHERE lote_id='"+LOTE(1)+"'",{
   reject:true,reason:/S12_LOTE_SELLADO_NO_MODIFICAR_EVENTOS/
@@ -118,6 +132,17 @@ test('si cambia la K después de aprobar, retener sin tocar otras T',()=>{
  sqlsync("UPDATE s12_lab.lecturas_hoja SET hash_vigente=repeat('f',64),leido_en=clock_timestamp() WHERE id_fila=90001 AND columna='K'");
  assert.match(estados(1),/HOJA_NO_RELEIDA_O_CAMBIADA:false/);
  sqlsync("UPDATE s12_lab.lecturas_hoja SET hash_vigente=repeat('b',64),leido_en=clock_timestamp() WHERE id_fila=90001 AND columna='K'");
+ assert.match(estados(1),/CANDIDATO_LAB_NO_AUTORIZADO:false/);
+});
+test('una revisión posterior de hoja invalida un lote aunque el hash sea idéntico',()=>{
+ sqlsync("UPDATE s12_lab.lecturas_hoja SET revision=8,hash_vigente=repeat('b',64),leido_en=clock_timestamp() WHERE id_fila=90001 AND columna='K'");
+ assert.match(estados(1),/HOJA_NO_RELEIDA_O_CAMBIADA:false/);
+ sqlsync("UPDATE s12_lab.lecturas_hoja SET revision=7,leido_en=clock_timestamp() WHERE id_fila=90001 AND columna='K'");
+});
+test('destino modificado con mismo valor y nueva revisión bloquea el cotejo',()=>{
+ sqlsync("UPDATE s12_lab.destinos SET revision=5 WHERE objeto_id='e0000000-0000-4000-8000-000000000001'");
+ assert.match(estados(1),/DESTINO_CAMBIADO_TRAS_APROBACION:false/);
+ sqlsync("UPDATE s12_lab.destinos SET revision=4 WHERE objeto_id='e0000000-0000-4000-8000-000000000001'");
  assert.match(estados(1),/CANDIDATO_LAB_NO_AUTORIZADO:false/);
 });
 test('si el destino ya coincide, no propondrá escribir',()=>{
@@ -156,6 +181,10 @@ test('un lote de dos T: una relectura cambiada retiene solo su campo',()=>{
  assert.match(result,/90008:K:HOJA_NO_RELEIDA_O_CAMBIADA:false/);
 });
 test('independencia de lotes: confirmar otro T con un nonce nuevo',()=>{
+ sqlsync("UPDATE s12_lab.destinos SET revision=5 WHERE objeto_id='e0000000-0000-4000-8000-000000000009'");
+ sqlsync(call(8,8,SESSION_OK,8),{reject:true,reason:/S12_DESTINO_OBSOLETO_AL_SELLAR/});
+ assert.equal(sqlsync("SELECT estado FROM s12_lab.lotes WHERE lote_id='"+LOTE(8)+"'"),'BORRADOR');
+ sqlsync("UPDATE s12_lab.destinos SET revision=4 WHERE objeto_id='e0000000-0000-4000-8000-000000000009'");
  const x=sqlsync(call(8,8,SESSION_OK,8));
  assert.match(x,/CONFIRMADO_FICTICIO/);
  assert.equal(sqlsync('SELECT count(*) FROM s12_lab.recibos_inmutables'),'4');
