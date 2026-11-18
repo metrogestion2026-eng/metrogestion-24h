@@ -130,9 +130,13 @@ BEGIN
        OR v_fecha < v_corte OR v_fecha > clock_timestamp() + interval '5 minutes'
     THEN RAISE EXCEPTION USING ERRCODE='22023',MESSAGE='S13_FECHA_INVALIDA'; END IF;
 
-    SELECT count(*), max(x.item) INTO v_n, v_work
+    SELECT count(*) INTO v_n
     FROM jsonb_array_elements(v_entrega.payload->'trabajos_crear') AS x(item)
     WHERE x.item->>'trabajo_sync_id' = v_uuid::text;
+    SELECT x.item INTO v_work
+    FROM jsonb_array_elements(v_entrega.payload->'trabajos_crear') AS x(item)
+    WHERE x.item->>'trabajo_sync_id' = v_uuid::text
+    LIMIT 1;
     IF v_n <> 1 OR v_work->>'trabajo_sync_id' IS NULL
        OR v_work->>'trabajo_hotel_id' IS NULL
        OR v_work->>'retener_propuesta' = 'true'
