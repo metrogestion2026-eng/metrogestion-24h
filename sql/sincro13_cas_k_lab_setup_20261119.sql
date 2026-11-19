@@ -61,3 +61,30 @@ INSERT INTO public.trabajos_etapa_hotel(id,etapa_hotel_id) VALUES
   '66666666-6666-4666-8666-666666666666'),
  ('22222222-2222-4222-8222-222222222223',
   '66666666-6666-4666-8666-666666666666');
+
+
+-- SOLO LAB. Emular la resolución de auth.uid/JWT y los controles REALES de
+-- Metroges sin copiar usuarios ni sesiones del proyecto conectado.
+CREATE SCHEMA auth;
+CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$
+ SELECT coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb);
+$$;
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
+ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid;
+$$;
+CREATE FUNCTION app_private.sesion_auth_activa() RETURNS boolean LANGUAGE sql STABLE AS $$
+ SELECT auth.uid() IS NOT NULL AND
+   auth.jwt()->>'session_id' = 'aaaaaaaa-0000-4000-8000-000000000001'
+   AND coalesce(current_setting('s13.lab.session',true),'')='ACTIVA';
+$$;
+CREATE FUNCTION app_private.usuario_activo() RETURNS boolean LANGUAGE sql STABLE AS $$
+ SELECT auth.uid() IS NOT NULL AND coalesce(current_setting('s13.lab.user',true),'')='ACTIVO';
+$$;
+CREATE FUNCTION app_private.dispositivo_autorizado() RETURNS boolean LANGUAGE sql STABLE AS $$
+ SELECT auth.uid() IS NOT NULL AND coalesce(current_setting('s13.lab.device',true),'')='AUTORIZADO';
+$$;
+CREATE FUNCTION app_private.es_administrador_principal() RETURNS boolean LANGUAGE sql STABLE AS $$
+ SELECT auth.uid() IS NOT NULL AND coalesce(current_setting('s13.lab.admin',true),'')='PRINCIPAL';
+$$;
+GRANT USAGE ON SCHEMA app_private,auth TO authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO authenticated;
