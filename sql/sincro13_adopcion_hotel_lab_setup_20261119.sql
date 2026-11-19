@@ -63,7 +63,10 @@ BEGIN
    FROM public.trabajos_etapa_hotel t
    WHERE t.id=w.trabajo_hotel_id
      AND t.etapa_hotel_id=NEW.id
-     AND w.seguimiento_id=NEW.seguimiento_id;
+     AND w.seguimiento_id=(
+       SELECT r.seguimiento_id FROM public.registros_hotel r
+       WHERE r.id=NEW.registro_hotel_id
+     );
    UPDATE app_private.manteniment_parada_outbox
    SET estado='pendiente',
        payload=jsonb_build_object(
