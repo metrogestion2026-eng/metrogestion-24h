@@ -36,3 +36,12 @@
 **La sincronización aún NO es operativa.** La Edge independiente de Google aún no está desplegada ni tiene cuenta de servicio habilitada, y no se ha realizado una primera actualización supervisada de una T real con los triggers y permisos reales de Hotel. La vía nueva para adoptar K sólo existe en GitHub y fue ensayada con una proyección simplificada; cualquier despliegue debe demostrar primero comportamiento con el conjunto íntegro de triggers en un entorno autorizado. No se ha modificado MANTENIMENT, TANCAMENT, Pizarra, Hotel real, Supabase conectado, V1/F2, R1515, credenciales ni permisos.
 
 **No fusionar PR #133 ni validar Alpha75 hasta tener una sincronización de ida y vuelta completa y segura. PR #132 permanece congelada.**
+## Corrección del contrato operativo y paridad de triggers · 19/11/2026
+
+**Este epígrafe sustituye la interpretación anterior de «solo cambia fecha_real»**. Al examinar el RPC de tres hitos instalado y los estados de Hotel, se confirmó que registrar «Recogido de taller» también **marca esa misma T como `realizada`** y sincroniza la situación de la ficha. La candidata SQL se corrigió para actualizar `fecha_real`, `estado='realizada'`, `estado_catalogo_codigo='realizada'` (cuando proceda) y `modificado_por`, sin tocar J/`fecha_fin_real`, orden de T ni ejecutar Recuperar. El estado de la ficha lo deriva el sistema: `recogido_pendiente_ruta` cuando corresponda; reserva sigue ocupada hasta realizar explícitamente Recuperar. La hora continúa exigiéndose como hecho real confirmado por administrador, nunca inventada a partir del día K.
+
+Se descubrió además que el seguimiento propio de la etapa **no es** el de su ficha: en 327 trabajos observados en Supabase de pruebas diferían. El vínculo válido es T/ID_FILA → UUID trabajo → trabajo Hotel → etapa Hotel → ficha con seguimiento del episodio. Se corrigieron las funciones de adopción y CAS y añadieron tests adversariales.
+
+El entorno nativo de prueba ya no usa solo un trigger de fechas simplificado: carga el candidato real de tres hitos, las funciones de fecha y las definiciones actuales de los **43 triggers de etapa/ficha** del Supabase de pruebas. El ensayo de CI verificó SHA-256 de sus cuerpos y de sus definiciones de activación: 25/25 de etapa y 18/18 de ficha coinciden sin nombres ausentes. Esto no acredita equivalencia de datos, políticas RLS, configuración o hechos operativos.
+
+Ver `docs/sincro13-paridad-hotel-43-triggers-20261119.md` para resultados, dependencias y límites. **No desplegado, no fusionado, SINCRO bloqueada y Alpha75 no validada.**
