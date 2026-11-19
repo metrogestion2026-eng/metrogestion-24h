@@ -52,6 +52,8 @@ DECLARE
  v_result jsonb;
  v_hotel record;
  v_hotel_k date;
+ v_vehiculo_id uuid;
+ v_vehiculos_encontrados bigint;
 BEGIN
  SELECT token_activo,token_hash,spreadsheet_id INTO v_config
  FROM app_private.manteniment_sync_config WHERE id=1;
@@ -138,7 +140,8 @@ BEGIN
   SELECT e.id AS etapa_id, e.tipo_etapa, e.fecha_real, e.fecha_fin_real,
     e.cancelado AS etapa_cancelada,
     t.cancelado AS trabajo_cancelado, r.cancelado AS ficha_cancelada,
-    r.id AS registro_id
+    r.id AS registro_id,
+    r.vehiculo_sustituido
     INTO v_hotel
   FROM public.trabajos_etapa_hotel t
   JOIN public.etapas_hotel e ON e.id=t.etapa_hotel_id
@@ -162,6 +165,22 @@ BEGIN
   END IF;
  END IF;
 
+
+ -- La salida de activos usa vehiculo_id, no seguimiento_id. Solo
+ -- usar DFM para localizar su cola auxiliar TRAS acreditar T y Hotel,
+ -- NUNCA para identificar una T. La coincidencia debe ser unica.
+ IF v_motivo IS NULL THEN
+  SELECT count(*), min(v.id) INTO v_vehiculos_encontrados,v_vehiculo_id
+  FROM public.vehiculos v
+  WHERE upper(btrim(v.dfm))=upper(btrim(v_hotel.vehiculo_sustituido));
+  IF v_vehiculos_encontrados IS DISTINCT FROM 1
+  THEN v_motivo:='VEHICULO_AUXILIAR_AMBIGUO_O_AUSENTE';
+  ELSIF EXISTS (
+    SELECT 1 FROM app_private.manteniment_activo_outbox o
+    WHERE o.vehiculo_id=v_vehiculo_id AND o.estado='pendiente'
+  ) THEN v_motivo:='OUTBOX_ACTIVO_PENDIENTE';
+  END IF;
+ END IF;
 
  IF v_motivo IS NOT NULL THEN
   v_result:=jsonb_build_object(
