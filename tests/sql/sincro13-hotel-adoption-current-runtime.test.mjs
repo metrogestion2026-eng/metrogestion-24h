@@ -128,6 +128,61 @@ test('actual Hotel runtime rejects a foreign T with the same PA',async()=>{
  assert.deepEqual(await workshopInventory(db,p.id),before);
 });
 
+
+async function rejectCurrentAdoption(override, expectedError) {
+  const p=scenario;
+  const before=await workshopInventory(db,p.id);
+  const stage=before.etapas.find(x=>x.id===p.entry.id);
+  const protectedBefore=await snapshotProtectedFacts(db);
+  const moment=(await one(db,"SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC',"+
+   "'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS value")).value;
+  const args=[evidence,request,p.entry.id,stage.version,moment,
+    'CONFIRMO_RECOGIDA_HORA_REAL'];
+  await assert.rejects(
+    ()=>db.query(
+      'SELECT public.sincro13_adoptar_hotel_k($1::uuid,$2::uuid,$3::uuid,$4::integer,$5,$6)',
+      override(args)
+    ),
+    expectedError);
+  assert.deepEqual(await workshopInventory(db,p.id),before,
+    'Rechazo de Hotel NO puede tocar la T, Pizarra, reserva u otros trabajos');
+  assert.deepEqual(await snapshotProtectedFacts(db),protectedBefore,
+    'Rechazo de Hotel NO puede modificar otros vehículos o históricos');
+  assert.equal((await one(db,
+    'SELECT count(*)::int AS value FROM app_private.sincro13_adopciones_hotel_k WHERE evidencia_id=$1',
+    [evidence])).value,0,'Rechazo no debe crear acuse de adopción');
+}
+
+test('Hotel REAL rechaza K con hora futura y conserva la T sin efectos',async()=>{
+  await rejectCurrentAdoption(args=>{
+    args[4]='2031-11-19T12:00:00+01:00';return args;
+  },/S13_HOTEL_RECOGIDA_FUTURA/);
+});
+
+test('Hotel REAL rechaza hora de recogida sin zona horaria',async()=>{
+  await rejectCurrentAdoption(args=>{
+    args[4]='2026-11-19T12:00:00';return args;
+  },/S13_HOTEL_HORA_O_DECISION_INCOMPLETA/);
+});
+
+test('Hotel REAL no acepta la fecha sin declaración expresa del administrador',async()=>{
+  await rejectCurrentAdoption(args=>{
+    args[5]='OK';return args;
+  },/S13_HOTEL_HORA_O_DECISION_INCOMPLETA/);
+});
+
+test('Hotel REAL rechaza K de otro día aunque se declare una hora',async()=>{
+  await rejectCurrentAdoption(args=>{
+    args[4]='2026-11-16T12:00:00+01:00';return args;
+  },/S13_HOTEL_K_EVIDENCIA_NO_VIGENTE|S13_HOTEL_HITOS_INCOMPLETOS/);
+});
+
+test('Hotel REAL rechaza una aprobación de otra solicitud sin reaplicar hechos',async()=>{
+  await rejectCurrentAdoption(args=>{
+    args[1]=randomUUID();return args;
+  },/S13_HOTEL_K_SIN_ADOPCION_EXPLICITA/);
+});
+
 test('realistic S13 adoption RPC updates ONLY pickup hour, triggers project K and preserve J',async()=>{
  const p=scenario;
  const beforeSnap=await snapshotProtectedFacts(db);
