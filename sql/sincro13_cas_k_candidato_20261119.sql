@@ -110,7 +110,13 @@ BEGIN
  -- obtener aquí el lock global en orden inverso provocaría deadlock.
  -- La cola posterior a nuestro COMMIT requiere retención propia (pendiente).
  IF v_motivo IS NULL THEN
-   PERFORM app_private.bloquear_sync_continuidad_alpha75();
+   -- No esperar mientras se conserva bloqueado el trabajo técnico: otro
+   -- editor Hotel puede tener la etapa bloqueada y querer este mismo lock.
+   IF NOT pg_try_advisory_xact_lock(
+      hashtextextended('MG75-CONTINUIDAD-001:manteniment-sync',0)
+   ) THEN
+     RAISE EXCEPTION USING ERRCODE='55P03',MESSAGE='S13_CAS_COLA_CONCURRENTE';
+   END IF;
  END IF;
 
  IF v_motivo IS NULL AND EXISTS(
@@ -146,7 +152,9 @@ BEGIN
   WHERE t.id=v_job.trabajo_hotel_id
     AND e.seguimiento_id=v_job.seguimiento_id
     AND r.seguimiento_id=v_job.seguimiento_id
-  FOR SHARE OF t,e,r;
+  -- No esperar si otro proceso está actualizando la T de Hotel;
+  -- abortar y liberar advisory evita inversión de bloqueos.
+  FOR SHARE OF t,e,r NOWAIT;
   IF NOT FOUND OR v_hotel.etapa_cancelada OR v_hotel.trabajo_cancelado
     OR v_hotel.ficha_cancelada
   THEN v_motivo:='HOTEL_TRABAJO_O_ETAPA_NO_VIGENTE';
