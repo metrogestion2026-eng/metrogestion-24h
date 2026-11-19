@@ -88,3 +88,27 @@ CREATE FUNCTION app_private.es_administrador_principal() RETURNS boolean LANGUAG
 $$;
 GRANT USAGE ON SCHEMA app_private,auth TO authenticated;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO authenticated;
+
+
+-- ÚNICAMENTE LABORATORIO: reproducir la función de lock que ya existe en
+-- Supabase pruebas, más el bloqueo PARADA de su trigger instalado.
+CREATE OR REPLACE FUNCTION app_private.bloquear_sync_continuidad_alpha75()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('MG75-CONTINUIDAD-001:manteniment-sync',0));
+END;
+$$;
+
+CREATE FUNCTION app_private.sincro13_lab_bloquear_outbox_parada()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM app_private.bloquear_sync_continuidad_alpha75();
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER sincro13_lab_serializar_parada
+BEFORE INSERT OR UPDATE OR DELETE ON app_private.manteniment_parada_outbox
+FOR EACH ROW EXECUTE FUNCTION app_private.sincro13_lab_bloquear_outbox_parada();
