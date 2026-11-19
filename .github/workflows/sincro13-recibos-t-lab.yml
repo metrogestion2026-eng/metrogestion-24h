@@ -7,6 +7,7 @@ on:
       - 'tests/integration-sincro13-recibo.pg.test.mjs'
       - 'tests/integration-sincro13-cas-k.pg.test.mjs'
       - 'tests/integration-sincro13-google-verificador.pg.test.mjs'
+      - 'tests/integration-sincro13-outbox-lock.pg.test.mjs'
       - '.github/workflows/sincro13-recibos-t-lab.yml'
   workflow_dispatch:
 
@@ -69,8 +70,15 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f sql/sincro13_google_lectura_receptor_20261119.sql
           node --test tests/integration-sincro13-google-verificador.pg.test.mjs
           psql -X -v ON_ERROR_STOP=1 -f sql/sincro13_aprobacion_operador_k_20261119.sql
+          psql -X -v ON_ERROR_STOP=1 -f sql/sincro13_bloqueo_outbox_activo_candidato_20261119.sql
           psql -X -v ON_ERROR_STOP=1 -f sql/sincro13_cas_k_candidato_20261119.sql
           node --test tests/integration-sincro13-cas-k.pg.test.mjs
+
+      - name: Verificar dos sesiones reales y exclusión mutua de PARADA, ACTIVOS y CAS
+        run: |
+          set -Eeuo pipefail
+          test "$(psql -X -Atc 'SELECT current_database()')" = 'sincro13_lab'
+          node --test tests/integration-sincro13-outbox-lock.pg.test.mjs
 
       - name: Confirmar aislamiento respecto de MG9
         run: |
