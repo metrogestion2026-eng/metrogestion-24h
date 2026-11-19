@@ -170,7 +170,8 @@ BEGIN
  -- usar DFM para localizar su cola auxiliar TRAS acreditar T y Hotel,
  -- NUNCA para identificar una T. La coincidencia debe ser unica.
  IF v_motivo IS NULL THEN
-  SELECT count(*), min(v.id) INTO v_vehiculos_encontrados,v_vehiculo_id
+  SELECT count(*), (array_agg(v.id ORDER BY v.id))[1]
+    INTO v_vehiculos_encontrados,v_vehiculo_id
   FROM public.vehiculos v
   WHERE upper(btrim(v.dfm))=upper(btrim(v_hotel.vehiculo_sustituido));
   IF v_vehiculos_encontrados IS DISTINCT FROM 1
