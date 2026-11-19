@@ -118,6 +118,52 @@ test('recogida anterior al fin de taller no se inventa',()=>{
  assert.equal(res.motivo,'RECOGIDA_ANTES_DE_FIN_TRABAJO');
  assert.equal(k(),'2026-11-19');
 });
+test('Hotel no ha adoptado la nueva K: no escribir caché técnico ni Hotel',()=>{
+ pg("UPDATE public.etapas_hotel SET fecha_real='2026-11-21T15:00:00Z' WHERE id='66666666-6666-4666-8666-666666666666'::uuid");
+ const c=claim({base:'2026-11-19',next:'2026-11-22'});
+ try{
+  const r=apply(c);
+  assert.equal(r.estado,'RETENIDA');
+  assert.equal(r.motivo,'HOTEL_K_NO_ADOPTADA');
+  assert.equal(k(),'2026-11-19');
+ }finally{
+  pg("UPDATE public.etapas_hotel SET fecha_real='2026-11-19T15:00:00Z' WHERE id='66666666-6666-4666-8666-666666666666'::uuid");
+ }
+});
+test('etapa cancelada no acredita ninguna fecha de recogida',()=>{
+ pg("UPDATE public.etapas_hotel SET cancelado=true WHERE id='66666666-6666-4666-8666-666666666666'::uuid");
+ const c=claim({base:'2026-11-19',next:'2026-11-19'});
+ try{
+  const r=apply(c);
+  assert.equal(r.estado,'RETENIDA');
+  assert.equal(r.motivo,'HOTEL_TRABAJO_O_ETAPA_NO_VIGENTE');
+  assert.equal(k(),'2026-11-19');
+ }finally{
+  pg("UPDATE public.etapas_hotel SET cancelado=false WHERE id='66666666-6666-4666-8666-666666666666'::uuid");
+ }
+});
+test('Hotel sin flujo de tres hitos queda retenido por mapeo',()=>{
+ pg("UPDATE public.registros_hotel SET hitos=false WHERE id='77777777-7777-4777-8777-777777777777'::uuid");
+ const c=claim({base:'2026-11-19',next:'2026-11-19'});
+ try{
+  const r=apply(c);
+  assert.equal(r.estado,'RETENIDA');
+  assert.equal(r.motivo,'MODALIDAD_HOTEL_SIN_MAPEO_K');
+  assert.equal(k(),'2026-11-19');
+ }finally{
+  pg("UPDATE public.registros_hotel SET hitos=true WHERE id='77777777-7777-4777-8777-777777777777'::uuid");
+ }
+});
+test('CAS positivo admite solo espejo técnico; no reescribe Hotel',()=>{
+ const c=globalThis.__appliedClaim;
+ const r=apply(c);
+ assert.equal(r.estado,'APLICADA');
+ assert.equal(r.escritura_operativa_realizada,false);
+ assert.equal(r.escritura_catalogo_tecnico_realizada,true);
+ assert.equal(r.hotel_k_ya_adoptada,true);
+ assert.equal(pg("SELECT fecha_real::date::text FROM public.etapas_hotel WHERE id='66666666-6666-4666-8666-666666666666'::uuid"),'2026-11-19');
+});
+
 test('permisos de anon/authenticated no dejan llamar a CAS',()=>{
  const c=globalThis.__appliedClaim;
  reject(()=>pg('SET ROLE authenticated; SELECT app_private.sincro13_cas_k('+
