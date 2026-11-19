@@ -38,6 +38,8 @@ DECLARE
   v_trabajo public.trabajos_etapa_hotel%rowtype;
   v_catalogo app_private.manteniment_t_trabajos%rowtype;
   v_board text;
+  v_vehiculo_id uuid;
+  v_count_vehiculos bigint;
   v_sesion uuid;
   v_user uuid:=auth.uid();
   v_fecha timestamptz;
@@ -95,6 +97,33 @@ BEGIN
     OR (v_fecha AT TIME ZONE 'Europe/Madrid')::date
       IS DISTINCT FROM v_evidencia.valor_nuevo
   THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='S13_HOTEL_K_EVIDENCIA_NO_VIGENTE'; END IF;
+
+  -- El editor de Google sigue desconocido; T se acredita únicamente por
+  -- su recibo de creación posterior al corte + orden entregada y UUID.
+  IF NOT EXISTS (
+    SELECT 1 FROM app_private.sincro13_recibos_t rec
+    JOIN app_private.manteniment_entregas_continuidad_alpha75 ent
+      ON ent.sync_id=rec.orden_sync_id AND ent.revision=rec.orden_revision
+    WHERE rec.spreadsheet_id=v_evidencia.spreadsheet_id
+      AND rec.id_fila=v_evidencia.id_fila
+      AND rec.trabajo_sync_id=v_evidencia.trabajo_sync_id
+      AND rec.estado='PENDIENTE_VERIFICACION_GOOGLE'
+      AND rec.origen='ORDEN_AUTORIZADA'
+      AND rec.asignado_en>=timestamptz '2026-11-15 23:00:00+00'
+      AND ent.origen='entrega'
+      AND ent.entregado_en>=timestamptz '2026-11-15 23:00:00+00'
+      AND EXISTS (
+        SELECT 1 FROM jsonb_array_elements(
+          CASE WHEN jsonb_typeof(ent.payload->'trabajos_crear')='array'
+           THEN ent.payload->'trabajos_crear' ELSE '[]'::jsonb END
+        ) x(value)
+        WHERE x.value->>'trabajo_sync_id'=v_evidencia.trabajo_sync_id::text
+          AND coalesce(x.value->>'retener_propuesta','false')<>'true'
+          AND upper(btrim(coalesce(x.value->>'dfm',''))) <> 'R1515'
+      )
+  ) THEN
+    RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='S13_HOTEL_T_NO_ACREDITADA';
+  END IF;
 
   SELECT * INTO v_aprobacion FROM app_private.sincro13_aprobaciones_k
     WHERE evidencia_id=p_evidencia_id FOR UPDATE;
@@ -160,6 +189,21 @@ BEGIN
   IF EXISTS(SELECT 1 FROM app_private.manteniment_parada_outbox
     WHERE seguimiento_id=v_catalogo.seguimiento_id AND estado='pendiente')
   THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='S13_HOTEL_OUTBOX_PARADA_PENDIENTE'; END IF;
+
+  -- Un vehículo sólo sirve para consultar su outbox auxiliar DESPUÉS
+  -- de identificar T/UUID y Hotel. Nunca es referencia de identidad T.
+  SELECT count(*),(array_agg(v.id ORDER BY v.id))[1]
+    INTO v_count_vehiculos,v_vehiculo_id
+  FROM public.vehiculos v
+  WHERE upper(btrim(v.dfm))=upper(btrim(v_registro.vehiculo_sustituido));
+  IF v_count_vehiculos IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='S13_HOTEL_VEHICULO_NO_UNICO';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM app_private.manteniment_activo_outbox a
+    WHERE a.vehiculo_id=v_vehiculo_id AND a.estado='pendiente'
+  ) THEN RAISE EXCEPTION USING ERRCODE='55000',
+    MESSAGE='S13_HOTEL_OUTBOX_ACTIVO_PENDIENTE'; END IF;
 
   -- NO editar 'estado', J/fecha_fin_real, fecha_prevista, orden ni km.
   -- Todos los triggers nativos de Hotel ejecutan auditoría/proyección.
