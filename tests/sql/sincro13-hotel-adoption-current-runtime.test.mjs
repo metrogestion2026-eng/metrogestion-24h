@@ -91,6 +91,39 @@ test('prepare one genuine workshop T in isolated fixture, not an old row',async(
  assert.equal((await currentStage(db,p.entry.id)).fecha_real,null);
 });
 
+test('actual Hotel runtime rejects stale T version with zero side effects',async()=>{
+ const p=scenario;
+ const before=await workshopInventory(db,p.id);
+ const version=before.etapas.find(x=>x.id===p.entry.id).version;
+ const pickup=new Date().toISOString();
+ await assert.rejects(()=>db.query(
+  'SELECT public.sincro13_adoptar_hotel_k($1::uuid,$2::uuid,$3::uuid,$4::integer,$5,$6)',
+  [evidence,request,p.entry.id,version+1,pickup,'CONFIRMO_RECOGIDA_HORA_REAL']),
+  /S13_HOTEL_T_CAMBIADA_O_NO_ES_ENTRADA/);
+ assert.deepEqual(await workshopInventory(db,p.id),before);
+});
+test('actual Hotel runtime rejects a date lacking a physical pickup hour',async()=>{
+ const p=scenario;
+ const before=await workshopInventory(db,p.id);
+ const version=before.etapas.find(x=>x.id===p.entry.id).version;
+ await assert.rejects(()=>db.query(
+  'SELECT public.sincro13_adoptar_hotel_k($1::uuid,$2::uuid,$3::uuid,$4::integer,$5,$6)',
+  [evidence,request,p.entry.id,version,'2026-11-19','CONFIRMO_RECOGIDA_HORA_REAL']),
+  /S13_HOTEL_HORA_O_DECISION_INCOMPLETA/);
+ assert.deepEqual(await workshopInventory(db,p.id),before);
+});
+test('actual Hotel runtime rejects a foreign T with the same PA',async()=>{
+ const p=scenario;
+ const before=await workshopInventory(db,p.id);
+ const recovery=before.etapas.find(x=>x.id===p.recovery.id);
+ await assert.rejects(()=>db.query(
+  'SELECT public.sincro13_adoptar_hotel_k($1::uuid,$2::uuid,$3::uuid,$4::integer,$5,$6)',
+  [evidence,request,recovery.id,recovery.version,new Date().toISOString(),
+   'CONFIRMO_RECOGIDA_HORA_REAL']),
+  /S13_HOTEL_T_CAMBIADA_O_NO_ES_ENTRADA/);
+ assert.deepEqual(await workshopInventory(db,p.id),before);
+});
+
 test('realistic S13 adoption RPC updates ONLY pickup hour, triggers project K and preserve J',async()=>{
  const p=scenario;
  const beforeSnap=await snapshotProtectedFacts(db);
