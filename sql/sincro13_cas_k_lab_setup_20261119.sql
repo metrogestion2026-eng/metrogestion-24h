@@ -7,7 +7,9 @@ ALTER TABLE app_private.manteniment_t_trabajos
   ADD COLUMN IF NOT EXISTS actualizado_en timestamptz NOT NULL DEFAULT clock_timestamp();
 CREATE TABLE app_private.manteniment_parada_outbox (
   seguimiento_id uuid PRIMARY KEY,
-  estado text NOT NULL CHECK (estado IN ('pendiente','confirmado','retenida_manual'))
+  estado text NOT NULL CHECK (estado IN ('pendiente','confirmado','retenida_manual')),
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ultimo_error text NOT NULL DEFAULT ''
 );
 -- La tabla genuina contiene otras columnas, que el candidato CAS no modifica.
 
