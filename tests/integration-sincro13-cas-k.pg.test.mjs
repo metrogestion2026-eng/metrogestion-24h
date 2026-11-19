@@ -17,13 +17,13 @@ function pg(sql){
 const k=()=>pg('SELECT COALESCE(fecha_recogida::text,\'NULL\') FROM app_private.manteniment_t_trabajos WHERE sync_id='+q(WORK)+'::uuid');
 const j=()=>pg('SELECT COALESCE(fecha_realizada::text,\'NULL\') FROM app_private.manteniment_t_trabajos WHERE sync_id='+q(WORK)+'::uuid');
 function claim({row=7100,work=WORK,base=null,next='2026-11-19',at=new Date(Date.now()-60000).toISOString(),source='GOOGLE_INDEPENDIENTE',approve=true}={}){
- const id=randomUUID(),request=randomUUID(),actor='88888888-8888-4888-8888-888888888888';
+ const id=randomUUID(),request=randomUUID();
  const vals=[q(id)+'::uuid',q(request)+'::uuid',q(SHEET),row,
   q(work)+'::uuid',q('K'),base===null?'NULL':q(base)+'::date',
   q(next)+'::date',q(at)+'::timestamptz','clock_timestamp()',
-  q(source),q(actor)+'::uuid',q('d'.repeat(64))];
+  q(source),'NULL',q('d'.repeat(64))];
  pg('INSERT INTO app_private.sincro13_k_evidencias '+
-  '(evidencia_id,solicitud_id,spreadsheet_id,id_fila,trabajo_sync_id,columna,valor_base,valor_nuevo,evento_en,verificado_en,verificador,actor_verificado,evidencia_sha256) '+
+  '(evidencia_id,solicitud_id,spreadsheet_id,id_fila,trabajo_sync_id,columna,valor_base,valor_nuevo,evento_en,verificado_en,verificador,actor_google_verificado,evidencia_sha256) '+
   'VALUES ('+vals.join(',')+')');
  const c={id,request,row,work,base,next};
  if(approve) approveClaim(c);
