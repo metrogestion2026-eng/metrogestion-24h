@@ -42,7 +42,7 @@ test('ambas colas tienen trigger que toma el lock global, mismo que usa CAS',()=
     "JOIN pg_namespace n ON n.oid=p.pronamespace "+
     "WHERE n.nspname='app_private' AND p.proname='sincro13_cas_k'");
   const job=definition.indexOf('WHERE sync_id=v_ev.trabajo_sync_id FOR UPDATE');
-  const lock=definition.indexOf('PERFORM app_private.bloquear_sync_continuidad_alpha75()');
+  const lock=definition.indexOf('pg_try_advisory_xact_lock(');
   const outbox=definition.indexOf('FROM app_private.manteniment_parada_outbox o');
   assert.ok(job>=0 && lock>job && outbox>lock,
     'The CAS must lock the target first, then global, before checking outbox');
@@ -79,6 +79,45 @@ test('preparar evidencia/APROBACION SOLO en LAB de T real sintética, sin Google
     "WHERE evidencia_id="+quote(claim.id)+"::uuid"),'PENDIENTE');
 });
 
+test('etapa de Hotel bloqueada: CAS aborta sin esperar ni modificar K',async()=>{
+  const holderSql="BEGIN; SELECT 1 FROM public.etapas_hotel "+
+    "WHERE id='66666666-6666-4666-8666-666666666666'::uuid FOR UPDATE; "+
+    "SELECT pg_sleep(4) /* S13_STAGE_HOLDER */; COMMIT;";
+  const holder=spawn('psql',['-X','-v','ON_ERROR_STOP=1','-At','-c',holderSql],{
+    env:process.env,stdio:['ignore','pipe','pipe']
+  });
+  let err='',exitCode;
+  holder.stderr.on('data',d=>err+=d.toString());
+  const finished=new Promise((resolve,reject)=>{
+    holder.on('error',reject);
+    holder.on('close',code=>{exitCode=code;resolve();});
+  });
+  try{
+    let acquired=false;
+    const until=Date.now()+2500;
+    while(Date.now()<until){
+      const state=pg("SELECT count(*) FROM pg_stat_activity "+
+        "WHERE pid<>pg_backend_pid() AND query LIKE '%S13_STAGE_HOLDER%' "+
+        "AND wait_event='PgSleep'");
+      if(Number(state)>0){acquired=true;break;}
+      await sleep(40);
+    }
+    assert.equal(acquired,true,'holder must have locked Hotel stage');
+    const query="BEGIN; SET LOCAL lock_timeout='500ms'; SELECT app_private.sincro13_cas_k("+
+      quote(TOKEN)+","+quote(claim.id)+"::uuid,"+
+      quote(claim.request)+"::uuid)::text; COMMIT;";
+    assert.throws(()=>pg(query),/could not obtain lock on row/,
+      'CAS must not wait behind Hotel stage while holding global and work locks');
+    assert.equal(pg("SELECT estado FROM app_private.sincro13_k_evidencias WHERE evidencia_id="+
+      quote(claim.id)+"::uuid"),'PENDIENTE');
+    await finished;
+    assert.equal(exitCode,0,'stage holder should commit: '+err);
+  }finally{
+    if(exitCode===undefined)holder.kill();
+    await finished.catch(()=>{});
+  }
+});
+
 test('dos conexiones PG: PARADA, ACTIVOS y CAS se serializan con bloqueo real',async()=>{
   const sql="BEGIN; SELECT app_private.bloquear_sync_continuidad_alpha75();"+
     " SELECT pg_sleep(4); COMMIT;";
@@ -109,8 +148,8 @@ test('dos conexiones PG: PARADA, ACTIVOS y CAS se serializan con bloqueo real',a
     const casQuery="BEGIN; SET LOCAL lock_timeout='250ms'; SELECT app_private.sincro13_cas_k("+
       quote(TOKEN)+","+quote(claim.id)+"::uuid,"+quote(claim.request)+
       "::uuid)::text; COMMIT;";
-    assert.throws(()=>pg(casQuery),/canceling statement due to lock timeout/,
-      'CAS must also hold off while another transaction has the lock');
+    assert.throws(()=>pg(casQuery),/S13_CAS_COLA_CONCURRENTE/,
+      'CAS must fail fast (no wait/deadlock) while global lock is held');
     assert.equal(pg("SELECT estado FROM app_private.sincro13_k_evidencias WHERE evidencia_id="+
       quote(claim.id)+"::uuid"),'PENDIENTE');
     await ended;
