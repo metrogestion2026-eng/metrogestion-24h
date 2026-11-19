@@ -125,6 +125,12 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='S13_HOTEL_T_NO_ACREDITADA';
   END IF;
 
+  -- La observación K sin cambio de día no autoriza cambiar la hora
+  -- de Hotel: Google no contiene una hora que pueda acreditarlo.
+  IF v_evidencia.valor_base IS NOT DISTINCT FROM v_evidencia.valor_nuevo THEN
+    RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='S13_HOTEL_K_SIN_CAMBIO';
+  END IF;
+
   SELECT * INTO v_aprobacion FROM app_private.sincro13_aprobaciones_k
     WHERE evidencia_id=p_evidencia_id FOR UPDATE;
   IF NOT FOUND OR v_aprobacion.estado IS DISTINCT FROM 'APROBADA'
@@ -246,7 +252,10 @@ BEGIN
     'editor_google_acreditado',false,
     'autoriza_sincronizar',false,
     'escritura_operativa_realizada',true,
-    'otros_campos_cambiados',false);
+    'solo_fecha_real_solicitada',true,
+    'triggers_nativos_ejecutados',true,
+    'efectos_secundarios_auditados_por_hotel',true,
+    'autoriza_activar_sincro',false);
 
   UPDATE app_private.sincro13_k_evidencias
     SET estado='APLICADA',resultado=v_result,consumido_en=clock_timestamp()
