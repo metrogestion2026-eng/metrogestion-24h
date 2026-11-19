@@ -114,6 +114,22 @@ BEGIN
   THEN v_motivo:='OBJETO_DESTINO_NO_ACREDITADO'; END IF;
  END IF;
 
+ IF v_motivo IS NULL AND EXISTS(
+  SELECT 1 FROM app_private.manteniment_parada_outbox o
+  WHERE o.seguimiento_id=v_job.seguimiento_id AND o.estado='pendiente'
+ ) THEN
+   -- La outbox heredada no conoce T/columna y podría reponer K.
+   -- Hasta disponer de invalidación exacta, no permitir esta escritura.
+   v_motivo:='OUTBOX_SIN_T_CAMPO_PENDIENTE';
+ END IF;
+
+ IF v_motivo IS NULL AND v_job.fecha_recogida IS DISTINCT FROM v_ev.valor_base
+ THEN v_motivo:='BASE_K_CAMBIADA';END IF;
+
+ IF v_motivo IS NULL AND v_job.fecha_realizada IS NOT NULL
+   AND v_ev.valor_nuevo < v_job.fecha_realizada
+ THEN v_motivo:='RECOGIDA_ANTES_DE_FIN_TRABAJO';END IF;
+
  -- El catalogo tecnico se recalcula desde Hotel: NO crear una verdad
  -- divergente en K. Se exige que el hecho de recogida YA este adoptado en
  -- la T operativa de Hotel. Solo se cubre el flujo taller de tres hitos;
@@ -146,21 +162,6 @@ BEGIN
   END IF;
  END IF;
 
- IF v_motivo IS NULL AND EXISTS(
-  SELECT 1 FROM app_private.manteniment_parada_outbox o
-  WHERE o.seguimiento_id=v_job.seguimiento_id AND o.estado='pendiente'
- ) THEN
-   -- La outbox heredada no conoce T/columna y podría reponer K.
-   -- Hasta disponer de invalidación exacta, no permitir esta escritura.
-   v_motivo:='OUTBOX_SIN_T_CAMPO_PENDIENTE';
- END IF;
-
- IF v_motivo IS NULL AND v_job.fecha_recogida IS DISTINCT FROM v_ev.valor_base
- THEN v_motivo:='BASE_K_CAMBIADA';END IF;
-
- IF v_motivo IS NULL AND v_job.fecha_realizada IS NOT NULL
-   AND v_ev.valor_nuevo < v_job.fecha_realizada
- THEN v_motivo:='RECOGIDA_ANTES_DE_FIN_TRABAJO';END IF;
 
  IF v_motivo IS NOT NULL THEN
   v_result:=jsonb_build_object(
