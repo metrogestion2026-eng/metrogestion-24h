@@ -80,7 +80,7 @@ BEGIN
          )
        ),
        ultimo_error=''
-   WHERE seguimiento_id=NEW.seguimiento_id;
+   WHERE seguimiento_id=(SELECT r.seguimiento_id FROM public.registros_hotel r WHERE r.id=NEW.registro_hotel_id);
  END IF;
  RETURN NEW;
 END;
