@@ -68,7 +68,7 @@ test('sin evidencia externa acreditada no se modifica ninguna T',()=>{
  assert.equal(k(),'NULL');
 });
 test('token falso no puede aplicar corrección aunque exista una evidencia',()=>{
- const c=claim();
+ const c=claim({approve:false});
  try {
    reject(()=>apply(c,'mg_'+'f'.repeat(64)),'S13_CAS_TOKEN_INVALIDO');
    assert.equal(k(),'NULL');
