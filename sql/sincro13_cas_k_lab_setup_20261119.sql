@@ -10,3 +10,44 @@ CREATE TABLE app_private.manteniment_parada_outbox (
   estado text NOT NULL CHECK (estado IN ('pendiente','confirmado','retenida_manual'))
 );
 -- La tabla genuina contiene otras columnas, que el candidato CAS no modifica.
+
+-- Etapas y trabajos de Hotel totalmente ficticios. K del flujo nuevo se
+-- deriva de fecha_real de la etapa ENTRADA, NO de fecha_fin_real.
+CREATE TABLE public.registros_hotel (
+ id uuid PRIMARY KEY, seguimiento_id uuid NOT NULL,
+ cancelado boolean NOT NULL DEFAULT false,
+ hitos boolean NOT NULL DEFAULT true
+);
+CREATE TABLE public.etapas_hotel (
+ id uuid PRIMARY KEY, registro_hotel_id uuid NOT NULL REFERENCES public.registros_hotel(id),
+ seguimiento_id uuid NOT NULL, tipo_etapa text NOT NULL,
+ fecha_real timestamptz, fecha_fin_real timestamptz,
+ cancelado boolean NOT NULL DEFAULT false
+);
+CREATE TABLE public.trabajos_etapa_hotel (
+ id uuid PRIMARY KEY, etapa_hotel_id uuid NOT NULL REFERENCES public.etapas_hotel(id),
+ cancelado boolean NOT NULL DEFAULT false
+);
+CREATE FUNCTION app_private.usa_flujo_taller_hitos(p_registro_id uuid)
+RETURNS boolean LANGUAGE sql STABLE AS $$
+ SELECT hitos FROM public.registros_hotel WHERE id=p_registro_id;
+$$;
+CREATE FUNCTION app_private.es_tipo_entrada_taller_alpha75(p_tipo text)
+RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
+ SELECT p_tipo='entrada_taller';
+$$;
+INSERT INTO public.registros_hotel(id,seguimiento_id) VALUES
+ ('77777777-7777-4777-8777-777777777777',
+  '33333333-3333-4333-8333-333333333333');
+INSERT INTO public.etapas_hotel(
+ id,registro_hotel_id,seguimiento_id,tipo_etapa,fecha_real,fecha_fin_real)
+VALUES
+ ('66666666-6666-4666-8666-666666666666',
+  '77777777-7777-4777-8777-777777777777',
+  '33333333-3333-4333-8333-333333333333',
+  'entrada_taller','2026-11-19T15:00:00Z','2026-11-18T15:00:00Z');
+INSERT INTO public.trabajos_etapa_hotel(id,etapa_hotel_id) VALUES
+ ('22222222-2222-4222-8222-222222222222',
+  '66666666-6666-4666-8666-666666666666'),
+ ('22222222-2222-4222-8222-222222222223',
+  '66666666-6666-4666-8666-666666666666');
