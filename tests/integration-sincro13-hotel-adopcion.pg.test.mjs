@@ -91,7 +91,7 @@ test('preparación: sólo LAB sintético, no hay K ni fecha real de recogida',()
  assert.equal(k(),'NULL');
  assert.equal(j(),'2026-11-18');
  assert.equal(stage().recogida,null);
- assert.equal(stage().estado,'en_taller');
+ assert.equal(stage().estado,'en_curso');
  assert.equal(pg("SELECT estado FROM app_private.manteniment_parada_outbox WHERE seguimiento_id="+q(FOLLOWUP)+'::uuid'),'confirmado');
 });
 test('ID de seguimiento de T es distinto del seguimiento de la FICHA (modelo real)',()=>{
@@ -174,7 +174,9 @@ test('hora y día reales adoptados: sólo fecha_real cambia en etapa; triggers p
  assert.equal(result.version_antes,before.version);
  const after=stage();
  assert.equal(after.version,before.version+1);
- assert.equal(after.estado,before.estado);
+ assert.equal(after.estado,'realizada');
+ assert.equal(result.estado_t,'realizada');
+ assert.equal(result.estado_ficha,'recogido_pendiente_ruta');
  assert.equal(after.cancelado,before.cancelado);
  assert.equal(after.fin,before.fin);
  assert.equal(after.inicio,before.inicio);
