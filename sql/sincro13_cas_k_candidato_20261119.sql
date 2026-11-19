@@ -150,7 +150,7 @@ BEGIN
   JOIN public.etapas_hotel e ON e.id=t.etapa_hotel_id
   JOIN public.registros_hotel r ON r.id=e.registro_hotel_id
   WHERE t.id=v_job.trabajo_hotel_id
-    AND e.seguimiento_id=v_job.seguimiento_id
+    AND e.registro_hotel_id=r.id
     AND r.seguimiento_id=v_job.seguimiento_id
   -- No esperar si otro proceso está actualizando la T de Hotel;
   -- abortar y liberar advisory evita inversión de bloqueos.
