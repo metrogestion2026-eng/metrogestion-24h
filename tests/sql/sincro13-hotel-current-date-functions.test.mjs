@@ -38,29 +38,42 @@ test('captured function definitions match live Supabase test runtime',async()=>{
  assert.ok(r.triggers_de_hotel>=10,'No es suficiente un único trigger sintético');
 });
 
-test('explicit coverage gap against all currently installed Hotel triggers',async t=>{
+test('inventory checks trigger names AND function-body fingerprints',async t=>{
  const manifest=JSON.parse(await readFile(
   new URL('./fixtures/sincro13-hotel-trigger-inventory-20261119.json',import.meta.url),'utf8'));
  assert.equal(manifest.counts.etapas,25);
  assert.equal(manifest.counts.registros,18);
- const rows=(await db.query("SELECT t.tgname FROM pg_trigger t "+
-  "WHERE NOT t.tgisinternal AND t.tgrelid='public.etapas_hotel'::regclass")).rows;
- const included=new Set(rows.map(r=>r.tgname));
- const missing=manifest.etapas.filter(x=>!included.has(x.trigger)).map(x=>x.trigger);
- // This test never describes the fixture as a full trigger replica.
- // The readiness gate remains CLOSED until there are no omissions and each
- // function body is verified, including both row and statement triggers.
+ const stages=(await db.query(
+  "SELECT t.tgname,encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') AS sha256 "+
+  "FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid "+
+  "WHERE NOT t.tgisinternal AND t.tgrelid='public.etapas_hotel'::regclass"
+ )).rows;
+ const records=(await db.query(
+  "SELECT t.tgname FROM pg_trigger t "+
+  "WHERE NOT t.tgisinternal AND t.tgrelid='public.registros_hotel'::regclass"
+ )).rows;
+ const stageMap=new Map(stages.map(r=>[r.tgname,r.sha256]));
+ const recordNames=new Set(records.map(r=>r.tgname));
+ const missing=manifest.etapas.filter(x=>!stageMap.has(x.trigger)).map(x=>x.trigger);
+ const divergent=manifest.etapas.filter(x=>stageMap.has(x.trigger)
+   && stageMap.get(x.trigger)!==x.sha256).map(x=>x.trigger);
+ const missingRecords=manifest.fichas.filter(x=>!recordNames.has(x.trigger)).map(x=>x.trigger);
+ const allMatched=missing.length===0&&divergent.length===0&&missingRecords.length===0;
  t.diagnostic(JSON.stringify({
-  tipo:'COBERTURA_PARCIAL_DECLARADA',
-  triggers_reales_etapa:25,
-  triggers_reales_ficha:18,
-  triggers_instalados_en_fixture:included.size,
-  pendientes_en_fixture:missing.length,
-  no_certifica_sincro_real:true,
-  muestra_pendientes:missing.slice(0,12)
+  tipo:'S13_COBERTURA_TRIGGER_REVISADA',
+  stage_triggers_real:manifest.etapas.length,
+  stage_triggers_fixture:stages.length,
+  stage_trigger_names_missing:missing,
+  stage_trigger_function_sha_mismatches:divergent,
+  ficha_triggers_real:manifest.fichas.length,
+  ficha_triggers_fixture:records.length,
+  ficha_names_missing:missingRecords,
+  paridad_cuerpos_etapa:divergent.length===0,
+  paridad_completa_verificada:allMatched,
+  no_equivale_a_probar_todos_los_efectos:true
  }));
- assert.ok(included.has('etapas_hotel_manteniment_fechas'),
-  'Must retain genuine date-projection trigger while testing S13');
+ assert.ok(stageMap.has('etapas_hotel_manteniment_fechas'));
+ assert.equal(missing.length,0,'Ningún trigger de T del manifiesto puede faltar en la réplica');
 });
 
 test('T has its own seguimiento, while ficha and technical work share episode',async()=>{
