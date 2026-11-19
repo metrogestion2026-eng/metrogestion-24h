@@ -14,7 +14,10 @@ CREATE TABLE IF NOT EXISTS app_private.sincro13_k_evidencias (
  evento_en timestamptz NOT NULL,
  verificado_en timestamptz NOT NULL,
  verificador text NOT NULL CHECK (verificador = 'GOOGLE_INDEPENDIENTE'),
- actor_verificado uuid NOT NULL CHECK (actor_verificado <> '00000000-0000-0000-0000-000000000000'::uuid),
+ -- Google Sheets API no identifica al editor. Este campo sigue NULL.
+ actor_google_verificado uuid CHECK (actor_google_verificado IS NULL),
+ editor_google_acreditado boolean NOT NULL DEFAULT false
+    CHECK (editor_google_acreditado = false),
  evidencia_sha256 text NOT NULL CHECK (evidencia_sha256 ~ '^[0-9a-f]{64}$'),
  estado text NOT NULL DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE','APLICADA','RETENIDA')),
  resultado jsonb,
