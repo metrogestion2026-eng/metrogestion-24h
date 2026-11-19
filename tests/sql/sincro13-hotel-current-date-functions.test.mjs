@@ -85,7 +85,7 @@ test('current date trigger projects K from pickup, never overwrites J',async()=>
   'UPDATE public.etapas_hotel SET fecha_real=clock_timestamp(),modificado_por=$2 '+
   'WHERE id=$1 AND version=$3 RETURNING id,version,fecha_real,fecha_fin_real,estado',
   [p.entry.id,FIXTURE_ACTOR,entry.version]);
- assert.equal(result.rowCount,1);
+ assert.equal(result.rows.length,1,'La UPDATE debe devolver exactamente la T afectada');
  assert.deepEqual(await snapshotProtectedFacts(db),previous,
    'Changing one synthetic T pickup must not rewrite another episode');
  const after=await workshopInventory(db,p.id);
