@@ -22,6 +22,8 @@ before(async()=>{
  assert.match(source,/CREATE OR REPLACE FUNCTION app_private\.manteniment_fechas_desde_etapa\(\)/i);
  assert.match(source,/CREATE OR REPLACE FUNCTION app_private\.manteniment_etapa_actual\(/i);
  await db.query(source);
+ await db.query(await readFile(new URL('./fixtures/sincro13-hotel-audit-prerequisites.sql',import.meta.url),'utf8'));
+ await db.query(await readFile(new URL('./fixtures/sincro13-live-four-trigger-functions-20261119.sql',import.meta.url),'utf8'));
  assert.deepEqual(await snapshotProtectedFacts(db),protectedAtStart,
    'Loading live FUNCTION definitions must not touch frozen historical facts');
 });
