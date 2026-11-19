@@ -90,8 +90,11 @@ test('inventory checks 43 Hotel trigger names, function SHA and trigger definiti
    no_equivale_a_probar_todos_los_efectos:true
  }));
  assert.ok(stages.has('etapas_hotel_manteniment_fechas'));
- assert.equal(e.missing.length,0,'Ningún trigger de T debe faltar en el laboratorio');
- assert.equal(r.missing.length,0,'Ningún trigger de ficha debe faltar en el laboratorio');
+ assert.deepEqual(e,{missing:[],body:[],timing:[],extra:[]},
+   'La copia de pruebas debe tener EXACTAMENTE las 25 definiciones y activaciones de T; ni un trigger modificado');
+ assert.deepEqual(r,{missing:[],body:[],timing:[],extra:[]},
+   'La copia de pruebas debe tener EXACTAMENTE las 18 definiciones y activaciones de ficha');
+ assert.equal(fullParity,true,'Las 43 definiciones reales deben tener paridad completa');
 });
 
 test('T has its own seguimiento, while ficha and technical work share episode',async()=>{
