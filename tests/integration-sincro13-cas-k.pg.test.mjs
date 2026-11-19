@@ -40,8 +40,14 @@ test('sin evidencia externa acreditada no se modifica ninguna T',()=>{
 });
 test('token falso no puede aplicar corrección aunque exista una evidencia',()=>{
  const c=claim();
- reject(()=>apply(c,'mg_'+'f'.repeat(64)),'S13_CAS_TOKEN_INVALIDO');
- assert.equal(k(),'NULL');
+ try {
+   reject(()=>apply(c,'mg_'+'f'.repeat(64)),'S13_CAS_TOKEN_INVALIDO');
+   assert.equal(k(),'NULL');
+ } finally {
+   // Limpieza exclusivamente del fixture de laboratorio: una evidencia
+   // rechazada queda PENDIENTE e impide otra solicitud para la misma T.
+   pg('DELETE FROM app_private.sincro13_k_evidencias WHERE evidencia_id='+q(c.id)+'::uuid');
+ }
 });
 test('CAS positivo actualiza únicamente fecha_recogida de la T y su trabajo exacto',()=>{
  pg('UPDATE app_private.manteniment_t_trabajos SET fecha_realizada=\'2026-11-18\' WHERE sync_id='+q(WORK)+'::uuid');
