@@ -4250,6 +4250,17 @@ function metrogestionAplicarArchivoPlan_(sheet, memory, drive) {
 
 function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
   if (Date.now() >= permission.expira) throw new Error('La autorización caducó durante la revalidación. No se ha iniciado esta orden.');
+  // S13: serializar la orden COMPLETA con onChange, que usa el mismo DocumentLock.
+  // El bloqueo debe obtenerse antes de abrir el journal o aplicar cualquier efecto.
+  const docLock = LockService.getDocumentLock();
+  if (!docLock || !docLock.tryLock(15000)) {
+    throw new Error('S13: REGISTRO_FILAS está ocupado. No se ha registrado ni aplicado la orden.');
+  }
+  try {
+    // La autorización precede a este bloqueo; si hubo una edición durante esa
+    // espera se rechaza ANTES de guardar el intento o alterar la hoja.
+    metrogestionRevalidarPlanOrden_(sheet, plan);
+    if (Date.now() >= permission.expira) throw new Error('La autorización caducó durante el bloqueo de identidad T.');
   const filterState = metrogestionLeerEstadoFiltroOrden_(sheet);
   const record = metrogestionIntentoOrden_(plan);
   // Este setProperty y su lectura son anteriores incluso a quitar el filtro.
@@ -4292,7 +4303,12 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
       }
     });
     if (metrogestionTieneRegistroFilasReal_(sheet)) {
-      insertedRows.forEach(row => metrogestionAsignarIdFilaNueva_(sheet, row, 'ORDEN_AUTORIZADA'));
+      // Ya estamos bajo DocumentLock; NO volver a pedirlo (no es reentrante).
+      // onChange queda serializado y no puede anticipar la asignación de T.
+      const registro = metrogestionHojaRegistroFilas_();
+      insertedRows.forEach(row =>
+        metrogestionAsignarIdFilaNuevaSinLock_(sheet, registro, row, 'ORDEN_AUTORIZADA')
+      );
       SpreadsheetApp.flush();
     }
     // Solo las T asignadas por inserciones de ESTA orden obtienen recibo.
@@ -4309,6 +4325,9 @@ function metrogestionAplicarPlanConJournal_(sheet, plan, permission) {
     record.estado = 'incierto';
     try { metrogestionGuardarJournalOrden_(record); } catch (_) { /* El intento previo sigue bloqueando la repetición. */ }
     throw new Error(`Resultado incierto de ${record.referencia.tipo}/${record.referencia.sync_id}/${record.referencia.revision}. Puede haber efectos parciales; no se reaplica ni se envía ACK. Conserva esta referencia para revisión.`);
+  }
+  } finally {
+    docLock.releaseLock();
   }
 }
 
