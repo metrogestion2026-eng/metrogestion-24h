@@ -38,6 +38,31 @@ test('captured function definitions match live Supabase test runtime',async()=>{
  assert.ok(r.triggers_de_hotel>=10,'No es suficiente un único trigger sintético');
 });
 
+test('explicit coverage gap against all currently installed Hotel triggers',async t=>{
+ const manifest=JSON.parse(await readFile(
+  new URL('./fixtures/sincro13-hotel-trigger-inventory-20261119.json',import.meta.url),'utf8'));
+ assert.equal(manifest.counts.etapas,25);
+ assert.equal(manifest.counts.registros,18);
+ const rows=(await db.query("SELECT t.tgname FROM pg_trigger t "+
+  "WHERE NOT t.tgisinternal AND t.tgrelid='public.etapas_hotel'::regclass")).rows;
+ const included=new Set(rows.map(r=>r.tgname));
+ const missing=manifest.etapas.filter(x=>!included.has(x.trigger)).map(x=>x.trigger);
+ // This test never describes the fixture as a full trigger replica.
+ // The readiness gate remains CLOSED until there are no omissions and each
+ // function body is verified, including both row and statement triggers.
+ t.diagnostic(JSON.stringify({
+  tipo:'COBERTURA_PARCIAL_DECLARADA',
+  triggers_reales_etapa:25,
+  triggers_reales_ficha:18,
+  triggers_instalados_en_fixture:included.size,
+  pendientes_en_fixture:missing.length,
+  no_certifica_sincro_real:true,
+  muestra_pendientes:missing.slice(0,12)
+ }));
+ assert.ok(included.has('etapas_hotel_manteniment_fechas'),
+  'Must retain genuine date-projection trigger while testing S13');
+});
+
 test('T has its own seguimiento, while ficha and technical work share episode',async()=>{
  const oldProtected=await snapshotProtectedFacts(db);
  const p=await seedWorkshopScenario(db,{tag:'S13ID'});
