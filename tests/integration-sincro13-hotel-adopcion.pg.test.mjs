@@ -24,7 +24,7 @@ const stage=()=>JSON.parse(pg('SELECT jsonb_build_object('+
  "'inicio',fecha_inicio_real,'fin',fecha_fin_real,"+
  "'recogida',fecha_real,'modificado_por',modificado_por)"+
  '::text FROM public.etapas_hotel WHERE id='+q(STAGE)+'::uuid'));
-function createClaim({approve=true}={}){
+function createClaim({approve=true,base=null}={}){
  const c={evidence:randomUUID(),request:randomUUID(),stage:STAGE,version:stageVersion(),time:TIME};
  const now=new Date(Date.now()-20000).toISOString();
  pg('INSERT INTO app_private.sincro13_k_evidencias('+
@@ -32,13 +32,13 @@ function createClaim({approve=true}={}){
   'columna,valor_base,valor_nuevo,evento_en,verificado_en,verificador,'+
   'actor_google_verificado,editor_google_acreditado,evidencia_sha256) VALUES ('+
    q(c.evidence)+'::uuid,'+q(c.request)+'::uuid,'+q(SHEET)+',7100,'+
-   q(WORK)+"::uuid,'K',NULL,'2026-11-19'::date,"+
+   q(WORK)+"::uuid,'K',"+(base===null?'NULL':q(base)+'::date')+",'2026-11-19'::date,"+
    q(now)+"::timestamptz,clock_timestamp(),'GOOGLE_INDEPENDIENTE',"+
    "NULL,false,"+q('e'.repeat(64))+')');
  if(approve){
   const approval={
    id_fila:7100,trabajo_sync_id:WORK,columna:'K',
-   valor_base:null,valor_nuevo:'2026-11-19',evidencia_sha256:'e'.repeat(64)
+   valor_base:base,valor_nuevo:'2026-11-19',evidencia_sha256:'e'.repeat(64)
   };
   const resp=withActor('SELECT public.sincro13_aprobar_correccion_k('+
    q(c.evidence)+'::uuid,'+q(c.request)+'::uuid,'+
@@ -168,6 +168,18 @@ test('hora y día reales adoptados: sólo fecha_real cambia en etapa; triggers p
  assert.equal(pg('SELECT estado FROM app_private.sincro13_aprobaciones_k WHERE evidencia_id='+q(c.evidence)+'::uuid'),'CONSUMIDA');
  globalThis.__accepted=c;
 });
+test('sin cambio de día K no autoriza alterar la hora de recogida',()=>{
+ const c=createClaim({base:'2026-11-19'});
+ const before=stage(),oldK=k();
+ try{
+  assert.throws(()=>adopt(c,{version:stageVersion()}),/S13_HOTEL_K_SIN_CAMBIO/);
+  assert.deepEqual(stage(),before);
+  assert.equal(k(),oldK);
+ }finally{
+  cleanup(c);
+ }
+});
+
 test('replay exacto retorna mismo acuse sin modificar la versión ni hora',()=>{
  const c=globalThis.__accepted;
  const before=stage(),r=adopt(c);
