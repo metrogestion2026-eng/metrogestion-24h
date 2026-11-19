@@ -165,6 +165,43 @@ test('no se puede reutilizar la evidencia con otro request_id',()=>{
  assert.equal(result.motivo,'EVIDENCIA_NO_AUTORIZADA');
  assert.equal(k(),'2026-11-19');
 });
+test('reintento de aprobación idéntica no crea otra aceptación',()=>{
+ const c=claim({base:'2026-11-19',next:'2026-11-19'});
+ const res=approveClaim(c);
+ assert.equal(res.estado,'APROBADA');
+ assert.equal(res.adopcion_expresa,true);
+ assert.equal(res.edicion_original_atribuida,false);
+ assert.equal(pg('SELECT count(*) FROM app_private.sincro13_aprobaciones_k WHERE evidencia_id='+q(c.id)+'::uuid'),'1');
+ assert.equal(apply(c).estado,'APLICADA');
+ assert.equal(k(),'2026-11-19');
+});
+test('segunda aprobación con distinto request_id es contradictoria',()=>{
+ const c=claim({base:'2026-11-19',next:'2026-11-19'});
+ reject(()=>approveClaim(c,{request:randomUUID()}),'S13_APROBACION_CONTRADICTORIA');
+ assert.equal(pg('SELECT count(*) FROM app_private.sincro13_aprobaciones_k WHERE evidencia_id='+q(c.id)+'::uuid'),'1');
+ assert.equal(apply(c).estado,'APLICADA');
+});
+test('aprobación caducada bloquea CAS aunque el origen y destino coincidan',()=>{
+ const c=claim({base:'2026-11-19',next:'2026-11-19'});
+ pg('UPDATE app_private.sincro13_aprobaciones_k SET caduca_en=clock_timestamp()-interval \'1 second\' WHERE evidencia_id='+q(c.id)+'::uuid');
+ const r=apply(c);
+ assert.equal(r.estado,'RETENIDA');
+ assert.equal(r.motivo,'SIN_ADOPCION_EXPLICITA_VIGENTE');
+ assert.equal(pg('SELECT estado FROM app_private.sincro13_aprobaciones_k WHERE evidencia_id='+q(c.id)+'::uuid'),'RETENIDA');
+ assert.equal(k(),'2026-11-19');
+});
+test('service_role sin sesión de persona no puede aprobar K',()=>{
+ const id=randomUUID(),req=randomUUID();
+ reject(()=>pg('SET ROLE service_role; SELECT public.sincro13_aprobar_correccion_k('+
+  q(id)+'::uuid,'+q(req)+'::uuid,\'{}\'::jsonb,\'ADOPTO_CORRECCION_K_VERIFICADA\')'),
+  'permission denied');
+});
+test('anon no puede aprobar ni presentando un UUID de prueba',()=>{
+ const id=randomUUID(),req=randomUUID();
+ reject(()=>pg('SET ROLE anon; SELECT public.sincro13_aprobar_correccion_k('+
+  q(id)+'::uuid,'+q(req)+'::uuid,\'{}\'::jsonb,\'ADOPTO_CORRECCION_K_VERIFICADA\')'),
+  'permission denied');
+});
 test('valor base obsoleto se retiene sin pisar corrección posterior',()=>{
  const c=claim({base:null,next:'2026-11-21'});
  const res=apply(c);
