@@ -189,7 +189,7 @@ BEGIN
   WHERE id=v_catalogo.trabajo_hotel_id FOR SHARE;
   IF NOT FOUND OR v_trabajo.cancelado
     OR v_trabajo.etapa_hotel_id IS DISTINCT FROM v_etapa.id
-    OR v_etapa.seguimiento_id IS DISTINCT FROM v_catalogo.seguimiento_id
+    OR v_etapa.registro_hotel_id IS DISTINCT FROM v_registro.id
   THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='S13_HOTEL_VINCULO_TRABAJO_INCONSISTENTE'; END IF;
 
   IF EXISTS(SELECT 1 FROM app_private.manteniment_parada_outbox
