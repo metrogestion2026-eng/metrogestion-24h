@@ -64,9 +64,9 @@ test('prepare one genuine workshop T in isolated fixture, not an old row',async(
  }]};
  await db.query(
  'INSERT INTO app_private.manteniment_entregas_continuidad_alpha75 '+
- '(sync_id,revision,seguimiento_id,origen,entregado_en,payload) VALUES '+
- '($1,$2,$3,$4,clock_timestamp(),$5::jsonb)',
- [order,revision,beforePick.ficha.seguimiento_id,'entrega',JSON.stringify(payload)]);
+ '(sync_id,revision,seguimiento_id,tipo,origen,entregado_en,payload) VALUES '+
+ '($1,$2,$3,$4,$5,clock_timestamp(),$6::jsonb)',
+ [order,revision,beforePick.ficha.seguimiento_id,'trabajos','entrega',JSON.stringify(payload)]);
  await db.query(
  'INSERT INTO app_private.sincro13_recibos_t '+
  '(spreadsheet_id,id_fila,trabajo_sync_id,orden_sync_id,orden_revision,estado,origen,asignado_en) '+
