@@ -50,7 +50,7 @@ BEGIN
   END IF;
 
   IF coalesce(auth.jwt()->>'session_id','') !~
-       '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+       '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
      OR p_solicitud_id IS NULL OR p_evidencia_id IS NULL
      OR p_declaracion IS DISTINCT FROM 'ADOPTO_CORRECCION_K_VERIFICADA'
      OR jsonb_typeof(p_contraste) IS DISTINCT FROM 'object'
