@@ -44,6 +44,7 @@ AS $s13cas$
 DECLARE
  v_config record;
  v_ev app_private.sincro13_k_evidencias%rowtype;
+ v_ap app_private.sincro13_aprobaciones_k%rowtype;
  v_rec app_private.sincro13_recibos_t%rowtype;
  v_job app_private.manteniment_t_trabajos%rowtype;
  v_ent app_private.manteniment_entregas_continuidad_alpha75%rowtype;
@@ -71,8 +72,26 @@ BEGIN
    RETURN v_ev.resultado;
  END IF;
 
+ -- Una lectura Google y un UUID NO prueban autoría ni aceptación. El
+ -- administrador principal de Metroges adopta explícitamente ESTE valor
+ -- exacto mediante sesión JWT, MFA/dispositivo y la aprobación de S13.
+ -- Apps Script/service_role no dispone de permisos para crearla.
+ SELECT * INTO v_ap FROM app_private.sincro13_aprobaciones_k
+ WHERE evidencia_id=p_evidencia_id FOR UPDATE;
+ IF NOT FOUND OR v_ap.estado IS DISTINCT FROM 'APROBADA'
+   OR v_ap.aprobado_por IS NULL OR v_ap.sesion_id IS NULL
+   OR v_ap.caduca_en <= clock_timestamp()
+   OR v_ap.spreadsheet_id IS DISTINCT FROM v_ev.spreadsheet_id
+   OR v_ap.id_fila IS DISTINCT FROM v_ev.id_fila
+   OR v_ap.trabajo_sync_id IS DISTINCT FROM v_ev.trabajo_sync_id
+   OR v_ap.evidencia_sha256 IS DISTINCT FROM v_ev.evidencia_sha256
+   OR v_ap.valor_base IS DISTINCT FROM v_ev.valor_base
+   OR v_ap.valor_nuevo IS DISTINCT FROM v_ev.valor_nuevo
+ THEN v_motivo:='SIN_ADOPCION_EXPLICITA_VIGENTE'; END IF;
+
  -- No derivar K de J ni la fecha del backend como si fuese hecho manual.
- IF v_ev.spreadsheet_id IS DISTINCT FROM v_config.spreadsheet_id
+ IF v_motivo IS NULL AND (
+    v_ev.spreadsheet_id IS DISTINCT FROM v_config.spreadsheet_id
    OR v_ev.columna IS DISTINCT FROM 'K'
    OR v_ev.verificador IS DISTINCT FROM 'GOOGLE_INDEPENDIENTE'
    OR v_ev.actor_verificado IS NULL
@@ -80,7 +99,7 @@ BEGIN
    OR v_ev.evento_en < v_corte OR v_ev.evento_en > clock_timestamp()+interval '5 minutes'
    OR v_ev.verificado_en < v_ev.evento_en
    OR v_ev.verificado_en > clock_timestamp()+interval '5 minutes'
- THEN v_motivo:='EVIDENCIA_INSUFICIENTE'; END IF;
+ ) THEN v_motivo:='EVIDENCIA_INSUFICIENTE'; END IF;
 
  IF v_motivo IS NULL THEN
   SELECT * INTO v_rec FROM app_private.sincro13_recibos_t
@@ -191,6 +210,9 @@ BEGIN
   UPDATE app_private.sincro13_k_evidencias
     SET estado='RETENIDA',resultado=v_result,consumido_en=clock_timestamp()
     WHERE evidencia_id=p_evidencia_id AND estado='PENDIENTE';
+  UPDATE app_private.sincro13_aprobaciones_k
+    SET estado='RETENIDA',cerrado_en=clock_timestamp()
+    WHERE evidencia_id=p_evidencia_id AND estado='APROBADA';
   RETURN v_result;
  END IF;
 
@@ -216,6 +238,9 @@ BEGIN
  UPDATE app_private.sincro13_k_evidencias
   SET estado='APLICADA',resultado=v_result,consumido_en=clock_timestamp()
   WHERE evidencia_id=p_evidencia_id AND estado='PENDIENTE';
+ UPDATE app_private.sincro13_aprobaciones_k
+  SET estado='CONSUMIDA',cerrado_en=clock_timestamp()
+  WHERE evidencia_id=p_evidencia_id AND estado='APROBADA';
  RETURN v_result;
 END;
 $s13cas$;
