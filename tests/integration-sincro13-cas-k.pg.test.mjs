@@ -164,6 +164,42 @@ test('CAS positivo admite solo espejo técnico; no reescribe Hotel',()=>{
  assert.equal(pg("SELECT fecha_real::date::text FROM public.etapas_hotel WHERE id='66666666-6666-4666-8666-666666666666'::uuid"),'2026-11-19');
 });
 
+test('outbox de activo pendiente para el mismo vehículo retiene K',()=>{
+ pg("INSERT INTO app_private.manteniment_activo_outbox(vehiculo_id,estado) VALUES ('99999999-9999-4999-8999-999999999999','pendiente')");
+ const c=claim({base:'2026-11-19',next:'2026-11-19'});
+ try{
+   const r=apply(c);
+   assert.equal(r.estado,'RETENIDA');
+   assert.equal(r.motivo,'OUTBOX_ACTIVO_PENDIENTE');
+   assert.equal(k(),'2026-11-19');
+ }finally{
+   pg("UPDATE app_private.manteniment_activo_outbox SET estado='confirmado' WHERE vehiculo_id='99999999-9999-4999-8999-999999999999'");
+ }
+});
+test('sin vehículo auxiliar inequívoco no se presupone que la cola sea segura',()=>{
+ pg("UPDATE public.vehiculos SET dfm='OTRO-DFM' WHERE id='99999999-9999-4999-8999-999999999999'");
+ const c=claim({base:'2026-11-19',next:'2026-11-19'});
+ try{
+   const r=apply(c);
+   assert.equal(r.estado,'RETENIDA');
+   assert.equal(r.motivo,'VEHICULO_AUXILIAR_AMBIGUO_O_AUSENTE');
+   assert.equal(k(),'2026-11-19');
+ }finally{
+   pg("UPDATE public.vehiculos SET dfm='LABORATORIO-01' WHERE id='99999999-9999-4999-8999-999999999999'");
+ }
+});
+test('trabajo Hotel cancelado no admite reescribir caché técnico',()=>{
+ pg("UPDATE public.trabajos_etapa_hotel SET cancelado=true WHERE id='22222222-2222-4222-8222-222222222222'");
+ const c=claim({base:'2026-11-19',next:'2026-11-19'});
+ try{
+   const r=apply(c);
+   assert.equal(r.estado,'RETENIDA');
+   assert.equal(r.motivo,'HOTEL_TRABAJO_O_ETAPA_NO_VIGENTE');
+   assert.equal(k(),'2026-11-19');
+ }finally{
+   pg("UPDATE public.trabajos_etapa_hotel SET cancelado=false WHERE id='22222222-2222-4222-8222-222222222222'");
+ }
+});
 test('permisos de anon/authenticated no dejan llamar a CAS',()=>{
  const c=globalThis.__appliedClaim;
  reject(()=>pg('SET ROLE authenticated; SELECT app_private.sincro13_cas_k('+
