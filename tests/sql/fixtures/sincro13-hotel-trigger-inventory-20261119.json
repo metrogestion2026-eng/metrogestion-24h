@@ -1,0 +1,211 @@
+{
+  "source": "Supabase proyecto de PRUEBAS, pg_trigger/pg_proc read-only",
+  "capture_date": "2026-11-19",
+  "purpose": "contract of trigger functions; contains NO data rows, IDs or secrets",
+  "status": "REFERENCIA_NO_CERTIFICA_ENTORNO_REPLICA",
+  "counts": {
+    "etapas": 25,
+    "registros": 18
+  },
+  "etapas": [
+    {
+      "sha256": "1bf39a19553f56f53e4b304cfe2c2c0608ae47348d25844a4eab635132211660",
+      "trigger": "aa_continuidad_etapa_alpha75",
+      "function": "proteger_etapa_continuidad_alpha75"
+    },
+    {
+      "sha256": "3cfc426ddf893afecf8e0f04bc0be25f24ea374cb911a6524e9960ff15135375",
+      "trigger": "auditar_etapas_hotel",
+      "function": "auditar_cambio_fila"
+    },
+    {
+      "sha256": "6d7359092552cb8e256c7f56c79142b06a5d37e225c822feac01d9d455b01661",
+      "trigger": "etapas_aa_resolver_reaperturas_reserva",
+      "function": "resolver_reaperturas_pendiente_reserva"
+    },
+    {
+      "sha256": "fb2744acbad4b4984a3a343a08aa136cdbfd1133e39219dde2f1905b5e1d01f1",
+      "trigger": "etapas_hotel_accion_sistema",
+      "function": "marcar_accion_sistema_etapa"
+    },
+    {
+      "sha256": "c09c9ea6ce88cfd0b0d089720469e1b343c3dcc1291dbe0d59c7017c05f82853",
+      "trigger": "etapas_hotel_aplicar_recuperacion",
+      "function": "aplicar_recuperacion_desde_etapa"
+    },
+    {
+      "sha256": "b34e63e793376aea33a881a6da472cfa491da02842b6bdef1d5bf52ebd94682d",
+      "trigger": "etapas_hotel_asegurar_recuperacion",
+      "function": "asegurar_recuperacion_final"
+    },
+    {
+      "sha256": "4d7067f9a83303184d331cdd6815dcb63e779d0c21f9b20039f44ccbb1d896b3",
+      "trigger": "etapas_hotel_bloquear_recogida_manteniment_alpha74",
+      "function": "bloquear_recogida_manteniment_alpha74"
+    },
+    {
+      "sha256": "18a3e199fb40c90404adf658d0301aca0d3628434c69e8ae4464214410d38b52",
+      "trigger": "etapas_hotel_capturar_estado_antes_realizar",
+      "function": "capturar_estado_registro_antes_realizar_t"
+    },
+    {
+      "sha256": "e85c8c04c44706c6cb47b1ff6ef0cefff6f75bd8e11752f5f946525c71c227e8",
+      "trigger": "etapas_hotel_cerrar_modalidad",
+      "function": "cerrar_modalidad_hotel_desde_etapa"
+    },
+    {
+      "sha256": "555e58b71b67a98b5a34ef25d7804a4ab084e3fd38174a3ffcf323aa7b617497",
+      "trigger": "etapas_hotel_coherencia_diferida",
+      "function": "validar_coherencia_ficha_hotel_diferida"
+    },
+    {
+      "sha256": "0383688b67729d4001a8737f6f9ee742cb6edebcbfbc02bc26110e0835ccafc8",
+      "trigger": "etapas_hotel_generar_recogida",
+      "function": "generar_recogida_tras_entrada_taller"
+    },
+    {
+      "sha256": "30a33aa04d2ff7ec856159bf0bbbbc51ecd89592e687c1a924246757beda0dcf",
+      "trigger": "etapas_hotel_grupo_documental",
+      "function": "preparar_grupo_documental_etapa"
+    },
+    {
+      "sha256": "b94b376bf82e2536a3ba2249fb842ed61dd695438090957665d4abb74df03965",
+      "trigger": "etapas_hotel_heredar_marcado_rapido",
+      "function": "heredar_control_marcado_rapido_etapa"
+    },
+    {
+      "sha256": "e3347dc0f83d02b60c6017edb3370bf79a85330b0692822290ecda460c0e7aab",
+      "trigger": "etapas_hotel_liberar_reserva",
+      "function": "aplicar_liberacion_reserva_desde_etapa"
+    },
+    {
+      "sha256": "0728cc84bdbc05589f8741213dad4043bbd465b0c626a111a3eff6d3cc5e3639",
+      "trigger": "etapas_hotel_manteniment_fechas",
+      "function": "manteniment_fechas_desde_etapa"
+    },
+    {
+      "sha256": "7a179a2a62f481f955c2a757f89570711310ede8a310a6026932d2b0f8dafbf0",
+      "trigger": "etapas_hotel_normalizar_marcado_rapido",
+      "function": "normalizar_control_marcado_rapido_etapa"
+    },
+    {
+      "sha256": "d26e5c7fcd051890d837a3fd88e5e2e6e0ca790c97be8cf9a3cd5783560387d7",
+      "trigger": "etapas_hotel_sincronizar_estado_24h_alpha74_trg",
+      "function": "sincronizar_estado_24h_desde_entrada_alpha74"
+    },
+    {
+      "sha256": "14a0cdeb4b9c7a5f5ae147b9d4653bf5b806d36dd18e8f33980d058157b9fac1",
+      "trigger": "etapas_hotel_sync_programada",
+      "function": "sincronizar_estado_programado_t"
+    },
+    {
+      "sha256": "8a1732d1aa3b1f7f5d9d06eaaa8437fe2e447a0dd40a92aafa360cff754f5b74",
+      "trigger": "etapas_hotel_touch",
+      "function": "tocar_actualizado_en_y_version"
+    },
+    {
+      "sha256": "c8c4e35d2b9449444881a4fe53a7dfe91bdd5d2709dd9a487c8fb9ed80f2f9e4",
+      "trigger": "etapas_hotel_zzz_catalogo_estado",
+      "function": "sincronizar_catalogo_estado_etapa"
+    },
+    {
+      "sha256": "9c1b9901cf82b5a2f6eac5bb20ddfedd3a700691ff20ed3fd72ee7fcbaf25eac",
+      "trigger": "etapas_resolver_pendientes_reserva",
+      "function": "resolver_pendientes_reserva_desde_etapa_trigger"
+    },
+    {
+      "sha256": "1bf39a19553f56f53e4b304cfe2c2c0608ae47348d25844a4eab635132211660",
+      "trigger": "zz_continuidad_etapa_alpha75",
+      "function": "proteger_etapa_continuidad_alpha75"
+    },
+    {
+      "sha256": "b5fd38afd23c6b73722d39e1965f2cc338effbbca525a50ac61773f30e975ea0",
+      "trigger": "zzzz_etapas_hotel_rec001",
+      "function": "proteger_recuperacion_rec001"
+    },
+    {
+      "sha256": "57b81a0b7b81ac90098d0a5ec7f45c95d86f5fc8b9481bee8cde92cce7c31f19",
+      "trigger": "zzzzz_etapas_hotel_fecha_movimiento_alpha75",
+      "function": "actualizar_fecha_movimiento_hotel_alpha75"
+    },
+    {
+      "sha256": "b4316c0256947fdf4c66ece0c73842de267900db312b3abaae8a6362444ef0e6",
+      "trigger": "zzzzzz_etapas_hotel_situacion_operativa_alpha75",
+      "function": "sincronizar_situacion_operativa_hotel_trigger_alpha75"
+    }
+  ],
+  "fichas": [
+    {
+      "trigger": "aa_continuidad_registro_alpha75",
+      "function": "proteger_registro_continuidad_alpha75"
+    },
+    {
+      "trigger": "auditar_registros_hotel",
+      "function": "auditar_cambio_fila"
+    },
+    {
+      "trigger": "derivar_tipo_sustituto_hotel",
+      "function": "derivar_tipo_sustituto_hotel"
+    },
+    {
+      "trigger": "registrar_origen_sync_continuidad_alpha75",
+      "function": "registrar_origen_sync_continuidad_alpha75"
+    },
+    {
+      "trigger": "registros_hotel_coherencia_diferida",
+      "function": "validar_coherencia_ficha_hotel_diferida"
+    },
+    {
+      "trigger": "registros_hotel_liberar_recuperado",
+      "function": "liberar_al_marcar_recuperado"
+    },
+    {
+      "trigger": "registros_hotel_liberar_reserva_al_anular",
+      "function": "liberar_reserva_al_anular_ficha_hotel"
+    },
+    {
+      "trigger": "registros_hotel_manteniment_encolar",
+      "function": "manteniment_registro_hotel_trigger"
+    },
+    {
+      "trigger": "registros_hotel_normalizar_estado_taller_24h_alpha74_trg",
+      "function": "normalizar_estado_taller_24h_alpha74"
+    },
+    {
+      "trigger": "registros_hotel_numero_parada_auto",
+      "function": "asignar_numero_parada_nuevo"
+    },
+    {
+      "trigger": "registros_hotel_preparar_fuera_hotel",
+      "function": "preparar_registro_fuera_hotel"
+    },
+    {
+      "trigger": "registros_hotel_proteger_sustitucion_paradas002",
+      "function": "proteger_sustitucion_paradas002"
+    },
+    {
+      "trigger": "registros_hotel_reabrir_cierre",
+      "function": "reabrir_cierre_al_reactivar_registro_hotel"
+    },
+    {
+      "trigger": "registros_hotel_sincronizar_reservas",
+      "function": "sincronizar_reservas_desde_registro_hotel"
+    },
+    {
+      "trigger": "registros_hotel_touch",
+      "function": "tocar_actualizado_en_y_version"
+    },
+    {
+      "trigger": "registros_hotel_validar_modalidad_operativa",
+      "function": "validar_modalidad_operativa_hotel"
+    },
+    {
+      "trigger": "zz_continuidad_registro_alpha75",
+      "function": "proteger_registro_continuidad_alpha75"
+    },
+    {
+      "trigger": "zzzzzz_registros_hotel_situacion_operativa_alpha75",
+      "function": "sincronizar_situacion_operativa_hotel_trigger_alpha75"
+    }
+  ]
+}
