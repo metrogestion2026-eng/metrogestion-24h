@@ -291,6 +291,7 @@ export class SimulatedCrash extends Error {
 export function createExecutorHarness(options = {}) {
   const world = {
     source: options.source ?? readFileSync(SYNC_SOURCE, 'utf8'), events: [], httpCalls: [], faults: [], crashed: false,
+    documentLockHeld: false, documentLockBusy: options.documentLockBusy === true,
     properties: new Map(Object.entries(options.properties || {})), folders: new Map(), triggers: [], httpHandler: options.http,
     checkpoint(event, timing) {
       if (this.crashed) throw new SimulatedCrash();
@@ -410,7 +411,26 @@ export function createExecutorHarness(options = {}) {
       } },
       LockService: {
         getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }),
-        getDocumentLock: () => ({ waitLock: () => true, releaseLock: () => {} })
+        getDocumentLock: () => ({
+          tryLock: () => {
+            const ok = !world.documentLockHeld && !world.documentLockBusy;
+            world.events.push({kind:'lock',method:'tryDocumentLock',acquired:ok});
+            if (ok) world.documentLockHeld = true;
+            return ok;
+          },
+          waitLock: () => {
+            if (world.documentLockHeld || world.documentLockBusy) {
+              throw new Error('Synthetic document lock busy');
+            }
+            world.documentLockHeld = true;
+            world.events.push({kind:'lock',method:'waitDocumentLock',acquired:true});
+          },
+          releaseLock: () => {
+            if (!world.documentLockHeld) throw new Error('Synthetic release of unheld document lock');
+            world.documentLockHeld = false;
+            world.events.push({kind:'lock',method:'releaseDocumentLock'});
+          },
+        })
       },
       ScriptApp: { getProjectTriggers: () => world.triggers, deleteTrigger: trigger => world.effect({ kind: 'trigger', method: 'delete' }, () => { world.triggers = world.triggers.filter(t => t !== trigger); }),
         newTrigger: name => { const builder = { timeBased: () => builder, everyHours: () => builder, after: () => builder,
