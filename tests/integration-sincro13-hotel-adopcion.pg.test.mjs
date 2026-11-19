@@ -94,6 +94,25 @@ test('preparación: sólo LAB sintético, no hay K ni fecha real de recogida',()
  assert.equal(stage().estado,'en_taller');
  assert.equal(pg("SELECT estado FROM app_private.manteniment_parada_outbox WHERE seguimiento_id="+q(FOLLOWUP)+'::uuid'),'confirmado');
 });
+test('ID de seguimiento de T es distinto del seguimiento de la FICHA (modelo real)',()=>{
+ const r=pg("SELECT jsonb_build_object("+
+   "'seguimiento_etapa',e.seguimiento_id,"+
+   "'seguimiento_ficha',h.seguimiento_id,"+
+   "'seguimiento_trabajo',w.seguimiento_id,"+
+   "'trabajo_etapa',t.etapa_hotel_id,"+
+   "'registro_etapa',e.registro_hotel_id)"+
+   " FROM app_private.manteniment_t_trabajos w "+
+   "JOIN public.trabajos_etapa_hotel t ON t.id=w.trabajo_hotel_id "+
+   "JOIN public.etapas_hotel e ON e.id=t.etapa_hotel_id "+
+   "JOIN public.registros_hotel h ON h.id=e.registro_hotel_id "+
+   "WHERE w.sync_id="+q(WORK)+"::uuid");
+ const v=JSON.parse(r);
+ assert.notEqual(v.seguimiento_etapa,v.seguimiento_ficha,
+   'La T tiene identidad propia; nunca comparar su seguimiento con el de la ficha');
+ assert.equal(v.seguimiento_ficha,v.seguimiento_trabajo);
+ assert.equal(v.trabajo_etapa,STAGE);
+ assert.equal(v.registro_etapa,'77777777-7777-4777-8777-777777777777');
+});
 test('fecha K sola sin HORA explícita es rechazada',()=>{
  rejected('no time',{time:'2026-11-19'});
 });
