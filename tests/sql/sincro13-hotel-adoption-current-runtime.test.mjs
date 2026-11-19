@@ -16,6 +16,8 @@ const paths=[
   'tests/sql/fixtures/sincro13-live-date-functions-20261119.sql',
   'tests/sql/fixtures/sincro13-hotel-audit-prerequisites.sql',
   'tests/sql/fixtures/sincro13-live-four-trigger-functions-20261119.sql',
+  'tests/sql/fixtures/sincro13-live-ficha-trigger-functions-20261119.sql',
+  'tests/sql/fixtures/sincro13-ficha-trigger-prerequisites.sql',
   'tests/sql/fixtures/sincro13-hotel-native-contract.sql',
   'sql/sincro13_k_evidencias_base_20261119.sql',
   'sql/sincro13_aprobacion_operador_k_20261119.sql',
