@@ -15,8 +15,16 @@ CREATE TABLE app_private.manteniment_parada_outbox (
 -- deriva de fecha_real de la etapa ENTRADA, NO de fecha_fin_real.
 CREATE TABLE public.registros_hotel (
  id uuid PRIMARY KEY, seguimiento_id uuid NOT NULL,
+ vehiculo_sustituido text NOT NULL,
  cancelado boolean NOT NULL DEFAULT false,
  hitos boolean NOT NULL DEFAULT true
+);
+CREATE TABLE public.vehiculos (
+ id uuid PRIMARY KEY, dfm text NOT NULL
+);
+CREATE TABLE app_private.manteniment_activo_outbox (
+ vehiculo_id uuid PRIMARY KEY,
+ estado text NOT NULL CHECK (estado IN ('pendiente','confirmado','retenida_manual'))
 );
 CREATE TABLE public.etapas_hotel (
  id uuid PRIMARY KEY, registro_hotel_id uuid NOT NULL REFERENCES public.registros_hotel(id),
@@ -36,9 +44,11 @@ CREATE FUNCTION app_private.es_tipo_entrada_taller_alpha75(p_tipo text)
 RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
  SELECT p_tipo='entrada_taller';
 $$;
-INSERT INTO public.registros_hotel(id,seguimiento_id) VALUES
+INSERT INTO public.registros_hotel(id,seguimiento_id,vehiculo_sustituido) VALUES
  ('77777777-7777-4777-8777-777777777777',
-  '33333333-3333-4333-8333-333333333333');
+  '33333333-3333-4333-8333-333333333333','LABORATORIO-01');
+INSERT INTO public.vehiculos(id,dfm) VALUES
+ ('99999999-9999-4999-8999-999999999999','LABORATORIO-01');
 INSERT INTO public.etapas_hotel(
  id,registro_hotel_id,seguimiento_id,tipo_etapa,fecha_real,fecha_fin_real)
 VALUES
