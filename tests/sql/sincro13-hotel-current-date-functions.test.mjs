@@ -40,42 +40,56 @@ test('captured function definitions match live Supabase test runtime',async()=>{
  assert.ok(r.triggers_de_hotel>=10,'No es suficiente un único trigger sintético');
 });
 
-test('inventory checks trigger names AND function-body fingerprints',async t=>{
+test('inventory checks 43 Hotel trigger names, function SHA and trigger definitions',async t=>{
  const manifest=JSON.parse(await readFile(
   new URL('./fixtures/sincro13-hotel-trigger-inventory-20261119.json',import.meta.url),'utf8'));
  assert.equal(manifest.counts.etapas,25);
  assert.equal(manifest.counts.registros,18);
- const stages=(await db.query(
-  "SELECT t.tgname,encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') AS sha256 "+
-  "FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid "+
-  "WHERE NOT t.tgisinternal AND t.tgrelid='public.etapas_hotel'::regclass"
- )).rows;
- const records=(await db.query(
-  "SELECT t.tgname FROM pg_trigger t "+
-  "WHERE NOT t.tgisinternal AND t.tgrelid='public.registros_hotel'::regclass"
- )).rows;
- const stageMap=new Map(stages.map(r=>[r.tgname,r.sha256]));
- const recordNames=new Set(records.map(r=>r.tgname));
- const missing=manifest.etapas.filter(x=>!stageMap.has(x.trigger)).map(x=>x.trigger);
- const divergent=manifest.etapas.filter(x=>stageMap.has(x.trigger)
-   && stageMap.get(x.trigger)!==x.sha256).map(x=>x.trigger);
- const missingRecords=manifest.fichas.filter(x=>!recordNames.has(x.trigger)).map(x=>x.trigger);
- const allMatched=missing.length===0&&divergent.length===0&&missingRecords.length===0;
+ async function actualTable(table) {
+  const rows=(await db.query(
+   "SELECT t.tgname, "+
+   "encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') AS body_sha256, "+
+   "encode(sha256(convert_to(pg_get_triggerdef(t.oid),'UTF8')),'hex') AS trigger_sha256 "+
+   "FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid "+
+   "WHERE NOT t.tgisinternal AND t.tgrelid=$1::regclass",
+   ['public.'+table]
+  )).rows;
+  return new Map(rows.map(r=>[r.tgname,r]));
+ }
+ const stages=await actualTable('etapas_hotel');
+ const records=await actualTable('registros_hotel');
+ function compare(expected,actual) {
+  return {
+   missing:expected.filter(x=>!actual.has(x.trigger)).map(x=>x.trigger),
+   body:expected.filter(x=>actual.has(x.trigger)
+    && actual.get(x.trigger).body_sha256!==x.sha256).map(x=>x.trigger),
+   timing:expected.filter(x=>actual.has(x.trigger)
+    && actual.get(x.trigger).trigger_sha256!==x.trigger_sql_sha256).map(x=>x.trigger),
+   extra:[...actual.keys()].filter(k=>!expected.some(e=>e.trigger===k))
+  };
+ }
+ const e=compare(manifest.etapas,stages);
+ const r=compare(manifest.fichas,records);
+ const fullParity=[e,r].every(x=>!x.missing.length&&!x.body.length
+   &&!x.timing.length&&!x.extra.length);
  t.diagnostic(JSON.stringify({
-  tipo:'S13_COBERTURA_TRIGGER_REVISADA',
-  stage_triggers_real:manifest.etapas.length,
-  stage_triggers_fixture:stages.length,
-  stage_trigger_names_missing:missing,
-  stage_trigger_function_sha_mismatches:divergent,
-  ficha_triggers_real:manifest.fichas.length,
-  ficha_triggers_fixture:records.length,
-  ficha_names_missing:missingRecords,
-  paridad_cuerpos_etapa:divergent.length===0,
-  paridad_completa_verificada:allMatched,
-  no_equivale_a_probar_todos_los_efectos:true
+   tipo:'S13_PARIDAD_43_TRIGGERS_CODIGO_Y_ACTIVACION',
+   etapas_reales:25,etapas_fixture:stages.size,
+   fichas_reales:18,fichas_fixture:records.size,
+   etapa_nombres_ausentes:e.missing,
+   etapa_cuerpos_diferentes:e.body,
+   etapa_definiciones_trigger_diferentes:e.timing,
+   etapa_sobrantes:e.extra,
+   ficha_nombres_ausentes:r.missing,
+   ficha_cuerpos_diferentes:r.body,
+   ficha_definiciones_trigger_diferentes:r.timing,
+   ficha_sobrantes:r.extra,
+   paridad_completa_verificada:fullParity,
+   no_equivale_a_probar_todos_los_efectos:true
  }));
- assert.ok(stageMap.has('etapas_hotel_manteniment_fechas'));
- assert.equal(missing.length,0,'Ningún trigger de T del manifiesto puede faltar en la réplica');
+ assert.ok(stages.has('etapas_hotel_manteniment_fechas'));
+ assert.equal(e.missing.length,0,'Ningún trigger de T debe faltar en el laboratorio');
+ assert.equal(r.missing.length,0,'Ningún trigger de ficha debe faltar en el laboratorio');
 });
 
 test('T has its own seguimiento, while ficha and technical work share episode',async()=>{
