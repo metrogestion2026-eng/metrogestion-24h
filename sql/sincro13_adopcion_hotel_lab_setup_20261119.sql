@@ -4,11 +4,13 @@
 ALTER TABLE public.etapas_hotel
  ADD COLUMN fecha_inicio_real timestamptz,
  ADD COLUMN estado text NOT NULL DEFAULT 'pendiente',
+ ADD COLUMN estado_catalogo_codigo text NOT NULL DEFAULT 'pendiente',
  ADD COLUMN version integer NOT NULL DEFAULT 1,
  ADD COLUMN modificado_por uuid;
 ALTER TABLE public.registros_hotel
  ADD COLUMN pizarra_id uuid,
- ADD COLUMN retirado_hotel_activo boolean NOT NULL DEFAULT false;
+ ADD COLUMN retirado_hotel_activo boolean NOT NULL DEFAULT false,
+ ADD COLUMN estado text NOT NULL DEFAULT 'en_taller';
 CREATE TABLE public.pizarras (
  id uuid PRIMARY KEY,
  estado text NOT NULL CHECK (estado IN ('en_curso','archivada'))
@@ -29,7 +31,8 @@ VALUES ('77777777-7777-4777-8777-777777777777',true);
 -- de crear los triggers. El cierre taller J permanece del ensayo previo.
 UPDATE public.etapas_hotel
  SET fecha_real=NULL,fecha_inicio_real='2026-11-18T07:00:00Z',
-     estado='en_taller',version=1,modificado_por=NULL
+     estado='en_curso',estado_catalogo_codigo='en_curso',
+     version=1,modificado_por=NULL
  WHERE id='66666666-6666-4666-8666-666666666666';
 UPDATE app_private.manteniment_t_trabajos
  SET fecha_recogida=NULL
@@ -88,3 +91,20 @@ $$;
 CREATE TRIGGER s13_lab_etapa_proyeccion
 AFTER UPDATE OF fecha_real ON public.etapas_hotel
 FOR EACH ROW EXECUTE FUNCTION app_private.s13_lab_fechas_desde_etapa();
+
+
+-- Sólo LABORATORIO: derivación mínima de estado de ficha después de
+-- completar hito Recogido. No representa todos los efectos reales.
+CREATE FUNCTION app_private.sincronizar_situacion_operativa_hotel_alpha75(
+ p_registro uuid,p_forzar boolean
+) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE public.registros_hotel r SET estado='recogido_pendiente_ruta'
+  WHERE r.id=p_registro
+    AND EXISTS(
+      SELECT 1 FROM public.etapas_hotel e
+      WHERE e.registro_hotel_id=r.id AND e.estado='realizada'
+      AND e.fecha_real IS NOT NULL
+    );
+END;
+$$;
