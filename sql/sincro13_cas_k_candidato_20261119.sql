@@ -62,8 +62,164 @@ BEGIN
     v_ev.spreadsheet_id IS DISTINCT FROM v_config.spreadsheet_id
    OR v_ev.columna IS DISTINCT FROM 'K'
    OR v_ev.verificador IS DISTINCT FROM 'GOOGLE_INDEPENDIENTE'
-   OR v_ev.actor_verificado IS NULL
-   OR v_ev.evidencia_sha256 !~ '^[0-9a-f]{64}$'
+   OR v_ev.actor_google_verificado IS NOT NULL
+   OR v_ev.editor_google_acreditado IS DISTINCT FROM false
+   OR v_ev.evidencia_sha256 !~ '^[0-9a-f]{64}
+   OR v_ev.evento_en < v_corte OR v_ev.evento_en > clock_timestamp()+interval '5 minutes'
+   OR v_ev.verificado_en < v_ev.evento_en
+   OR v_ev.verificado_en > clock_timestamp()+interval '5 minutes'
+ ) THEN v_motivo:='EVIDENCIA_INSUFICIENTE'; END IF;
+
+ IF v_motivo IS NULL THEN
+  SELECT * INTO v_rec FROM app_private.sincro13_recibos_t
+  WHERE spreadsheet_id=v_ev.spreadsheet_id AND id_fila=v_ev.id_fila
+  FOR UPDATE;
+  IF NOT FOUND OR v_rec.trabajo_sync_id IS DISTINCT FROM v_ev.trabajo_sync_id
+    OR v_rec.estado IS DISTINCT FROM 'PENDIENTE_VERIFICACION_GOOGLE'
+    OR v_rec.origen IS DISTINCT FROM 'ORDEN_AUTORIZADA'
+  THEN v_motivo:='T_O_TRABAJO_NO_VINCULADOS'; END IF;
+ END IF;
+
+ IF v_motivo IS NULL THEN
+  SELECT * INTO v_ent FROM app_private.manteniment_entregas_continuidad_alpha75
+  WHERE sync_id=v_rec.orden_sync_id AND revision=v_rec.orden_revision;
+  IF NOT FOUND OR v_ent.origen IS DISTINCT FROM 'entrega'
+    OR v_ent.entregado_en IS NULL OR v_ent.entregado_en < v_corte
+    OR NOT EXISTS(
+      SELECT 1 FROM jsonb_array_elements(
+        CASE WHEN jsonb_typeof(v_ent.payload->'trabajos_crear')='array'
+        THEN v_ent.payload->'trabajos_crear' ELSE '[]'::jsonb END
+      ) x(value)
+      WHERE x.value->>'trabajo_sync_id'=v_ev.trabajo_sync_id::text
+        AND upper(btrim(coalesce(x.value->>'dfm',''))) <> 'R1515'
+    )
+  THEN v_motivo:='ORDEN_NO_ACREDITADA_O_HISTORICA'; END IF;
+ END IF;
+
+ IF v_motivo IS NULL THEN
+  SELECT * INTO v_job FROM app_private.manteniment_t_trabajos
+  WHERE sync_id=v_ev.trabajo_sync_id FOR UPDATE;
+  IF NOT FOUND OR v_job.seguimiento_id IS DISTINCT FROM v_ent.seguimiento_id
+    OR v_job.trabajo_hotel_id IS NULL
+  THEN v_motivo:='OBJETO_DESTINO_NO_ACREDITADO'; END IF;
+ END IF;
+
+ IF v_motivo IS NULL AND EXISTS(
+  SELECT 1 FROM app_private.manteniment_parada_outbox o
+  WHERE o.seguimiento_id=v_job.seguimiento_id AND o.estado='pendiente'
+ ) THEN
+   -- La outbox heredada no conoce T/columna y podría reponer K.
+   -- Hasta disponer de invalidación exacta, no permitir esta escritura.
+   v_motivo:='OUTBOX_SIN_T_CAMPO_PENDIENTE';
+ END IF;
+
+ IF v_motivo IS NULL AND v_job.fecha_recogida IS DISTINCT FROM v_ev.valor_base
+ THEN v_motivo:='BASE_K_CAMBIADA';END IF;
+
+ IF v_motivo IS NULL AND v_job.fecha_realizada IS NOT NULL
+   AND v_ev.valor_nuevo < v_job.fecha_realizada
+ THEN v_motivo:='RECOGIDA_ANTES_DE_FIN_TRABAJO';END IF;
+
+ -- El catalogo tecnico se recalcula desde Hotel: NO crear una verdad
+ -- divergente en K. Se exige que el hecho de recogida YA este adoptado en
+ -- la T operativa de Hotel. Solo se cubre el flujo taller de tres hitos;
+ -- otras modalidades quedan retenidas hasta tener su mapeo explicito.
+ IF v_motivo IS NULL THEN
+  SELECT e.id AS etapa_id, e.tipo_etapa, e.fecha_real, e.fecha_fin_real,
+    e.cancelado AS etapa_cancelada,
+    t.cancelado AS trabajo_cancelado, r.cancelado AS ficha_cancelada,
+    r.id AS registro_id,
+    r.vehiculo_sustituido
+    INTO v_hotel
+  FROM public.trabajos_etapa_hotel t
+  JOIN public.etapas_hotel e ON e.id=t.etapa_hotel_id
+  JOIN public.registros_hotel r ON r.id=e.registro_hotel_id
+  WHERE t.id=v_job.trabajo_hotel_id
+    AND e.seguimiento_id=v_job.seguimiento_id
+    AND r.seguimiento_id=v_job.seguimiento_id
+  FOR SHARE OF t,e,r;
+  IF NOT FOUND OR v_hotel.etapa_cancelada OR v_hotel.trabajo_cancelado
+    OR v_hotel.ficha_cancelada
+  THEN v_motivo:='HOTEL_TRABAJO_O_ETAPA_NO_VIGENTE';
+  ELSIF NOT app_private.usa_flujo_taller_hitos(v_hotel.registro_id)
+    OR NOT app_private.es_tipo_entrada_taller_alpha75(v_hotel.tipo_etapa)
+  THEN v_motivo:='MODALIDAD_HOTEL_SIN_MAPEO_K';
+  ELSE
+    v_hotel_k := CASE WHEN v_hotel.fecha_real IS NULL THEN NULL
+      ELSE (v_hotel.fecha_real AT TIME ZONE 'Europe/Madrid')::date END;
+    IF v_hotel_k IS DISTINCT FROM v_ev.valor_nuevo THEN
+      v_motivo:='HOTEL_K_NO_ADOPTADA';
+    END IF;
+  END IF;
+ END IF;
+
+
+ -- La salida de activos usa vehiculo_id, no seguimiento_id. Solo
+ -- usar DFM para localizar su cola auxiliar TRAS acreditar T y Hotel,
+ -- NUNCA para identificar una T. La coincidencia debe ser unica.
+ IF v_motivo IS NULL THEN
+  SELECT count(*), (array_agg(v.id ORDER BY v.id))[1]
+    INTO v_vehiculos_encontrados,v_vehiculo_id
+  FROM public.vehiculos v
+  WHERE upper(btrim(v.dfm))=upper(btrim(v_hotel.vehiculo_sustituido));
+  IF v_vehiculos_encontrados IS DISTINCT FROM 1
+  THEN v_motivo:='VEHICULO_AUXILIAR_AMBIGUO_O_AUSENTE';
+  ELSIF EXISTS (
+    SELECT 1 FROM app_private.manteniment_activo_outbox o
+    WHERE o.vehiculo_id=v_vehiculo_id AND o.estado='pendiente'
+  ) THEN v_motivo:='OUTBOX_ACTIVO_PENDIENTE';
+  END IF;
+ END IF;
+
+ IF v_motivo IS NOT NULL THEN
+  v_result:=jsonb_build_object(
+   'protocolo','sincro13-cas-k-v1','estado','RETENIDA','motivo',v_motivo,
+   'id_fila',v_ev.id_fila,'columna','K',
+   'autoriza_sincronizar',false,'escritura_operativa_realizada',false);
+  UPDATE app_private.sincro13_k_evidencias
+    SET estado='RETENIDA',resultado=v_result,consumido_en=clock_timestamp()
+    WHERE evidencia_id=p_evidencia_id AND estado='PENDIENTE';
+  UPDATE app_private.sincro13_aprobaciones_k
+    SET estado='RETENIDA',cerrado_en=clock_timestamp()
+    WHERE evidencia_id=p_evidencia_id AND estado='APROBADA';
+  RETURN v_result;
+ END IF;
+
+ -- El SELECT ... FOR UPDATE anterior garantiza comparación y escritura
+ -- en la MISMA transacción. Solo cambia K del objeto exacto, no J, etapas,
+ -- parada, nota, fecha original, numeración, PDF, outbox o T de Google.
+ IF v_job.fecha_recogida IS DISTINCT FROM v_ev.valor_nuevo THEN
+   UPDATE app_private.manteniment_t_trabajos
+   SET fecha_recogida=v_ev.valor_nuevo,actualizado_en=clock_timestamp()
+   WHERE id=v_job.id
+     AND fecha_recogida IS NOT DISTINCT FROM v_ev.valor_base;
+   IF NOT FOUND THEN
+      RAISE EXCEPTION USING ERRCODE='40001',MESSAGE='S13_CAS_CONCURRENCIA_DESTINO';
+   END IF;
+ END IF;
+
+ v_result:=jsonb_build_object('protocolo','sincro13-cas-k-v1',
+    'estado','APLICADA','motivo','K_ACTUALIZADA_POR_CAS',
+    'id_fila',v_ev.id_fila,'columna','K',
+    'autoriza_sincronizar',false,'escritura_operativa_realizada',false,
+    'escritura_catalogo_tecnico_realizada',true,
+    'hotel_k_ya_adoptada',true);
+ UPDATE app_private.sincro13_k_evidencias
+  SET estado='APLICADA',resultado=v_result,consumido_en=clock_timestamp()
+  WHERE evidencia_id=p_evidencia_id AND estado='PENDIENTE';
+ UPDATE app_private.sincro13_aprobaciones_k
+  SET estado='CONSUMIDA',cerrado_en=clock_timestamp()
+  WHERE evidencia_id=p_evidencia_id AND estado='APROBADA';
+ RETURN v_result;
+END;
+$s13cas$;
+
+REVOKE ALL ON FUNCTION app_private.sincro13_cas_k(text,uuid,uuid)
+ FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION app_private.sincro13_cas_k(text,uuid,uuid)
+ TO service_role;
+COMMIT;
+
    OR v_ev.evento_en < v_corte OR v_ev.evento_en > clock_timestamp()+interval '5 minutes'
    OR v_ev.verificado_en < v_ev.evento_en
    OR v_ev.verificado_en > clock_timestamp()+interval '5 minutes'
