@@ -50,6 +50,8 @@ DECLARE
  v_corte constant timestamptz:=timestamptz '2026-11-15 23:00:00+00';
  v_motivo text;
  v_result jsonb;
+ v_hotel record;
+ v_hotel_k date;
 BEGIN
  SELECT token_activo,token_hash,spreadsheet_id INTO v_config
  FROM app_private.manteniment_sync_config WHERE id=1;
@@ -112,6 +114,38 @@ BEGIN
   THEN v_motivo:='OBJETO_DESTINO_NO_ACREDITADO'; END IF;
  END IF;
 
+ -- El catalogo tecnico se recalcula desde Hotel: NO crear una verdad
+ -- divergente en K. Se exige que el hecho de recogida YA este adoptado en
+ -- la T operativa de Hotel. Solo se cubre el flujo taller de tres hitos;
+ -- otras modalidades quedan retenidas hasta tener su mapeo explicito.
+ IF v_motivo IS NULL THEN
+  SELECT e.id AS etapa_id, e.tipo_etapa, e.fecha_real, e.fecha_fin_real,
+    e.cancelado AS etapa_cancelada,
+    t.cancelado AS trabajo_cancelado, r.cancelado AS ficha_cancelada,
+    r.id AS registro_id
+    INTO v_hotel
+  FROM public.trabajos_etapa_hotel t
+  JOIN public.etapas_hotel e ON e.id=t.etapa_hotel_id
+  JOIN public.registros_hotel r ON r.id=e.registro_hotel_id
+  WHERE t.id=v_job.trabajo_hotel_id
+    AND e.seguimiento_id=v_job.seguimiento_id
+    AND r.seguimiento_id=v_job.seguimiento_id
+  FOR SHARE OF t,e,r;
+  IF NOT FOUND OR v_hotel.etapa_cancelada OR v_hotel.trabajo_cancelado
+    OR v_hotel.ficha_cancelada
+  THEN v_motivo:='HOTEL_TRABAJO_O_ETAPA_NO_VIGENTE';
+  ELSIF NOT app_private.usa_flujo_taller_hitos(v_hotel.registro_id)
+    OR NOT app_private.es_tipo_entrada_taller_alpha75(v_hotel.tipo_etapa)
+  THEN v_motivo:='MODALIDAD_HOTEL_SIN_MAPEO_K';
+  ELSE
+    v_hotel_k := CASE WHEN v_hotel.fecha_real IS NULL THEN NULL
+      ELSE (v_hotel.fecha_real AT TIME ZONE 'Europe/Madrid')::date END;
+    IF v_hotel_k IS DISTINCT FROM v_ev.valor_nuevo THEN
+      v_motivo:='HOTEL_K_NO_ADOPTADA';
+    END IF;
+  END IF;
+ END IF;
+
  IF v_motivo IS NULL AND EXISTS(
   SELECT 1 FROM app_private.manteniment_parada_outbox o
   WHERE o.seguimiento_id=v_job.seguimiento_id AND o.estado='pendiente'
@@ -155,7 +189,9 @@ BEGIN
  v_result:=jsonb_build_object('protocolo','sincro13-cas-k-v1',
     'estado','APLICADA','motivo','K_ACTUALIZADA_POR_CAS',
     'id_fila',v_ev.id_fila,'columna','K',
-    'autoriza_sincronizar',false,'escritura_operativa_realizada',true);
+    'autoriza_sincronizar',false,'escritura_operativa_realizada',false,
+    'escritura_catalogo_tecnico_realizada',true,
+    'hotel_k_ya_adoptada',true);
  UPDATE app_private.sincro13_k_evidencias
   SET estado='APLICADA',resultado=v_result,consumido_en=clock_timestamp()
   WHERE evidencia_id=p_evidencia_id AND estado='PENDIENTE';
