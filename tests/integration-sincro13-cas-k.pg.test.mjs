@@ -16,7 +16,7 @@ function pg(sql){
 }
 const k=()=>pg('SELECT COALESCE(fecha_recogida::text,\'NULL\') FROM app_private.manteniment_t_trabajos WHERE sync_id='+q(WORK)+'::uuid');
 const j=()=>pg('SELECT COALESCE(fecha_realizada::text,\'NULL\') FROM app_private.manteniment_t_trabajos WHERE sync_id='+q(WORK)+'::uuid');
-function claim({row=7100,work=WORK,base=null,next='2026-11-19',at=new Date(Date.now()-60000).toISOString(),source='GOOGLE_INDEPENDIENTE'}={}){
+function claim({row=7100,work=WORK,base=null,next='2026-11-19',at=new Date(Date.now()-60000).toISOString(),source='GOOGLE_INDEPENDIENTE',approve=true}={}){
  const id=randomUUID(),request=randomUUID(),actor='88888888-8888-4888-8888-888888888888';
  const vals=[q(id)+'::uuid',q(request)+'::uuid',q(SHEET),row,
   q(work)+'::uuid',q('K'),base===null?'NULL':q(base)+'::date',
@@ -25,7 +25,36 @@ function claim({row=7100,work=WORK,base=null,next='2026-11-19',at=new Date(Date.
  pg('INSERT INTO app_private.sincro13_k_evidencias '+
   '(evidencia_id,solicitud_id,spreadsheet_id,id_fila,trabajo_sync_id,columna,valor_base,valor_nuevo,evento_en,verificado_en,verificador,actor_verificado,evidencia_sha256) '+
   'VALUES ('+vals.join(',')+')');
- return {id,request};
+ const c={id,request,row,work,base,next};
+ if(approve) approveClaim(c);
+ return c;
+}
+const ADMIN='88888888-8888-4888-8888-888888888888';
+const SESSION='aaaaaaaa-0000-4000-8000-000000000001';
+function approveClaim(c,{
+  admin='PRINCIPAL',device='AUTORIZADO',userState='ACTIVO',sessionState='ACTIVA',
+  actor=ADMIN,request=c.request, contrastOverrides={}, declaracion='ADOPTO_CORRECCION_K_VERIFICADA'
+}={}){
+ const contrast={id_fila:c.row,trabajo_sync_id:c.work,columna:'K',
+   valor_base:c.base,valor_nuevo:c.next,evidencia_sha256:'d'.repeat(64),...contrastOverrides};
+ const statements=[
+  'BEGIN',
+  'SET LOCAL request.jwt.claim.sub = '+q(actor),
+  'SET LOCAL request.jwt.claims = '+q(JSON.stringify({session_id:SESSION,role:'authenticated'})),
+  'SET LOCAL s13.lab.session = '+q(sessionState),
+  'SET LOCAL s13.lab.user = '+q(userState),
+  'SET LOCAL s13.lab.device = '+q(device),
+  'SET LOCAL s13.lab.admin = '+q(admin),
+  'SET LOCAL ROLE authenticated',
+  'SELECT public.sincro13_aprobar_correccion_k('+
+    q(c.id)+'::uuid,'+q(request)+'::uuid,'+
+    q(JSON.stringify(contrast))+'::jsonb,'+q(declaracion)+')::text',
+  'COMMIT'
+ ];
+ const raw=pg(statements.join(';\n')+';');
+ const json=raw.split('\n').find(x=>x.trim().startsWith('{"protocolo":'));
+ if(!json) throw Error('missing adoption result: '+raw.slice(-900));
+ return JSON.parse(json);
 }
 function apply(c,token=TOKEN,request=c.request){
  return JSON.parse(pg('SELECT app_private.sincro13_cas_k('+q(token)+','+q(c.id)+'::uuid,'+q(request)+'::uuid)::text;'));
@@ -49,6 +78,62 @@ test('token falso no puede aplicar corrección aunque exista una evidencia',()=>
    pg('DELETE FROM app_private.sincro13_k_evidencias WHERE evidencia_id='+q(c.id)+'::uuid');
  }
 });
+test('una evidencia técnica sin aprobación expresa JAMÁS activa K',()=>{
+ const c=claim({approve:false});
+ const res=apply(c);
+ assert.equal(res.estado,'RETENIDA');
+ assert.equal(res.motivo,'SIN_ADOPCION_EXPLICITA_VIGENTE');
+ assert.equal(k(),'NULL');
+});
+test('usuario no administrador principal no puede adoptar edición',()=>{
+ const c=claim({approve:false});
+ try {
+  reject(()=>approveClaim(c,{admin:'CONSULTA'}),'S13_APROBACION_NO_AUTORIZADA');
+  assert.equal(k(),'NULL');
+ } finally {
+  pg('DELETE FROM app_private.sincro13_k_evidencias WHERE evidencia_id='+q(c.id)+'::uuid');
+ }
+});
+test('dispositivo no autorizado no puede aprobar',()=>{
+ const c=claim({approve:false});
+ try {
+  reject(()=>approveClaim(c,{device:'BLOQUEADO'}),'S13_APROBACION_NO_AUTORIZADA');
+ } finally {
+  pg('DELETE FROM app_private.sincro13_k_evidencias WHERE evidencia_id='+q(c.id)+'::uuid');
+ }
+});
+test('sesión caducada no puede aprobar',()=>{
+ const c=claim({approve:false});
+ try {
+  reject(()=>approveClaim(c,{sessionState:'CADUCADA'}),'S13_APROBACION_NO_AUTORIZADA');
+ } finally {
+  pg('DELETE FROM app_private.sincro13_k_evidencias WHERE evidencia_id='+q(c.id)+'::uuid');
+ }
+});
+test('usuario inactivo no puede aprobar',()=>{
+ const c=claim({approve:false});
+ try {
+  reject(()=>approveClaim(c,{userState:'BAJA'}),'S13_APROBACION_NO_AUTORIZADA');
+ } finally {
+  pg('DELETE FROM app_private.sincro13_k_evidencias WHERE evidencia_id='+q(c.id)+'::uuid');
+ }
+});
+test('aprobación sin declaración expresa de adopción no se admite',()=>{
+ const c=claim({approve:false});
+ try {
+  reject(()=>approveClaim(c,{declaracion:'ACEPTO'}),'S13_CONTRASTE_INCOMPLETO');
+ } finally {
+  pg('DELETE FROM app_private.sincro13_k_evidencias WHERE evidencia_id='+q(c.id)+'::uuid');
+ }
+});
+test('aprobación con fecha distinta a Google queda prohibida',()=>{
+ const c=claim({approve:false});
+ try {
+  reject(()=>approveClaim(c,{contrastOverrides:{valor_nuevo:'2026-11-25'}}),'S13_APROBACION_DATOS_DISTINTOS');
+ } finally {
+  pg('DELETE FROM app_private.sincro13_k_evidencias WHERE evidencia_id='+q(c.id)+'::uuid');
+ }
+});
 test('CAS positivo actualiza únicamente fecha_recogida de la T y su trabajo exacto',()=>{
  pg('UPDATE app_private.manteniment_t_trabajos SET fecha_realizada=\'2026-11-18\' WHERE sync_id='+q(WORK)+'::uuid');
  const c=claim();
@@ -56,6 +141,9 @@ test('CAS positivo actualiza únicamente fecha_recogida de la T y su trabajo exa
  assert.equal(result.estado,'APLICADA');
  assert.equal(result.columna,'K');
  assert.equal(result.autoriza_sincronizar,false);
+ assert.equal(result.escritura_operativa_realizada,false);
+ assert.equal(pg('SELECT aprobado_por::text FROM app_private.sincro13_aprobaciones_k WHERE evidencia_id='+q(c.id)+'::uuid'),ADMIN);
+ assert.equal(pg('SELECT estado FROM app_private.sincro13_aprobaciones_k WHERE evidencia_id='+q(c.id)+'::uuid'),'CONSUMIDA');
  assert.equal(k(),'2026-11-19');
  assert.equal(j(),'2026-11-18');
  assert.equal(pg('SELECT estado FROM app_private.sincro13_k_evidencias WHERE evidencia_id='+q(c.id)+'::uuid'),'APLICADA');
@@ -104,11 +192,12 @@ test('T enlazada a otro trabajo no cambia ni el nuevo ni el original',()=>{
  assert.equal(k(),'2026-11-19');
  assert.equal(pg('SELECT COALESCE(fecha_recogida::text,\'NULL\') FROM app_private.manteniment_t_trabajos WHERE sync_id='+q(OTHER)+'::uuid'),'NULL');
 });
-test('evidencia del corte histórico queda retenida',()=>{
- const c=claim({base:'2026-11-19',next:'2026-11-24',at:'2026-11-12T12:00:00.000Z'});
+test('evidencia del corte histórico no se puede aprobar ni aplicar',()=>{
+ const c=claim({base:'2026-11-19',next:'2026-11-24',at:'2026-11-12T12:00:00.000Z',approve:false});
+ reject(()=>approveClaim(c),'S13_EVIDENCIA_NO_VIGENTE');
  const res=apply(c);
  assert.equal(res.estado,'RETENIDA');
- assert.equal(res.motivo,'EVIDENCIA_INSUFICIENTE');
+ assert.equal(res.motivo,'SIN_ADOPCION_EXPLICITA_VIGENTE');
  assert.equal(k(),'2026-11-19');
 });
 test('recogida anterior al fin de taller no se inventa',()=>{
