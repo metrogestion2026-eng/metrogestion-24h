@@ -145,7 +145,10 @@ test('realistic S13 adoption RPC updates ONLY pickup hour, triggers project K an
  assert.ok(current.fecha_real);
  assert.equal(current.fecha_fin_real,oldEntry.fecha_fin_real);
  assert.equal(current.fecha_inicio_real,oldEntry.fecha_inicio_real);
- assert.equal(current.estado,oldEntry.estado);
+ assert.equal(current.estado,'realizada','Recogido de taller cierra ESTA T');
+ assert.equal(result.estado_t,'realizada');
+ assert.equal(afterInventory.ficha.estado,'recogido_pendiente_ruta',
+   'Pizarra refleja recogida, pero no libera automáticamente reserva');
  assert.equal(work.fecha_realizada,oldWork.fecha_realizada);
  assert.equal(work.fecha_recogida,result.dia_google);
  assert.equal(afterInventory.reserva.estado,'ocupada');
