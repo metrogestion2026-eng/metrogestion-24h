@@ -42,7 +42,7 @@ function approveClaim(c,{
   'SET LOCAL request.jwt.claim.sub = '+q(actor),
   'SET LOCAL request.jwt.claims = '+q(JSON.stringify({session_id:SESSION,role:'authenticated'})),
   'SET LOCAL s13.lab.session = '+q(sessionState),
-  'SET LOCAL s13.lab.user = '+q(userState),
+  'SET LOCAL "s13.lab.user" = '+q(userState),
   'SET LOCAL s13.lab.device = '+q(device),
   'SET LOCAL s13.lab.admin = '+q(admin),
   'SET LOCAL ROLE authenticated',
