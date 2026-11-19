@@ -64,6 +64,7 @@ jobs:
           set -Eeuo pipefail
           test "$(psql -X -Atc 'SELECT current_database()')" = 'sincro13_lab'
           psql -X -v ON_ERROR_STOP=1 -f sql/sincro13_cas_k_lab_setup_20261119.sql
+          psql -X -v ON_ERROR_STOP=1 -f sql/sincro13_aprobacion_operador_k_20261119.sql
           psql -X -v ON_ERROR_STOP=1 -f sql/sincro13_cas_k_candidato_20261119.sql
           node --test tests/integration-sincro13-cas-k.pg.test.mjs
 
