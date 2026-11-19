@@ -41,19 +41,21 @@ function value(cell) {
   return typeof cell?.formattedValue === 'string' ? cell.formattedValue.trim() : '';
 }
 function colData(sheet,column,rows) {
-  const matches=(sheet.data||[]).filter(d=>d?.startRow===1 && d?.startColumn===column);
+  const matches=(sheet.data||[]).filter(d=>d?.startRow===1 && (d?.startColumn??0)===column);
   if(matches.length!==1)return null;
   const seg=matches[0];
-  if(!Array.isArray(seg.rowData)||seg.rowData.length < rows-1 || seg.rowData.length > rows-1)return null;
-  return seg.rowData.map(r=>r?.values?.[0]??{});
+  if(!Array.isArray(seg.rowData)||seg.rowData.length>rows-1)return null;
+  // Google omits trailing empty rowData entries. They are not a truncation
+  // of non-empty cells: all ranges were requested through to column end.
+  return Array.from({length:rows-1},(_,i)=>seg.rowData[i]?.values?.[0]??{});
 }
 function registryData(sheet,rows) {
-  const matches=(sheet.data||[]).filter(d=>d?.startRow===1&&d?.startColumn===0);
+  const matches=(sheet.data||[]).filter(d=>d?.startRow===1&&(d?.startColumn??0)===0);
   if(matches.length!==1)return null;
   const seg=matches[0];
-  if(!Array.isArray(seg.rowData)||seg.rowData.length!==rows-1)return null;
-  return seg.rowData.map(r=>{
-    const cells=r?.values||[];
+  if(!Array.isArray(seg.rowData)||seg.rowData.length>rows-1)return null;
+  return Array.from({length:rows-1},(_,i)=>{
+    const cells=seg.rowData[i]?.values||[];
     return [cells[0]??{},cells[1]??{},cells[2]??{},cells[3]??{},cells[4]??{}];
   });
 }
