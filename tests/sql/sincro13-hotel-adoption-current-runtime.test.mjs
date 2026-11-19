@@ -14,6 +14,8 @@ import {FIXTURE_ACTOR,one,snapshotProtectedFacts} from './local-postgres-harness
 const SRC=new URL('../../',import.meta.url);
 const paths=[
   'tests/sql/fixtures/sincro13-live-date-functions-20261119.sql',
+  'tests/sql/fixtures/sincro13-hotel-audit-prerequisites.sql',
+  'tests/sql/fixtures/sincro13-live-four-trigger-functions-20261119.sql',
   'tests/sql/fixtures/sincro13-hotel-native-contract.sql',
   'sql/sincro13_k_evidencias_base_20261119.sql',
   'sql/sincro13_aprobacion_operador_k_20261119.sql',
