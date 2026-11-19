@@ -52,7 +52,7 @@ function approveClaim(c,{
   'COMMIT'
  ];
  const raw=pg(statements.join(';\n')+';');
- const json=raw.split('\n').find(x=>x.trim().startsWith('{"protocolo":'));
+ const json=raw.split('\n').find(x=>x.trim().startsWith('{') && x.includes('"sincro13-adopcion-k-v1"'));
  if(!json) throw Error('missing adoption result: '+raw.slice(-900));
  return JSON.parse(json);
 }
