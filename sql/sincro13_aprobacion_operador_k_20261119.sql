@@ -76,7 +76,7 @@ BEGIN
   IF p_contraste->'id_fila' IS DISTINCT FROM to_jsonb(v_ev.id_fila)
      OR p_contraste->>'trabajo_sync_id' IS DISTINCT FROM v_ev.trabajo_sync_id::text
      OR p_contraste->>'columna' IS DISTINCT FROM 'K'
-     OR p_contraste->'valor_base' IS DISTINCT FROM to_jsonb(v_ev.valor_base)
+     OR p_contraste->'valor_base' IS DISTINCT FROM coalesce(to_jsonb(v_ev.valor_base),'null'::jsonb)
      OR p_contraste->'valor_nuevo' IS DISTINCT FROM to_jsonb(v_ev.valor_nuevo)
      OR p_contraste->>'evidencia_sha256' IS DISTINCT FROM v_ev.evidencia_sha256
   THEN RAISE EXCEPTION USING ERRCODE='23514',MESSAGE='S13_APROBACION_DATOS_DISTINTOS'; END IF;
