@@ -104,6 +104,15 @@ BEGIN
   THEN v_motivo:='OBJETO_DESTINO_NO_ACREDITADO'; END IF;
  END IF;
 
+ -- S13: ambos escritores de OUTBOX usarán el mismo advisory lock.
+ -- Lo tomamos DESPUÉS de bloquear la fila técnica FOR UPDATE.
+ -- Los triggers de Hotel pueden bloquear el trabajo y encolar después;
+ -- obtener aquí el lock global en orden inverso provocaría deadlock.
+ -- La cola posterior a nuestro COMMIT requiere retención propia (pendiente).
+ IF v_motivo IS NULL THEN
+   PERFORM app_private.bloquear_sync_continuidad_alpha75();
+ END IF;
+
  IF v_motivo IS NULL AND EXISTS(
   SELECT 1 FROM app_private.manteniment_parada_outbox o
   WHERE o.seguimiento_id=v_job.seguimiento_id AND o.estado='pendiente'
