@@ -19,7 +19,7 @@ const j=()=>pg('SELECT COALESCE(fecha_realizada::text,\'NULL\') FROM app_private
 function claim({row=7100,work=WORK,base=null,next='2026-11-19',at=new Date(Date.now()-60000).toISOString(),source='GOOGLE_INDEPENDIENTE'}={}){
  const id=randomUUID(),request=randomUUID(),actor='88888888-8888-4888-8888-888888888888';
  const vals=[q(id)+'::uuid',q(request)+'::uuid',q(SHEET),row,
-  q(work)+'::uuid','K',base===null?'NULL':q(base)+'::date',
+  q(work)+'::uuid',q('K'),base===null?'NULL':q(base)+'::date',
   q(next)+'::date',q(at)+'::timestamptz','clock_timestamp()',
   q(source),q(actor)+'::uuid',q('d'.repeat(64))];
  pg('INSERT INTO app_private.sincro13_k_evidencias '+
