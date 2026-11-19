@@ -38,6 +38,7 @@ DECLARE
   v_trabajo public.trabajos_etapa_hotel%rowtype;
   v_catalogo app_private.manteniment_t_trabajos%rowtype;
   v_board text;
+  v_estado_ficha text;
   v_vehiculo_id uuid;
   v_count_vehiculos bigint;
   v_sesion uuid;
@@ -162,6 +163,12 @@ BEGIN
   IF (v_etapa.fecha_real AT TIME ZONE 'Europe/Madrid')::date
      IS DISTINCT FROM v_evidencia.valor_base
   THEN RAISE EXCEPTION USING ERRCODE='40001',MESSAGE='S13_HOTEL_K_BASE_CAMBIADA'; END IF;
+  -- Reflejar la semántica que YA usa el botón Recogido de taller:
+  -- en_curso + sin recogida -> realizada + fecha_real.
+  -- Si se corrige una recogida ya registrada, conservar 'realizada'.
+  IF (v_etapa.fecha_real IS NULL AND v_etapa.estado IS DISTINCT FROM 'en_curso')
+    OR (v_etapa.fecha_real IS NOT NULL AND v_etapa.estado IS DISTINCT FROM 'realizada')
+  THEN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='S13_HOTEL_FASE_INCOHERENTE'; END IF;
 
   PERFORM app_private.bloquear_sync_continuidad_alpha75();
 
@@ -211,25 +218,41 @@ BEGIN
   ) THEN RAISE EXCEPTION USING ERRCODE='55000',
     MESSAGE='S13_HOTEL_OUTBOX_ACTIVO_PENDIENTE'; END IF;
 
-  -- NO editar 'estado', J/fecha_fin_real, fecha_prevista, orden ni km.
-  -- Todos los triggers nativos de Hotel ejecutan auditoría/proyección.
+  -- Finalizar SOLO esta T siguiendo el contrato del botón de recogida:
+  -- 'realizada' y estado_catalogo_codigo, sin tocar J, fecha prevista,
+  -- orden, recuperación posterior, km o reserva. Los triggers de Hotel
+  -- ejecutan las demás derivaciones operativas auditadas.
   PERFORM set_config('app.request_id',
     'sincro13-k-'||p_solicitud_id::text,true);
   PERFORM set_config('app.audit_origin','metrogestion-sincro13-adopcion-humana',true);
   PERFORM set_config('app.audit_reason',
     'Recogida con hora real declarada por administrador principal, K/T verificadas',true);
   UPDATE public.etapas_hotel
-  SET fecha_real=v_fecha, modificado_por=v_user
+  SET fecha_real=v_fecha,
+      estado='realizada',
+      estado_catalogo_codigo=CASE
+        WHEN estado='realizada' THEN estado_catalogo_codigo ELSE 'realizada'
+      END,
+      modificado_por=v_user
   WHERE id=v_etapa.id
     AND version=p_version
     AND fecha_real IS NOT DISTINCT FROM v_etapa.fecha_real
   RETURNING * INTO v_actual;
-  IF NOT FOUND OR v_actual.estado IS DISTINCT FROM v_etapa.estado
+  IF NOT FOUND OR v_actual.estado IS DISTINCT FROM 'realizada'
     OR v_actual.fecha_fin_real IS DISTINCT FROM v_etapa.fecha_fin_real
     OR v_actual.fecha_inicio_real IS DISTINCT FROM v_etapa.fecha_inicio_real
     OR v_actual.cancelado IS DISTINCT FROM v_etapa.cancelado
     OR v_actual.fecha_real IS DISTINCT FROM v_fecha
   THEN RAISE EXCEPTION USING ERRCODE='40001',MESSAGE='S13_HOTEL_T_CAMBIO_CONTRADICTORIO'; END IF;
+
+  -- Mismo cierre operativo que usa el botón de Recogido en Hotel.
+  -- No ejecuta ni marca la T posterior de Recuperar.
+  PERFORM app_private.sincronizar_situacion_operativa_hotel_alpha75(v_registro.id,true);
+  SELECT r.estado INTO v_estado_ficha FROM public.registros_hotel r
+  WHERE r.id=v_registro.id;
+  IF v_estado_ficha IS NULL THEN
+    RAISE EXCEPTION USING ERRCODE='40001',MESSAGE='S13_HOTEL_SITUACION_NO_PROYECTADA';
+  END IF;
 
   -- La proyección debe haber quedado actualizada mediante el trigger REAL
   -- de Hotel. Si no, revertir TODA la transacción, sin corregir a ciegas.
@@ -252,7 +275,9 @@ BEGIN
     'editor_google_acreditado',false,
     'autoriza_sincronizar',false,
     'escritura_operativa_realizada',true,
-    'solo_fecha_real_solicitada',true,
+    'hito_recogido_y_t_realizada',true,
+    'estado_t','realizada',
+    'estado_ficha',v_estado_ficha,
     'triggers_nativos_ejecutados',true,
     'efectos_secundarios_auditados_por_hotel',true,
     'autoriza_activar_sincro',false);
