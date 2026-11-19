@@ -56,7 +56,7 @@ INSERT INTO public.etapas_hotel(
 VALUES
  ('66666666-6666-4666-8666-666666666666',
   '77777777-7777-4777-8777-777777777777',
-  '33333333-3333-4333-8333-333333333333',
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
   'entrada_taller','2026-11-19T15:00:00Z','2026-11-18T15:00:00Z');
 INSERT INTO public.trabajos_etapa_hotel(id,etapa_hotel_id) VALUES
  ('22222222-2222-4222-8222-222222222222',
