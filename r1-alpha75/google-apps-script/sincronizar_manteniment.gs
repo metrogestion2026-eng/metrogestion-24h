@@ -341,17 +341,44 @@ function metrogestionInstalarControlIdentidadFilas() {
   }
   const handlers = [METROGESTION.identityTriggerHandler,
     'metrogestionIdentidadFilasEdicion', 'metrogestionVigilarIdentidadSoloLectura'];
-  const existentes = ScriptApp.getProjectTriggers()
+  const propios = ScriptApp.getProjectTriggers()
     .filter(trigger => handlers.includes(trigger.getHandlerFunction()));
-  // No tocar los triggers de sincronización, Predictivo ni otros servicios.
-  ScriptApp.newTrigger(METROGESTION.identityTriggerHandler)
-    .forSpreadsheet(METROGESTION.spreadsheetId).onChange().create();
-  ScriptApp.newTrigger('metrogestionIdentidadFilasEdicion')
-    .forSpreadsheet(METROGESTION.spreadsheetId).onEdit().create();
-  ScriptApp.newTrigger('metrogestionVigilarIdentidadSoloLectura')
-    .timeBased().everyMinutes(15).create();
-  existentes.forEach(t => ScriptApp.deleteTrigger(t));
-  SpreadsheetApp.getUi().alert('S14: control T activado (insertar, editar y vigilancia en solo lectura).');
+  // Los triggers creados desde otras cuentas no aparecen en este inventario.
+  // El operador ha de ejecutar la instalación desde la cuenta técnica elegida.
+  handlers.forEach(name => {
+    if (propios.filter(t => t.getHandlerFunction() === name).length > 1) {
+      throw new Error('S14: más de un activador propio para ' + name + '. Revisar antes de instalar.');
+    }
+  });
+  const creados = [];
+  try {
+    // Instalación idempotente: NUNCA desinstalar un activador sano, ni tocar
+    // sincronización, Predictivo o activadores de otros servicios.
+    if (!propios.some(t => t.getHandlerFunction() === METROGESTION.identityTriggerHandler)) {
+      creados.push(ScriptApp.newTrigger(METROGESTION.identityTriggerHandler)
+        .forSpreadsheet(METROGESTION.spreadsheetId).onChange().create());
+    }
+    if (!propios.some(t => t.getHandlerFunction() === 'metrogestionIdentidadFilasEdicion')) {
+      creados.push(ScriptApp.newTrigger('metrogestionIdentidadFilasEdicion')
+        .forSpreadsheet(METROGESTION.spreadsheetId).onEdit().create());
+    }
+    if (!propios.some(t => t.getHandlerFunction() === 'metrogestionVigilarIdentidadSoloLectura')) {
+      creados.push(ScriptApp.newTrigger('metrogestionVigilarIdentidadSoloLectura')
+        .timeBased().everyMinutes(15).create());
+    }
+    const verificados = ScriptApp.getProjectTriggers();
+    if (handlers.some(name => verificados.filter(t => t.getHandlerFunction() === name).length !== 1)) {
+      throw new Error('S14: no se acreditan los tres activadores de identidad de esta cuenta.');
+    }
+    // Guardar la referencia estructural SOLO después de instalar y verificar.
+    PropertiesService.getScriptProperties().setProperty(
+      METROGESTION_S14_GRID_BASE, String(actual.maxRows));
+  } catch (e) {
+    // Retirar exclusivamente los activadores que nacieron en este intento.
+    creados.forEach(t => { try { ScriptApp.deleteTrigger(t); } catch (_) {} });
+    throw e;
+  }
+  SpreadsheetApp.getUi().alert('S14: activadores propios verificados. Comprobar cuenta instaladora antes de restringir T.');
 }
 
 function metrogestionVerificarIdentidadFilas() {
