@@ -30,7 +30,15 @@ begin
 
   v_old := $old$    v_fecha_alta := nullif(p_payload->>'fecha_alta_manteniment', '')::date;$old$;
   v_new := $new$    v_fecha_alta := nullif(p_payload->>'fecha_alta_manteniment', '')::date;
-    v_proxima_itv := nullif(p_payload->>'proxima_itv_fecha', '')::date;$new$;
+    if p_payload ? 'proxima_itv_fecha' then
+      v_proxima_itv := nullif(p_payload->>'proxima_itv_fecha', '')::date;
+    elsif p_id is not null then
+      -- Un cliente antiguo sin el campo no borra el valor ya guardado.
+      select proxima_itv_fecha into v_proxima_itv
+      from public.vehiculos where id=p_id;
+    else
+      v_proxima_itv := null;
+    end if;$new$;
   v_n := (length(v_ddl)-length(replace(v_ddl,v_old,'')))/length(v_old);
   if v_n<>1 then raise exception 'ALPHA75-ITV-MANUAL-001: deriva en lectura de ITV'; end if;
   v_ddl := replace(v_ddl,v_old,v_new);
