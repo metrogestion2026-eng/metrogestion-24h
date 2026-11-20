@@ -117,6 +117,8 @@ jobs:
         run: node --test tests/sql/sincro13-hotel-current-date-functions.test.mjs
       - name: SINCRO 13 · ejecutar adopción de K en Hotel con PG17 y triggers nativos
         run: node --test tests/sql/sincro13-hotel-adoption-current-runtime.test.mjs
+      - name: SINCRO 13 · ida y vuelta completa de T/K sintética por Google y Hotel nativo
+        run: node --test tests/sql/sincro13-google-to-hotel-native-e2e.test.mjs
       - name: Comprobar continuidad, imputación y conservación de hechos reales
         run: npm run test:continuity --prefix tests/sql
       - name: Comprobar sustitución vigente por hechos operativos
