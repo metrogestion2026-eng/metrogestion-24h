@@ -223,7 +223,7 @@ function metrogestionReconciliarIdentidadFilas_(origen) {
     SpreadsheetApp.flush();
     const final = metrogestionAuditarIdentidadFilas_();
     if (final.ausentes.length || final.huecos.length || final.totalActivas !== original.totalActivas
-        + asignadas.length - borradas.length) {
+        + asignadas.length) {
       // No restaurar ni reintentar a ciegas si hubo efectos parciales.
       throw new Error('S14: resultado incierto tras la operación; no reintentar automáticamente.');
     }
