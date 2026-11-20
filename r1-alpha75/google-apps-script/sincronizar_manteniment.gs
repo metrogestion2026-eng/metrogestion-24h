@@ -85,6 +85,7 @@ function metrogestionAsignarIdFilaNueva_(sheet, row, origen) {
 
 
 const METROGESTION_S14_BLOQUEO_T = 'METROGESTION_ID_FILA_BLOQUEO';
+const METROGESTION_S14_GRID_BASE = 'METROGESTION_S14_FILAS_REJILLA_VERIFICADAS';
 
 // SINCRO 14: fotografía de identidades. Esta función JAMÁS escribe.
 // La fila física permite encontrar el dato durante esta lectura,
@@ -153,7 +154,7 @@ function metrogestionAuditarIdentidadFilas_() {
     }
   });
   return { ultimoId, ids, formulas, registrados, presentes, huecos, ausentes,
-    totalActivas: presentes.size, lastRow };
+    totalActivas: presentes.size, lastRow, maxRows: sheet.getMaxRows() };
 }
 
 // Preflight de doble lectura bajo DocumentLock. Ninguna edición humana o API
@@ -173,8 +174,10 @@ function metrogestionReconciliarIdentidadFilas_(origen) {
     const original = metrogestionAuditarIdentidadFilas_();
     const segunda = metrogestionAuditarIdentidadFilas_();
     if (original.ultimoId !== segunda.ultimoId
+        || original.maxRows !== segunda.maxRows
         || JSON.stringify(original.ids) !== JSON.stringify(segunda.ids)
-        || JSON.stringify(original.ausentes) !== JSON.stringify(segunda.ausentes)) {
+        || JSON.stringify(original.ausentes) !== JSON.stringify(segunda.ausentes)
+        || JSON.stringify([...original.registrados.entries()]) !== JSON.stringify([...segunda.registrados.entries()])) {
       throw new Error('S14: T o REGISTRO_FILAS cambió entre lecturas. Retener.');
     }
     if (original.ausentes.length > 0 && tipo !== 'REMOVE_ROW') {
@@ -185,7 +188,19 @@ function metrogestionReconciliarIdentidadFilas_(origen) {
       throw new Error('S14: baja y alta sin identidad mezcladas. Revisión antes de registrar.');
     }
 
-    // Nunca se marcan bajas por INSERT_ROW, OTHER, lectura o verificación.
+    // onChange REMOVE_ROW NO indica en qué pestaña se borró la fila.
+    // No convertir ausencia de T en baja salvo descenso verificable del tamaño
+    // de la rejilla MANTENIMENT desde una fotografía previa del mismo libro.
+    const props = PropertiesService.getScriptProperties();
+    const anteriorTexto = props.getProperty(METROGESTION_S14_GRID_BASE);
+    const anterior = anteriorTexto === null ? NaN : Number(anteriorTexto);
+    if (original.ausentes.length > 0 && tipo === 'REMOVE_ROW'
+        && (!Number.isSafeInteger(anterior) || anterior <= 0
+            || anterior - original.maxRows !== original.ausentes.length)) {
+      throw new Error('S14: REMOVE_ROW sin disminución exacta de filas de MANTENIMENT. No declarar BAJA; revisar manualmente.');
+    }
+
+    // Nunca marcar bajas desde otras pestañas o eventos genéricos.
     const borradas = [];
     if (tipo === 'REMOVE_ROW') {
       original.ausentes.forEach(entry => {
@@ -212,6 +227,8 @@ function metrogestionReconciliarIdentidadFilas_(origen) {
       // No restaurar ni reintentar a ciegas si hubo efectos parciales.
       throw new Error('S14: resultado incierto tras la operación; no reintentar automáticamente.');
     }
+    // Solo avanzar el tamaño base después de verificar la operación entera.
+    props.setProperty(METROGESTION_S14_GRID_BASE, String(final.maxRows));
     return { activas: final.totalActivas, borradas: borradas.length,
       asignadas, ultimoId: final.ultimoId };
   } finally {
