@@ -41,7 +41,15 @@ before(async()=>{
  f=await createWorkshopFixture({native:true});
  db=f.admin;
  await db.query('CREATE SCHEMA IF NOT EXISTS extensions');
- await db.query('CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions');
+ // The Hotel fixture already defines a digest helper in some native runtimes.
+ // Never reinstall pgcrypto on top of an existing digest definition. Create a
+ // test-only equivalent ONLY if the extensions schema lacks this overload.
+ const digestExists=await one(db,
+   "SELECT to_regprocedure('extensions.digest(text,text)') IS NOT NULL AS value");
+ if(!digestExists.value)await db.query(
+   "CREATE FUNCTION extensions.digest(v text,algorithm text) RETURNS bytea "+
+   "LANGUAGE sql IMMUTABLE AS $ SELECT CASE WHEN lower(algorithm)='sha256' "+
+   "THEN sha256(convert_to(v,'UTF8')) ELSE NULL END $");
  for(const path of files)await db.query(await readFile(new URL(path,ROOT),'utf8'));
 });
 after(async()=>{await f?.destroy()});
