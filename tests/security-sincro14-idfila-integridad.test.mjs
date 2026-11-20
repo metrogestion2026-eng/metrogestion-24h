@@ -22,7 +22,8 @@ test('S14 INSERT_ROW asigna T nueva desde contador y registro, no desde número 
   assert.equal(h.sheet.getRange(2, 20).getValue(), 6970);
   assert.equal(h.world.registroFilas.contador, 6970);
   assert.equal(h.world.registroFilas.filas.length, 1);
-  assert.deepEqual(h.world.registroFilas.filas[0].slice(0, 2), [6970, 'ACTIVA']);
+  assert.equal(h.world.registroFilas.filas[0][0], 6970);
+  assert.equal(h.world.registroFilas.filas[0][1], 'ACTIVA');
   assert.equal(h.world.registroFilas.filas[0][4], 'INSERT_ROW');
   assert.equal(h.world.documentLockHeld, false);
 });
