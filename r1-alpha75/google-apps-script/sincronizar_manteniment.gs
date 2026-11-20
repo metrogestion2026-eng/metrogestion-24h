@@ -83,83 +83,170 @@ function metrogestionAsignarIdFilaNueva_(sheet, row, origen) {
   }
 }
 
-function metrogestionReconciliarIdentidadFilas_(origen) {
+
+const METROGESTION_S14_BLOQUEO_T = 'METROGESTION_ID_FILA_BLOQUEO';
+
+// SINCRO 14: fotografía de identidades. Esta función JAMÁS escribe.
+// La fila física permite encontrar el dato durante esta lectura,
+// pero no constituye una identidad ni un criterio para arreglar duplicados.
+function metrogestionAuditarIdentidadFilas_() {
   const ss = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
   const sheet = ss.getSheetByName(METROGESTION.sheetName);
-  if (!sheet) throw new Error('No existe MANTENIMENT.');
+  if (!sheet) throw new Error('S14: falta MANTENIMENT.');
   const registry = metrogestionHojaRegistroFilas_();
+  const lastRow = sheet.getLastRow();
+  const tRange = lastRow >= 2
+    ? sheet.getRange(2, METROGESTION.idFilaColumn, lastRow - 1, 1) : null;
+  const ids = tRange ? tRange.getValues().map(r => r[0]) : [];
+  const formulas = tRange ? tRange.getFormulas().map(r => r[0]) : [];
+  const registryLast = registry.getLastRow();
+  const records = registryLast >= 2
+    ? registry.getRange(2, 1, registryLast - 1, 5).getValues() : [];
+  const ultimo = registry.getRange(METROGESTION.registroFilasLastIdCell).getValue();
+  const ultimoId = metrogestionNumeroIdFila_(ultimo);
+  if (!Number.isSafeInteger(ultimoId) || ultimoId <= 0) {
+    throw new Error('S14: contador ULTIMO_ID_EMITIDO no válido.');
+  }
 
+  const registrados = new Map();
+  let maxRegistrado = 0;
+  records.forEach((record, i) => {
+    const raw = record[0];
+    if (raw === '' || raw === null) return;
+    if (typeof raw !== 'number' || !Number.isSafeInteger(raw) || raw <= 0) {
+      throw new Error('S14: ID del registro no es un número literal positivo.');
+    }
+    if (registrados.has(raw)) throw new Error('S14: ID duplicado en REGISTRO_FILAS: ' + raw);
+    const estado = String(record[1] || '').trim().toUpperCase();
+    if (!['ACTIVA', 'BORRADA', 'RESERVADA'].includes(estado)) {
+      throw new Error('S14: estado de registro desconocido para T=' + raw);
+    }
+    registrados.set(raw, { filaRegistro: i + 2, estado });
+    maxRegistrado = Math.max(maxRegistrado, raw);
+  });
+  if (maxRegistrado > ultimoId) {
+    throw new Error('S14: el contador retrocedió respecto a un ID ya emitido.');
+  }
+
+  const presentes = new Map();
+  const huecos = [];
+  ids.forEach((raw, i) => {
+    const filaTemporal = i + 2;
+    if (formulas[i]) throw new Error('S14: la columna T contiene una fórmula; ID_FILA debe ser literal.');
+    if (raw === '' || raw === null) { huecos.push(filaTemporal); return; }
+    if (typeof raw !== 'number' || !Number.isSafeInteger(raw) || raw <= 0) {
+      throw new Error('S14: ID_FILA no es un número literal positivo (fila de inspección ' + filaTemporal + ').');
+    }
+    if (presentes.has(raw)) {
+      throw new Error('S14: ID_FILA duplicado T=' + raw + '. NO renumerar automáticamente.');
+    }
+    const entry = registrados.get(raw);
+    if (!entry || entry.estado !== 'ACTIVA') {
+      throw new Error('S14: T=' + raw + ' no tiene registro ACTIVA inequívoco.');
+    }
+    presentes.set(raw, filaTemporal);
+  });
+  const ausentes = [];
+  registrados.forEach((record, id) => {
+    if (record.estado === 'ACTIVA' && !presentes.has(id)) {
+      ausentes.push({ id, filaRegistro: record.filaRegistro });
+    }
+  });
+  return { ultimoId, ids, formulas, registrados, presentes, huecos, ausentes,
+    totalActivas: presentes.size, lastRow };
+}
+
+// Preflight de doble lectura bajo DocumentLock. Ninguna edición humana o API
+// queda acreditada por un evento onChange ni por dos lecturas iguales.
+function metrogestionReconciliarIdentidadFilas_(origen) {
+  const tipo = String(origen || 'DESCONOCIDO').toUpperCase();
   const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  if (!lock || !lock.tryLock(15000)) {
+    throw new Error('S14: control de ID_FILA ocupado. No se ha cambiado el registro.');
+  }
   try {
-    const lastRow = sheet.getLastRow();
-    const ids = lastRow >= 2
-      ? sheet.getRange(2, METROGESTION.idFilaColumn, lastRow - 1, 1).getValues().map(r => r[0])
-      : [];
-    const registryLast = registry.getLastRow();
-    const records = registryLast >= 2
-      ? registry.getRange(2, 1, registryLast - 1, 5).getValues()
-      : [];
-
-    const registryById = new Map();
-    records.forEach((record, index) => {
-      const id = metrogestionNumeroIdFila_(record[0]);
-      if (!id) return;
-      if (registryById.has(id)) throw new Error(`ID_FILA ${id} está duplicado en REGISTRO_FILAS.`);
-      registryById.set(id, { row: index + 2, state: String(record[1] || '').trim().toUpperCase() });
-    });
-
-    const seen = new Map();
-    ids.forEach((value, index) => {
-      const id = metrogestionNumeroIdFila_(value);
-      if (!id) return;
-      const row = index + 2;
-      if (seen.has(id)) throw new Error(`ID_FILA ${id} aparece en las filas ${seen.get(id)} y ${row}. No se renumera automáticamente.`);
-      seen.set(id, row);
-      const record = registryById.get(id);
-      if (!record) throw new Error(`ID_FILA ${id} existe en MANTENIMENT pero no en REGISTRO_FILAS.`);
-      if (record.state === 'BORRADA') throw new Error(`ID_FILA ${id} ya estaba BORRADA y ha reaparecido. Revisión manual obligatoria.`);
-    });
-
-    const now = new Date();
-    const deletedRows = [];
-    registryById.forEach((record, id) => {
-      if (record.state === 'ACTIVA' && !seen.has(id)) deletedRows.push(record.row);
-    });
-    deletedRows.forEach(row => {
-      registry.getRange(row, 2).setValue('BORRADA');
-      registry.getRange(row, 4).setValue(now);
-      registry.getRange(row, 5).setValue(`Ausencia detectada · ${String(origen || 'RECONCILIACION')}`);
-    });
-
-    const assigned = [];
-    for (let index = 0; index < ids.length; index += 1) {
-      if (metrogestionNumeroIdFila_(ids[index])) continue;
-      const row = index + 2;
-      assigned.push({ row, id: metrogestionAsignarIdFilaNuevaSinLock_(sheet, registry, row, origen) });
+    if (PropertiesService.getScriptProperties().getProperty(METROGESTION_S14_BLOQUEO_T)) {
+      throw new Error('S14: se detectó una edición de T. Bloqueado hasta cotejo humano.');
+    }
+    const ss = SpreadsheetApp.openById(METROGESTION.spreadsheetId);
+    const sheet = ss.getSheetByName(METROGESTION.sheetName);
+    const registry = metrogestionHojaRegistroFilas_();
+    const original = metrogestionAuditarIdentidadFilas_();
+    const segunda = metrogestionAuditarIdentidadFilas_();
+    if (original.ultimoId !== segunda.ultimoId
+        || JSON.stringify(original.ids) !== JSON.stringify(segunda.ids)
+        || JSON.stringify(original.ausentes) !== JSON.stringify(segunda.ausentes)) {
+      throw new Error('S14: T o REGISTRO_FILAS cambió entre lecturas. Retener.');
+    }
+    if (original.ausentes.length > 0 && tipo !== 'REMOVE_ROW') {
+      throw new Error('S14: T activas desaparecidas durante ' + tipo +
+        '. No se puede declarar una BAJA a causa de INSERT_ROW/OTHER/EDIT.');
+    }
+    if (original.ausentes.length > 0 && original.huecos.length > 0) {
+      throw new Error('S14: baja y alta sin identidad mezcladas. Revisión antes de registrar.');
     }
 
+    // Nunca se marcan bajas por INSERT_ROW, OTHER, lectura o verificación.
+    const borradas = [];
+    if (tipo === 'REMOVE_ROW') {
+      original.ausentes.forEach(entry => {
+        const row = entry.filaRegistro;
+        registry.getRange(row, 2).setValue('BORRADA');
+        registry.getRange(row, 4).setValue(new Date());
+        registry.getRange(row, 5).setValue('Ausencia tras REMOVE_ROW · S14');
+        borradas.push(entry.id);
+      });
+    }
+
+    // Solo alta inequívoca; no se atribuyen a Metroges, taller o actor.
+    const asignadas = [];
+    if (['INSERT_ROW', 'EDICION_FILA_NUEVA'].includes(tipo)) {
+      original.huecos.forEach(row => {
+        const id = metrogestionAsignarIdFilaNuevaSinLock_(sheet, registry, row, tipo);
+        asignadas.push({ row, id });
+      });
+    }
     SpreadsheetApp.flush();
-    return { activas: seen.size + assigned.length, borradas: deletedRows.length, asignadas: assigned };
+    const final = metrogestionAuditarIdentidadFilas_();
+    if (final.ausentes.length || final.huecos.length || final.totalActivas !== original.totalActivas
+        + asignadas.length - borradas.length) {
+      // No restaurar ni reintentar a ciegas si hubo efectos parciales.
+      throw new Error('S14: resultado incierto tras la operación; no reintentar automáticamente.');
+    }
+    return { activas: final.totalActivas, borradas: borradas.length,
+      asignadas, ultimoId: final.ultimoId };
   } finally {
     lock.releaseLock();
   }
 }
 
 function metrogestionAsignarIdFilaNuevaSinLock_(sheet, registry, row, origen) {
+  if (PropertiesService.getScriptProperties().getProperty(METROGESTION_S14_BLOQUEO_T)) {
+    throw new Error('S14: T protegida por incidencia de identidad.');
+  }
   const cell = sheet.getRange(row, METROGESTION.idFilaColumn);
   const current = metrogestionNumeroIdFila_(cell.getValue());
   if (current) return current;
   const counterCell = registry.getRange(METROGESTION.registroFilasLastIdCell);
   const lastId = metrogestionNumeroIdFila_(counterCell.getValue());
-  if (!lastId) throw new Error('REGISTRO_FILAS no contiene un ULTIMO_ID_EMITIDO válido.');
+  if (!Number.isSafeInteger(lastId) || lastId <= 0) {
+    throw new Error('S14: contador REGISTRO_FILAS inválido.');
+  }
   const nextId = lastId + 1;
+  if (!Number.isSafeInteger(nextId)) throw new Error('S14: contador agotado.');
   const target = registry.getLastRow() + 1;
   const now = new Date();
-  registry.getRange(target, 1, 1, 5).setValues([[nextId, 'RESERVADA', now, '', String(origen || 'RECONCILIACION')]]);
+  registry.getRange(target, 1, 1, 5).setValues([[
+    nextId, 'RESERVADA', now, '', String(origen || 'S14')
+  ]]);
   counterCell.setValue(nextId);
+  SpreadsheetApp.flush();
   cell.setValue(nextId);
   registry.getRange(target, 2).setValue('ACTIVA');
+  SpreadsheetApp.flush();
+  if (metrogestionNumeroIdFila_(cell.getValue()) !== nextId) {
+    throw new Error('S14: T no quedó confirmada. Resultado incierto.');
+  }
   return nextId;
 }
 
@@ -167,34 +254,98 @@ function metrogestionIdentidadFilasCambio(e) {
   try {
     const ss = e?.source || SpreadsheetApp.openById(METROGESTION.spreadsheetId);
     if (ss.getId() !== METROGESTION.spreadsheetId) return;
-    const type = String(e?.changeType || 'CHANGE').toUpperCase();
-    if (!['INSERT_ROW', 'REMOVE_ROW', 'OTHER'].includes(type)) return;
-    metrogestionReconciliarIdentidadFilas_(type);
+    const type = String(e?.changeType || 'OTHER').toUpperCase();
+    if (['INSERT_ROW', 'REMOVE_ROW'].includes(type)) {
+      metrogestionReconciliarIdentidadFilas_(type);
+    } else {
+      const reporte = metrogestionAuditarIdentidadFilas_();
+      if (reporte.ausentes.length || reporte.huecos.length) {
+        throw new Error('S14: cambio ' + type + ' con diferencias de ID. No se escriben bajas.');
+      }
+    }
   } catch (error) {
     PropertiesService.getScriptProperties().setProperty(
       'METROGESTION_ID_FILA_ULTIMO_ERROR',
-      `${new Date().toISOString()} · ${String(error?.message || error)}`
+      new Date().toISOString() + ' · ' + String(error?.message || error)
     );
     throw error;
   }
 }
 
+// Un onEdit de usuario NO acredita su identidad, pero permite detectar
+// edición directa de T o altas en una fila en que aún falta el número.
+function metrogestionIdentidadFilasEdicion(e) {
+  const range = e?.range;
+  if (!range || range.getSheet().getName() !== METROGESTION.sheetName) return;
+  const start = Math.max(2, range.getRow());
+  const end = Math.min(range.getLastRow(), range.getSheet().getLastRow());
+  if (end < start) return;
+  const firstColumn = range.getColumn();
+  const lastColumn = range.getLastColumn();
+  if (firstColumn <= METROGESTION.idFilaColumn
+      && lastColumn >= METROGESTION.idFilaColumn) {
+    const props = PropertiesService.getScriptProperties();
+    props.setProperty(METROGESTION_S14_BLOQUEO_T,
+      new Date().toISOString() + ' · intento de edición directa de T');
+    throw new Error('S14: T solo lectura. No aceptar esta edición como identidad.');
+  }
+  if (firstColumn > 19) return;
+  const hoja = range.getSheet();
+  const ids = hoja.getRange(start, 20, end - start + 1, 1).getValues();
+  const body = hoja.getRange(start, 1, end - start + 1, 19).getValues();
+  const hayNueva = ids.some((r, i) =>
+    (r[0] === '' || r[0] === null)
+    && body[i].some(c => c !== '' && c !== null)
+  );
+  if (hayNueva) metrogestionReconciliarIdentidadFilas_('EDICION_FILA_NUEVA');
+}
+
+// Comprobación independiente: lectura solamente; registra alarma, no repara.
+function metrogestionVigilarIdentidadSoloLectura() {
+  const props = PropertiesService.getScriptProperties();
+  try {
+    const a = metrogestionAuditarIdentidadFilas_();
+    if (a.huecos.length || a.ausentes.length) {
+      throw new Error('S14: ' + a.huecos.length + ' T vacías y ' + a.ausentes.length
+        + ' activas ausentes. Ninguna escritura autorizada.');
+    }
+    props.setProperty('METROGESTION_ID_FILA_ULTIMO_CONTROL', new Date().toISOString());
+  } catch (e) {
+    props.setProperty('METROGESTION_ID_FILA_ULTIMO_ERROR',
+      new Date().toISOString() + ' · ' + String(e?.message || e));
+    throw e;
+  }
+}
+
 function metrogestionInstalarControlIdentidadFilas() {
-  ScriptApp.getProjectTriggers()
-    .filter(trigger => trigger.getHandlerFunction() === METROGESTION.identityTriggerHandler)
-    .forEach(trigger => ScriptApp.deleteTrigger(trigger));
+  // Solo instalar cuando la auditoría actual esté limpia.
+  const actual = metrogestionAuditarIdentidadFilas_();
+  if (actual.huecos.length || actual.ausentes.length) {
+    throw new Error('S14: corregir huecos/ausencias antes de instalar triggers.');
+  }
+  const handlers = [METROGESTION.identityTriggerHandler,
+    'metrogestionIdentidadFilasEdicion', 'metrogestionVigilarIdentidadSoloLectura'];
+  const existentes = ScriptApp.getProjectTriggers()
+    .filter(trigger => handlers.includes(trigger.getHandlerFunction()));
+  // No tocar los triggers de sincronización, Predictivo ni otros servicios.
   ScriptApp.newTrigger(METROGESTION.identityTriggerHandler)
-    .forSpreadsheet(METROGESTION.spreadsheetId)
-    .onChange()
-    .create();
-  metrogestionReconciliarIdentidadFilas_('INSTALACION');
-  SpreadsheetApp.getUi().alert('Control ID_FILA instalado. Los números borrados no se reutilizarán.');
+    .forSpreadsheet(METROGESTION.spreadsheetId).onChange().create();
+  ScriptApp.newTrigger('metrogestionIdentidadFilasEdicion')
+    .forSpreadsheet(METROGESTION.spreadsheetId).onEdit().create();
+  ScriptApp.newTrigger('metrogestionVigilarIdentidadSoloLectura')
+    .timeBased().everyMinutes(15).create();
+  existentes.forEach(t => ScriptApp.deleteTrigger(t));
+  SpreadsheetApp.getUi().alert('S14: control T activado (insertar, editar y vigilancia en solo lectura).');
 }
 
 function metrogestionVerificarIdentidadFilas() {
-  const result = metrogestionReconciliarIdentidadFilas_('VERIFICACION_MANUAL');
+  // Esta acción NO llama a reconciliar ni ejecuta escrituras en la hoja.
+  const r = metrogestionAuditarIdentidadFilas_();
   SpreadsheetApp.getUi().alert(
-    `ID_FILA verificado. Activas: ${result.activas}; nuevas asignadas: ${result.asignadas.length}; bajas detectadas: ${result.borradas}.`
+    'S14 SOLO LECTURA · Activas: ' + r.totalActivas
+    + '; T sin ID: ' + r.huecos.length
+    + '; registros activos ausentes: ' + r.ausentes.length
+    + '; último ID emitido: ' + r.ultimoId + '.'
   );
 }
 
