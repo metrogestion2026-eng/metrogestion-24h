@@ -161,9 +161,8 @@ function metrogestionAuditarIdentidadFilas_() {
 function metrogestionReconciliarIdentidadFilas_(origen) {
   const tipo = String(origen || 'DESCONOCIDO').toUpperCase();
   const lock = LockService.getDocumentLock();
-  if (!lock || !lock.tryLock(15000)) {
-    throw new Error('S14: control de ID_FILA ocupado. No se ha cambiado el registro.');
-  }
+  if (!lock) throw new Error('S14: falta DocumentLock. Ninguna escritura autorizada.');
+  lock.waitLock(15000);
   try {
     if (PropertiesService.getScriptProperties().getProperty(METROGESTION_S14_BLOQUEO_T)) {
       throw new Error('S14: se detectó una edición de T. Bloqueado hasta cotejo humano.');
