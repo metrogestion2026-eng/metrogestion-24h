@@ -81,6 +81,8 @@ function metroSincro14PreflightSoloLectura() {
     spreadsheetCorrecto: ss.getId() === ID,
     versionLocal: (typeof METROGESTION !== 'undefined'
       ? String(METROGESTION.buildVersion || '') : 'NO_DETECTADA'),
+    motorS14Encontrado: typeof metrogestionAuditarIdentidadFilas_ === 'function'
+      && typeof metrogestionVigilarIdentidadSoloLectura === 'function',
     cuentaEfectiva: cuenta || 'NO_ACREDITADA',
     documentoBloqueable: Boolean(bloqueador),
     actives: activos, registradasBorradas: borrados,
@@ -94,6 +96,9 @@ function metroSincro14PreflightSoloLectura() {
     sincronizacionAutorizada: false,
     preflightCorrecto: limpio && protectedT.some(p => !p.advertencia)
       && Boolean(bloqueador) && Boolean(cuenta)
+      && own.every(t => t.cantidad === 1)
+      && typeof metrogestionAuditarIdentidadFilas_ === 'function'
+      && typeof metrogestionVigilarIdentidadSoloLectura === 'function'
   };
   console.log('SINCRO 14 PREFLIGHT: ' + JSON.stringify(reporte, null, 2));
   return reporte;
