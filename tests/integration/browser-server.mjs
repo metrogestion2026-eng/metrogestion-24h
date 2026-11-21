@@ -50,7 +50,8 @@ async function readQuery(db, spec, recoveryHistory, continuity, editor) {
   });
   const orders = spec.orders.map(order => `${identifier(order.column)} ${order.ascending === false ? 'DESC' : 'ASC'}${order.nullsFirst === false ? ' NULLS LAST' : ''}`);
   const limit = spec.limit === undefined ? '' : ` LIMIT ${Math.max(0, Math.min(Number(spec.limit) || 0, 1000))}`;
-  const sql = `SELECT ${columns} FROM public.${identifier(spec.table)}${filters.length ? ` WHERE ${filters.join(' AND ')}` : ''}${orders.length ? ` ORDER BY ${orders.join(',')}` : ''}${limit}`;
+  const offset = spec.offset === undefined ? '' : ` OFFSET ${Math.max(0, Number(spec.offset) || 0)}`;
+  const sql = `SELECT ${columns} FROM public.${identifier(spec.table)}${filters.length ? ` WHERE ${filters.join(' AND ')}` : ''}${orders.length ? ` ORDER BY ${orders.join(',')}` : ''}${limit}${offset}`;
   // PostgreSQL encodes its values directly. In particular SQL DATE remains
   // YYYY-MM-DD, like PostgREST, with no node-postgres/local-time conversion.
   const result = await db.query(`SELECT to_jsonb(fixture_row) AS value FROM (${sql}) fixture_row`, values);

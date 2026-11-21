@@ -19,6 +19,7 @@ class Query {
   in(column, value) { this.spec.filters.push({ operator: 'in', column, value }); return this; }
   order(column, options = {}) { this.spec.orders.push({ column, ...options }); return this; }
   limit(value) { this.spec.limit = value; return this; }
+  range(from, to) { this.spec.offset = from; this.spec.limit = to - from + 1; return this; }
   maybeSingle() { this.spec.single = true; return this; }
   single() { this.spec.single = true; return this; }
   abortSignal(signal) { this.signal = signal; return this; }
