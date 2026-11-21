@@ -25,8 +25,6 @@ PACKAGES = (
      'b514c145a5bab6a984ffb9c457f590fce79d574a68e7b8672c6511030f803428'),
     ('pool/main/p/postgresql-17/postgresql-client-17_17.12-1.pgdg24.04+1_amd64.deb',
      'f34a296d8374df264afcb54cf2b171afe9bfad3b9971ea60a091db86ff6c8ded'),
-    ('pool/main/p/postgresql-18/libpq5_18.6-1.pgdg24.04+2_amd64.deb',
-     'b487c5ed2ceb9244c6a9d6ae65818ed6707c3c44a2e14488394ae4194c52c53b'),
 )
 
 
