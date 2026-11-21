@@ -12,7 +12,7 @@
 | L: vacías | 265 |
 | L fórmula inclusiva directa | 367 |
 | L fórmula recortada por período (inclusiva) | 23 |
-| L fórmula que resta K−J sin +1 | 36 |
+| L con K−J sin +1 (inventario bruto) | 36: **30 DFM para revisión; 6 R exentos** |
 | P (kilómetros): fórmulas | 432 |
 | P vinculadas a L propia | 428 |
 | P con fórmula de origen externo | 4 |
@@ -20,27 +20,27 @@
 | P vacías | 292 |
 | Error matemático en P cuando multiplica L | 0 |
 | Errores en recortes de 23 fórmulas complejas | 0 |
-| L literales distintos de J−K+1 | 20 |
-| TANCAMENT cerradas con L vacía | 7 |
+| L literales distintos de J−K+1 (inventario bruto) | 20: **17 DFM para revisión; 3 R exentos** |
+| TANCAMENT con J/K y L vacía (inventario bruto) | 7: **6 DFM para cotejo; 1 R exento** |
 | Semirremolques R con Q informada | 18 |
 | PARADA con K vacía | 19 |
 | PARADA con J vacía | 1 |
 
 **Lectura:** las fórmulas existentes de kilómetros de P calculan correctamente a partir de L. Un valor L incorrecto propaga ese error a P. No se deduce que una cifra manual sea errónea: puede reflejar ajustes de período, sustitución o facturación ya asentada.
 
-## A. Fórmulas K−J sin +1: 36
+**Rectificación normativa, 21/11/2026:** Metro confirma expresamente «LOS R NO HACE FALTA NI INDICAR LOS DÍAS DE PARADA». Por tanto, para semirremolques cuyo DFM comienza por R, **la columna L no es obligatoria ni se tiene que calcular**. Se excluyen de alertas por `+1` ausente, L vacía o L manual distinta de J/K. No derivar P de días para estos R. Conservar J/K cuando existan y los datos históricos intactos. Las cifras brutas del censo superior incluyen R únicamente como inventario; los listados de incidencias A/B/C de abajo son exclusivamente DFM.
 
-30 asociadas a TANCAMENT, 6 de semirremolques R históricos sin TANCAMENT. De las 30 contables, 3 están todavía con K vacía; NO completar una recuperación no acreditada.
+
+## A. Fórmulas K−J sin +1 en DFM: 30
+
+**30 casos DFM** con expresión sin `+1`; 27 tienen K informada y 3 tienen K vacía, sin recuperación acreditada. **6 fórmulas históricas de R se excluyen de esta incidencia**, ya que Metro confirma que para los semirremolques R no es necesario indicar los días de PARADA.
 
 | ID_FILA T | DFM | PA | Q | J | K | L actual | Inclusivo teórico |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 572 | 2500 | PA-2600169 | TANCAMENT 11 | 24/10/2026 | — | — | — |
 | 614 | 2527 | — | TANCAMENT 11 | 12/11/2024 | 23/11/2024 | 11 | 12 |
 | 615 | 2527 | — | TANCAMENT 12 | 21/11/2024 | 26/11/2024 | 5 | 6 |
-| 4265 | R1243 | — | — | 27/02/2025 | 05/03/2025 | 6 | 7 |
 | 1091 | 2548 | PA-2600184 | TANCAMENT 10 | 24/09/2026 | 07/10/2026 | 13 | 14 |
-| 4270 | R1243 | — | — | 07/06/2025 | 12/06/2025 | 5 | 6 |
-| 4272 | R1243 | — | — | 02/08/2025 | 06/08/2025 | 4 | 5 |
 | 1318 | 2553 | PA-2600104 | TANCAMENT 10 | 24/09/2026 | 23/10/2026 | 29 | 30 |
 | 1319 | 2553 | PA-2600104 | TANCAMENT 11 | 24/10/2026 | 27/10/2026 | 3 | 4 |
 | 6945 | 2553 | PA-2600295 | TANCAMENT 11 | 12/11/2026 | — | — | — |
@@ -64,16 +64,13 @@
 | 1000 | 2547 | PA-2600218 | TANCAMENT 11 | 24/10/2026 | 28/10/2026 | 4 | 5 |
 | 330 | 2489 | PA-2600232 | TANCAMENT 10 | 14/10/2026 | 23/10/2026 | 9 | 10 |
 | 331 | 2489 | PA-2600232 | TANCAMENT 11 | 24/10/2026 | 29/10/2026 | 5 | 6 |
-| 4456 | R1251 | — | — | 05/03/2025 | 11/03/2025 | 6 | 7 |
 | 6842 | 2716 | PA-2600277 | TANCAMENT 11 | 28/10/2026 | 05/11/2026 | 8 | 9 |
-| 4464 | R1251 | — | — | 21/05/2025 | 23/05/2025 | 2 | 3 |
-| 4469 | R1251 | — | — | 06/10/2025 | 11/10/2025 | 5 | 6 |
 | 6832 | 2489 | PA-2600264 | TANCAMENT 11 | 02/11/2026 | 03/11/2026 | 1 | 2 |
 | 6908 | 2489 | PA-2600287 | TANCAMENT 11 | 09/11/2026 | 16/11/2026 | 7 | 8 |
 
 **Excepciones:** T2453 (2637) debe conservarse como histórico validado, según Biblia; T del tipo R no incorporan Q por definición y sus fórmulas históricas tampoco se actualizan masivamente.
 
-## B. Valores L escritos manualmente que difieren de J−K+1: 20
+## B. Valores L manuales distintos del intervalo inclusivo: 17 DFM
 
 | ID_FILA T | DFM | PA | Q | J | K | L guardada | Teórico | Diferencia |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -89,32 +86,28 @@
 | 1097 | 2548 | PA-2600215 | TANCAMENT 11 | 24/10/2026 | 29/10/2026 | 8 | 6 | -2 |
 | 1248 | 2553 | PA-2600104 | TANCAMENT 9 | 23/08/2024 | 27/08/2024 | 7 | 5 | -2 |
 | 1809 | 2604 | PA-2600117 | TANCAMENT 10 | 07/10/2025 | 08/10/2025 | 24 | 2 | -22 |
-| 5550 | R1320 | PA-2600121 | CR-309 | 31/03/2026 | 02/04/2026 | 20 | 3 | -17 |
 | 2493 | 2660 | PA-2600134 | OT-2650351 | 11/02/2026 | 12/02/2026 | 14 | 2 | -12 |
 | 2447 | 2637 | PA-2600209 | TANCAMENT 10 | 10/10/2026 | 10/10/2026 | 10 | 1 | -9 |
 | 2849 | 2710 | PA-2600102 | OR5600405 | 30/04/2026 | 06/05/2026 | 21 | 7 | -14 |
 | 1834 | 2604 | PA-2600117 | TANCAMENT 8 | 18/08/2026 | 24/08/2026 | 24 | 7 | -17 |
 | 656 | 2527 | PA-2600130 | TANCAMENT 10 | 24/09/2026 | 19/10/2026 | 22 | 26 | 4 |
-| 5296 | R1307 | PA-2600198 | — | 29/09/2026 | 20/10/2026 | 17 | 22 | 5 |
-| 6419 | R1488 | PA-2600210 | TANCAMENT 10 | 03/10/2026 | 30/10/2026 | 13 | 28 | 15 |
 
 **No modificar automáticamente:** se requiere revisar si el tiempo se repartió entre sustitutos, si hubo un período ya cerrado, un ajuste manual o una fecha posterior corregida. El dato manual tiene prioridad.
 
-## C. TANCAMENT con fechas J y K completas y L vacía: 7
+## C. TANCAMENT de DFM con fechas J/K y L vacía: 6
 
 | ID_FILA T | DFM | PA | Q | J | K | L | Teórico |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2003 | 2611 | — | TANCAMENT 9 | 03/09/2025 | 10/09/2025 | vacío | 8 |
 | 2684 | 2696 | — | TANCAMENT 2 | 05/02/2026 | 16/02/2026 | vacío | 12 |
 | 2658 | 2693 | — | TANCAMENT 5 | 20/05/2026 | 18/06/2026 | vacío | 30 |
-| 5398 | R1317 | PA-2600225 | TANCAMENT 10 | 14/10/2026 | 30/10/2026 | vacío | 17 |
 | 6839 | 2490 | — | TANCAMENT 11 | 28/10/2026 | 04/11/2026 | vacío | 8 |
 | 6862 | 2660 | PA-2600283 | TANCAMENT 11 | 30/10/2026 | 12/11/2026 | vacío | 14 |
 | 6861 | 2709 | PA-2600279 | TANCAMENT 11 | 06/11/2026 | 10/11/2026 | vacío | 5 |
 
-**No completar automáticamente:** algunos casos son histórico sin PA, otros conservan valores manuales. Un R con Q informada requiere analizar primero la regla de exclusión contable.
+**No completar automáticamente:** seis DFM requieren comprobación de las circunstancias de facturación. **R1317 / T5398 queda excluido de esta incidencia:** L vacía es válida para semirremolques R.
 
-## D. Semirremolques R con Q informada: 18
+## D. Semirremolques R con Q informada: 18 (observación histórica, no error de días)
 
 | ID_FILA T | DFM | PA | Q | J | K |
 | --- | --- | --- | --- | --- | --- |
@@ -137,7 +130,7 @@
 | 5870 | R1359 | PA-2600217 | TANCAMENT 10 | 09/10/2026 | — |
 | 6555 | R1520 | PA-2600224 | TANCAMENT 10 | 13/10/2026 | — |
 
-Regla aplicable: en PARADA de los R, Q queda vacía para separar la facturación DFM; esta auditoría no borra referencias ni corrige históricos.
+Regla aplicable: en PARADA de los R **no es necesario consignar días (L)**, ni exigir fórmulas, ni derivar kilómetros a partir de días. Para filas futuras Q de TANCAMENT DFM se deja vacía; los 18 valores Q anteriores son únicamente observaciones históricas. Esta auditoría no borra referencias ni corrige históricos.
 
 ## E. Fórmulas P de fuente distinta a L (no etiquetadas como error): 4
 
@@ -153,7 +146,7 @@ Son referencias a CTM; no son fórmulas de kilómetros diarios de DFM. Conservar
 ## Conclusión operativa
 
 1. Las fórmulas de día inclusivo y recorte de período detectadas se calculan coherentemente; no corregir ninguna por sistema.
-2. Las 36 fórmulas sin +1 son **candidatas a revisión**, no una orden para alterar cierres. Las 30 TANCAMENT contienen 27 K cerradas y 3 K pendientes.
-3. Las 20 diferencias manuales, las 7 L vacías con fechas, las 18 Q informadas de R requieren revisión diferenciada por ID_FILA T.
+2. Solamente las **30 fórmulas sin +1 de DFM** son candidatas a revisión; 27 tienen K informada y 3 K vacía. Las 6 fórmulas de R están excluidas: no hace falta indicar sus días.
+3. Solo para DFM, inventariar **17 diferencias manuales** y **6 L vacías con J/K** para cotejo, sin regularizar automáticamente. Los R se excluyen del control de días y sus 18 Q históricas no se modifican.
 4. Conservar fórmulas de P que dependen de L; al corregir legítimamente L, P se actualiza automáticamente según la media vigente.
-5. No alterar T, TANCAMENT, Hotel, SINCRO, ni reabrir cierres históricos; R1515 y 2637 permanecen en su estado validado.
+5. No alterar T, TANCAMENT, Hotel, SINCRO, ni reabrir cierres históricos; R1515 y 2637 permanecen en su estado validado. **No marcar ningún R como incidencia por L vacía, fórmula sin +1 o días diferentes del intervalo J/K.**
