@@ -16,6 +16,8 @@ function reply(status: number, body: Record<string, unknown>) {
 const preflightProtocol = "manteniment-preflight-v1";
 const preflightRevision = "alpha75-preflight-2026.10.27.1";
 const executionRevision = "MG75-EJECUCION-ORDEN-001";
+const leaseRevision = "MG75-EJECUCION-LEASE-001";
+const leasePreflightRevision = "alpha75-preflight-2026.11.08.2";
 const executionScript = "alpha75-2026.10.26.1";
 const executionReasons = [
   "AUTORIZADA", "EJECUTOR_NO_COMPATIBLE", "FUERA_DE_ALCANCE", "INSTALACION_NO_COMPATIBLE",
@@ -159,6 +161,56 @@ function scopeStatusResultValid(value: unknown, input: Record<string, unknown>, 
   return !/mg_[0-9a-f]{64}/i.test(serialized) && !secrets.some(secret=>secret && serialized.includes(secret));
 }
 
+
+function leasePreflightRequestValid(body: Record<string, unknown>, client: unknown) {
+  return exactKeys(body, ["action","token","payload"]) && body.action === "preflight_lease"
+    && typeof body.token === "string" && objectRecord(client)
+    && exactKeys(client, ["version_script","version_preflight","version_lease","escritura_segura_manual","spreadsheet_id"])
+    && preflightVersionValid(client.version_script)
+    && client.version_preflight === leasePreflightRevision
+    && client.version_lease === leaseRevision
+    && client.escritura_segura_manual === true
+    && typeof client.spreadsheet_id === "string"
+    && /^[A-Za-z0-9_-]{20,150}$/.test(client.spreadsheet_id);
+}
+
+function leaseOpenRequestValid(body: Record<string, unknown>, input: unknown) {
+  return exactKeys(body, ["action","token","payload"]) && body.action === "open_lease"
+    && typeof body.token === "string" && objectRecord(input)
+    && exactKeys(input, ["protocolo","version_script","version_ejecucion","version_lease","spreadsheet_id","request_id","alcance"])
+    && input.protocolo === leaseRevision && preflightVersionValid(input.version_script)
+    && input.version_ejecucion === executionRevision && input.version_lease === leaseRevision
+    && typeof input.spreadsheet_id === "string" && /^[A-Za-z0-9_-]{20,150}$/.test(input.spreadsheet_id)
+    && executionUuidValid(input.request_id) && Array.isArray(input.alcance)
+    && input.alcance.length >= 1 && input.alcance.length <= 200
+    && input.alcance.every(executionReferenceValid);
+}
+
+function leaseSyncRequestValid(body: Record<string, unknown>, input: unknown) {
+  return exactKeys(body, ["action","token","payload"]) && body.action === "sync_lease"
+    && typeof body.token === "string" && objectRecord(input)
+    && input.version_ejecucion === executionRevision && input.version_lease === leaseRevision
+    && executionUuidValid(input.ejecucion_lease_id)
+    && Array.isArray(input.filas) && input.filas.length <= 2500;
+}
+
+function leaseExecutionRequestValid(body: Record<string, unknown>, input: unknown, action: string) {
+  if (!exactKeys(body, ["action","token","payload"]) || body.action !== action
+    || typeof body.token !== "string" || !objectRecord(input)
+    || input.version_lease !== leaseRevision || !executionUuidValid(input.lease_id)) return false;
+  if (action === "authorize_lease") {
+    const clean={...input}; delete clean.lease_id; delete clean.version_lease;
+    return executionRequestValid({action:"authorize",token:body.token,payload:clean},clean);
+  }
+  if (action === "ack_lease") {
+    const clean={...input}; delete clean.lease_id; delete clean.version_lease;
+    return executionAckRequestValid({action:"ack_execution",token:body.token,payload:clean},clean);
+  }
+  return action === "close_lease"
+    && exactKeys(input,["version_lease","lease_id","motivo"])
+    && typeof input.motivo === "string" && input.motivo.trim().length >= 8 && input.motivo.trim().length <= 200;
+}
+
 function preflightRequestValid(body: Record<string, unknown>, client: unknown) {
   if (!exactKeys(body, ["action", "token", "payload"])
     || body.action !== "preflight" || typeof body.token !== "string"
@@ -192,7 +244,7 @@ function preflightResultValid(value: unknown, client: Record<string, unknown>, s
     "solo_lectura_manual_protegida", "escritura_segura_manual", "pausa_importacion_identidad",
   ]) || Object.values(barriers).some(flag => flag !== null && typeof flag !== "boolean")) return false;
   const closed = barriers.solo_lectura_manual_protegida === true
-    && barriers.escritura_segura_manual === false && barriers.pausa_importacion_identidad === true;
+    && barriers.escritura_segura_manual === false && barriers.pausa_importacion_identidad === false;
   const compatible = client.version_script === value.version_script_esperada
     && client.version_preflight === preflightRevision && client.escritura_segura_manual === true
     && value.archivo_coincide === true && value.receptor_coincide === true;
@@ -215,8 +267,6 @@ function preflightResultValid(value: unknown, client: Record<string, unknown>, s
     && !secrets.some(secret => secret && serialized.includes(secret));
 }
 
-// SINCRO 13. El recibo declara un hecho técnico y queda PENDIENTE de Google.
-// Ni esta ruta ni su SQL autorizan sincronización ni acreditan autoría humana.
 const s13ReceiptProtocol = "sincro13-recibos-nuevos-v1";
 function s13ReceiptRequestValid(body: Record<string, unknown>, value: unknown) {
   if (!exactKeys(body, ["action","token","payload"]) || body.action !== "ack_t_nuevas"
@@ -290,8 +340,30 @@ Deno.serve(async (request: Request) => {
   if (!/^mg_[0-9a-f]{64}$/i.test(token)) {
     return reply(401, { ok: false, error: "Clave de conexión no válida." });
   }
-  if (!["sync", "ack", "preflight", "authorize", "ack_execution", "scope_status", "ack_t_nuevas"].includes(action)) {
+  if (!["sync","ack","preflight","authorize","ack_execution","scope_status",
+    "preflight_lease","open_lease","sync_lease","authorize_lease","ack_lease","close_lease","ack_t_nuevas"].includes(action)) {
     return reply(400, { ok: false, error: "Acción de sincronización no válida." });
+  }
+  if (action === "preflight_lease" && !leasePreflightRequestValid(body, payload)) {
+    return reply(400,{ok:false,error:"Solicitud de preflight lease no válida."});
+  }
+  if (action === "open_lease" && !leaseOpenRequestValid(body, payload)) {
+    return reply(400,{ok:false,error:"Solicitud de apertura de lease no válida."});
+  }
+  if (action === "sync_lease" && !leaseSyncRequestValid(body, payload)) {
+    return reply(400,{ok:false,error:"Solicitud de sincronización con lease no válida."});
+  }
+  if (action === "authorize_lease" && !leaseExecutionRequestValid(body,payload,"authorize_lease")) {
+    return reply(400,{ok:false,error:"Solicitud de autorización con lease no válida."});
+  }
+  if (action === "ack_lease" && !leaseExecutionRequestValid(body,payload,"ack_lease")) {
+    return reply(400,{ok:false,error:"Acuse con lease no válido."});
+  }
+  if (action === "close_lease" && !leaseExecutionRequestValid(body,payload,"close_lease")) {
+    return reply(400,{ok:false,error:"Cierre de lease no válido."});
+  }
+  if (action === "ack_t_nuevas" && !s13ReceiptRequestValid(body, payload)) {
+    return reply(400,{ok:false,error:"Solicitud de recibo T no válida."});
   }
   if (action === "scope_status" && !scopeStatusRequestValid(body, payload)) {
     return reply(400, { ok: false, error: "Solicitud de conciliación de alcance no válida." });
@@ -304,9 +376,6 @@ Deno.serve(async (request: Request) => {
   }
   if (action === "ack_execution" && !executionAckRequestValid(body, payload)) {
     return reply(400, { ok: false, error: "Acuse de ejecución no válido." });
-  }
-  if (action === "ack_t_nuevas" && !s13ReceiptRequestValid(body, payload)) {
-    return reply(400, { ok: false, error: "Recibo de T nuevas no válido." });
   }
   if (action === "sync" && (!payload || !rows)) {
     return reply(400, { ok: false, error: "No se ha recibido una fotografía válida de MANTENIMENT." });
@@ -349,6 +418,38 @@ Deno.serve(async (request: Request) => {
       return reply(200,{ok:true,recibos_t:data});
     } catch {
       return reply(502,{ok:false,error:"No se pudo completar la recepción de la T."});
+    }
+  }
+
+  if (["preflight_lease","open_lease","sync_lease","authorize_lease","ack_lease","close_lease"].includes(action)) {
+    try {
+      const leaseClient=createClient(supabaseUrl,serviceRoleKey,{auth:{persistSession:false,autoRefreshToken:false}});
+      const rpc = action === "preflight_lease" ? "preflight_manteniment_lease"
+        : action === "open_lease" ? "abrir_lease_ejecucion_manteniment"
+        : action === "sync_lease" ? "recibir_snapshot_manteniment_lease"
+        : action === "authorize_lease" ? "autorizar_ejecucion_manteniment_lease"
+        : action === "ack_lease" ? "confirmar_ejecucion_manteniment_lease"
+        : "cerrar_lease_ejecucion_manteniment";
+      const args = action === "preflight_lease" ? {p_token:token,p_cliente:payload}
+        : action === "sync_lease" ? {p_token:token,p_payload:payload}
+        : {p_token:token,p_solicitud:payload};
+      const {data,error}=await leaseClient.rpc(rpc,args);
+      if(error) return reply(error.code==="28000"?401:400,{
+        ok:false,error:error.code==="28000"?"Clave de conexión no válida.":(error.message||"No se pudo completar la operación lease.")
+      });
+      if(!objectRecord(data)) return reply(502,{ok:false,error:"El servidor no devolvió un recibo lease válido."});
+      const serialized=JSON.stringify(data);
+      if(/mg_[0-9a-f]{64}/i.test(serialized) || serialized.includes(serviceRoleKey)) {
+        return reply(502,{ok:false,error:"El recibo lease contiene información no permitida."});
+      }
+      const key = action==="preflight_lease" ? "preflight"
+        : action==="open_lease" ? "lease"
+        : action==="sync_lease" ? "resultado"
+        : action==="authorize_lease" ? "autorizacion"
+        : action==="ack_lease" ? "confirmacion" : "cierre";
+      return reply(200,{ok:true,[key]:data,recibido_en:new Date().toISOString()});
+    } catch {
+      return reply(502,{ok:false,error:"No se pudo completar la operación lease."});
     }
   }
 
