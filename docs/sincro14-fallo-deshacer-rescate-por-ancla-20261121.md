@@ -9,7 +9,7 @@ Episodio real: dos PARADA TANCAMENT 12 de 2718/PA-2600292 y 2553/PA-2600295 qued
 ## Corrección preparada (REV4-HF-DESHACER)
 Basada en los **5.005 renglones REV4 realmente instalada**, sin incorporar todavía el receptor de REV5.
 - SHA256 de base REV4: `2f5203b937c8f8753b2197ca45104011eaf421a0c324e89063be4de79a2550af`.
-- SHA256 del hotfix REV4 entregado: **pendiente de fijar del artefacto final**. El código y sus pruebas completas se entregaron al usuario en archivo ZIP + TXT en el chat del 21/11/2026.
+- SHA256 del hotfix REV4 entregado: **`c134e89a600c1ad960f0ae5b5a8e607f40b3f290c79e075b086ca3825575323a`** (TXT completo, 276.290 bytes). ZIP SHA256 `a18b14101e0881bfc6444c1699a3cf9569a6d472a59692824907f6260510884c`. El código y sus pruebas completas se entregaron al usuario en archivo ZIP + TXT en el chat del 21/11/2026.
 - Mantiene 3 handlers `metrogestionIdentidadFilasCambio`, `metrogestionS14IdentidadEdicion`, `metrogestionS14VigilarSoloLectura` y **0 sincronización programada**.
 - Antes de escribir una T nueva crea **DeveloperMetadata de FILA** con clave corta `s14`, valor de ID en base 36 y visibilidad DOCUMENT. Esta referencia sigue la fila al moverse; no depende de número de fila.
 - Reconoce asimismo las dos anclas largas `METROGES_S14_ID_FILA` de T7013/T7014.
