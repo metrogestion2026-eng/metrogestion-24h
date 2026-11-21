@@ -1,7 +1,7 @@
 # SINCRO 14 · Cotejo del Apps Script entregado (21/11/2026)
 
 ## Fuente auténtica aportada por el operador
-Archivo adjunto en el chat SINCRO 14: `Texto pegado(2).txt` (Google Apps Script completo), 4.770 líneas, `buildVersion: alpha75-2026.11.07.12`, `scriptVersion: alpha75-2026.10.26.1`, `fotografiaVersion: MG75-FOTO-ID-FILA-001`. SHA-256 sobre contenido UTF-8 normalizado a saltos LF: `f9efaf8e625123c6cc197ba5e8ae628d334d12d192612691912704e52cb53291`. NO asumir que el archivo pegado representa el código desplegado sin preflight del proyecto vivo.
+Archivo adjunto en el chat SINCRO 14: `Texto pegado(2).txt` (Google Apps Script completo), 4.770 líneas, `buildVersion: alpha75-2026.11.07.12`, `scriptVersion: alpha75-2026.10.26.1`, `fotografiaVersion: MG75-FOTO-ID-FILA-001`. SHA-256 de los bytes originales recibidos: `3fc74b255ee74b66eef0ae002e08b1b363a8536e459e9e5743c811439df34885`. NO asumir que el archivo pegado representa el código desplegado sin preflight del proyecto vivo.
 
 **No reemplazar por el `sincronizar_manteniment.gs` de la PR #133:** la candidata anterior usa otra compilación y no incorpora automáticamente todas las mejoras del archivo entregado.
 
@@ -37,3 +37,15 @@ MANTENIMENT conserva 6.773 ID_FILA T positivos, únicos, sin huecos o duplicados
 4. No declarar la protección preventiva plenamente operativa hasta probar activadores reales y permisos; Alpha 75 seguirá sin validar hasta que funcione toda la SINCRO Google → Hotel → K.
 
 **PR #133 sigue DRAFT / no fusionar ni instalar a ciegas.** Este documento es un relevo técnico y de seguridad, no una autorización de escritura.
+
+## Ampliación SINCRO 14 · Revisión segura 2 · 21/11/2026
+
+Se ha vuelto a verificar byte por byte que `01_CODIGO_RECIBIDO_RESPALDO.gs` coincide con el texto adjunto. La huella publicada anteriormente para ese archivo era incorrecta: **la correcta es `3fc74b255ee74b66eef0ae002e08b1b363a8536e459e9e5743c811439df34885`**. No afecta a las 18 correcciones de identificadores ya confirmadas ni autoriza una nueva asignación.
+
+Nuevo paquete local de la conversación: **`METROGES_SINCRO14_REVISION_SEGURA_2_20261121.zip`**. Su código candidato `02_SINCRO14_CANDIDATA_COMPLETA.gs` tiene SHA-256 **`342a4702f53a7c463d888ede99da38c04796b514eb2c5b78a8e71b8ec0e1d67c`**; el respaldo conserva exactamente los bytes del original. El paquete anterior queda como referencia, no como versión a instalar.
+
+El nuevo control bloquea la asignación si existe cualquier ID `RESERVADA` pendiente de resolver, aunque `ULTIMO_ID_EMITIDO` sea coherente; no vuelve a usarlo. El diagnóstico autónomo informa del número de reservas incompletas y de la protección de `REGISTRO_FILAS`, además de la de T. Los tests sintéticos pasan **26/26**, incluidos bloqueo del journal por `DocumentLock`, fallo tras reserva y ejecución real del diagnóstico con hoja ficticia sin escritura.
+
+Auditoría del original MANTENIMENT del 21/11/2026, solo lectura: **6.773 T válidas y únicas; cero vacías/duplicadas; 7.001 identificadores registrados, 6.773 ACTIVA y 228 BORRADA, contador H2=7001**. No ejecutar la candidata hasta comprobar la cuenta instaladora, el código verdaderamente activo y los permisos. No afirmar que el propietario pierde su capacidad de edición: Google no lo permite con protección de rango. Tampoco asegurar que onEdit/onChange se disparan por escrituras API o scripts.
+
+**SINCRO permanece no operativa y Alpha 75 sin validar.** Solo el nuevo diagnóstico (archivo 04) es apto para añadirse de forma aislada al proyecto actual; no sustituye el principal ni instala activadores.
