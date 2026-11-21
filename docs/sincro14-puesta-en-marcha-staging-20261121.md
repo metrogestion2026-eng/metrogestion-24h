@@ -40,3 +40,22 @@ CI de PR133 HEAD `c70344095e0b6bb3efd29094d1dbbc69e566a4f5`: GitHub Actions segu
 En Apps Script original, desde upcpract, ejecutar solo `metrogestionComprobarInstalacionSoloLectura` y aportar la salida del Registro de ejecución (sin token). NO pulsar Sincronizar ahora, Enviar hoja, Instalar actualización cada seis horas, ni abrir flags Google.
 
 **Resultado actual**: receptor S13 SQL + Edge v13 instalado en STAGING y barreras verificadas; Google→Hotel→K aún **NO OPERATIVA**, Alpha75 aún **NO VALIDADA**. Mantener PR #133 DRAFT y PR #132 congelada.
+
+## 21/11/2026 · Barrera SQL adicional de solo lectura — INSTALADA EN STAGING
+
+El preflight técnico ha descubierto que `app_private.recibir_snapshot_manteniment(text,jsonb)` ejecutaba `aplicar_snapshot_manteniment` y marcaba pendientes como `retenida_manual` **incluso con** `solo_lectura_manual_protegida=true`. Esto contradice la intención de no modificar datos al diagnosticar la sincronización.
+
+**Instalado solo en metrogestion-pruebas:** migración `sincro14_snapshot_solo_lectura_guard_staging_20261121` a partir de [SQL exacto](../sql/sincro14_barrera_snapshot_antes_efectos_staging_20261121.sql). Tras verificar token y pausa, una nueva guardia exige `solo_lectura_manual_protegida=false` y `escritura_segura_manual=true`. Si no se cumplen ambas, lanza `S14_BLOQUEO_SOLO_LECTURA` **antes** de cualquier UPDATE de configuración o `aplicar_snapshot_manteniment`; la transacción no llega a alterar colas. La RPC separada `preflight_manteniment` no se cambia.
+
+**Prueba real:** primera compilación de la función dentro de `BEGIN ... ROLLBACK` sin persistir cambios; lectura posterior confirmó que la guardia no había quedado instalada y había 33 PARADA más 4 ACTIVO pendientes. Después se aplicó la migración de staging. SQL de verificación confirmó `guard_barrera_precede_escrituras=true`, `manual_protegido=true`, `escritura_segura_habilitada=false`, 33 PARADA pendientes, 4 ACTIVO, 0 recibos T, 0 evidencias K, 0 adopciones Hotel. **No se ha probado un POST con token verdadero desde Apps Script**; no declarar E2E.
+
+**Importante:** existe también una ruta de ejecución por lease con alcance autorizado que sigue separada y protegida por su propio flujo; este parche endurece únicamente la ruta clásica `recibir_snapshot_manteniment`. No afirmar que invalida los permisos de un lease legítimo ni que integra la cuenta Google.
+
+### Credencial Google: verificación objetiva del bloqueo
+Consulta de los permisos reales de MANTENIMIENTOS a través de Google Drive: únicamente tres entradas (dos editores y propietario), **ninguna cuenta `*.gserviceaccount.com` con permiso de lector**. El código del lector Edge sigue demandando `S13_GOOGLE_SERVICE_ACCOUNT_JSON`, `S13_GOOGLE_SPREADSHEET_ID`, `S13_GOOGLE_READER_ENABLED=true`, autenticación de administrador con dispositivo autorizado, y sólo usa el ámbito OAuth `spreadsheets.readonly`; el registro de evidencias tiene otra puerta `S13_GOOGLE_EVIDENCE_ENABLED` independiente. Mantener ambas puertas OFF hasta probar credenciales desde la sesión de administrador.
+
+**Acción fuera del alcance de las conexiones actuales:** crear la cuenta de servicio en Google Cloud y generar la clave JSON, compartir con ella el libro original como lector, guardar JSON y Spreadsheet ID directamente en Supabase Edge Function Secrets (proyecto de pruebas). **Jamás** introducir la clave JSON en este chat, en GitHub ni en una hoja. El correo público de servicio sí puede compartirse sin la clave y se puede otorgar permiso Lector por la conexión de Drive.
+
+**CI:** la verificación de privacidad detectó una matrícula real dentro del documento público `sincro14-preflight-7-ordenes-postcorte-20261121.md`; fue retirada del contenido actual y se lanzaron de nuevo las comprobaciones. No publicar datos identificables de flota en GitHub en futuras bitácoras.
+
+**La sincronización Google→Hotel→K continúa deshabilitada y Alpha75 sigue sin validar**. El cambio instalado es preventivo y medido, no un anuncio de operatividad.
