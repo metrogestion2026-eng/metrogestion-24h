@@ -1,5 +1,23 @@
 # METROGES / SINCRO14 — Censo integral de cálculos PARADA asociados a Q=TANCAMENT
 
+## ACTUALIZACIÓN CONFIRMADA · 21/11/2026 · «2716 CORREGIDO, APLICA FÓRMULA DONDE FALTEN»
+
+Esta actualización sustituye los números de la fotografía anterior, que se conserva más abajo como evidencia histórica.
+
+**2716/PA-2600277 corregido por Metro:** T6842 J28/10/2026, K05/11/2026, L9, P1980; T6855 J06/11/2026, K vacía, L vacía con `=IF(K5189="";"";K5189-J5189+1)`, P vacía con fórmula `=IF(L5189="";"";L5189*220)`. El 05/11 no se duplica en el nuevo tramo. Confirmado por lectura directa.
+
+**Seis L que carecían de fórmula, rellenadas con `=IF(K[fila]="";"";K[fila]-J[fila]+1)`** y formato numérico para días: T2003/2611 8 días, T2684/2696 12, T2658/2693 30, T6839/2490 8, T6862/2660 14, T6861/2709 5. Solo se modificaron las celdas L. En las tres antiguas con formato DATE (T2003,2684,2658) se cambió a NUMBER para mostrar días. El resto de las columnas y los identificadores T no se alteraron.
+
+**Efecto derivado en P, sin escribir P:** T6839 ya tenía `=IF(L5094="";"";L5094*236)`, ahora 1.888 km; T6861 ya tenía `=IF(L5198="";"";228*L5198)`, ahora 1.140 km. No se asignaron medias a líneas ajenas ni se tocaron 23 kilómetros manuales.
+
+**Censo final verificado por Google Sheets:** 756 PARADA, 286 R excluidos, 470 DFM; 466 DFM con Q=TANCAMENT. L: **423 fórmulas, 43 valores manuales, 0 celdas sin fórmula ni valor**. P: **431 fórmulas, 23 valores manuales, 12 sin fórmula ni importe**. Hay 13 K vacías, **las 13 tienen fórmula L preparada, L y P sin resultado**; cero errores visibles #REF/#VALUE/etc. Las 12 P ausentes son IDs `1400, 2003, 2700, 2684, 2658, 1890, 3633, 592, 3163, 6862, 6838, 6977`; siguen sin un coeficiente diario válido demostrado para el mismo episodio T/PA y sustitución; el reporte no los convierte en cero ni en una facturación inventada. Una consulta de paradas al Supabase de pruebas no ofreció una media emparejada para las PA de esos casos.
+
+**TRAZABILIDAD**: T2003/2684/2658/6839/6862/6861 se corrigieron por instrucción expresa de Metro; aunque J/K permitan calcular días contables, ello **no demuestra una recuperación física**. Mantener protección histórica/semántica antes de usar esos resultados para contabilizar o sincronizar Hotel. T2453/DFM2637 permanece con su fórmula manual validada y sin alteración. SINCRO Google→Hotel→K NO operativa y Alpha75 sin validar.
+
+Respaldo del estado de las 6 fórmulas antes del cambio: [docs/sincro14-respaldo-6-L-vacias-precorreccion-20261121.md](./sincro14-respaldo-6-L-vacias-precorreccion-20261121.md).
+
+---
+
 **Cotejo sobre MANTENIMIENTOS > MANTENIMENT, 21/11/2026.** Se inspeccionaron todos los H=PARADA DFM con Q=TANCAMENT, respetando T=ID_FILA como identidad estable. Q contiene etiqueta del período; L días y P kilómetros. Semirremolques R excluidos. No se modificaron fechas, PA, cierres históricos, R ni datos manuales. **Una fórmula en P no implica un km facturable si el vehículo no fue sustituido o no existe media validada.**
 
 ## Resultado de los 466 registros
