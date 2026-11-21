@@ -40,3 +40,8 @@ Este archivo conserva la fórmula previa exacta y la nueva por T, por si fuera n
 | 6908 | 2489 | PA-2600287 | TANCAMENT 11 | 09/11/2026 | 16/11/2026 | `=IF(K5339="";"";K5339-J5339)` | `=IF(K5339="";"";K5339-J5339+1)` | 7 | 1.351 |
 
 **Estado de la fotografía:** 29 cambios previstos, 1 excluido T2453, 3 K vacías. Este documento no implica por sí solo que la escritura posterior se haya completado.
+
+
+## Resultado de aplicación posterior
+
+**Aplicación completada y contrastada el 21/11/2026.** Se actualizaron las 29 fórmulas propuestas de PARADA DFM, manteniendo el caso T2453 de 2637 sin cambios. Tres identidades con K vacía (T572, T6945, T3268) permanecen con L y P en blanco. Las otras 26 calculan días inclusivos y los kilómetros se ajustaron por la fórmula P existente. No modificar ni reemplazar los valores previos de este respaldo: sirven para auditoría y eventual reversión autorizada de un caso específico.
