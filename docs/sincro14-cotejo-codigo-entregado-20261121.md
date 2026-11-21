@@ -49,3 +49,12 @@ El nuevo control bloquea la asignación si existe cualquier ID `RESERVADA` pendi
 Auditoría del original MANTENIMENT del 21/11/2026, solo lectura: **6.773 T válidas y únicas; cero vacías/duplicadas; 7.001 identificadores registrados, 6.773 ACTIVA y 228 BORRADA, contador H2=7001**. No ejecutar la candidata hasta comprobar la cuenta instaladora, el código verdaderamente activo y los permisos. No afirmar que el propietario pierde su capacidad de edición: Google no lo permite con protección de rango. Tampoco asegurar que onEdit/onChange se disparan por escrituras API o scripts.
 
 **SINCRO permanece no operativa y Alpha 75 sin validar.** Solo el nuevo diagnóstico (archivo 04) es apto para añadirse de forma aislada al proyecto actual; no sustituye el principal ni instala activadores.
+
+
+## 21/11/2026 · Primer diagnóstico vivo y corrección de protección
+
+Ejecución real de `metroSincro14DiagnosticoCodigoRecibido` aportada en captura: compilación instalada `alpha75-2026.11.07.12`, cuenta efectiva `upcpract@gmail.com`, `codigoS14Incorporado=false`, un `metrogestionIdentidadFilasCambio` visible en esa cuenta y cero activadores S14 de edición/vigilancia. 6773 IDs T, sin vacíos, duplicados, desconocidos ni reservas; H2 7001. No se ha activado sincronización.
+
+**Corrección de una falsa ausencia de protección:** `REGISTRO_FILAS` tenía `protectedRangeId=325425161` para la **hoja entera**, con `warningOnly=true`. El diagnóstico antiguo solo inspeccionaba `ProtectionType.RANGE` y devolvía 0, que no equivale a desprotección. Se cambió ese ID existente a `warningOnly=false` limitando la lista de editores a `upcpract@gmail.com` y el propietario `upcnocturno@gmail.com`. API Sheets confirmó protección restrictiva sobre `REGISTRO_FILAS` y sobre T2:T (`protectedRangeId=1702467621`) con idénticos editores. No se añadieron protecciones duplicadas.
+
+Relectura posterior íntegra: 6773 T únicas, 0 vacías, 0 duplicadas; 7001 registros (6773 ACTIVA, 228 BORRADA); H2=7001. Sin escrituras de datos operativos. Nuevo diagnóstico autónomo `S14_Diagnostico_Solo_Lectura_CORREGIDO.gs` incorpora comprobación de `ProtectionType.SHEET` además de `RANGE` (SHA256 `5f04a8656c21d1bf56b918920e036981b07fb2960670d0f4c8a781c644ee7657`). **El motor S14 sigue NO instalado.** Antes de sustituir el script completo, realizar copia, cotejo funcional y ensayo real de activadores, pues mantener a `upcpract` con permiso T es necesario para el asignador existente y el propietario no puede ser excluido por la protección de Google.
