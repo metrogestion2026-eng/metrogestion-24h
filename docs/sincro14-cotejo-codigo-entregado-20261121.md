@@ -15,7 +15,7 @@ Archivo adjunto en el chat SINCRO 14: `Texto pegado(2).txt` (Google Apps Script 
 ## Preparación de corrección local, NO instalada
 Paquete generado en este chat: `METROGES_SINCRO14_REVISION_CODIGO_20261121.zip`, contiene respaldo íntegro, candidata completa basada en el código entregado, diff unificado, 20 pruebas y diagnóstico independiente solo lector.
 
-SHA-256 de la **candidata** (LF) `6138aca1faf7f0516e7ef057c2e54221c36f6052b421134cc619ab5d159b20cb` (confirmar SHA256SUMS del paquete si se generan nuevas revisiones). Nombres de archivos en el paquete:
+SHA-256 de la **candidata** (LF) `fa562755c5f29402c5f34cc487b0a38a279d628025c1a2adfb86c00f9b3eb375` (confirmar SHA256SUMS del paquete si se generan nuevas revisiones). Nombres de archivos en el paquete:
 - `01_CODIGO_RECIBIDO_RESPALDO.gs`
 - `02_SINCRO14_CANDIDATA_COMPLETA.gs`
 - `03_PRUEBAS_ID_FILA_S14.test.mjs`
