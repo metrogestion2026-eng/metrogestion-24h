@@ -128,11 +128,21 @@ async function assertListados(page, pair, facts) {
   await page.locator('[data-alpha75-listados]').click();
   await page.getByPlaceholder('DFM, R, matrícula, parada, INC…').waitFor();
   await page.locator('.a7524-listados').getByText(/^\d+ registros? cargados?\.$/).waitFor();
-  await page.getByPlaceholder('DFM, R, matrícula, parada, INC…').fill(pair.dfm);
+  const query = page.getByPlaceholder('DFM, R, matrícula, parada, INC…');
+  await query.fill(pair.dfm);
+  await query.press('Enter');
+  assert.equal(await page.getByLabel('Desde', { exact: true }).inputValue(), '');
+  assert.equal(await page.getByLabel('Hasta', { exact: true }).inputValue(), '');
+  // The operator may remove explicit date limits without clearing the DFM.
+  await page.getByLabel('Desde', { exact: true }).fill('2026-10-20');
+  await page.getByRole('button', { name: 'Todo el historial', exact: true }).click();
+  assert.equal(await page.getByLabel('Desde', { exact: true }).inputValue(), '');
+  assert.equal(await query.inputValue(), pair.dfm);
   const period = await page.locator('.listados-filters label')
     .filter({ hasText: 'Periodo facturación' }).locator('select').inputValue();
   assert.equal(period, '', 'A DFM search must default to every billing period');
   const expected = facts.billing;
+  await page.waitForFunction(count => document.querySelectorAll('.listados-table tbody tr').length === count, expected.length);
   const actual = await page.locator('.listados-table tbody tr').allTextContents();
   assert.equal(actual.length, expected.length);
   for (const expectedRow of expected) {

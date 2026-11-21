@@ -108,7 +108,7 @@ async function readPeriods() {
   state.periods = data || [];
   return state.periods;
 }
-async function readDfm(period, from, to) {
+async function readDfm(period, from, to, dfmFilter = '') {
   // A date range must cover every billing period unless the operator
   // explicitly chooses one. Supabase/PostgREST paginates responses, so
   // request consecutive bounded pages instead of silently truncating.
@@ -119,6 +119,7 @@ async function readDfm(period, from, to) {
       .from('facturacion_dfm_periodos')
       .select('seguimiento_id,numero_parada,dfm,matricula,sustituto,periodo,tramo_inicio,tramo_fin,dias_facturables,km_dia,km_dia_fuente,km_facturables,estado');
     if (period) query = query.eq('periodo', period);
+    if (/^[0-9]{1,6}$/.test(dfmFilter)) query = query.eq('dfm', dfmFilter);
     if (from) query = query.gte('tramo_fin', from);
     if (to) query = query.lte('tramo_inicio', to);
     const { data, error } = await query
@@ -326,7 +327,10 @@ function renderListados() {
   const refreshButton = el('button', '↻ Actualizar', 'button secondary');
   refreshButton.type = 'button';
 
-  filters.append(periodWrap, fromWrap, toWrap, searchWrap, refreshButton);
+  const allHistoryButton = el('button', 'Todo el historial', 'button secondary');
+  allHistoryButton.type = 'button';
+  allHistoryButton.title = 'Quitar fechas y periodo para buscar todo el historial disponible';
+  filters.append(periodWrap, fromWrap, toWrap, searchWrap, allHistoryButton, refreshButton);
   root.append(filters);
 
   const status = el('div', 'Preparando Listados…', 'notice warning');
@@ -342,6 +346,7 @@ function renderListados() {
       tab.setAttribute('aria-selected', active ? 'true' : 'false');
     });
     periodWrap.classList.toggle('hidden', state.view !== 'dfm');
+    allHistoryButton.classList.toggle('hidden', state.view !== 'dfm');
   }
 
   function showRows() {
@@ -465,7 +470,7 @@ function renderListados() {
     await renderRConfig(rConfig, refresh);
 
     try {
-      if (state.view === 'dfm') state.rows = await readDfm(period.value, from.value, to.value);
+      if (state.view === 'dfm') state.rows = await readDfm(period.value, from.value, to.value, search.value.trim());
       else if (state.view === 'r') state.rows = await readR(from.value, to.value);
       else if (state.view === 'paradas') state.rows = await readParadas(from.value, to.value);
       else state.rows = await read24h(from.value, to.value);
@@ -493,8 +498,29 @@ function renderListados() {
   period.addEventListener('change', refresh);
   from.addEventListener('change', refresh);
   to.addEventListener('change', refresh);
-  search.addEventListener('input', showRows);
-  refreshButton.addEventListener('click', refresh);
+  let searchDelay;
+  search.addEventListener('input', () => {
+    showRows();
+    clearTimeout(searchDelay);
+    if (state.view === 'dfm') searchDelay = setTimeout(refresh, 350);
+  });
+  search.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    clearTimeout(searchDelay);
+    refresh();
+  });
+  allHistoryButton.addEventListener('click', () => {
+    period.value = '';
+    from.value = '';
+    to.value = '';
+    clearTimeout(searchDelay);
+    refresh();
+  });
+  refreshButton.addEventListener('click', () => {
+    clearTimeout(searchDelay);
+    refresh();
+  });
 
   (async () => {
     try {
