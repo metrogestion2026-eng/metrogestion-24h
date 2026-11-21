@@ -131,7 +131,8 @@ async function assertListados(page, pair, facts) {
   await page.getByPlaceholder('DFM, R, matrícula, parada, INC…').fill(pair.dfm);
   const period = await page.locator('.listados-filters label')
     .filter({ hasText: 'Periodo facturación' }).locator('select').inputValue();
-  const expected = facts.billing.filter(row => row.periodo === period);
+  assert.equal(period, '', 'A DFM search must default to every billing period');
+  const expected = facts.billing;
   const actual = await page.locator('.listados-table tbody tr').allTextContents();
   assert.equal(actual.length, expected.length);
   for (const expectedRow of expected) {

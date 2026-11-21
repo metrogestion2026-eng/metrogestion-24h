@@ -109,17 +109,28 @@ async function readPeriods() {
   return state.periods;
 }
 async function readDfm(period, from, to) {
-  if (!period) return [];
-  let query = supabase
-    .from('facturacion_dfm_periodos')
-    .select('seguimiento_id,numero_parada,dfm,matricula,sustituto,periodo,tramo_inicio,tramo_fin,dias_facturables,km_dia,km_dia_fuente,km_facturables,estado')
-    .eq('periodo', period)
-    .order('tramo_inicio', { ascending: true });
-  if (from) query = query.gte('tramo_fin', from);
-  if (to) query = query.lte('tramo_inicio', to);
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  // A date range must cover every billing period unless the operator
+  // explicitly chooses one. Supabase/PostgREST paginates responses, so
+  // request consecutive bounded pages instead of silently truncating.
+  const results = [];
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    let query = supabase
+      .from('facturacion_dfm_periodos')
+      .select('seguimiento_id,numero_parada,dfm,matricula,sustituto,periodo,tramo_inicio,tramo_fin,dias_facturables,km_dia,km_dia_fuente,km_facturables,estado');
+    if (period) query = query.eq('periodo', period);
+    if (from) query = query.gte('tramo_fin', from);
+    if (to) query = query.lte('tramo_inicio', to);
+    const { data, error } = await query
+      .order('tramo_inicio', { ascending: true })
+      .order('seguimiento_id', { ascending: true })
+      .order('periodo', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    results.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return results;
 }
 async function readR(from, to) {
   let query = supabase
@@ -488,13 +499,13 @@ function renderListados() {
   (async () => {
     try {
       if (!state.periods.length) await readPeriods();
-      period.replaceChildren();
+      period.replaceChildren(new Option('Todos los periodos (según fechas)', ''));
       state.periods.forEach(item => period.append(new Option(
         `${item.periodo} · ${fmtDate(item.fecha_inicio)}–${fmtDate(item.fecha_cierre)}`,
         item.periodo
       )));
-      const active = currentPeriod();
-      if (active) period.value = active.periodo;
+      // Do not silently restrict a DFM search to the current month.
+      period.value = '';
       updateTabs();
       await refresh();
     } catch (error) {
