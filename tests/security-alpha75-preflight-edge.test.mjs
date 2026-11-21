@@ -37,7 +37,7 @@ function diagnostic(input = client(), overrides = {}) {
     barreras: {
       solo_lectura_manual_protegida: true,
       escritura_segura_manual: false,
-      pausa_importacion_identidad: true,
+      pausa_importacion_identidad: false,
     },
     barreras_cerradas: true,
     sincronizacion_autorizada: false,
@@ -157,7 +157,7 @@ for (const [name, input, changes] of [
 for (const [flag, value] of [
   ['solo_lectura_manual_protegida', false],
   ['escritura_segura_manual', true],
-  ['pausa_importacion_identidad', false],
+  ['pausa_importacion_identidad', true],
   ['pausa_importacion_identidad', null],
 ]) {
   test(`reports an open/unknown barrier without authorizing sync: ${flag}=${value}`, async () => {
@@ -254,7 +254,7 @@ for (const [name, mutate] of [
   ['mismatched echoed client boolean', value => { value.cliente_escritura_segura_manual = false; }],
   ['unjustified compatibility', value => { value.receptor_coincide = false; }],
   ['compatibility string', value => { value.compatible = 'true'; }],
-  ['unjustified closed barriers', value => { value.barreras.pausa_importacion_identidad = false; }],
+  ['unjustified closed barriers', value => { value.barreras.pausa_importacion_identidad = true; }],
   ['barrier string', value => { value.barreras.escritura_segura_manual = 'false'; }],
   ['missing barrier', value => { delete value.barreras.pausa_importacion_identidad; }],
   ['extra barrier token', value => { value.barreras.token = token; }],

@@ -75,6 +75,10 @@ jobs:
         run: npm test --prefix tests/sql
       - name: Comprobar guardado de los tres hitos de taller en PostgreSQL aislado
         run: node --test tests/sql/alpha75-workshop-milestones.test.mjs
+      - name: SINCRO 13 · fechas vigentes y seguimiento independiente por T
+        run: node --test tests/sql/sincro13-hotel-current-date-functions.test.mjs
+      - name: SINCRO 13 · RPC de adopción sobre taller real de ensayo
+        run: node --test tests/sql/sincro13-hotel-adoption-current-runtime.test.mjs
       - name: Comprobar exclusión de archivos internos y páginas antiguas
         run: python3 tests/pages-public-files.test.py
       - name: Verificar compilación pública
@@ -109,6 +113,12 @@ jobs:
         run: npm run test:recovery --prefix tests/sql
       - name: Comprobar hitos de taller y conservación de fechas con PostgreSQL17
         run: node --test tests/sql/alpha75-workshop-milestones.test.mjs
+      - name: SINCRO 13 · cotejar proyección K con función actual en PostgreSQL17 nativo
+        run: node --test tests/sql/sincro13-hotel-current-date-functions.test.mjs
+      - name: SINCRO 13 · ejecutar adopción de K en Hotel con PG17 y triggers nativos
+        run: node --test tests/sql/sincro13-hotel-adoption-current-runtime.test.mjs
+      - name: SINCRO 13 · ida y vuelta completa de T/K sintética por Google y Hotel nativo
+        run: node --test tests/sql/sincro13-google-to-hotel-native-e2e.test.mjs
       - name: Comprobar continuidad, imputación y conservación de hechos reales
         run: npm run test:continuity --prefix tests/sql
       - name: Comprobar sustitución vigente por hechos operativos
