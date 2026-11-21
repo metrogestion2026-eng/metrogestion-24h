@@ -22,7 +22,7 @@
 | PARADA DFM 2562 | PA-2600301, rev. 21 | PENDIENTE, 0 nuevas T | Existen T1523 ITV y T6974 FG y T1522 MCD con la PA | No crear duplicados ni repintar hechos manuales |
 | Solo trabajos DFM2625 | PA-2600247, rev. 45 | PENDIENTE, 2 `trabajos_crear` | Existen T2281/44TN y T2282/ITV con E=PA-2600247, realizadas el 21/10/2026; las 2 nuevas propuestas en Supabase están explícitamente `retener_propuesta=true` | **BLOQUEADA**. No emitir recibos ORDEN_AUTORIZADA ni confirmar ACK. El contrato del Apps Script y SQL receptor rechaza propuestas retenidas |
 | ACTIVO DFM2539 | ALTA, rev. 1 | PENDIENTE | **0 coincidencias de DFM2539** en columna A del libro | **Candidato a primer ensayo NO DESTRUCTIVO de identidad**: antes de crear ALTA exigir vínculo servidor/DFM y preflight OAuth, sin usar igualdad de DFM como prueba exclusiva |
-| ACTIVO R1597 | ALTA, rev. 1 | PENDIENTE | Ya existe ALTA T6985 para R1597/R3608BDX, junto a sus otras necesidades y FIN T7001 | **NO duplicar ALTA**. Conciliar identidad y condición manual antes de ACK |
+| ACTIVO R1597 | ALTA, rev. 1 | PENDIENTE | Ya existe ALTA T6985 para R1597 (matrícula reservada; no publicar), junto a sus otras necesidades y FIN T7001 | **NO duplicar ALTA**. Conciliar identidad y condición manual antes de ACK |
 
 El hecho de que una PA exista en E prueba únicamente presencia de ese literal; la identidad completa exige `PA+DFM+UUID seguimiento`, revisión, clase, T literal/REGISTRO_FILAS y correspondencia con Hotel. No extrapolar filas por posición. No crear recibos S13 de T con origen `INSERT_ROW`: sirven para identidades ya existentes pero no son una orden nueva `ORDEN_AUTORIZADA`.
 
