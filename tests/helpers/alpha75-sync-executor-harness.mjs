@@ -291,6 +291,7 @@ export class SimulatedCrash extends Error {
 export function createExecutorHarness(options = {}) {
   const world = {
     source: options.source ?? readFileSync(SYNC_SOURCE, 'utf8'), events: [], httpCalls: [], faults: [], crashed: false,
+    documentLockHeld: false, documentLockBusy: options.documentLockBusy === true,
     properties: new Map(Object.entries(options.properties || {})), folders: new Map(), triggers: [], httpHandler: options.http,
     checkpoint(event, timing) {
       if (this.crashed) throw new SimulatedCrash();
@@ -311,6 +312,33 @@ export function createExecutorHarness(options = {}) {
   };
   const sheet = new Sheet(world, options.rows || options.values || [HEADERS, paradaRow()], options);
   world.sheet = sheet;
+  // SINCRO 13: Registro de IDs realista para el ejecutor sintético. Las
+  // operaciones se aíslan de las celdas A:Q y de la prueba de flota real.
+  const registroState = { contador: 6969, filas: [] };
+  const registry = {
+    getLastRow: () => registroState.filas.length + 2,
+    getRange(row, column, height = 1, width = 1) {
+      if (row === 'H2') {
+        return {
+          getValue: () => registroState.contador,
+          setValue: value => { registroState.contador = Number(value); return this; }
+        };
+      }
+      if (row === 2 && column === 1 && width === 5) {
+        return { getValues: () => registroState.filas.map(v => [...v]) };
+      }
+      if (row >= 3 && column === 1 && height === 1 && width === 5) {
+        return { setValues: values => {
+          registroState.filas[row - 3] = values[0].slice();
+        }};
+      }
+      if (row >= 3 && column === 2 && height === 1 && width === 1) {
+        return { setValue: value => { registroState.filas[row - 3][1] = value; } };
+      }
+      throw new Error('Rango de REGISTRO_FILAS no simulado; bloquear.');
+    }
+  };
+  world.registroFilas = registroState;
   const properties = {
     getProperty: key => world.properties.get(key) ?? null,
     getProperties: () => Object.fromEntries(world.properties),
@@ -381,7 +409,29 @@ export function createExecutorHarness(options = {}) {
         return { getResponseCode: () => result?.status ?? 200,
           getContentText: () => typeof result?.body === 'string' ? result.body : JSON.stringify(result?.body ?? result) };
       } },
-      LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }) },
+      LockService: {
+        getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }),
+        getDocumentLock: () => ({
+          tryLock: () => {
+            const ok = !world.documentLockHeld && !world.documentLockBusy;
+            world.events.push({kind:'lock',method:'tryDocumentLock',acquired:ok});
+            if (ok) world.documentLockHeld = true;
+            return ok;
+          },
+          waitLock: () => {
+            if (world.documentLockHeld || world.documentLockBusy) {
+              throw new Error('Synthetic document lock busy');
+            }
+            world.documentLockHeld = true;
+            world.events.push({kind:'lock',method:'waitDocumentLock',acquired:true});
+          },
+          releaseLock: () => {
+            if (!world.documentLockHeld) throw new Error('Synthetic release of unheld document lock');
+            world.documentLockHeld = false;
+            world.events.push({kind:'lock',method:'releaseDocumentLock'});
+          },
+        })
+      },
       ScriptApp: { getProjectTriggers: () => world.triggers, deleteTrigger: trigger => world.effect({ kind: 'trigger', method: 'delete' }, () => { world.triggers = world.triggers.filter(t => t !== trigger); }),
         newTrigger: name => { const builder = { timeBased: () => builder, everyHours: () => builder, after: () => builder,
           create: () => world.effect({ kind: 'trigger', method: 'create', name }, () => world.triggers.push({ getHandlerFunction: () => name })) }; return builder; } },
@@ -392,7 +442,9 @@ export function createExecutorHarness(options = {}) {
     world.context = context;
     world.config = vm.runInContext('METROGESTION', context);
     world.book = { getId: () => world.config.spreadsheetId, getName: () => world.config.spreadsheetName,
-      getSheetByName: name => name === world.config.sheetName ? sheet : null, getSpreadsheetTimeZone: () => 'Europe/Madrid' };
+      getSheetByName: name => name === world.config.sheetName ? sheet
+        : name === world.config.registroFilasSheet ? registry : null,
+      getSpreadsheetTimeZone: () => 'Europe/Madrid' };
     if (!world.properties.has(world.config.tokenProperty)) world.properties.set(world.config.tokenProperty, 'mg_' + '0'.repeat(64));
     return context;
   };
