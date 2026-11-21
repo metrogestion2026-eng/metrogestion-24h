@@ -1,5 +1,20 @@
 # METROGES · SINCRO 14 · Auditoría integral de fórmulas PARADA
 
+## ACTUALIZACIÓN DE EJECUCIÓN REAL · 21/11/2026
+
+**Rectificación de 29 fórmulas de L completada directamente en MANTENIMENT**, a petición expresa de Metro. Este es el estado más reciente y prevalece para la auditoría de fórmulas; las tablas posteriores del documento conservan la **fotografía anterior a la corrección** y no representan errores actuales.
+
+- Se modificó exclusivamente la fórmula L (días) por ID_FILA T, de `K-J` a `K-J+1`, conservando el `IF(K="";"";...)` original. Ninguna fecha J/K ni el contenido de P, Q, E o T se escribió.
+- **29 identidades corregidas y verificadas**; de ellas 26 tenían K informada y ahora L muestra el intervalo inclusivo, con P recalculada por su fórmula original. Tres están abiertas con K vacía y L/P siguen vacías: **T572**, **T6945** y **T3268**. No se ha inventado recuperación.
+- **T2453 / 2637** excluida expresamente de esta intervención: conserva `=K3628-J3628`, 9 días y 5.247 km por su protección manual anterior. No cambiar sin confirmación expresa específica del caso.
+- No tocar los seis R con fórmulas anteriores ni calcular días en semirremolques.
+- La segunda lectura tras el cambio verificó las 29 fórmulas y los 29 IDs exactos, la condición L vacía cuando K vacía, y los días reales correctos de los 26 tramos. Ejemplos comprobados: T614 12 días / 6.252 km, T615 6 / 3.126 km, T1091 14 / 6.300 km, T1318 30 / 21.000 km, T1319 4 / 2.800 km, T6832 2 / 386 km y T6908 8 / 1.544 km.
+- Revisión íntegra POST-cambio: **754** PARADA, de ellas **468 DFM y 286 R**. De las **411 fórmulas L de DFM**, **410 son inclusivas** y **una es la excepción protegida T2453**; no quedan otras fórmulas DFM del patrón `K-J` sin `+1`. Los R se excluyen.
+- Las seis DFM con L originalmente vacía y J/K informada NO se han rellenado por inferencia; el usuario indica que L vacía es señal de falta de recuperación o cierre acreditado, por lo que no se fabrica el hecho. Las discrepancias manuales tampoco se normalizan.
+
+**Respaldo anterior exacto de las fórmulas:** [fuente con anterior/nueva por T](./sincro14-respaldo-parada-formulas-precorreccion-20261121.md). No repetir esta corrección desde un reintento. No se ha activado SINCRO Google→Hotel→K, ni validado Alpha75.
+
+
 **Corte: 21/11/2026.** Fuente: Google Sheets original MANTENIMIENTOS / MANTENIMENT. Auditoría estrictamente de solo lectura; los números de fila se omiten intencionalmente: **identidad canónica = columna T / ID_FILA**. No es una autorización de regularización contable. La Biblia aprobó inclusión de J y K con `+1` el 28/10/2026 y también protege el contenido ya asentado de TANCAMENT hasta el 15/11/2026; no reabrir facturación por una detección automática.
 
 ## Censo y resultados
