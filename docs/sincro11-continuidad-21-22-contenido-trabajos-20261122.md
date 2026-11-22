@@ -1,0 +1,17 @@
+# SINCRO 11 — continuidad 21→22/11/2026 (lectura real, no instalada)
+
+Contraste normativo: Biblia SYNC-001, Bitácora SINCRO 11, Diccionario de MANTENIMENT. Se conserva la identidad de cada T exclusivamente por la columna T/ID_FILA; esta auditoría de Pizarras usa seguimiento y etapa lógicos del Hotel, nunca pretende usarlos como identidad T. La PISSARRA manual en RESERVAS 2026 y MANTENIMENT/TANCAMENT no se escriben.
+
+**Lectura ejecutada 22/11/2026** en `metrogestion-pruebas`, únicamente SELECT. Pizarra 21/11 archivada, 22/11 en curso. Origen: 21 fichas (20 visibles), destino: 21 fichas (20 visibles). Se conservan 20 fichas de origen. La única salida es **R1194**, ya marcada retirada y recuperada el 21/11: **0 desapariciones injustificadas**. Una ficha nueva sustituye ese volumen; no implica recreación de R1194. **2633 no reaparece. R1515 conserva estado y lugar (trámite/Sant Sadurní), sin actuaciones de esta auditoría.**
+
+Etapas: 67 origen, 63 destino; **62 etapas de fichas continuadas** enlazadas por seguimiento+etapa; **0 faltantes en fichas continuadas**, **0 duplicidades** y **0 cambios de grupo documental**. En estas 62 etapas se conservan **51 trabajos por lado**, sin diferencias de contenido en los campos operativos comparados (tipo, categoría, motivo, diagnóstico, km, expediente, descripción, peritaje, observaciones, cancelación). La comparación canónica ignora los UUID físicos, versiones y marcas técnicas; **62/62 grupos de trabajos equivalentes por contenido**. No se ha inferido autoría ni se han revertido cambios de fases.
+
+Se detectaron **2 fichas** con distinto estado y **4 etapas** con distinto estado/lugar entre instantáneas; la fuente no acredita cuándo ni por quién se editaron, por lo que se respetan como datos observados. No hubo diferencias observadas de lugar de ficha, notas de ficha, tipo de sustituto ni anotaciones reordenadas (según SELECT). 
+
+Documentación: **33/33 referencias de documentos activas** de los grupos de la Pizarra 22/11 existen en `storage.objects` con mismo bucket y ruta; 0 ausentes, 0 sin ruta. **No se ha validado apertura UI, autorización de descarga o acceso autenticado**.
+
+**Carrera al crear Pizarra, pendiente de integración PG real:** el paquete del 21/11 contiene dos funciones de laboratorio ficticias (patrón actual SELECT+INSERT y candidata con advisory lock por fecha/relectura y transacción). Revisado el archivo y sus checksums íntegros el 22/11; **6/6 pruebas estáticas Node superadas** nuevamente. No hay PostgreSQL ejecutable disponible en el entorno local, y la subida de cinco ficheros de laboratorio a Biblioteca fue rechazada (AccessDeny). No declarar pruebas de dos sesiones reales superadas. Sigue pendiente ejecutar la candidata en PostgreSQL 17 efímero y contrastar la función productiva completa, incluidos triggers y piloto.
+
+Consulta reproducible: `sql/sincro11_continuidad_21_22_solo_lectura_20261122.sql`.
+
+**Protección:** no se ha ejecutado `crear_pizarra_diaria`, no se han creado/archivado Pizarras, T ni PA, no se ha sellado V1 ni instalado F2, no se han modificado MANTENIMENT, TANCAMENT, RESERVAS 2026, Drive, Apps Script o Supabase operativo. PR #132 permanece borrador, no fusionada. No activar sincronización futura sin autorización explícita.

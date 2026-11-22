@@ -1,0 +1,81 @@
+name: SINCRO 11 - Receptor CAS en PostgreSQL 17 aislado
+
+on:
+  pull_request:
+    paths:
+      - 'sql/sincro11_receptor_cas_laboratorio_20261117.sql'
+      - 'tests/security-sincro11-cas-lab.test.mjs'
+      - 'sql/sincro11_concurrencia_setup_20261117.sql'
+      - 'sql/sincro11_concurrencia_teardown_20261117.sql'
+      - 'tests/integration-sincro11-concurrencia.pg.test.mjs'
+      - 'tests/security-sincro11-concurrencia-static.test.mjs'
+      - '.github/workflows/sincro11-cas-laboratorio.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cas-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: sincro11_lab
+          POSTGRES_USER: laboratorio
+          POSTGRES_PASSWORD: solamente_ci_no_es_clave_real
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - name: Obtener exclusivamente el codigo de la PR
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verificar contrato sin escrituras operativas
+        run: node --test tests/security-sincro11-cas-lab.test.mjs tests/security-sincro11-concurrencia-static.test.mjs
+      - name: SQL real con ROLLBACK en PostgreSQL 17 aislado
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGDATABASE: sincro11_lab
+          PGUSER: laboratorio
+          PGPASSWORD: solamente_ci_no_es_clave_real
+          PGCONNECT_TIMEOUT: '10'
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          test "$(psql -X -Atc 'SELECT current_database()')" = 'sincro11_lab'
+          psql -X -v ON_ERROR_STOP=1 -f sql/sincro11_receptor_cas_laboratorio_20261117.sql 2>&1 | tee /tmp/sincro11_cas_laboratorio.log
+          grep -q 'SINCRO 11 CAS SOLO LAB' /tmp/sincro11_cas_laboratorio.log
+          grep -q '^ROLLBACK$' /tmp/sincro11_cas_laboratorio.log
+          test "$(psql -X -Atc "SELECT count(*) FROM pg_tables WHERE tablename LIKE 's11_%' AND schemaname NOT IN ('pg_catalog','information_schema')")" = '0'
+
+      - name: Dos sesiones simultaneas en PG17 - CAS por T y campo
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGDATABASE: sincro11_lab
+          PGUSER: laboratorio
+          PGPASSWORD: solamente_ci_no_es_clave_real
+          PGCONNECT_TIMEOUT: '10'
+        run: |
+          set -Eeuo pipefail
+          test "$(psql -X -Atc 'SELECT current_database()')" = 'sincro11_lab'
+          cleanup() {
+            psql -X -v ON_ERROR_STOP=1 -f sql/sincro11_concurrencia_teardown_20261117.sql || true
+          }
+          trap cleanup EXIT
+          psql -X -v ON_ERROR_STOP=1 -f sql/sincro11_concurrencia_setup_20261117.sql
+          node --test tests/integration-sincro11-concurrencia.pg.test.mjs
+          psql -X -v ON_ERROR_STOP=1 -f sql/sincro11_concurrencia_teardown_20261117.sql
+          trap - EXIT
+          test "$(psql -X -Atc "SELECT count(*) FROM pg_namespace WHERE nspname='s11_ci'")" = '0'
